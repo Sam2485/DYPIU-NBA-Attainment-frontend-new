@@ -1,0 +1,17 @@
+import AppHeader from '../components/layout/AppHeader';
+import AppSidebar from '../components/layout/AppSidebar';
+import CourseEndSurveyHub from '../features/survey/CourseEndSurveyHub';
+
+export default function SurveyPage() {
+  return (
+    <div style={{ display: 'flex' }}>
+      <AppSidebar />
+      <main style={{ flex: 1 }}>
+        <AppHeader title="Course End Survey Hub" subtitle="Student Survey Feedback Parsing" />
+        <div className="page-container">
+          <CourseEndSurveyHub />
+        </div>
+      </main>
+    </div>
+  );
+}
