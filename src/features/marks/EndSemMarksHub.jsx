@@ -1,50 +1,32 @@
 import { useState } from 'react';
-import { FileCheck, Upload, CheckCircle2, AlertCircle, Trash2, Eye } from 'lucide-react';
+import { FileCheck, Upload, CheckCircle2, FileSpreadsheet } from 'lucide-react';
+import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function EndSemMarksHub() {
-  const [uploads, setUploads] = useState([
+  const [uploads] = useState([
     {
-      id: 'UPL-101',
+      id: 'MARKS-101',
       fileName: 'EndSem_Marks_CS301_2025-26.xlsx',
       course: 'CS301 - Data Structures & Algorithms',
-      totalStudents: 60,
+      recordsProcessed: 60,
       status: 'SUCCESS',
       uploadedBy: 'Dr. Raj Shaikh',
-      uploadedAt: '2026-08-01 10:15',
-    },
-    {
-      id: 'UPL-102',
-      fileName: 'EndSem_Marks_CS302_2025-26.xlsx',
-      course: 'CS302 - Database Management Systems',
-      totalStudents: 58,
-      status: 'SUCCESS',
-      uploadedBy: 'Prof. Ananya Roy',
-      uploadedAt: '2026-08-01 11:30',
+      uploadedAt: '2026-08-02 14:30',
     },
   ]);
 
   const [studentMarks] = useState([
-    { prn: '202301001', name: 'Aarav Sharma', co1: 18, co2: 22, co3: 17, co4: 24, total: 81 },
-    { prn: '202301002', name: 'Aditi Patel', co1: 15, co2: 19, co3: 16, co4: 21, total: 71 },
-    { prn: '202301003', name: 'Rohan Gupta', co1: 20, co2: 24, co3: 19, co4: 25, total: 88 },
-    { prn: '202301004', name: 'Sanya Malhotra', co1: 12, co2: 14, co3: 15, co4: 18, total: 59 },
-    { prn: '202301005', name: 'Vikram Singh', co1: 17, co2: 21, co3: 18, co4: 22, total: 78 },
+    { prn: '20230101', name: 'Aarav Sharma', co1: 22, co2: 20, co3: 18, co4: 24, total: 84 },
+    { prn: '20230102', name: 'Ananya Patel', co1: 24, co2: 23, co3: 21, co4: 25, total: 93 },
+    { prn: '20230103', name: 'Rohan Gupta', co1: 15, co2: 14, co3: 16, co4: 18, total: 63 },
+    { prn: '20230104', name: 'Priya Verma', co1: 20, co2: 19, co3: 22, co4: 21, total: 82 },
+    { prn: '20230105', name: 'Vikram Singh', co1: 12, co2: 13, co3: 15, co4: 14, total: 54 },
   ]);
 
   const handleFileUpload = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (file) {
-      const newUpload = {
-        id: `UPL-${Date.now().toString().slice(-3)}`,
-        fileName: file.name,
-        course: 'CS301 - Data Structures & Algorithms',
-        totalStudents: 60,
-        status: 'SUCCESS',
-        uploadedBy: 'Dr. Raj Shaikh',
-        uploadedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      };
-      setUploads([newUpload, ...uploads]);
-      alert(`Excel file "${file.name}" uploaded & parsed successfully! Loaded 60 student records.`);
+      alert(`File "${file.name}" uploaded successfully! Processing CO marks...`);
     }
   };
 
@@ -87,12 +69,12 @@ export default function EndSemMarksHub() {
             background: '#f8fafc',
           }}
         >
-          <Upload size={36} style={{ color: '#2563eb', marginBottom: '8px' }} />
+          <Upload size={36} style={{ color: '#4f46e5', marginBottom: '8px' }} />
           <strong style={{ display: 'block', fontSize: '15px', color: '#0f172a' }}>
-            Upload End Semester Marks Excel File
+            Upload End Sem CO-wise Marks Excel File
           </strong>
           <p style={{ margin: '4px 0 14px', fontSize: '12px', color: '#64748b' }}>
-            Supported formats: .xlsx, .xls. Must contain PRN, Student Name, and CO Marks columns.
+            Accepts `.xlsx` and `.xls` formats containing Student PRNs & CO-wise marks.
           </p>
           <input
             type="file"
@@ -107,51 +89,50 @@ export default function EndSemMarksHub() {
         </div>
       </div>
 
-      {/* Upload History Table */}
+      {/* Upload History Audit Log */}
       <div className="card">
         <div className="card-header">
-          <h3>Uploaded Marks Datasets (Entity: End Semester Marks Upload)</h3>
+          <h3>Recent End Sem Marks Upload Logs (Entity: Upload Batch)</h3>
+          <span className="badge badge-active">{uploads.length} File Uploaded</span>
         </div>
-        <table className="audit-data-table">
-          <thead>
-            <tr>
-              <th>Upload ID</th>
-              <th>Excel File Name</th>
-              <th>Course</th>
-              <th>Students</th>
-              <th>Status</th>
-              <th>Uploaded By</th>
-              <th>Timestamp</th>
-              <th style={{ textAlign: 'center' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {uploads.map((item) => (
-              <tr key={item.id}>
-                <td style={{ fontWeight: '700', color: '#2563eb' }}>{item.id}</td>
-                <td style={{ fontWeight: '600' }}>{item.fileName}</td>
-                <td>{item.course}</td>
-                <td style={{ textAlign: 'center', fontWeight: '700' }}>{item.totalStudents}</td>
-                <td>
-                  <span className="badge badge-success">
-                    <CheckCircle2 size={11} /> {item.status}
-                  </span>
-                </td>
-                <td>{item.uploadedBy}</td>
-                <td style={{ fontSize: '11.5px', color: '#64748b' }}>{item.uploadedAt}</td>
-                <td style={{ textAlign: 'center' }}>
-                  <button
-                    className="btn btn-danger"
-                    style={{ padding: '4px 8px' }}
-                    onClick={() => setUploads(uploads.filter((u) => u.id !== item.id))}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </td>
+
+        <div style={{ overflowX: 'auto', width: '100%' }}>
+          <table className="audit-data-table">
+            <thead>
+              <tr>
+                <th style={{ width: '100px' }}>Batch ID</th>
+                <th>File Name</th>
+                <th>Course</th>
+                <th style={{ textAlign: 'center' }}>Records</th>
+                <th style={{ textAlign: 'center' }}>Status</th>
+                <th>Uploaded By</th>
+                <th>Date & Time</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {uploads.map((row) => (
+                <tr key={row.id}>
+                  <td style={{ fontWeight: '700', color: '#2563eb' }}>{row.id}</td>
+                  <td style={{ fontWeight: '600' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <FileSpreadsheet size={15} style={{ color: '#10b981' }} />
+                      {row.fileName}
+                    </div>
+                  </td>
+                  <td>{row.course}</td>
+                  <td style={{ textAlign: 'center', fontWeight: '700' }}>{row.recordsProcessed}</td>
+                  <td style={{ textAlign: 'center' }}>
+                    <span className="badge badge-success" style={{ gap: '4px' }}>
+                      <CheckCircle2 size={12} /> Success
+                    </span>
+                  </td>
+                  <td style={{ fontSize: '12px' }}>{row.uploadedBy}</td>
+                  <td style={{ fontSize: '11.5px', color: '#64748b' }}>{row.uploadedAt}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Student CO-wise Marks Inspection Grid */}
@@ -160,35 +141,45 @@ export default function EndSemMarksHub() {
           <h3>Uploaded Student CO Marks Inspection (Entity: Student CO Marks)</h3>
           <span className="badge badge-active">CS301 - 60 Students</span>
         </div>
-        <table className="audit-data-table">
-          <thead>
-            <tr>
-              <th style={{ width: '60px', textAlign: 'center' }}>#</th>
-              <th style={{ width: '130px' }}>Student PRN</th>
-              <th>Student Name</th>
-              <th style={{ width: '90px', textAlign: 'center' }}>CO1 (Max 25)</th>
-              <th style={{ width: '90px', textAlign: 'center' }}>CO2 (Max 25)</th>
-              <th style={{ width: '90px', textAlign: 'center' }}>CO3 (Max 25)</th>
-              <th style={{ width: '90px', textAlign: 'center' }}>CO4 (Max 25)</th>
-              <th style={{ width: '100px', textAlign: 'center' }}>Total Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {studentMarks.map((st, idx) => (
-              <tr key={st.prn}>
-                <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>{idx + 1}</td>
-                <td style={{ fontWeight: '700', color: '#2563eb' }}>{st.prn}</td>
-                <td style={{ fontWeight: '600' }}>{st.name}</td>
-                <td style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>{st.co1}</td>
-                <td style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>{st.co2}</td>
-                <td style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>{st.co3}</td>
-                <td style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>{st.co4}</td>
-                <td style={{ textAlign: 'center', fontWeight: '800', color: '#10b981' }}>{st.total}</td>
+
+        <div style={{ overflowX: 'auto', width: '100%' }}>
+          <table className="audit-data-table">
+            <thead>
+              <tr>
+                <th style={{ width: '60px', textAlign: 'center' }}>#</th>
+                <th style={{ width: '130px' }}>Student PRN</th>
+                <th>Student Name</th>
+                <th style={{ width: '90px', textAlign: 'center' }}>CO1 (Max 25)</th>
+                <th style={{ width: '90px', textAlign: 'center' }}>CO2 (Max 25)</th>
+                <th style={{ width: '90px', textAlign: 'center' }}>CO3 (Max 25)</th>
+                <th style={{ width: '90px', textAlign: 'center' }}>CO4 (Max 25)</th>
+                <th style={{ width: '100px', textAlign: 'center' }}>Total Score</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {studentMarks.map((st, idx) => (
+                <tr key={st.prn}>
+                  <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>{idx + 1}</td>
+                  <td style={{ fontWeight: '700', color: '#2563eb' }}>{st.prn}</td>
+                  <td style={{ fontWeight: '600' }}>{st.name}</td>
+                  <td style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>{st.co1}</td>
+                  <td style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>{st.co2}</td>
+                  <td style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>{st.co3}</td>
+                  <td style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>{st.co4}</td>
+                  <td style={{ textAlign: 'center', fontWeight: '800', color: '#10b981' }}>{st.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* Save, Previous & Save & Next Footer */}
+      <SectionSaveFooter
+        label="End Semester Marks"
+        prevPath="/co-mapping"
+        nextPath="/survey-upload"
+      />
     </div>
   );
 }

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Calculator, Save } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
@@ -12,10 +11,14 @@ export default function COAttainmentEngine() {
     activePOs,
     activePSOs,
     yearMetrics,
+    activeAttainmentConfig,
   } = useAcademic();
 
-  const [directWeight, setDirectWeight] = useState(80);
-  const [indirectWeight, setIndirectWeight] = useState(20);
+  // Dynamic parameters from Attainment Configuration (Module 7)
+  const directWeight = activeAttainmentConfig?.directWeight || 80;
+  const indirectWeight = activeAttainmentConfig?.indirectWeight || 20;
+  const directThreshold = activeAttainmentConfig?.directThreshold || 60;
+  const thresholdPct = `${directThreshold}%`;
 
   // Dynamic Lists
   const courseOutcomes = activeCOs;
@@ -62,7 +65,7 @@ export default function COAttainmentEngine() {
 
   return (
     <div className="animated-page">
-      {/* Dark Gradient Header Banner */}
+      {/* Header Banner */}
       <div className="banner-dark-gradient">
         <div className="banner-content-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -97,11 +100,11 @@ export default function COAttainmentEngine() {
         </div>
       </div>
 
-      {/* Weightage & Threshold Summary Card */}
+      {/* Dynamic Weightage & Threshold Summary Card (from Attainment Config) */}
       <div className="card" style={{ marginBottom: '20px' }}>
         <div className="card-header" style={{ marginBottom: '12px' }}>
           <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
-            Attainment Configuration Parameters ({academicYear})
+            Dynamic Attainment Configuration Parameters ({selectedCourse.code} • {academicYear})
           </h3>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
@@ -115,7 +118,7 @@ export default function COAttainmentEngine() {
           </div>
           <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
             <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Target Threshold</span>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#059669', marginTop: '2px' }}>{yearMetrics.thresholdPct}</div>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: '#059669', marginTop: '2px' }}>{thresholdPct}</div>
           </div>
           <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
             <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Overall CO Attainment</span>
@@ -124,19 +127,19 @@ export default function COAttainmentEngine() {
         </div>
       </div>
 
-      {/* CO Direct & Indirect Attainment Table */}
+      {/* CO Direct & Indirect Attainment Table (Dynamic Values) */}
       <div className="card" style={{ marginBottom: '20px' }}>
         <div className="card-header" style={{ marginBottom: '12px' }}>
           <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
             CO Direct & Indirect Examination / Survey Attainment ({courseOutcomes.length} COs)
           </h3>
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflowX: 'auto', width: '100%' }}>
           <table className="audit-data-table">
             <thead>
               <tr>
                 <th style={{ width: '180px' }}>Attainment Component</th>
-                <th style={{ width: '180px' }}>Metric</th>
+                <th style={{ width: '220px' }}>Metric</th>
                 {courseOutcomes.map((co) => (
                   <th key={co.code} style={{ textAlign: 'center' }}>
                     {co.code}
@@ -147,10 +150,10 @@ export default function COAttainmentEngine() {
             <tbody>
               <tr>
                 <td style={{ fontWeight: '700', color: '#2563eb' }}>Direct Examination</td>
-                <td style={{ fontSize: '12px', color: '#475569' }}>% Students ≥ Threshold ({yearMetrics.thresholdPct})</td>
+                <td style={{ fontSize: '12px', color: '#475569' }}>% Students ≥ Threshold ({thresholdPct})</td>
                 {courseOutcomes.map((co) => (
                   <td key={co.code} style={{ textAlign: 'center', fontWeight: '600' }}>
-                    {yearMetrics.thresholdPct}
+                    {thresholdPct}
                   </td>
                 ))}
               </tr>
@@ -204,7 +207,7 @@ export default function COAttainmentEngine() {
             Table 2 : PO & PSO Attainment Values for {selectedCourse.code} ({academicYear})
           </h3>
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflowX: 'auto', width: '100%' }}>
           <table className="audit-data-table">
             <thead>
               <tr>

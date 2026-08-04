@@ -162,17 +162,33 @@ export function AcademicProvider({ children }) {
     '2026-27': INITIAL_COURSES,
   });
 
-  // Current Year Stores
+  // Course-wise Attainment Configurations Store (Dynamic Direct/Indirect weights & Target Thresholds)
+  const [attainmentConfigs, setAttainmentConfigs] = useState({
+    'crs-1': { directWeight: 80, indirectWeight: 20, directThreshold: 60, thresholdPct: '60%' },
+    'crs-2': { directWeight: 80, indirectWeight: 20, directThreshold: 65, thresholdPct: '65%' },
+    'crs-3': { directWeight: 80, indirectWeight: 20, directThreshold: 60, thresholdPct: '60%' },
+    'crs-4': { directWeight: 80, indirectWeight: 20, directThreshold: 60, thresholdPct: '60%' },
+  });
+
+  const updateCourseAttainmentConfig = (targetCourseId, newConfig) => {
+    setAttainmentConfigs((prev) => ({
+      ...prev,
+      [targetCourseId]: {
+        ...prev[targetCourseId],
+        ...newConfig,
+        thresholdPct: `${newConfig.directThreshold}%`,
+      },
+    }));
+  };
+
   const poStore = poStoreByYear[academicYear] || INITIAL_PROGRAMME_OUTCOMES;
   const psoStore = psoStoreByYear[academicYear] || INITIAL_PSO_OUTCOMES;
   const coursesStore = coursesStoreByYear[academicYear] || INITIAL_COURSES;
   const yearMetrics = YEAR_ATTAINMENT_METRICS[academicYear] || YEAR_ATTAINMENT_METRICS['2025-26'];
 
-  // Active Courses for selected Programme
+  // Derived available courses for active programme
   const availableCourses = coursesStore.filter((c) => c.programmeId === programmeId);
-  const [courseId, setCourseId] = useState('crs-1');
 
-  // Switch Programme
   const setProgrammeId = (newProgId) => {
     setProgrammeIdState(newProgId);
     const newAvail = coursesStore.filter((c) => c.programmeId === newProgId);
@@ -180,6 +196,9 @@ export function AcademicProvider({ children }) {
       setCourseId(newAvail[0].id);
     }
   };
+
+  // Active Course ID
+  const [courseId, setCourseId] = useState('crs-1');
 
   // Active Objects
   const selectedProgramme = MASTER_PROGRAMMES.find((p) => p.id === programmeId) || MASTER_PROGRAMMES[0];
@@ -194,6 +213,14 @@ export function AcademicProvider({ children }) {
 
   // Dynamic COs for active Course & Year
   const activeCOs = selectedCourse ? selectedCourse.courseOutcomes || [] : [];
+
+  // Active Dynamic Attainment Config for active Course
+  const activeAttainmentConfig = attainmentConfigs[selectedCourse?.id || 'crs-1'] || {
+    directWeight: 80,
+    indirectWeight: 20,
+    directThreshold: 60,
+    thresholdPct: '60%',
+  };
 
   // Dynamic Actions
   const updateProgrammePOs = (progId, newPOs) => {
@@ -244,6 +271,9 @@ export function AcademicProvider({ children }) {
         activePOs,
         activePSOs,
         activeCOs,
+        activeAttainmentConfig,
+        attainmentConfigs,
+        updateCourseAttainmentConfig,
         updateProgrammePOs,
         updateProgrammePSOs,
         updateCourseCOs,

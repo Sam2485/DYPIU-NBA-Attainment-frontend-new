@@ -259,29 +259,29 @@ export default function COMappingMatrix() {
                 </div>
 
                 <div style={{ overflowX: 'auto', width: '100%' }}>
-                  <table className="audit-data-table" style={{ minWidth: `${870 + courseOutcomes.length * 185}px` }}>
+                  <table className="audit-data-table" style={{ minWidth: `${430 + courseOutcomes.length * 108}px` }}>
                     <thead>
                       <tr>
-                        <th colSpan={2} style={{ width: '870px', background: '#f1f5f9', color: '#0f172a' }}>
+                        <th colSpan={2} style={{ width: '430px', background: '#f1f5f9', color: '#0f172a' }}>
                           Programme Outcomes & Competency Definition
                         </th>
                         <th colSpan={courseOutcomes.length} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a' }}>
                           Keywords mapping to Competency from respective CO
                         </th>
                         <th colSpan={courseOutcomes.length} style={{ textAlign: 'center', background: '#e2e8f0', color: '#0f172a' }}>
-                          Y or N Mapping Indicator
+                          Y or N Indicator
                         </th>
                       </tr>
                       <tr>
-                        <th style={{ width: '840px', minWidth: '840px' }}>Competency Statement</th>
+                        <th style={{ width: '400px', minWidth: '400px' }}>Competency Statement</th>
                         <th style={{ width: '30px' }}></th>
                         {courseOutcomes.map((co) => (
-                          <th key={`kw-${co.code}`} style={{ width: '130px', textAlign: 'center' }}>
+                          <th key={`kw-${co.code}`} style={{ width: '70px', minWidth: '70px', textAlign: 'center', padding: '6px 4px', fontSize: '11px' }}>
                             {co.code}
                           </th>
                         ))}
                         {courseOutcomes.map((co) => (
-                          <th key={`yn-${co.code}`} style={{ width: '55px', textAlign: 'center' }}>
+                          <th key={`yn-${co.code}`} style={{ width: '38px', minWidth: '38px', textAlign: 'center', padding: '6px 2px', fontSize: '11px' }}>
                             {co.code}
                           </th>
                         ))}
@@ -290,24 +290,26 @@ export default function COMappingMatrix() {
                     <tbody>
                       {comps.map((comp, compIdx) => (
                         <tr key={comp.id || compIdx}>
-                          <td style={{ width: '840px', minWidth: '840px', fontSize: '12px', color: '#1e293b' }}>
+                          <td style={{ width: '400px', minWidth: '400px', fontSize: '11.5px', color: '#1e293b', lineHeight: 1.35 }}>
                             {comp.statement}
                           </td>
                           <td></td>
                           {courseOutcomes.map((co) => {
                             const kw = comp.keywords?.[co.code] || '';
                             return (
-                              <td key={`input-${co.code}`} style={{ padding: '4px' }}>
+                              <td key={`input-${co.code}`} style={{ padding: '2px', width: '70px' }}>
                                 <input
                                   type="text"
                                   className="form-control"
                                   style={{
-                                    fontSize: '11px',
-                                    padding: '4px 6px',
+                                    fontSize: '10.5px',
+                                    padding: '3px 4px',
+                                    height: '26px',
+                                    width: '100%',
                                     borderColor: kw.trim() !== '' ? '#93c5fd' : '#cbd5e1',
                                     background: kw.trim() !== '' ? '#f8fafc' : '#ffffff',
                                   }}
-                                  placeholder="Keyword..."
+                                  placeholder="KW..."
                                   value={kw}
                                   onChange={(e) => handlePoKeywordChange(poDef.code, compIdx, co.code, e.target.value)}
                                 />
@@ -318,7 +320,7 @@ export default function COMappingMatrix() {
                             const kw = comp.keywords?.[co.code] || '';
                             const isMapped = kw.trim() !== '';
                             return (
-                              <td key={`badge-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', fontSize: '12px', color: isMapped ? '#0f172a' : '#94a3b8' }}>
+                              <td key={`badge-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', fontSize: '11.5px', width: '38px', padding: '2px', color: isMapped ? '#0f172a' : '#94a3b8' }}>
                                 {isMapped ? 'Y' : 'N'}
                               </td>
                             );
@@ -328,13 +330,13 @@ export default function COMappingMatrix() {
 
                       {/* PO Calculation Summary Rows */}
                       <tr style={{ background: '#f8fafc', fontWeight: '600' }}>
-                        <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '16px', fontSize: '11.5px', color: '#334155' }}>
+                        <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '12px', fontSize: '11px', color: '#334155' }}>
                           No of competencies from given {poDef.code} mapped by COs
                         </td>
                         {courseOutcomes.map((co) => {
                           const count = comps.filter((c) => c.keywords?.[co.code] && c.keywords[co.code].trim() !== '').length;
                           return (
-                            <td key={`count-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>
+                            <td key={`count-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a', fontSize: '11.5px' }}>
                               {count}
                             </td>
                           );
@@ -342,14 +344,14 @@ export default function COMappingMatrix() {
                       </tr>
 
                       <tr style={{ background: '#f8fafc', fontWeight: '600' }}>
-                        <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '16px', fontSize: '11.5px', color: '#334155' }}>
+                        <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '12px', fontSize: '11px', color: '#334155' }}>
                           % of competencies from given {poDef.code} mapped by COs
                         </td>
                         {courseOutcomes.map((co) => {
                           const count = comps.filter((c) => c.keywords?.[co.code] && c.keywords[co.code].trim() !== '').length;
                           const pct = comps.length > 0 ? Math.round((count / comps.length) * 100) : 0;
                           return (
-                            <td key={`pct-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>
+                            <td key={`pct-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a', fontSize: '11.5px' }}>
                               {pct}%
                             </td>
                           );
@@ -357,13 +359,13 @@ export default function COMappingMatrix() {
                       </tr>
 
                       <tr style={{ background: '#f1f5f9', fontWeight: '700' }}>
-                        <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '16px', fontSize: '11.5px', color: '#0f172a' }}>
+                        <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '12px', fontSize: '11px', color: '#0f172a' }}>
                           Mapping strength of {poDef.code} of CO
                         </td>
                         {courseOutcomes.map((co) => {
                           const strength = computePoStrengthForCO(poDef.code, co.code);
                           return (
-                            <td key={`str-${co.code}`} style={{ textAlign: 'center', fontSize: '14px', color: '#0f172a', fontWeight: '800' }}>
+                            <td key={`str-${co.code}`} style={{ textAlign: 'center', fontSize: '13.5px', color: '#0f172a', fontWeight: '800' }}>
                               {strength}
                             </td>
                           );
@@ -401,29 +403,29 @@ export default function COMappingMatrix() {
                   </div>
 
                   <div style={{ overflowX: 'auto', width: '100%' }}>
-                    <table className="audit-data-table" style={{ minWidth: `${870 + courseOutcomes.length * 185}px` }}>
+                    <table className="audit-data-table" style={{ minWidth: `${430 + courseOutcomes.length * 108}px` }}>
                       <thead>
                         <tr>
-                          <th colSpan={2} style={{ width: '870px', background: '#f1f5f9', color: '#0f172a' }}>
+                          <th colSpan={2} style={{ width: '430px', background: '#f1f5f9', color: '#0f172a' }}>
                             Programme Specific Outcomes & Competency Definition
                           </th>
                           <th colSpan={courseOutcomes.length} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a' }}>
                             Keywords mapping to Competency from respective CO
                           </th>
                           <th colSpan={courseOutcomes.length} style={{ textAlign: 'center', background: '#e2e8f0', color: '#0f172a' }}>
-                            Y or N Mapping Indicator
+                            Y or N Indicator
                           </th>
                         </tr>
                         <tr>
-                          <th style={{ width: '840px', minWidth: '840px' }}>Competency Statement</th>
+                          <th style={{ width: '400px', minWidth: '400px' }}>Competency Statement</th>
                           <th style={{ width: '30px' }}></th>
                           {courseOutcomes.map((co) => (
-                            <th key={`kw-${co.code}`} style={{ width: '130px', textAlign: 'center' }}>
+                            <th key={`kw-${co.code}`} style={{ width: '70px', minWidth: '70px', textAlign: 'center', padding: '6px 4px', fontSize: '11px' }}>
                               {co.code}
                             </th>
                           ))}
                           {courseOutcomes.map((co) => (
-                            <th key={`yn-${co.code}`} style={{ width: '55px', textAlign: 'center' }}>
+                            <th key={`yn-${co.code}`} style={{ width: '38px', minWidth: '38px', textAlign: 'center', padding: '6px 2px', fontSize: '11px' }}>
                               {co.code}
                             </th>
                           ))}
@@ -432,24 +434,26 @@ export default function COMappingMatrix() {
                       <tbody>
                         {comps.map((comp, compIdx) => (
                           <tr key={comp.id || compIdx}>
-                            <td style={{ width: '840px', minWidth: '840px', fontSize: '12px', color: '#1e293b' }}>
+                            <td style={{ width: '400px', minWidth: '400px', fontSize: '11.5px', color: '#1e293b', lineHeight: 1.35 }}>
                               {comp.statement}
                             </td>
                             <td></td>
                             {courseOutcomes.map((co) => {
                               const kw = comp.keywords?.[co.code] || '';
                               return (
-                                <td key={`input-${co.code}`} style={{ padding: '4px' }}>
+                                <td key={`input-${co.code}`} style={{ padding: '2px', width: '70px' }}>
                                   <input
                                     type="text"
                                     className="form-control"
                                     style={{
-                                      fontSize: '11px',
-                                      padding: '4px 6px',
+                                      fontSize: '10.5px',
+                                      padding: '3px 4px',
+                                      height: '26px',
+                                      width: '100%',
                                       borderColor: kw.trim() !== '' ? '#93c5fd' : '#cbd5e1',
                                       background: kw.trim() !== '' ? '#f8fafc' : '#ffffff',
                                     }}
-                                    placeholder="Keyword..."
+                                    placeholder="KW..."
                                     value={kw}
                                     onChange={(e) => handlePsoKeywordChange(psoDef.code, compIdx, co.code, e.target.value)}
                                   />
@@ -460,7 +464,7 @@ export default function COMappingMatrix() {
                               const kw = comp.keywords?.[co.code] || '';
                               const isMapped = kw.trim() !== '';
                               return (
-                                <td key={`badge-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', fontSize: '12px', color: isMapped ? '#0f172a' : '#94a3b8' }}>
+                                <td key={`badge-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', fontSize: '11.5px', width: '38px', padding: '2px', color: isMapped ? '#0f172a' : '#94a3b8' }}>
                                   {isMapped ? 'Y' : 'N'}
                                 </td>
                               );
@@ -470,13 +474,13 @@ export default function COMappingMatrix() {
 
                         {/* PSO Calculation Summary Rows */}
                         <tr style={{ background: '#f8fafc', fontWeight: '600' }}>
-                          <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '16px', fontSize: '11.5px', color: '#334155' }}>
+                          <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '12px', fontSize: '11px', color: '#334155' }}>
                             No of competencies from given {psoDef.code} mapped by COs
                           </td>
                           {courseOutcomes.map((co) => {
                             const count = comps.filter((c) => c.keywords?.[co.code] && c.keywords[co.code].trim() !== '').length;
                             return (
-                              <td key={`count-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>
+                              <td key={`count-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a', fontSize: '11.5px' }}>
                                 {count}
                               </td>
                             );
@@ -484,14 +488,14 @@ export default function COMappingMatrix() {
                         </tr>
 
                         <tr style={{ background: '#f8fafc', fontWeight: '600' }}>
-                          <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '16px', fontSize: '11.5px', color: '#334155' }}>
+                          <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '12px', fontSize: '11px', color: '#334155' }}>
                             % of competencies from given {psoDef.code} mapped by COs
                           </td>
                           {courseOutcomes.map((co) => {
                             const count = comps.filter((c) => c.keywords?.[co.code] && c.keywords[co.code].trim() !== '').length;
                             const pct = comps.length > 0 ? Math.round((count / comps.length) * 100) : 0;
                             return (
-                              <td key={`pct-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>
+                              <td key={`pct-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a', fontSize: '11.5px' }}>
                                 {pct}%
                               </td>
                             );
@@ -499,13 +503,13 @@ export default function COMappingMatrix() {
                         </tr>
 
                         <tr style={{ background: '#f1f5f9', fontWeight: '700' }}>
-                          <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '16px', fontSize: '11.5px', color: '#0f172a' }}>
+                          <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '12px', fontSize: '11px', color: '#0f172a' }}>
                             Mapping strength of {psoDef.code} of CO
                           </td>
                           {courseOutcomes.map((co) => {
                             const strength = computePsoStrengthForCO(psoDef.code, co.code);
                             return (
-                              <td key={`str-${co.code}`} style={{ textAlign: 'center', fontSize: '14px', color: '#0f172a', fontWeight: '800' }}>
+                              <td key={`str-${co.code}`} style={{ textAlign: 'center', fontSize: '13.5px', color: '#0f172a', fontWeight: '800' }}>
                                 {strength}
                               </td>
                             );

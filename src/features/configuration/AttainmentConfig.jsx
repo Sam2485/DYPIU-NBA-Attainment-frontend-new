@@ -11,6 +11,8 @@ export default function AttainmentConfig() {
     selectedProgramme,
     selectedCourse,
     availableCourses = [],
+    attainmentConfigs,
+    updateCourseAttainmentConfig,
   } = useAcademic();
 
   const isFaculty = role === 'FACULTY';
@@ -21,14 +23,14 @@ export default function AttainmentConfig() {
     { id: 'crs-2', code: 'CS301', name: 'Data Structures & Algorithms' },
   ];
 
-  // Store course-wise configurations with verification status
+  // Local state initialized with context attainmentConfigs
   const [courseConfigs, setCourseConfigs] = useState({
     'crs-1': {
       courseCode: '310244',
       courseName: 'Computer Network and Security',
-      directWeight: 80,
-      indirectWeight: 20,
-      directThreshold: 60,
+      directWeight: attainmentConfigs?.['crs-1']?.directWeight || 80,
+      indirectWeight: attainmentConfigs?.['crs-1']?.indirectWeight || 20,
+      directThreshold: attainmentConfigs?.['crs-1']?.directThreshold || 60,
       slightWeight: 0.33,
       moderateWeight: 0.66,
       substantialWeight: 1.00,
@@ -44,9 +46,9 @@ export default function AttainmentConfig() {
     'crs-2': {
       courseCode: 'CS301',
       courseName: 'Data Structures & Algorithms',
-      directWeight: 80,
-      indirectWeight: 20,
-      directThreshold: 65,
+      directWeight: attainmentConfigs?.['crs-2']?.directWeight || 80,
+      indirectWeight: attainmentConfigs?.['crs-2']?.indirectWeight || 20,
+      directThreshold: attainmentConfigs?.['crs-2']?.directThreshold || 65,
       slightWeight: 0.33,
       moderateWeight: 0.66,
       substantialWeight: 1.00,
@@ -65,9 +67,9 @@ export default function AttainmentConfig() {
   const currentConfig = courseConfigs[activeCourseId] || {
     courseCode: selectedCourse?.code || '310244',
     courseName: selectedCourse?.name || 'Computer Network and Security',
-    directWeight: 80,
-    indirectWeight: 20,
-    directThreshold: 60,
+    directWeight: attainmentConfigs?.[selectedCourse?.id]?.directWeight || 80,
+    indirectWeight: attainmentConfigs?.[selectedCourse?.id]?.indirectWeight || 20,
+    directThreshold: attainmentConfigs?.[selectedCourse?.id]?.directThreshold || 60,
     slightWeight: 0.33,
     moderateWeight: 0.66,
     substantialWeight: 1.00,
@@ -83,71 +85,84 @@ export default function AttainmentConfig() {
 
   const handleDirectWeightChange = (val) => {
     const direct = Number(val);
+    const updated = {
+      ...currentConfig,
+      directWeight: direct,
+      indirectWeight: 100 - direct,
+      status: isFaculty ? 'WAITING_FOR_COORDINATOR_VERIFICATION' : currentConfig.status,
+      proposedBy: user?.name || 'Faculty Member',
+      proposedAt: new Date().toISOString().split('T')[0],
+    };
     setCourseConfigs((prev) => ({
       ...prev,
-      [activeCourseId]: {
-        ...currentConfig,
-        directWeight: direct,
-        indirectWeight: 100 - direct,
-        status: isFaculty ? 'WAITING_FOR_COORDINATOR_VERIFICATION' : currentConfig.status,
-        proposedBy: user?.name || 'Faculty Member',
-        proposedAt: new Date().toISOString().split('T')[0],
-      },
+      [activeCourseId]: updated,
     }));
+    updateCourseAttainmentConfig(activeCourseId, updated);
   };
 
   const handleThresholdChange = (val) => {
+    const threshold = Number(val);
+    const updated = {
+      ...currentConfig,
+      directThreshold: threshold,
+      status: isFaculty ? 'WAITING_FOR_COORDINATOR_VERIFICATION' : currentConfig.status,
+      proposedBy: user?.name || 'Faculty Member',
+      proposedAt: new Date().toISOString().split('T')[0],
+    };
     setCourseConfigs((prev) => ({
       ...prev,
-      [activeCourseId]: {
-        ...currentConfig,
-        directThreshold: Number(val),
-        status: isFaculty ? 'WAITING_FOR_COORDINATOR_VERIFICATION' : currentConfig.status,
-        proposedBy: user?.name || 'Faculty Member',
-        proposedAt: new Date().toISOString().split('T')[0],
-      },
+      [activeCourseId]: updated,
     }));
+    updateCourseAttainmentConfig(activeCourseId, updated);
   };
 
   const handleLevelChange = (idx, field, val) => {
     const updatedLevels = [...(currentConfig.levels || [])];
     updatedLevels[idx] = { ...updatedLevels[idx], [field]: Number(val) };
 
+    const updated = {
+      ...currentConfig,
+      levels: updatedLevels,
+      status: isFaculty ? 'WAITING_FOR_COORDINATOR_VERIFICATION' : currentConfig.status,
+      proposedBy: user?.name || 'Faculty Member',
+      proposedAt: new Date().toISOString().split('T')[0],
+    };
+
     setCourseConfigs((prev) => ({
       ...prev,
-      [activeCourseId]: {
-        ...currentConfig,
-        levels: updatedLevels,
-        status: isFaculty ? 'WAITING_FOR_COORDINATOR_VERIFICATION' : currentConfig.status,
-        proposedBy: user?.name || 'Faculty Member',
-        proposedAt: new Date().toISOString().split('T')[0],
-      },
+      [activeCourseId]: updated,
     }));
+    updateCourseAttainmentConfig(activeCourseId, updated);
   };
 
   const handleVerifyConfig = (cId) => {
+    const updated = {
+      ...courseConfigs[cId],
+      status: 'VERIFIED',
+    };
     setCourseConfigs((prev) => ({
       ...prev,
-      [cId]: {
-        ...prev[cId],
-        status: 'VERIFIED',
-      },
+      [cId]: updated,
     }));
+    updateCourseAttainmentConfig(cId, updated);
     alert(`Attainment configuration for ${courseConfigs[cId]?.courseCode || 'course'} VERIFIED by Programme Coordinator!`);
   };
 
   const handleRejectConfig = (cId) => {
+    const updated = {
+      ...courseConfigs[cId],
+      status: 'REJECTED',
+    };
     setCourseConfigs((prev) => ({
       ...prev,
-      [cId]: {
-        ...prev[cId],
-        status: 'REJECTED',
-      },
+      [cId]: updated,
     }));
+    updateCourseAttainmentConfig(cId, updated);
     alert(`Attainment configuration for ${courseConfigs[cId]?.courseCode || 'course'} rejected and sent back to Faculty for revision.`);
   };
 
   const handleSaveConfig = () => {
+    updateCourseAttainmentConfig(activeCourseId, currentConfig);
     if (isFaculty) {
       alert('Attainment Configurations submitted! Waiting for Programme Coordinator verification.');
     } else {
