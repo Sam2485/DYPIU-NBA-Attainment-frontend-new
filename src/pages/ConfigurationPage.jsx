@@ -4,9 +4,9 @@ import AttainmentConfig from '../features/configuration/AttainmentConfig';
 
 export default function ConfigurationPage() {
   return (
-    <div style={{ display: 'flex' }}>
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
-      <main style={{ flex: 1 }}>
+      <main className="nba-layout-main">
         <AppHeader title="Attainment Configurations" subtitle="Rules, Thresholds & Weightages" />
         <div className="page-container">
           <AttainmentConfig />

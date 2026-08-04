@@ -9,11 +9,11 @@ import {
   Layers,
   BookOpen,
   Crown,
-  Grid,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import * as XLSX from 'xlsx';
+import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function ReportsHub() {
   const { role } = useAuth();
@@ -32,7 +32,6 @@ export default function ReportsHub() {
   const poList = activePOs.map((p) => p.code);
   const psoList = activePSOs.map((p) => p.code);
 
-  // 3 Self-Explaining Course-Level Reports
   const reportsList = [
     {
       id: 'main-attainment',
@@ -63,7 +62,6 @@ export default function ReportsHub() {
     },
   ];
 
-  // Course-Level Excel Download Handler
   const handleDownloadExcel = (reportId) => {
     let filename = '';
     let sheetData = [];
@@ -150,7 +148,6 @@ export default function ReportsHub() {
     XLSX.writeFile(wb, filename);
   };
 
-  // Common Header Helper for Programme Sheets
   const getProgHeader = () => [
     ['D. Y. PATIL INTERNATIONAL UNIVERSITY, AKURDI PUNE'],
     [`School: ${selectedProgramme.department || 'School of Computer Science & Engineering'}`],
@@ -158,7 +155,6 @@ export default function ReportsHub() {
     [],
   ];
 
-  // Helper 1: Average Mapping Sheet Data
   const getAverageMappingData = () => [
     ...getProgHeader(),
     ['AVERAGE MAPPING STRENGTH ACROSS ALL COURSES'],
@@ -172,7 +168,6 @@ export default function ReportsHub() {
     ]),
   ];
 
-  // Helper 2: Average Attainment (Direct) Data
   const getAverageAttainmentDirectData = () => [
     ...getProgHeader(),
     ['PO & PSO ATTAINMENT (DIRECT) ACROSS ALL COURSES'],
@@ -186,7 +181,6 @@ export default function ReportsHub() {
     ]),
   ];
 
-  // Helper 3: Average Attainment (Indirect) Data
   const getAverageAttainmentIndirectData = () => [
     ...getProgHeader(),
     ['PO & PSO ATTAINMENT (INDIRECT SURVEY) ACROSS ALL COURSES'],
@@ -200,7 +194,6 @@ export default function ReportsHub() {
     ]),
   ];
 
-  // Helper 4: Overall Attainment Data
   const getOverallAttainmentData = () => [
     ...getProgHeader(),
     ['OVERALL PROGRAMME ATTAINMENT SUMMARY (80% Direct + 20% Indirect)'],
@@ -211,7 +204,6 @@ export default function ReportsHub() {
     ['OVERALL ATTAINMENT (80% Direct + 20% Indirect)', ...poList.map(() => 2.2), ...psoList.map(() => 2.04)],
   ];
 
-  // Handler for Individual Programme Sheet Export
   const handleDownloadSingleProgReport = (reportType) => {
     let filename = '';
     let sheetData = [];
@@ -236,24 +228,15 @@ export default function ReportsHub() {
     XLSX.writeFile(wb, filename);
   };
 
-  // SUPER ADMIN MASTER OVERALL PROGRAMME EXCEL EXPORT (Combined 5-Sheet Workbook)
   const handleDownloadMasterSuperAdminReport = () => {
     const filename = `Master_Combined_Programme_Attainment_${selectedProgramme.code}_${academicYear}.xlsx`;
     const wb = XLSX.utils.book_new();
 
-    // Sheet 1: Average Mapping
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(getAverageMappingData()), 'Average Mapping');
-
-    // Sheet 2: Average Attainment(D)
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(getAverageAttainmentDirectData()), 'Average Attainment(D)');
-
-    // Sheet 3: Average Attainment(ID)
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(getAverageAttainmentIndirectData()), 'Average Attainment(ID)');
-
-    // Sheet 4: Overall-attainment
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(getOverallAttainmentData()), 'Overall-attainment');
 
-    // Sheet 5: Attainment of CO
     const sheet5Data = [
       ...getProgHeader(),
       ['COURSE OUTCOME (CO) ATTAINMENT SUMMARY FOR ALL PROGRAMME COURSES'],
@@ -276,25 +259,18 @@ export default function ReportsHub() {
 
   return (
     <div className="animated-page">
-      {/* Restored Colored Dark Gradient Top Banner Header */}
-      <div
-        className="card"
-        style={{
-          background: 'linear-gradient(135deg, #1e293b 0%, #1e3a8a 100%)',
-          color: '#ffffff',
-          marginBottom: '20px',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+      {/* Top Banner Header */}
+      <div className="banner-dark-gradient">
+        <div className="banner-content-row">
           <div>
             <div className="badge badge-active" style={{ marginBottom: '6px' }}>
-              Module 10 • Reports Hub ({role})
+              Reports Hub ({role})
             </div>
-            <h2 style={{ margin: 0, fontSize: '20px', color: '#ffffff', fontWeight: '800' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
               Reports & Attainment Documentation
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#bfdbfe' }}>
-              Scope: <strong>{selectedProgramme?.code}</strong> • Course: <strong>{selectedCourse?.code} - {selectedCourse?.name}</strong> • Academic Year: <strong>{academicYear}</strong>
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#475569' }}>
+              Scope: <strong style={{ color: '#0f172a' }}>{selectedProgramme?.code}</strong> • Course: <strong style={{ color: '#0f172a' }}>{selectedCourse?.code} - {selectedCourse?.name}</strong> • Academic Year: <strong style={{ color: '#0f172a' }}>{academicYear}</strong>
             </p>
           </div>
 
@@ -309,7 +285,7 @@ export default function ReportsHub() {
         </div>
       </div>
 
-      {/* SUPER ADMIN MASTER PROGRAMME REPORTS SECTION (4 INDIVIDUAL + 1 COMBINED MASTER) */}
+      {/* SUPER ADMIN MASTER PROGRAMME REPORTS SECTION */}
       {role === 'SUPER_ADMIN' && (
         <div className="card" style={{ marginBottom: '24px', borderLeft: '5px solid #0284c7' }}>
           <div className="card-header" style={{ marginBottom: '14px' }}>
@@ -328,7 +304,6 @@ export default function ReportsHub() {
               </p>
             </div>
 
-            {/* Combined Master Workbook Button */}
             <button
               className="btn btn-success"
               style={{ padding: '8px 16px', fontSize: '12.5px', fontWeight: '700' }}
@@ -338,9 +313,7 @@ export default function ReportsHub() {
             </button>
           </div>
 
-          {/* 4 Individual Sheet Download Options Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-            {/* Option 1: Average Mapping */}
             <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <span className="badge badge-active" style={{ fontSize: '9px', marginBottom: '6px' }}>Sheet 1</span>
               <h4 style={{ margin: '0 0 4px', fontSize: '13.5px', color: '#0f172a' }}>Average Mapping</h4>
@@ -354,7 +327,6 @@ export default function ReportsHub() {
               </button>
             </div>
 
-            {/* Option 2: Average Attainment (D) */}
             <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <span className="badge badge-active" style={{ fontSize: '9px', marginBottom: '6px', background: '#dbeafe', color: '#1e40af' }}>Sheet 2</span>
               <h4 style={{ margin: '0 0 4px', fontSize: '13.5px', color: '#0f172a' }}>Average Attainment (D)</h4>
@@ -368,7 +340,6 @@ export default function ReportsHub() {
               </button>
             </div>
 
-            {/* Option 3: Average Attainment (ID) */}
             <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <span className="badge badge-active" style={{ fontSize: '9px', marginBottom: '6px', background: '#d1fae5', color: '#065f46' }}>Sheet 3</span>
               <h4 style={{ margin: '0 0 4px', fontSize: '13.5px', color: '#0f172a' }}>Average Attainment (ID)</h4>
@@ -382,7 +353,6 @@ export default function ReportsHub() {
               </button>
             </div>
 
-            {/* Option 4: Overall Attainment */}
             <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <span className="badge badge-active" style={{ fontSize: '9px', marginBottom: '6px', background: '#fef3c7', color: '#92400e' }}>Sheet 4</span>
               <h4 style={{ margin: '0 0 4px', fontSize: '13.5px', color: '#0f172a' }}>Overall Attainment</h4>
@@ -661,6 +631,12 @@ export default function ReportsHub() {
           </div>
         )}
       </div>
+
+      {/* Save & Previous Footer */}
+      <SectionSaveFooter
+        label="Reports & Downloads"
+        prevPath="/po-pso-attainment"
+      />
     </div>
   );
 }

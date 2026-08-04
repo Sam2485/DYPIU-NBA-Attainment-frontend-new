@@ -60,33 +60,27 @@ export default function UserManagement() {
 
   return (
     <div className="animated-page">
-      <div
-        className="card"
-        style={{
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)',
-          color: '#fff',
-          marginBottom: '20px',
-        }}
-      >
+      <div className="banner-dark-gradient">
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div
             style={{
               width: '44px',
               height: '44px',
               borderRadius: '12px',
-              background: 'rgba(255,255,255,0.1)',
+              background: '#f5f3ff',
+              border: '1.5px solid #6366f1',
               display: 'grid',
               placeItems: 'center',
             }}
           >
-            <Shield size={24} style={{ color: '#60a5fa' }} />
+            <Shield size={24} style={{ color: '#4f46e5' }} />
           </div>
           <div>
-            <h2 style={{ margin: 0, fontSize: '18px', color: '#fff' }}>
-              User & Access Management (Module 2)
+            <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
+              User & Access Management
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#bfdbfe' }}>
-              Role-Based Access Control (`SUPER_ADMIN`, `HOD`, `FACULTY`).
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#475569' }}>
+              Role-Based Access Control (`IQAC`, `DIRECTOR`, `PROGRAMME COORDINATOR`, `FACULTY`).
             </p>
           </div>
         </div>

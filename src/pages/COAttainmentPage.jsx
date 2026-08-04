@@ -4,9 +4,9 @@ import COAttainmentEngine from '../features/coAttainment/COAttainmentEngine';
 
 export default function COAttainmentPage() {
   return (
-    <div style={{ display: 'flex' }}>
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
-      <main style={{ flex: 1 }}>
+      <main className="nba-layout-main">
         <AppHeader title="CO Attainment Engine" subtitle="Direct, Indirect & Overall Calculations" />
         <div className="page-container">
           <COAttainmentEngine />

@@ -4,9 +4,9 @@ import UserManagement from '../features/users/UserManagement';
 
 export default function UsersPage() {
   return (
-    <div style={{ display: 'flex' }}>
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
-      <main style={{ flex: 1 }}>
+      <main className="nba-layout-main">
         <AppHeader title="User & Access Management" subtitle="System Accounts & Roles" />
         <div className="page-container">
           <UserManagement />

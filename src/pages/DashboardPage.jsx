@@ -4,9 +4,9 @@ import DashboardOverview from '../features/dashboard/DashboardOverview';
 
 export default function DashboardPage() {
   return (
-    <div style={{ display: 'flex' }}>
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
-      <main style={{ flex: 1 }}>
+      <main className="nba-layout-main">
         <AppHeader title="NBA Attainment Overview" subtitle="D. Y. Patil International University" />
         <div className="page-container">
           <DashboardOverview />

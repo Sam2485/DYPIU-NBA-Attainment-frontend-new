@@ -4,9 +4,9 @@ import CourseEndSurveyHub from '../features/survey/CourseEndSurveyHub';
 
 export default function SurveyPage() {
   return (
-    <div style={{ display: 'flex' }}>
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
-      <main style={{ flex: 1 }}>
+      <main className="nba-layout-main">
         <AppHeader title="Course End Survey Hub" subtitle="Student Survey Feedback Parsing" />
         <div className="page-container">
           <CourseEndSurveyHub />

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import AuditTable from '../../components/tables/AuditTable';
-import { Save, Plus, Building2, BookOpen, Layers } from 'lucide-react';
+import { Save, Building2, BookOpen, Layers } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function AcademicSetup() {
   const { role } = useAuth();
@@ -13,7 +14,6 @@ export default function AcademicSetup() {
     courses: globalCourses,
   } = useAcademic();
 
-  // Role Restriction: HOD can only access Departments and Courses tabs (not Programmes)
   const initialTab = role === 'HOD' ? 'departments' : 'programmes';
   const [activeTab, setActiveTab] = useState(initialTab);
 
@@ -34,7 +34,6 @@ export default function AcademicSetup() {
 
   const [courses, setCourses] = useState(globalCourses);
 
-  // Filtered lists based on Centralized Selected Programme
   const filteredDepartments = departments.filter((d) => d.programmeId === programmeId);
   const filteredCourses = courses.filter((c) => c.programmeId === programmeId);
 
@@ -112,7 +111,6 @@ export default function AcademicSetup() {
     setCourses(courses.filter((c) => c.id !== targetId));
   };
 
-  // Save Changes Handlers
   const handleSaveChanges = (entityName) => {
     alert(`Changes to ${entityName} saved successfully!`);
   };
@@ -120,32 +118,24 @@ export default function AcademicSetup() {
   return (
     <div className="animated-page">
       {/* Top Banner */}
-      <div
-        className="card"
-        style={{
-          background: 'linear-gradient(135deg, #1e293b 0%, #1e3a8a 100%)',
-          color: '#fff',
-          marginBottom: '20px',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="banner-dark-gradient">
+        <div className="banner-content-row">
           <div>
             <div className="badge badge-active" style={{ marginBottom: '6px' }}>
-              Academic Management Module 1 ({role})
+              Academic Management ({role})
             </div>
-            <h2 style={{ margin: 0, fontSize: '20px', color: '#fff', fontWeight: '800' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
               Academic Setup & Management
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#bfdbfe' }}>
-              Managing: <strong>{selectedProgramme?.code} - {selectedProgramme?.name}</strong>
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#475569' }}>
+              Managing: <strong style={{ color: '#0f172a' }}>{selectedProgramme?.code} - {selectedProgramme?.name}</strong>
             </p>
           </div>
         </div>
       </div>
 
-      {/* Tabs with Role-Based Visibility */}
+      {/* Tabs */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-        {/* Degree Programmes tab is visible ONLY to SUPER_ADMIN */}
         {role === 'SUPER_ADMIN' && (
           <button
             className={`btn ${activeTab === 'programmes' ? 'btn-primary' : 'btn-secondary'}`}
@@ -155,7 +145,6 @@ export default function AcademicSetup() {
           </button>
         )}
 
-        {/* Departments and Courses tabs accessible to both SUPER_ADMIN and HOD */}
         <button
           className={`btn ${activeTab === 'departments' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('departments')}
@@ -171,7 +160,7 @@ export default function AcademicSetup() {
         </button>
       </div>
 
-      {/* TAB 1: Degree Programmes (SUPER_ADMIN ONLY) */}
+      {/* TAB 1: Degree Programmes */}
       {activeTab === 'programmes' && role === 'SUPER_ADMIN' && (
         <AuditTable
           title="Degree Programmes (Entity: Programme)"
@@ -205,7 +194,7 @@ export default function AcademicSetup() {
         />
       )}
 
-      {/* TAB 2: Departments (Accessible to SUPER_ADMIN & HOD) */}
+      {/* TAB 2: Departments */}
       {activeTab === 'departments' && (
         <AuditTable
           title={`Departments for ${selectedProgramme?.name} (${selectedProgramme?.code})`}
@@ -236,7 +225,7 @@ export default function AcademicSetup() {
         />
       )}
 
-      {/* TAB 3: Courses (Accessible to SUPER_ADMIN & HOD) */}
+      {/* TAB 3: Courses */}
       {activeTab === 'courses' && (
         <AuditTable
           title={`Courses for ${selectedProgramme?.name} (${selectedProgramme?.code})`}
@@ -296,6 +285,14 @@ export default function AcademicSetup() {
           }
         />
       )}
+
+      {/* Save, Previous & Save & Next Footer */}
+      <SectionSaveFooter
+        label="Academic Setup"
+        prevPath="/dashboard"
+        nextPath="/outcomes"
+        onSave={() => handleSaveChanges('Academic Setup')}
+      />
     </div>
   );
 }

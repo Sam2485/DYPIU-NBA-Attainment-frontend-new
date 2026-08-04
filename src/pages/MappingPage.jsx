@@ -4,9 +4,9 @@ import COMappingMatrix from '../features/mapping/COMappingMatrix';
 
 export default function MappingPage() {
   return (
-    <div style={{ display: 'flex' }}>
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
-      <main style={{ flex: 1 }}>
+      <main className="nba-layout-main">
         <AppHeader title="CO Mapping Matrix" subtitle="CO to PO/PSO Competency Grids" />
         <div className="page-container">
           <COMappingMatrix />

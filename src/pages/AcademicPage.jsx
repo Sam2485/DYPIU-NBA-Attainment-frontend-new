@@ -4,9 +4,9 @@ import AcademicSetup from '../features/academic/AcademicSetup';
 
 export default function AcademicPage() {
   return (
-    <div style={{ display: 'flex' }}>
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
-      <main style={{ flex: 1 }}>
+      <main className="nba-layout-main">
         <AppHeader title="Academic Management" subtitle="Departments, Programmes & Courses" />
         <div className="page-container">
           <AcademicSetup />

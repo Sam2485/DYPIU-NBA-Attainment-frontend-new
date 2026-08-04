@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Calculator, Save } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function COAttainmentEngine() {
   const {
@@ -61,35 +62,29 @@ export default function COAttainmentEngine() {
 
   return (
     <div className="animated-page">
-      {/* Restored Dark Gradient Header Banner */}
-      <div
-        className="card"
-        style={{
-          background: 'linear-gradient(135deg, #1e293b 0%, #1e3a8a 100%)',
-          color: '#ffffff',
-          marginBottom: '20px',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+      {/* Dark Gradient Header Banner */}
+      <div className="banner-dark-gradient">
+        <div className="banner-content-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div
               style={{
                 width: '46px',
                 height: '46px',
                 borderRadius: '12px',
-                background: 'rgba(255,255,255,0.1)',
+                background: '#f5f3ff',
+                border: '1.5px solid #6366f1',
                 display: 'grid',
                 placeItems: 'center',
               }}
             >
-              <Calculator size={24} style={{ color: '#60a5fa' }} />
+              <Calculator size={24} style={{ color: '#4f46e5' }} />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '20px', color: '#ffffff', fontWeight: '800' }}>
-                Course Outcome (CO) Attainment Engine (Module 8)
+              <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
+                Course Outcome (CO) Attainment Engine
               </h2>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#bfdbfe' }}>
-                Course: <strong>{selectedCourse.code} - {selectedCourse.name}</strong> • Programme: <strong>{selectedProgramme?.code}</strong> • AY: <strong>{academicYear}</strong>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#475569' }}>
+                Course: <strong style={{ color: '#0f172a' }}>{selectedCourse.code} - {selectedCourse.name}</strong> • Programme: <strong style={{ color: '#0f172a' }}>{selectedProgramme?.code}</strong> • AY: <strong style={{ color: '#0f172a' }}>{academicYear}</strong>
               </p>
             </div>
           </div>
@@ -273,6 +268,14 @@ export default function COAttainmentEngine() {
           </table>
         </div>
       </div>
+
+      {/* Save, Previous & Save & Next Footer */}
+      <SectionSaveFooter
+        label="CO Attainment Engine"
+        prevPath="/survey-upload"
+        nextPath="/po-pso-attainment"
+        onSave={handleSaveCalculation}
+      />
     </div>
   );
 }

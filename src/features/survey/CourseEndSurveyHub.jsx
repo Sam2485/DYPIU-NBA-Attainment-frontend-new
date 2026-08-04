@@ -1,7 +1,15 @@
 import { useState } from 'react';
-import { ClipboardList, Upload, CheckCircle2, Star } from 'lucide-react';
+import { ClipboardList, Upload } from 'lucide-react';
+import { useAcademic } from '../../context/AcademicContext';
+import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function CourseEndSurveyHub() {
+  const {
+    academicYear,
+    selectedProgramme,
+    selectedCourse,
+  } = useAcademic();
+
   const [surveys] = useState([
     {
       id: 'SRV-201',
@@ -23,35 +31,26 @@ export default function CourseEndSurveyHub() {
 
   return (
     <div className="animated-page">
-      {/* Top Banner */}
-      <div
-        className="card"
-        style={{
-          background: 'linear-gradient(135deg, #1e293b 0%, #1e3a8a 100%)',
-          color: '#fff',
-          marginBottom: '20px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div
-            style={{
-              width: '46px',
-              height: '46px',
-              borderRadius: '12px',
-              background: 'rgba(255,255,255,0.1)',
-              display: 'grid',
-              placeItems: 'center',
-            }}
-          >
-            <ClipboardList size={24} style={{ color: '#60a5fa' }} />
-          </div>
+      {/* Standard Header Banner */}
+      <div className="banner-dark-gradient">
+        <div className="banner-content-row">
           <div>
-            <h2 style={{ margin: 0, fontSize: '18px', color: '#fff' }}>
-              Course End Survey Management (Module 6)
+            <div className="badge badge-active" style={{ marginBottom: '6px' }}>
+              Course End Survey
+            </div>
+            <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
+              Course End Survey Management
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#bfdbfe' }}>
-              Indirect CO Attainment feedback parser (Slight = 0.33, Moderate = 0.66, Substantial = 1.00).
+            <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#475569' }}>
+              Course: <strong style={{ color: '#0f172a' }}>{selectedCourse?.code} - {selectedCourse?.name}</strong> • Programme: <strong style={{ color: '#0f172a' }}>{selectedProgramme?.code}</strong> • AY: <strong style={{ color: '#0f172a' }}>{academicYear}</strong>
             </p>
+          </div>
+
+          <div>
+            <input type="file" accept=".xlsx,.xls" id="survey-file-input-header" style={{ display: 'none' }} />
+            <label htmlFor="survey-file-input-header" className="btn btn-primary" style={{ cursor: 'pointer' }}>
+              <Upload size={15} /> Upload Survey Excel
+            </label>
           </div>
         </div>
       </div>
@@ -59,12 +58,12 @@ export default function CourseEndSurveyHub() {
       {/* Upload Zone */}
       <div className="card" style={{ padding: '24px', textAlign: 'center' }}>
         <div style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '28px', background: '#f8fafc' }}>
-          <Upload size={36} style={{ color: '#2563eb', marginBottom: '8px' }} />
+          <Upload size={36} style={{ color: '#4f46e5', marginBottom: '8px' }} />
           <strong style={{ display: 'block', fontSize: '15px', color: '#0f172a' }}>
             Upload Course End Survey Excel File
           </strong>
           <p style={{ margin: '4px 0 14px', fontSize: '12px', color: '#64748b' }}>
-            Parses student survey ratings for indirect CO attainment calculations.
+            Parses student survey ratings for indirect CO attainment calculations (Slight = 0.33, Moderate = 0.66, Substantial = 1.00).
           </p>
           <input type="file" accept=".xlsx,.xls" id="survey-file-input" style={{ display: 'none' }} />
           <label htmlFor="survey-file-input" className="btn btn-primary" style={{ cursor: 'pointer' }}>
@@ -76,45 +75,56 @@ export default function CourseEndSurveyHub() {
       {/* Indirect CO Survey Breakdown Grid */}
       <div className="card">
         <div className="card-header">
-          <h3>Course End Survey CO Feedback Ratings & Weighted Scores</h3>
+          <h3 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>
+            Course End Survey CO Feedback Ratings & Weighted Scores
+          </h3>
           <span className="badge badge-active">55 Responses Processed</span>
         </div>
 
-        <table className="audit-data-table">
-          <thead>
-            <tr>
-              <th style={{ width: '80px' }}>CO Code</th>
-              <th style={{ textAlign: 'center' }}>Slight (W = 0.33)</th>
-              <th style={{ textAlign: 'center' }}>Moderate (W = 0.66)</th>
-              <th style={{ textAlign: 'center' }}>Substantial (W = 1.00)</th>
-              <th style={{ textAlign: 'center' }}>Weighted Score (%)</th>
-              <th style={{ textAlign: 'center' }}>Indirect CO Attainment Level</th>
-            </tr>
-          </thead>
-          <tbody>
-            {surveyBreakdown.map((row) => (
-              <tr key={row.co}>
-                <td style={{ fontWeight: '700', color: '#2563eb' }}>{row.co}</td>
-                <td style={{ textAlign: 'center' }}>{row.slight} students</td>
-                <td style={{ textAlign: 'center' }}>{row.moderate} students</td>
-                <td style={{ textAlign: 'center' }}>{row.substantial} students</td>
-                <td style={{ textAlign: 'center', fontWeight: '800', color: '#0f172a' }}>
-                  {row.weightedScore}%
-                </td>
-                <td style={{ textAlign: 'center' }}>
-                  <span
-                    className={`badge ${
-                      row.indirectLevel === 3 ? 'badge-level-3' : 'badge-level-2'
-                    }`}
-                  >
-                    Level {row.indirectLevel}
-                  </span>
-                </td>
+        <div style={{ overflowX: 'auto', width: '100%' }}>
+          <table className="audit-data-table">
+            <thead>
+              <tr>
+                <th style={{ width: '80px' }}>CO Code</th>
+                <th style={{ textAlign: 'center' }}>Slight (W = 0.33)</th>
+                <th style={{ textAlign: 'center' }}>Moderate (W = 0.66)</th>
+                <th style={{ textAlign: 'center' }}>Substantial (W = 1.00)</th>
+                <th style={{ textAlign: 'center' }}>Weighted Score (%)</th>
+                <th style={{ textAlign: 'center' }}>Indirect CO Attainment Level</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {surveyBreakdown.map((row) => (
+                <tr key={row.co}>
+                  <td style={{ fontWeight: '700', color: '#2563eb' }}>{row.co}</td>
+                  <td style={{ textAlign: 'center' }}>{row.slight} students</td>
+                  <td style={{ textAlign: 'center' }}>{row.moderate} students</td>
+                  <td style={{ textAlign: 'center' }}>{row.substantial} students</td>
+                  <td style={{ textAlign: 'center', fontWeight: '800', color: '#0f172a' }}>
+                    {row.weightedScore}%
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <span
+                      className={`badge ${
+                        row.indirectLevel === 3 ? 'badge-level-3' : 'badge-level-2'
+                      }`}
+                    >
+                      Level {row.indirectLevel}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* Save, Previous & Save & Next Footer */}
+      <SectionSaveFooter
+        label="Course End Survey"
+        prevPath="/marks-upload"
+        nextPath="/co-attainment"
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { FileSpreadsheet, Grid2X2, Save, Layers, BookOpen, Grid } from 'lucide-react';
+import { FileSpreadsheet, Grid2X2, Save } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function COMappingMatrix() {
   const {
@@ -160,29 +161,22 @@ export default function COMappingMatrix() {
 
   return (
     <div className="animated-page">
-      {/* Restored Colored Dark Gradient Top Banner Header */}
-      <div
-        className="card"
-        style={{
-          background: 'linear-gradient(135deg, #1e293b 0%, #1e3a8a 100%)',
-          color: '#ffffff',
-          marginBottom: '20px',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+      {/* Standard Header Banner */}
+      <div className="banner-dark-gradient">
+        <div className="banner-content-row">
           <div>
             <div className="badge badge-active" style={{ marginBottom: '6px' }}>
-              Subject Code: {selectedCourse.code}
+              CO Mapping Matrix
             </div>
-            <h2 style={{ margin: 0, fontSize: '20px', color: '#ffffff', fontWeight: '800' }}>
-              {selectedCourse.name}
+            <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
+              CO to PO & PSO Mapping Matrix
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#bfdbfe' }}>
-              Programme: <strong>{selectedProgramme?.code}</strong> • AY: <strong>{academicYear}</strong> • Dynamic Grid ({courseOutcomes.length} COs × {poList.length} POs, {psoList.length} PSOs)
+            <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#475569' }}>
+              Course: <strong style={{ color: '#0f172a' }}>{selectedCourse?.code} - {selectedCourse?.name}</strong> • Programme: <strong style={{ color: '#0f172a' }}>{selectedProgramme?.code}</strong> • AY: <strong style={{ color: '#0f172a' }}>{academicYear}</strong> ({courseOutcomes.length} COs × {poList.length} POs, {psoList.length} PSOs)
             </p>
           </div>
 
-          <button className="btn btn-success" onClick={handleSave}>
+          <button className="btn btn-primary" onClick={handleSave}>
             <Save size={15} /> Save Mapping Matrix
           </button>
         </div>
@@ -195,32 +189,34 @@ export default function COMappingMatrix() {
             Course Outcomes ({courseOutcomes.length} COs Defined in Outcome Management)
           </h3>
         </div>
-        <table className="audit-data-table">
-          <thead>
-            <tr>
-              <th style={{ width: '60px', textAlign: 'center' }}>Sr No</th>
-              <th style={{ width: '140px' }}>CO Code</th>
-              <th>Course Outcome Statement</th>
-            </tr>
-          </thead>
-          <tbody>
-            {courseOutcomes.length === 0 ? (
+        <div style={{ overflowX: 'auto', width: '100%' }}>
+          <table className="audit-data-table">
+            <thead>
               <tr>
-                <td colSpan={3} style={{ textAlign: 'center', padding: '16px', color: '#94a3b8' }}>
-                  No Course Outcomes defined in Outcome Management yet.
-                </td>
+                <th style={{ width: '60px', textAlign: 'center' }}>Sr No</th>
+                <th style={{ width: '140px' }}>CO Code</th>
+                <th>Course Outcome Statement</th>
               </tr>
-            ) : (
-              courseOutcomes.map((co, idx) => (
-                <tr key={co.code}>
-                  <td style={{ textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
-                  <td style={{ fontWeight: '700', color: '#0f172a' }}>{co.code}</td>
-                  <td style={{ fontWeight: '500' }}>{co.statement}</td>
+            </thead>
+            <tbody>
+              {courseOutcomes.length === 0 ? (
+                <tr>
+                  <td colSpan={3} style={{ textAlign: 'center', padding: '16px', color: '#94a3b8' }}>
+                    No Course Outcomes defined in Outcome Management yet.
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                courseOutcomes.map((co, idx) => (
+                  <tr key={co.code}>
+                    <td style={{ textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
+                    <td style={{ fontWeight: '700', color: '#0f172a' }}>{co.code}</td>
+                    <td style={{ fontWeight: '500' }}>{co.statement}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Navigation Tabs */}
@@ -252,7 +248,7 @@ export default function COMappingMatrix() {
             const comps = getCoursePoCompetencies(poDef.code);
 
             return (
-              <div key={poDef.code} className="card" style={{ borderLeft: '3px solid #3b82f6', marginBottom: '20px' }}>
+              <div key={poDef.code} className="card" style={{ borderLeft: '4px solid #3b82f6', marginBottom: '20px' }}>
                 <div className="card-header" style={{ marginBottom: '10px' }}>
                   <div>
                     <span className="badge badge-active" style={{ fontSize: '11px', padding: '4px 8px' }}>
@@ -262,7 +258,7 @@ export default function COMappingMatrix() {
                   </div>
                 </div>
 
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', width: '100%' }}>
                   <table className="audit-data-table" style={{ minWidth: `${870 + courseOutcomes.length * 185}px` }}>
                     <thead>
                       <tr>
@@ -394,7 +390,7 @@ export default function COMappingMatrix() {
               const comps = getCoursePsoCompetencies(psoDef.code);
 
               return (
-                <div key={psoDef.code} className="card" style={{ borderLeft: '3px solid #0284c7', marginBottom: '20px' }}>
+                <div key={psoDef.code} className="card" style={{ borderLeft: '4px solid #0284c7', marginBottom: '20px' }}>
                   <div className="card-header" style={{ marginBottom: '10px' }}>
                     <div>
                       <span className="badge badge-active" style={{ fontSize: '11px', padding: '4px 8px', background: '#e0f2fe', color: '#0284c7' }}>
@@ -404,7 +400,7 @@ export default function COMappingMatrix() {
                     </div>
                   </div>
 
-                  <div style={{ overflowX: 'auto' }}>
+                  <div style={{ overflowX: 'auto', width: '100%' }}>
                     <table className="audit-data-table" style={{ minWidth: `${870 + courseOutcomes.length * 185}px` }}>
                       <thead>
                         <tr>
@@ -534,7 +530,7 @@ export default function COMappingMatrix() {
             </h3>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflowX: 'auto', width: '100%' }}>
             <table className="audit-data-table">
               <thead>
                 <tr>
@@ -614,6 +610,14 @@ export default function COMappingMatrix() {
           </div>
         </div>
       )}
+
+      {/* Save, Previous & Save & Next Footer */}
+      <SectionSaveFooter
+        label="CO Mapping Matrix"
+        prevPath="/outcomes"
+        nextPath="/marks-upload"
+        onSave={handleSave}
+      />
     </div>
   );
 }

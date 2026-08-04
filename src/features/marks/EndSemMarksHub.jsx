@@ -51,32 +51,26 @@ export default function EndSemMarksHub() {
   return (
     <div className="animated-page">
       {/* Top Banner */}
-      <div
-        className="card"
-        style={{
-          background: 'linear-gradient(135deg, #1e293b 0%, #1e3a8a 100%)',
-          color: '#fff',
-          marginBottom: '20px',
-        }}
-      >
+      <div className="banner-dark-gradient">
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div
             style={{
               width: '46px',
               height: '46px',
               borderRadius: '12px',
-              background: 'rgba(255,255,255,0.1)',
+              background: '#f5f3ff',
+              border: '1.5px solid #6366f1',
               display: 'grid',
               placeItems: 'center',
             }}
           >
-            <FileCheck size={24} style={{ color: '#60a5fa' }} />
+            <FileCheck size={24} style={{ color: '#4f46e5' }} />
           </div>
           <div>
-            <h2 style={{ margin: 0, fontSize: '18px', color: '#fff' }}>
-              End Semester Marks Management (Module 5)
+            <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
+              End Semester Marks Management
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#bfdbfe' }}>
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#475569' }}>
               Upload End Semester Marks Excel datasets and view dynamic CO-wise student scores.
             </p>
           </div>

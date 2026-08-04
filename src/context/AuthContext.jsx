@@ -6,7 +6,7 @@ const DEFAULT_USER = {
   id: 1,
   name: 'Dr. Raj Shaikh',
   email: 'raj.shaikh@dypiu.ac.in',
-  role: 'SUPER_ADMIN', // Options: 'SUPER_ADMIN', 'HOD', 'FACULTY'
+  role: 'PROGRAMME_COORDINATOR', // Options: 'IQAC', 'DIRECTOR', 'PROGRAMME_COORDINATOR', 'FACULTY'
   department: 'Computer Science & Engineering',
   programme: 'B.Tech CSE',
 };

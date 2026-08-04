@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BarChart3 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function POPSOAttainmentEngine() {
   const {
@@ -19,7 +20,6 @@ export default function POPSOAttainmentEngine() {
   const psoList = activePSOs.map((p) => p.code);
   const courseOutcomes = activeCOs;
 
-  // Dynamic Store Keyed by Selected Course ID
   const courseAttainmentStore = {
     'crs-1': { overallCOAttainment: 2.07 },
     'crs-2': { overallCOAttainment: 2.55 },
@@ -61,42 +61,36 @@ export default function POPSOAttainmentEngine() {
 
   return (
     <div className="animated-page">
-      {/* Restored Colored Dark Gradient Top Banner Header */}
-      <div
-        className="card"
-        style={{
-          background: 'linear-gradient(135deg, #1e293b 0%, #1e3a8a 100%)',
-          color: '#ffffff',
-          marginBottom: '20px',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+      {/* Top Banner Header */}
+      <div className="banner-dark-gradient">
+        <div className="banner-content-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div
               style={{
                 width: '46px',
                 height: '46px',
                 borderRadius: '12px',
-                background: 'rgba(255,255,255,0.1)',
+                background: '#f5f3ff',
+                border: '1.5px solid #6366f1',
                 display: 'grid',
                 placeItems: 'center',
               }}
             >
-              <BarChart3 size={24} style={{ color: '#60a5fa' }} />
+              <BarChart3 size={24} style={{ color: '#4f46e5' }} />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '20px', color: '#ffffff', fontWeight: '800' }}>
-                PO & PSO Attainment Engine (Module 9)
+              <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
+                PO & PSO Attainment Engine
               </h2>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#bfdbfe' }}>
-                Course: <strong>{selectedCourse.code} - {selectedCourse.name}</strong> • Programme: <strong>{selectedProgramme?.code}</strong> • AY: <strong>{academicYear}</strong>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#475569' }}>
+                Course: <strong style={{ color: '#0f172a' }}>{selectedCourse.code} - {selectedCourse.name}</strong> • Programme: <strong style={{ color: '#0f172a' }}>{selectedProgramme?.code}</strong> • AY: <strong style={{ color: '#0f172a' }}>{academicYear}</strong>
               </p>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.1)', padding: '6px 14px', borderRadius: '10px' }}>
-            <span style={{ fontSize: '12px', color: '#bfdbfe' }}>Overall CO Attainment:</span>
-            <strong style={{ fontSize: '16px', color: '#4ade80' }}>{activeData.overallCOAttainment}</strong>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f5f3ff', border: '1.5px solid #6366f1', padding: '6px 14px', borderRadius: '10px' }}>
+            <span style={{ fontSize: '12px', color: '#4f46e5', fontWeight: '700' }}>Overall CO Attainment:</span>
+            <strong style={{ fontSize: '16px', color: '#059669' }}>{activeData.overallCOAttainment}</strong>
           </div>
         </div>
       </div>
@@ -129,7 +123,6 @@ export default function POPSOAttainmentEngine() {
           <div style={{ overflowX: 'auto' }}>
             <table className="audit-data-table">
               <thead>
-                {/* Row 1 Header */}
                 <tr>
                   <th colSpan={2} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a' }}>
                     Table 1: Mapping of CO to PO/PSO
@@ -143,7 +136,6 @@ export default function POPSOAttainmentEngine() {
                     </th>
                   )}
                 </tr>
-                {/* Row 2 Header */}
                 <tr>
                   <th style={{ width: '50px', textAlign: 'center' }}>Sr No</th>
                   <th style={{ width: '110px' }}>CO Code</th>
@@ -160,7 +152,6 @@ export default function POPSOAttainmentEngine() {
                 </tr>
               </thead>
               <tbody>
-                {/* Dynamic CO Rows */}
                 {courseOutcomes.length === 0 ? (
                   <tr>
                     <td colSpan={2 + poList.length + psoList.length} style={{ textAlign: 'center', padding: '16px', color: '#94a3b8' }}>
@@ -173,14 +164,12 @@ export default function POPSOAttainmentEngine() {
                       <td style={{ textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
                       <td style={{ fontWeight: '700', color: '#0f172a' }}>{co.code}</td>
 
-                      {/* Dynamic PO Columns */}
                       {poList.map((po) => (
                         <td key={po} style={{ textAlign: 'center' }}>
                           {getMappingStrength(co.code, po)}
                         </td>
                       ))}
 
-                      {/* Dynamic PSO Columns */}
                       {psoList.map((pso) => (
                         <td key={pso} style={{ textAlign: 'center' }}>
                           {getMappingStrength(co.code, pso)}
@@ -292,6 +281,13 @@ export default function POPSOAttainmentEngine() {
           </table>
         </div>
       )}
+
+      {/* Save, Previous & Save & Next Footer */}
+      <SectionSaveFooter
+        label="PO & PSO Attainment Engine"
+        prevPath="/co-attainment"
+        nextPath="/reports"
+      />
     </div>
   );
 }

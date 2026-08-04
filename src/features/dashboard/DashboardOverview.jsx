@@ -1,31 +1,11 @@
 import { useState } from 'react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
-import {
-  Building2,
-  Target,
-  CheckCircle2,
-  Clock,
-  ArrowRight,
-  Sparkles,
-  Layers,
-  BookOpen,
-} from 'lucide-react';
+import { Building2, Target, CheckCircle2, Clock, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function DashboardOverview() {
-  const {
-    academicYear,
-    programmes,
-    programmeId,
-    selectedProgramme,
-    setProgrammeId,
-    availableCourses,
-    courseId,
-    selectedCourse,
-    setCourseId,
-  } = useAcademic();
-
+  const { selectedProgramme, selectedCourse } = useAcademic();
   const { role } = useAuth();
 
   const [calculationRuns] = useState([
@@ -66,76 +46,39 @@ export default function DashboardOverview() {
 
   return (
     <div className="animated-page">
-      {/* Centralized Programme & Course Selector Banner Header */}
-      <div className="banner-dark-gradient">
-        <div className="banner-content-row">
-          <div>
-            <div className="badge badge-active" style={{ marginBottom: '8px' }}>
-              <Sparkles size={12} /> Active Academic Year {academicYear}
-            </div>
-            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: '#fff' }}>
-              NBA Outcome-Based Education (OBE) Dashboard
-            </h2>
-            <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#bfdbfe' }}>
-              Select your Programme and Course here once. All other modules read directly from this selection!
-            </p>
-          </div>
 
-          {/* Centralized Selector Controls */}
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            {/* Programme Selector */}
-            <div className="glass-selector-group">
-              <Layers size={18} style={{ color: '#60a5fa' }} />
-              <div>
-                <span className="glass-selector-label">Select Programme</span>
-                <select
-                  value={programmeId}
-                  onChange={(e) => setProgrammeId(e.target.value)}
-                  className="glass-selector-control"
-                >
-                  {programmes.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.code} - {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Course Selector */}
-            <div className="glass-selector-group">
-              <BookOpen size={18} style={{ color: '#38bdf8' }} />
-              <div>
-                <span className="glass-selector-label">Select Active Course</span>
-                <select
-                  value={courseId}
-                  onChange={(e) => setCourseId(e.target.value)}
-                  className="glass-selector-control"
-                >
-                  {availableCourses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.code} - {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
+      {/* Active scope info strip — replaces the banner (which moved to AppHeader) */}
+      <div
+        style={{
+          background: '#fff',
+          border: '1px solid #e2e8f0',
+          borderRadius: 12,
+          padding: '12px 20px',
+          marginBottom: 20,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 12,
+          boxShadow: '0 1px 4px rgba(15,23,42,0.04)',
+        }}
+      >
+        <div style={{ fontSize: 12.5, color: '#475569' }}>
+          🎯 Active Scope:{' '}
+          <strong style={{ color: '#0f172a' }}>{selectedProgramme?.code || '—'}</strong>
+          {' '}•{' '}
+          <strong style={{ color: '#0f172a' }}>{selectedCourse?.code} {selectedCourse?.name ? `(${selectedCourse.name})` : ''}</strong>
+          <span style={{ marginLeft: 10, color: '#94a3b8', fontSize: 11 }}>
+            Select Programme &amp; Course from the top bar to change scope.
+          </span>
         </div>
-
-        {/* Scope Confirmation Footer */}
-        <div className="banner-footer-row">
-          <div style={{ fontSize: '12px', color: '#bfdbfe' }}>
-            🎯 Active Scope Set: <strong style={{ color: '#ffffff' }}>{selectedProgramme?.code}</strong> • Course: <strong style={{ color: '#ffffff' }}>{selectedCourse?.code} ({selectedCourse?.name})</strong>
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <Link to="/co-mapping" className="btn btn-secondary" style={{ fontSize: '11.5px', padding: '5px 12px' }}>
-              View CO Mapping Matrix <ArrowRight size={13} />
-            </Link>
-            <Link to="/co-attainment" className="btn btn-primary" style={{ fontSize: '11.5px', padding: '5px 12px' }}>
-              Run Attainment Engine <ArrowRight size={13} />
-            </Link>
-          </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link to="/co-mapping" className="btn btn-secondary" style={{ fontSize: '11.5px', padding: '5px 12px' }}>
+            CO Mapping <ArrowRight size={12} />
+          </Link>
+          <Link to="/co-attainment" className="btn btn-primary" style={{ fontSize: '11.5px', padding: '5px 12px' }}>
+            Run Attainment <ArrowRight size={12} />
+          </Link>
         </div>
       </div>
 
@@ -218,26 +161,18 @@ export default function DashboardOverview() {
                 <td style={{ textAlign: 'center' }}>
                   {run.directLevel !== '-' ? (
                     <span className="badge badge-level-3">Level {run.directLevel}</span>
-                  ) : (
-                    '-'
-                  )}
+                  ) : '—'}
                 </td>
                 <td style={{ textAlign: 'center' }}>
                   {run.indirectLevel !== '-' ? (
                     <span className="badge badge-level-2">Level {run.indirectLevel}</span>
-                  ) : (
-                    '-'
-                  )}
+                  ) : '—'}
                 </td>
                 <td style={{ textAlign: 'center', fontWeight: '800', color: '#1e293b' }}>
                   {run.overallAttainment}
                 </td>
                 <td>
-                  <span
-                    className={`badge ${
-                      run.status === 'SUCCESS' ? 'badge-success' : 'badge-running'
-                    }`}
-                  >
+                  <span className={`badge ${run.status === 'SUCCESS' ? 'badge-success' : 'badge-running'}`}>
                     {run.status}
                   </span>
                 </td>

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Target, FileSpreadsheet, Plus, Trash2, Save } from 'lucide-react';
+import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function OutcomesManagement() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const {
     programmeId,
     selectedProgramme,
@@ -20,8 +21,7 @@ export default function OutcomesManagement() {
 
   const [entryMode, setEntryMode] = useState('table');
 
-  // Role Restriction: HOD and FACULTY can ONLY access Course Outcomes (CO) tab (not PO or PSO)
-  const isLimitedUser = role === 'HOD' || role === 'FACULTY';
+  const isLimitedUser = role === 'FACULTY';
   const initialTab = isLimitedUser ? 'cos' : 'pos';
   const [activeOutcomeTab, setActiveOutcomeTab] = useState(initialTab);
 
@@ -31,40 +31,137 @@ export default function OutcomesManagement() {
     }
   }, [role, activeOutcomeTab, isLimitedUser]);
 
-  // PO & Competency Handlers
+  // Multiple Teachers for Course
+  const courseTeachers = selectedCourse?.faculty || 'Dr. Raj Shaikh / Prof. XYZ';
+
+  // ── POs with Director Verification Status ────────────────────────────────────
+  const [poList, setPoList] = useState(() => {
+    return activePOs.map((po, idx) => ({
+      ...po,
+      status: po.status || (idx % 2 === 0 ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION'),
+      submittedBy: po.submittedBy || 'Programme Coordinator',
+      submittedAt: po.submittedAt || '2026-08-04',
+    }));
+  });
+
+  // ── PSOs with Director Verification Status ───────────────────────────────────
+  const [psoList, setPsoList] = useState(() => {
+    return activePSOs.map((pso, idx) => ({
+      ...pso,
+      status: pso.status || (idx % 2 === 0 ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION'),
+      submittedBy: pso.submittedBy || 'Programme Coordinator',
+      submittedAt: pso.submittedAt || '2026-08-04',
+    }));
+  });
+
+  // ── COs with Coordinator Approval Status ─────────────────────────────────────
+  const [coList, setCoList] = useState(() => {
+    return activeCOs.map((co, idx) => ({
+      ...co,
+      status: co.status || (idx % 2 === 0 ? 'APPROVED' : 'WAITING_FOR_APPROVAL'),
+      submittedBy: co.submittedBy || (idx % 2 === 0 ? 'Dr. Raj Shaikh' : 'Prof. XYZ'),
+      submittedAt: co.submittedAt || '2026-08-04',
+    }));
+  });
+
+  useEffect(() => {
+    setPoList(
+      activePOs.map((po, idx) => ({
+        ...po,
+        status: po.status || (idx % 2 === 0 ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION'),
+        submittedBy: po.submittedBy || 'Programme Coordinator',
+        submittedAt: po.submittedAt || '2026-08-04',
+      }))
+    );
+  }, [programmeId, activePOs]);
+
+  useEffect(() => {
+    setPsoList(
+      activePSOs.map((pso, idx) => ({
+        ...pso,
+        status: pso.status || (idx % 2 === 0 ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION'),
+        submittedBy: pso.submittedBy || 'Programme Coordinator',
+        submittedAt: pso.submittedAt || '2026-08-04',
+      }))
+    );
+  }, [programmeId, activePSOs]);
+
+  useEffect(() => {
+    setCoList(
+      activeCOs.map((co, idx) => ({
+        ...co,
+        status: co.status || (idx % 2 === 0 ? 'APPROVED' : 'WAITING_FOR_APPROVAL'),
+        submittedBy: co.submittedBy || (idx % 2 === 0 ? 'Dr. Raj Shaikh' : 'Prof. XYZ'),
+        submittedAt: co.submittedAt || '2026-08-04',
+      }))
+    );
+  }, [courseId, activeCOs]);
+
+  // ── PO Handlers (Programme Coordinator Proposes -> Director Verifies) ─────────
   const handleAddPO = () => {
-    const newPoNum = activePOs.length + 1;
+    const newPoNum = poList.length + 1;
     const newPo = {
       code: `PO${newPoNum}`,
-      statement: `New Programme Outcome ${newPoNum} Statement...`,
+      statement: `New proposed Programme Outcome ${newPoNum} Statement...`,
+      status: role === 'DIRECTOR' || role === 'IQAC' ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION',
+      submittedBy: user?.name || 'Programme Coordinator',
+      submittedAt: new Date().toISOString().split('T')[0],
       competencies: [
         { id: `comp-po${newPoNum}-1`, order: 1, statement: `Demonstrate competence statement for PO${newPoNum}` },
       ],
     };
-    updateProgrammePOs(programmeId, [...activePOs, newPo]);
+    const updated = [...poList, newPo];
+    setPoList(updated);
+    updateProgrammePOs(programmeId, updated);
   };
 
   const handleUpdatePOCode = (index, newCode) => {
-    const updated = activePOs.map((p, i) => (i === index ? { ...p, code: newCode } : p));
+    const updated = poList.map((p, i) =>
+      i === index
+        ? { ...p, code: newCode, status: role === 'PROGRAMME_COORDINATOR' ? 'WAITING_FOR_DIRECTOR_VERIFICATION' : p.status }
+        : p
+    );
+    setPoList(updated);
     updateProgrammePOs(programmeId, updated);
   };
 
   const handleUpdatePOStatement = (index, newStatement) => {
-    const updated = activePOs.map((p, i) => (i === index ? { ...p, statement: newStatement } : p));
+    const updated = poList.map((p, i) =>
+      i === index
+        ? { ...p, statement: newStatement, status: role === 'PROGRAMME_COORDINATOR' ? 'WAITING_FOR_DIRECTOR_VERIFICATION' : p.status }
+        : p
+    );
+    setPoList(updated);
     updateProgrammePOs(programmeId, updated);
   };
 
+  const handleVerifyPO = (index) => {
+    const updated = poList.map((p, i) => (i === index ? { ...p, status: 'VERIFIED' } : p));
+    setPoList(updated);
+    updateProgrammePOs(programmeId, updated);
+    alert(`Programme Outcome ${poList[index].code} VERIFIED by Director!`);
+  };
+
+  const handleRejectPO = (index) => {
+    const updated = poList.map((p, i) => (i === index ? { ...p, status: 'REJECTED' } : p));
+    setPoList(updated);
+    updateProgrammePOs(programmeId, updated);
+    alert(`Programme Outcome ${poList[index].code} rejected and sent back to Coordinator for revision.`);
+  };
+
   const handleDeletePO = (index) => {
-    const updated = activePOs.filter((_, i) => i !== index);
+    const updated = poList.filter((_, i) => i !== index);
+    setPoList(updated);
     updateProgrammePOs(programmeId, updated);
   };
 
   const handleAddPOCompetency = (poIndex) => {
-    const updated = activePOs.map((p, i) => {
+    const updated = poList.map((p, i) => {
       if (i === poIndex) {
         const comps = p.competencies || [];
         return {
           ...p,
+          status: role === 'PROGRAMME_COORDINATOR' ? 'WAITING_FOR_DIRECTOR_VERIFICATION' : p.status,
           competencies: [
             ...comps,
             { id: `comp-${Date.now()}`, order: comps.length + 1, statement: 'New Competency Statement...' },
@@ -73,66 +170,104 @@ export default function OutcomesManagement() {
       }
       return p;
     });
+    setPoList(updated);
     updateProgrammePOs(programmeId, updated);
   };
 
   const handleUpdatePOCompetencyStatement = (poIndex, compIndex, newStatement) => {
-    const updated = activePOs.map((p, i) => {
+    const updated = poList.map((p, i) => {
       if (i === poIndex) {
         const comps = [...(p.competencies || [])];
         comps[compIndex] = { ...comps[compIndex], statement: newStatement };
-        return { ...p, competencies: comps };
+        return {
+          ...p,
+          status: role === 'PROGRAMME_COORDINATOR' ? 'WAITING_FOR_DIRECTOR_VERIFICATION' : p.status,
+          competencies: comps,
+        };
       }
       return p;
     });
+    setPoList(updated);
     updateProgrammePOs(programmeId, updated);
   };
 
   const handleDeletePOCompetency = (poIndex, compIndex) => {
-    const updated = activePOs.map((p, i) => {
+    const updated = poList.map((p, i) => {
       if (i === poIndex) {
         const comps = (p.competencies || []).filter((_, ci) => ci !== compIndex);
         return { ...p, competencies: comps.map((c, idx) => ({ ...c, order: idx + 1 })) };
       }
       return p;
     });
+    setPoList(updated);
     updateProgrammePOs(programmeId, updated);
   };
 
-  // PSO & Competency Handlers
+  // ── PSO Handlers (Programme Coordinator Proposes -> Director Verifies) ────────
   const handleAddPSO = () => {
-    const newPsoNum = activePSOs.length + 1;
+    const newPsoNum = psoList.length + 1;
     const newPso = {
       code: `PSO${newPsoNum}`,
-      statement: `New Programme Specific Outcome ${newPsoNum} Statement...`,
+      statement: `New proposed Programme Specific Outcome ${newPsoNum} Statement...`,
+      status: role === 'DIRECTOR' || role === 'IQAC' ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION',
+      submittedBy: user?.name || 'Programme Coordinator',
+      submittedAt: new Date().toISOString().split('T')[0],
       competencies: [
         { id: `psocomp-${newPsoNum}-1`, order: 1, statement: `Demonstrate competence statement for PSO${newPsoNum}` },
       ],
     };
-    updateProgrammePSOs(programmeId, [...activePSOs, newPso]);
+    const updated = [...psoList, newPso];
+    setPsoList(updated);
+    updateProgrammePSOs(programmeId, updated);
   };
 
   const handleUpdatePSOCode = (index, newCode) => {
-    const updated = activePSOs.map((p, i) => (i === index ? { ...p, code: newCode } : p));
+    const updated = psoList.map((p, i) =>
+      i === index
+        ? { ...p, code: newCode, status: role === 'PROGRAMME_COORDINATOR' ? 'WAITING_FOR_DIRECTOR_VERIFICATION' : p.status }
+        : p
+    );
+    setPsoList(updated);
     updateProgrammePSOs(programmeId, updated);
   };
 
   const handleUpdatePSOStatement = (index, newStatement) => {
-    const updated = activePSOs.map((p, i) => (i === index ? { ...p, statement: newStatement } : p));
+    const updated = psoList.map((p, i) =>
+      i === index
+        ? { ...p, statement: newStatement, status: role === 'PROGRAMME_COORDINATOR' ? 'WAITING_FOR_DIRECTOR_VERIFICATION' : p.status }
+        : p
+    );
+    setPsoList(updated);
     updateProgrammePSOs(programmeId, updated);
   };
 
+  const handleVerifyPSO = (index) => {
+    const updated = psoList.map((p, i) => (i === index ? { ...p, status: 'VERIFIED' } : p));
+    setPsoList(updated);
+    updateProgrammePSOs(programmeId, updated);
+    alert(`PSO ${psoList[index].code} VERIFIED by Director!`);
+  };
+
+  const handleRejectPSO = (index) => {
+    const updated = psoList.map((p, i) => (i === index ? { ...p, status: 'REJECTED' } : p));
+    setPsoList(updated);
+    updateProgrammePSOs(programmeId, updated);
+    alert(`PSO ${psoList[index].code} rejected and sent back to Coordinator for revision.`);
+  };
+
   const handleDeletePSO = (index) => {
-    const updated = activePSOs.filter((_, i) => i !== index);
+    const updated = psoList.filter((_, i) => i !== index);
+    setPsoList(updated);
     updateProgrammePSOs(programmeId, updated);
   };
 
   const handleAddPSOCompetency = (psoIndex) => {
-    const updated = activePSOs.map((p, i) => {
+    const updated = psoList.map((p, i) => {
       if (i === psoIndex) {
         const comps = p.competencies || [];
         return {
           ...p,
+          status: role === 'PROGRAMME_COORDINATOR' ? 'WAITING_FOR_DIRECTOR_VERIFICATION' : p.status,
           competencies: [
             ...comps,
             { id: `psocomp-${Date.now()}`, order: comps.length + 1, statement: 'New PSO Competency Statement...' },
@@ -141,54 +276,88 @@ export default function OutcomesManagement() {
       }
       return p;
     });
+    setPsoList(updated);
     updateProgrammePSOs(programmeId, updated);
   };
 
   const handleUpdatePSOCompetencyStatement = (psoIndex, compIndex, newStatement) => {
-    const updated = activePSOs.map((p, i) => {
+    const updated = psoList.map((p, i) => {
       if (i === psoIndex) {
         const comps = [...(p.competencies || [])];
         comps[compIndex] = { ...comps[compIndex], statement: newStatement };
-        return { ...p, competencies: comps };
+        return {
+          ...p,
+          status: role === 'PROGRAMME_COORDINATOR' ? 'WAITING_FOR_DIRECTOR_VERIFICATION' : p.status,
+          competencies: comps,
+        };
       }
       return p;
     });
+    setPsoList(updated);
     updateProgrammePSOs(programmeId, updated);
   };
 
   const handleDeletePSOCompetency = (psoIndex, compIndex) => {
-    const updated = activePSOs.map((p, i) => {
+    const updated = psoList.map((p, i) => {
       if (i === psoIndex) {
         const comps = (p.competencies || []).filter((_, ci) => ci !== compIndex);
         return { ...p, competencies: comps.map((c, idx) => ({ ...c, order: idx + 1 })) };
       }
       return p;
     });
+    setPsoList(updated);
     updateProgrammePSOs(programmeId, updated);
   };
 
-  // CO Handlers
+  // ── CO Handlers (Faculty Proposes -> Coordinator Approves) ───────────────────
   const handleAddCO = () => {
-    const newCoNum = activeCOs.length + 1;
+    const newCoNum = coList.length + 1;
     const newCo = {
       code: `C321.${newCoNum}`,
-      statement: `New Course Outcome ${newCoNum} Statement...`,
+      statement: `New proposed Course Outcome ${newCoNum}...`,
+      status: role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' ? 'APPROVED' : 'WAITING_FOR_APPROVAL',
+      submittedBy: user?.name || 'Faculty Member',
+      submittedAt: new Date().toISOString().split('T')[0],
     };
-    updateCourseCOs(courseId, [...activeCOs, newCo]);
+
+    const updated = [...coList, newCo];
+    setCoList(updated);
+    updateCourseCOs(courseId, updated);
   };
 
   const handleUpdateCOCode = (index, newCode) => {
-    const updated = activeCOs.map((c, i) => (i === index ? { ...c, code: newCode } : c));
+    const updated = coList.map((c, i) =>
+      i === index ? { ...c, code: newCode, status: role === 'FACULTY' ? 'WAITING_FOR_APPROVAL' : c.status } : c
+    );
+    setCoList(updated);
     updateCourseCOs(courseId, updated);
   };
 
   const handleUpdateCOStatement = (index, newStatement) => {
-    const updated = activeCOs.map((c, i) => (i === index ? { ...c, statement: newStatement } : c));
+    const updated = coList.map((c, i) =>
+      i === index ? { ...c, statement: newStatement, status: role === 'FACULTY' ? 'WAITING_FOR_APPROVAL' : c.status } : c
+    );
+    setCoList(updated);
     updateCourseCOs(courseId, updated);
   };
 
+  const handleApproveCO = (index) => {
+    const updated = coList.map((c, i) => (i === index ? { ...c, status: 'APPROVED' } : c));
+    setCoList(updated);
+    updateCourseCOs(courseId, updated);
+    alert(`Course Outcome ${coList[index].code} APPROVED by Programme Coordinator!`);
+  };
+
+  const handleRejectCO = (index) => {
+    const updated = coList.map((c, i) => (i === index ? { ...c, status: 'REJECTED' } : c));
+    setCoList(updated);
+    updateCourseCOs(courseId, updated);
+    alert(`Course Outcome ${coList[index].code} rejected and sent back to faculty for revision.`);
+  };
+
   const handleDeleteCO = (index) => {
-    const updated = activeCOs.filter((_, i) => i !== index);
+    const updated = coList.filter((_, i) => i !== index);
+    setCoList(updated);
     updateCourseCOs(courseId, updated);
   };
 
@@ -196,52 +365,37 @@ export default function OutcomesManagement() {
     alert(`Changes to ${outcomeType} saved successfully!`);
   };
 
+  const pendingCoCount = coList.filter((c) => c.status === 'WAITING_FOR_APPROVAL').length;
+  const pendingPoCount = poList.filter((p) => p.status === 'WAITING_FOR_DIRECTOR_VERIFICATION').length;
+  const pendingPsoCount = psoList.filter((p) => p.status === 'WAITING_FOR_DIRECTOR_VERIFICATION').length;
+  const totalDirectorPending = pendingPoCount + pendingPsoCount;
+
   return (
     <div className="animated-page">
-      {/* Top Banner */}
-      <div
-        className="card"
-        style={{
-          background: 'linear-gradient(135deg, #1e293b 0%, #1e3a8a 100%)',
-          color: '#fff',
-          marginBottom: '20px',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div
-              style={{
-                width: '46px',
-                height: '46px',
-                borderRadius: '12px',
-                background: 'rgba(255,255,255,0.1)',
-                display: 'grid',
-                placeItems: 'center',
-              }}
-            >
-              <Target size={24} style={{ color: '#60a5fa' }} />
+      {/* Standard Header Banner */}
+      <div className="banner-dark-gradient">
+        <div className="banner-content-row">
+          <div>
+            <div className="badge badge-active" style={{ marginBottom: '6px' }}>
+              Outcome Management ({role})
             </div>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '18px', color: '#fff' }}>
-                Outcome Management (Module 3) — {role} Access
-              </h2>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#bfdbfe' }}>
-                Programme: <strong>{selectedProgramme?.code}</strong> • Course: <strong>{selectedCourse?.code} - {selectedCourse?.name}</strong> ({activeCOs.length} COs)
-              </p>
-            </div>
+            <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
+              Outcome Management (POs, PSOs & CO Approvals)
+            </h2>
+            <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#475569' }}>
+              Programme: <strong style={{ color: '#0f172a' }}>{selectedProgramme?.code}</strong> • Course: <strong style={{ color: '#0f172a' }}>{selectedCourse?.code} - {selectedCourse?.name}</strong> • Teachers: <strong style={{ color: '#4f46e5' }}>{courseTeachers}</strong>
+            </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', background: 'rgba(255,255,255,0.1)', padding: '4px', borderRadius: '10px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
             <button
-              className={`btn ${entryMode === 'table' ? 'btn-primary' : 'btn-ghost'}`}
-              style={{ color: entryMode === 'table' ? '#fff' : '#bfdbfe' }}
+              className={`btn ${entryMode === 'table' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setEntryMode('table')}
             >
               📝 Table Entry
             </button>
             <button
-              className="btn btn-ghost"
-              style={{ color: '#bfdbfe' }}
+              className="btn btn-secondary"
               onClick={() => alert('Excel Import Modal')}
             >
               <FileSpreadsheet size={15} /> Import Excel
@@ -250,50 +404,118 @@ export default function OutcomesManagement() {
         </div>
       </div>
 
-      {/* Category Tabs with Role-Based Visibility */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-        {/* PO & PSO Tabs are visible ONLY to SUPER_ADMIN */}
-        {role === 'SUPER_ADMIN' && (
+      {/* Director Pending Verification Alert Banner */}
+      {(role === 'DIRECTOR' || role === 'IQAC') && totalDirectorPending > 0 && (
+        <div
+          className="card"
+          style={{
+            background: '#fefce8',
+            border: '1.5px solid #fef08a',
+            borderLeft: '5px solid #eab308',
+            padding: '16px 20px',
+            marginBottom: '20px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <ShieldCheck size={24} style={{ color: '#ca8a04' }} />
+              <div>
+                <strong style={{ fontSize: '14px', color: '#854d0e' }}>
+                  {totalDirectorPending} PO & PSO Proposals Waiting for Director Verification
+                </strong>
+                <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#a16207' }}>
+                  Programme Coordinators have added/updated {pendingPoCount} POs and {pendingPsoCount} PSOs for {selectedProgramme?.code}. Review and verify them below.
+                </p>
+              </div>
+            </div>
+            <button
+              className="btn btn-primary"
+              style={{ fontSize: '12px', padding: '6px 14px' }}
+              onClick={() => setActiveOutcomeTab(pendingPoCount > 0 ? 'pos' : 'psos')}
+            >
+              <UserCheck size={14} /> Review Pending POs/PSOs ({totalDirectorPending})
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Programme Coordinator Pending CO Approval Alert Banner */}
+      {role === 'PROGRAMME_COORDINATOR' && pendingCoCount > 0 && (
+        <div
+          className="card"
+          style={{
+            background: '#fefce8',
+            border: '1.5px solid #fef08a',
+            borderLeft: '5px solid #ca8a04',
+            padding: '16px 20px',
+            marginBottom: '20px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Clock size={22} style={{ color: '#ca8a04' }} />
+              <div>
+                <strong style={{ fontSize: '14px', color: '#854d0e' }}>
+                  {pendingCoCount} Course Outcome Proposals Waiting for Your Approval
+                </strong>
+                <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#a16207' }}>
+                  Faculty members have submitted CO proposals for {selectedCourse?.code}. Review and click Approve to finalize.
+                </p>
+              </div>
+            </div>
+            <button
+              className="btn btn-primary"
+              style={{ fontSize: '12px', padding: '6px 14px' }}
+              onClick={() => setActiveOutcomeTab('cos')}
+            >
+              <UserCheck size={14} /> Review Pending COs ({pendingCoCount})
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Category Tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        {role !== 'FACULTY' && (
           <>
             <button
               className={`btn ${activeOutcomeTab === 'pos' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setActiveOutcomeTab('pos')}
             >
-              Programme Outcomes (PO & Competencies)
+              Programme Outcomes (PO & Competencies) {pendingPoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingPoCount} Pending Verification</span>}
             </button>
             <button
               className={`btn ${activeOutcomeTab === 'psos' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setActiveOutcomeTab('psos')}
             >
-              Programme Specific Outcomes (PSO & Competencies)
+              Programme Specific Outcomes (PSO & Competencies) {pendingPsoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingPsoCount} Pending Verification</span>}
             </button>
           </>
         )}
 
-        {/* CO Tab is accessible to ALL roles (SUPER_ADMIN, HOD, FACULTY) */}
         <button
           className={`btn ${activeOutcomeTab === 'cos' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveOutcomeTab('cos')}
         >
-          Course Outcomes (CO)
+          Course Outcomes (CO Approvals) {pendingCoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingCoCount} Pending</span>}
         </button>
       </div>
 
-      {/* TAB 1: Programme Outcomes (SUPER_ADMIN ONLY) */}
-      {activeOutcomeTab === 'pos' && role === 'SUPER_ADMIN' && (
+      {/* TAB 1: Programme Outcomes (Programme Coordinator Adds -> Director Verifies) */}
+      {activeOutcomeTab === 'pos' && role !== 'FACULTY' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
             <div>
               <h3 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>
                 POs & Competencies for {selectedProgramme?.name} ({selectedProgramme?.code})
               </h3>
               <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
-                Competencies have statements only (no codes).
+                Programme Coordinators can add/edit POs. Submissions require Director verification.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button className="btn btn-success" onClick={handleAddPO}>
-                <Plus size={15} /> Add New PO
+                <Plus size={15} /> + Propose New PO
               </button>
               <button className="btn btn-primary" onClick={() => handleSaveChanges('PO & Competencies')}>
                 <Save size={14} /> Save Changes
@@ -301,46 +523,85 @@ export default function OutcomesManagement() {
             </div>
           </div>
 
-          {activePOs.map((po, index) => {
-            const comps = po.competencies || [
-              { id: `comp-${index}-1`, order: 1, statement: 'Demonstrate competence in knowledge of basic & applied mathematics' },
-              { id: `comp-${index}-2`, order: 2, statement: 'Demonstrate competence in engineering fundamentals' },
-            ];
+          {poList.map((po, index) => {
+            const isVerified = po.status === 'VERIFIED';
+            const isPendingVerification = po.status === 'WAITING_FOR_DIRECTOR_VERIFICATION';
+            const comps = po.competencies || [];
 
             return (
-              <div key={index} className="card" style={{ padding: '18px', borderLeft: '4px solid #2563eb', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-                  <input
-                    type="text"
-                    className="form-control"
-                    style={{ width: '90px', fontWeight: '800', textAlign: 'center', color: '#2563eb' }}
-                    value={po.code}
-                    onChange={(e) => handleUpdatePOCode(index, e.target.value)}
-                  />
-                  <input
-                    type="text"
-                    className="form-control"
-                    style={{ flex: 1, fontWeight: '600' }}
-                    value={po.statement}
-                    onChange={(e) => handleUpdatePOStatement(index, e.target.value)}
-                  />
-                  <button
-                    className="btn btn-secondary"
-                    style={{ fontSize: '11px', padding: '6px 10px' }}
-                    onClick={() => handleAddPOCompetency(index)}
-                  >
-                    <Plus size={13} /> Add Competency
-                  </button>
-                  <button
-                    className="btn btn-danger"
-                    style={{ padding: '6px 8px' }}
-                    onClick={() => handleDeletePO(index)}
-                  >
-                    <Trash2 size={14} />
-                  </button>
+              <div key={index} className="card" style={{ padding: '18px', borderLeft: isVerified ? '4px solid #10b981' : '4px solid #f59e0b', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '280px' }}>
+                    <input
+                      type="text"
+                      className="form-control"
+                      style={{ width: '90px', fontWeight: '800', textAlign: 'center', color: isVerified ? '#10b981' : '#d97706' }}
+                      value={po.code}
+                      onChange={(e) => handleUpdatePOCode(index, e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      className="form-control"
+                      style={{ flex: 1, minWidth: '200px', fontWeight: '600' }}
+                      value={po.statement}
+                      onChange={(e) => handleUpdatePOStatement(index, e.target.value)}
+                    />
+                  </div>
+
+                  {/* Director Verification Status & Action Controls */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {isVerified ? (
+                      <span className="badge badge-success" style={{ gap: '4px' }}>
+                        <CheckCircle2 size={13} /> Verified by Director
+                      </span>
+                    ) : isPendingVerification ? (
+                      <span className="badge badge-pending" style={{ gap: '4px', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
+                        <Clock size={13} /> Waiting for Director Verification
+                      </span>
+                    ) : (
+                      <span className="badge" style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', gap: '4px' }}>
+                        <XCircle size={13} /> Needs Director Revision
+                      </span>
+                    )}
+
+                    {(role === 'DIRECTOR' || role === 'IQAC') && !isVerified && (
+                      <button
+                        className="btn btn-success"
+                        style={{ padding: '5px 10px', fontSize: '11.5px' }}
+                        onClick={() => handleVerifyPO(index)}
+                      >
+                        <ShieldCheck size={14} /> Verify PO
+                      </button>
+                    )}
+
+                    {(role === 'DIRECTOR' || role === 'IQAC') && isPendingVerification && (
+                      <button
+                        className="btn btn-danger"
+                        style={{ padding: '5px 10px', fontSize: '11.5px' }}
+                        onClick={() => handleRejectPO(index)}
+                      >
+                        <XCircle size={14} /> Reject
+                      </button>
+                    )}
+
+                    <button
+                      className="btn btn-secondary"
+                      style={{ fontSize: '11px', padding: '6px 10px' }}
+                      onClick={() => handleAddPOCompetency(index)}
+                    >
+                      <Plus size={13} /> Add Competency
+                    </button>
+                    <button
+                      className="btn btn-danger"
+                      style={{ padding: '6px 8px' }}
+                      onClick={() => handleDeletePO(index)}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
 
-                <div style={{ marginLeft: '20px', borderLeft: '2px solid #e2e8f0', paddingLeft: '16px' }}>
+                <div style={{ marginLeft: '12px', borderLeft: '2px solid #e2e8f0', paddingLeft: '14px', overflowX: 'auto', width: '100%' }}>
                   <h4 style={{ margin: '0 0 8px', fontSize: '11.5px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Competencies ({comps.length})
                   </h4>
@@ -388,21 +649,21 @@ export default function OutcomesManagement() {
         </div>
       )}
 
-      {/* TAB 2: Programme Specific Outcomes (SUPER_ADMIN ONLY) */}
-      {activeOutcomeTab === 'psos' && role === 'SUPER_ADMIN' && (
+      {/* TAB 2: Programme Specific Outcomes (Programme Coordinator Adds -> Director Verifies) */}
+      {activeOutcomeTab === 'psos' && role !== 'FACULTY' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
             <div>
               <h3 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>
                 PSOs & Competencies for {selectedProgramme?.name} ({selectedProgramme?.code})
               </h3>
               <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
-                Competencies have statements only (no codes).
+                Programme Coordinators can add/edit PSOs. Submissions require Director verification.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button className="btn btn-success" onClick={handleAddPSO}>
-                <Plus size={15} /> Add New PSO
+                <Plus size={15} /> + Propose New PSO
               </button>
               <button className="btn btn-primary" onClick={() => handleSaveChanges('PSO & Competencies')}>
                 <Save size={14} /> Save Changes
@@ -410,45 +671,85 @@ export default function OutcomesManagement() {
             </div>
           </div>
 
-          {activePSOs.map((pso, index) => {
-            const comps = pso.competencies || [
-              { id: `psocomp-${index}-1`, order: 1, statement: 'Demonstrate the ability to analyze software and hardware systems' },
-            ];
+          {psoList.map((pso, index) => {
+            const isVerified = pso.status === 'VERIFIED';
+            const isPendingVerification = pso.status === 'WAITING_FOR_DIRECTOR_VERIFICATION';
+            const comps = pso.competencies || [];
 
             return (
-              <div key={index} className="card" style={{ padding: '18px', borderLeft: '4px solid #0284c7', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-                  <input
-                    type="text"
-                    className="form-control"
-                    style={{ width: '90px', fontWeight: '800', textAlign: 'center', color: '#0284c7' }}
-                    value={pso.code}
-                    onChange={(e) => handleUpdatePSOCode(index, e.target.value)}
-                  />
-                  <input
-                    type="text"
-                    className="form-control"
-                    style={{ flex: 1, fontWeight: '600' }}
-                    value={pso.statement}
-                    onChange={(e) => handleUpdatePSOStatement(index, e.target.value)}
-                  />
-                  <button
-                    className="btn btn-secondary"
-                    style={{ fontSize: '11px', padding: '6px 10px' }}
-                    onClick={() => handleAddPSOCompetency(index)}
-                  >
-                    <Plus size={13} /> Add Competency
-                  </button>
-                  <button
-                    className="btn btn-danger"
-                    style={{ padding: '6px 8px' }}
-                    onClick={() => handleDeletePSO(index)}
-                  >
-                    <Trash2 size={14} />
-                  </button>
+              <div key={index} className="card" style={{ padding: '18px', borderLeft: isVerified ? '4px solid #0284c7' : '4px solid #f59e0b', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '280px' }}>
+                    <input
+                      type="text"
+                      className="form-control"
+                      style={{ width: '90px', fontWeight: '800', textAlign: 'center', color: isVerified ? '#0284c7' : '#d97706' }}
+                      value={pso.code}
+                      onChange={(e) => handleUpdatePSOCode(index, e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      className="form-control"
+                      style={{ flex: 1, minWidth: '200px', fontWeight: '600' }}
+                      value={pso.statement}
+                      onChange={(e) => handleUpdatePSOStatement(index, e.target.value)}
+                    />
+                  </div>
+
+                  {/* Director Verification Status & Action Controls */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {isVerified ? (
+                      <span className="badge badge-success" style={{ gap: '4px' }}>
+                        <CheckCircle2 size={13} /> Verified by Director
+                      </span>
+                    ) : isPendingVerification ? (
+                      <span className="badge badge-pending" style={{ gap: '4px', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
+                        <Clock size={13} /> Waiting for Director Verification
+                      </span>
+                    ) : (
+                      <span className="badge" style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', gap: '4px' }}>
+                        <XCircle size={13} /> Needs Director Revision
+                      </span>
+                    )}
+
+                    {(role === 'DIRECTOR' || role === 'IQAC') && !isVerified && (
+                      <button
+                        className="btn btn-success"
+                        style={{ padding: '5px 10px', fontSize: '11.5px' }}
+                        onClick={() => handleVerifyPSO(index)}
+                      >
+                        <ShieldCheck size={14} /> Verify PSO
+                      </button>
+                    )}
+
+                    {(role === 'DIRECTOR' || role === 'IQAC') && isPendingVerification && (
+                      <button
+                        className="btn btn-danger"
+                        style={{ padding: '5px 10px', fontSize: '11.5px' }}
+                        onClick={() => handleRejectPSO(index)}
+                      >
+                        <XCircle size={14} /> Reject
+                      </button>
+                    )}
+
+                    <button
+                      className="btn btn-secondary"
+                      style={{ fontSize: '11px', padding: '6px 10px' }}
+                      onClick={() => handleAddPSOCompetency(index)}
+                    >
+                      <Plus size={13} /> Add Competency
+                    </button>
+                    <button
+                      className="btn btn-danger"
+                      style={{ padding: '6px 8px' }}
+                      onClick={() => handleDeletePSO(index)}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
 
-                <div style={{ marginLeft: '20px', borderLeft: '2px solid #e2e8f0', paddingLeft: '16px' }}>
+                <div style={{ marginLeft: '12px', borderLeft: '2px solid #e2e8f0', paddingLeft: '14px', overflowX: 'auto', width: '100%' }}>
                   <h4 style={{ margin: '0 0 8px', fontSize: '11.5px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     PSO Competencies ({comps.length})
                   </h4>
@@ -496,19 +797,21 @@ export default function OutcomesManagement() {
         </div>
       )}
 
-      {/* TAB 3: Course Outcomes (Accessible to SUPER_ADMIN, HOD, and FACULTY) */}
+      {/* TAB 3: Course Outcomes (Faculty Submission & Programme Coordinator Approval) */}
       {activeOutcomeTab === 'cos' && (
         <div className="card">
           <div className="card-header">
             <div>
-              <h3>Course Outcomes (COs) for {selectedCourse?.code} - {selectedCourse?.name}</h3>
+              <h3 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>
+                Course Outcomes (COs) for {selectedCourse?.code} - {selectedCourse?.name}
+              </h3>
               <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
-                Course Code is filled by teacher (named as <strong>code</strong>, e.g. `C321.1` or `CO1`).
+                Assigned Teachers: <strong style={{ color: '#4f46e5' }}>{courseTeachers}</strong> • Submissions require Programme Coordinator approval.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button className="btn btn-success" onClick={handleAddCO}>
-                <Plus size={14} /> Add New CO
+                <Plus size={14} /> + Submit New CO Proposal
               </button>
               <button className="btn btn-primary" onClick={() => handleSaveChanges('Course Outcomes')}>
                 <Save size={14} /> Save Changes
@@ -516,55 +819,117 @@ export default function OutcomesManagement() {
             </div>
           </div>
 
-          <table className="audit-data-table">
-            <thead>
-              <tr>
-                <th style={{ width: '60px', textAlign: 'center' }}>#</th>
-                <th style={{ width: '140px' }}>CO Code</th>
-                <th>Course Outcome Statement</th>
-                <th style={{ width: '70px', textAlign: 'center' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeCOs.length === 0 ? (
+          <div style={{ overflowX: 'auto', width: '100%' }}>
+            <table className="audit-data-table">
+              <thead>
                 <tr>
-                  <td colSpan={4} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
-                    No Course Outcomes defined for this course yet. Click "+ Add New CO".
-                  </td>
+                  <th style={{ width: '50px', textAlign: 'center' }}>#</th>
+                  <th style={{ width: '130px' }}>CO Code</th>
+                  <th>Course Outcome Statement</th>
+                  <th style={{ width: '150px' }}>Proposed By</th>
+                  <th style={{ width: '180px', textAlign: 'center' }}>Approval Status</th>
+                  <th style={{ width: '180px', textAlign: 'center' }}>Programme Coordinator Actions</th>
                 </tr>
-              ) : (
-                activeCOs.map((co, index) => (
-                  <tr key={index}>
-                    <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>{index + 1}</td>
-                    <td>
-                      <input
-                        type="text"
-                        className="form-control"
-                        style={{ fontWeight: '800', color: '#10b981' }}
-                        value={co.code}
-                        onChange={(e) => handleUpdateCOCode(index, e.target.value)}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={co.statement}
-                        onChange={(e) => handleUpdateCOStatement(index, e.target.value)}
-                      />
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <button className="btn btn-danger" style={{ padding: '4px 6px' }} onClick={() => handleDeleteCO(index)}>
-                        <Trash2 size={13} />
-                      </button>
+              </thead>
+              <tbody>
+                {coList.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                      No Course Outcomes defined for this course yet. Click "+ Submit New CO Proposal".
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  coList.map((co, index) => {
+                    const isApproved = co.status === 'APPROVED';
+                    const isPending = co.status === 'WAITING_FOR_APPROVAL';
+
+                    return (
+                      <tr key={index}>
+                        <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>{index + 1}</td>
+                        <td>
+                          <input
+                            type="text"
+                            className="form-control"
+                            style={{ fontWeight: '800', color: isApproved ? '#10b981' : '#d97706' }}
+                            value={co.code}
+                            onChange={(e) => handleUpdateCOCode(index, e.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={co.statement}
+                            onChange={(e) => handleUpdateCOStatement(index, e.target.value)}
+                          />
+                        </td>
+                        <td style={{ fontSize: '11.5px', color: '#475569' }}>
+                          <strong>{co.submittedBy}</strong>
+                          <div style={{ fontSize: '10px', color: '#94a3b8' }}>{co.submittedAt}</div>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          {isApproved ? (
+                            <span className="badge badge-success" style={{ gap: '4px' }}>
+                              <CheckCircle2 size={12} /> Approved
+                            </span>
+                          ) : isPending ? (
+                            <span className="badge badge-pending" style={{ gap: '4px', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
+                              <Clock size={12} /> Waiting for Approval
+                            </span>
+                          ) : (
+                            <span className="badge" style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', gap: '4px' }}>
+                              <XCircle size={12} /> Needs Revision
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          {(role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC') ? (
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                              {!isApproved && (
+                                <button
+                                  className="btn btn-success"
+                                  style={{ padding: '4px 8px', fontSize: '11px' }}
+                                  onClick={() => handleApproveCO(index)}
+                                >
+                                  <CheckCircle2 size={13} /> Approve
+                                </button>
+                              )}
+                              {isPending && (
+                                <button
+                                  className="btn btn-danger"
+                                  style={{ padding: '4px 8px', fontSize: '11px' }}
+                                  onClick={() => handleRejectCO(index)}
+                                >
+                                  <XCircle size={13} /> Reject
+                                </button>
+                              )}
+                              <button className="btn btn-danger" style={{ padding: '4px 6px' }} onClick={() => handleDeleteCO(index)}>
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                              {isApproved ? 'Approved by Coordinator' : 'Pending Coordinator Review'}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
+
+      {/* Save, Previous & Save & Next Footer */}
+      <SectionSaveFooter
+        label="Outcome Management"
+        prevPath="/academic"
+        nextPath="/co-mapping"
+        onSave={() => handleSaveChanges('Outcome Management')}
+      />
     </div>
   );
 }

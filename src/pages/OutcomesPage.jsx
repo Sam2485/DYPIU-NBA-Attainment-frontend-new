@@ -4,9 +4,9 @@ import OutcomesManagement from '../features/outcomes/OutcomesManagement';
 
 export default function OutcomesPage() {
   return (
-    <div style={{ display: 'flex' }}>
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
-      <main style={{ flex: 1 }}>
+      <main className="nba-layout-main">
         <AppHeader title="Outcome Management" subtitle="POs, PSOs, COs & Competencies" />
         <div className="page-container">
           <OutcomesManagement />
