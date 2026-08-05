@@ -92,7 +92,7 @@ export default function EndSemMarksHub() {
       {/* Upload History Audit Log */}
       <div className="card">
         <div className="card-header">
-          <h3>Recent End Sem Marks Upload Logs (Entity: Upload Batch)</h3>
+          <h3>Recent End Sem Marks Upload Logs</h3>
           <span className="badge badge-active">{uploads.length} File Uploaded</span>
         </div>
 
@@ -138,7 +138,7 @@ export default function EndSemMarksHub() {
       {/* Student CO-wise Marks Inspection Grid */}
       <div className="card">
         <div className="card-header">
-          <h3>Uploaded Student CO Marks Inspection (Entity: Student CO Marks)</h3>
+          <h3>Uploaded Student CO Marks Inspection</h3>
           <span className="badge badge-active">CS301 - 60 Students</span>
         </div>
 

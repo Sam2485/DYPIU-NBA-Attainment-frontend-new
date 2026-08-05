@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Sliders, Save, CheckCircle2, Clock, XCircle, ShieldCheck, UserCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAcademic } from '../../context/AcademicContext';
+import RowButtons from '../../components/common/RowButtons';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function AttainmentConfig() {
@@ -132,6 +133,25 @@ export default function AttainmentConfig() {
       ...prev,
       [activeCourseId]: updated,
     }));
+    updateCourseAttainmentConfig(activeCourseId, updated);
+  };
+
+  const handleAddLevel = () => {
+    const levels = currentConfig.levels || [];
+    const nextLvl = levels.length + 1;
+    const lastMax = levels.length > 0 ? levels[levels.length - 1].maxPercentage : 70;
+    const updatedLevels = [...levels, { level: nextLvl, minPercentage: lastMax, maxPercentage: 100 }];
+    const updated = { ...currentConfig, levels: updatedLevels };
+    setCourseConfigs((prev) => ({ ...prev, [activeCourseId]: updated }));
+    updateCourseAttainmentConfig(activeCourseId, updated);
+  };
+
+  const handleDeleteLevel = () => {
+    const levels = currentConfig.levels || [];
+    if (levels.length <= 1) return;
+    const updatedLevels = levels.slice(0, -1);
+    const updated = { ...currentConfig, levels: updatedLevels };
+    setCourseConfigs((prev) => ({ ...prev, [activeCourseId]: updated }));
     updateCourseAttainmentConfig(activeCourseId, updated);
   };
 
@@ -425,6 +445,13 @@ export default function AttainmentConfig() {
                 ))}
               </tbody>
             </table>
+            <RowButtons
+              onAdd={handleAddLevel}
+              onDel={handleDeleteLevel}
+              canDel={(currentConfig.levels || []).length > 1}
+              addLabel="+ Add Level Row"
+              deleteLabel="- Delete Last Level Row"
+            />
           </div>
         </div>
       </div>

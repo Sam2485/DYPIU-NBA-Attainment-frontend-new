@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import RowButtons from '../../components/common/RowButtons';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function OutcomesManagement() {
@@ -22,7 +23,7 @@ export default function OutcomesManagement() {
   const [entryMode, setEntryMode] = useState('table');
 
   const isLimitedUser = role === 'FACULTY';
-  const initialTab = isLimitedUser ? 'cos' : 'pos';
+  const initialTab = isLimitedUser ? 'cos' : 'peos';
   const [activeOutcomeTab, setActiveOutcomeTab] = useState(initialTab);
 
   useEffect(() => {
@@ -33,6 +34,29 @@ export default function OutcomesManagement() {
 
   // Multiple Teachers for Course
   const courseTeachers = selectedCourse?.faculty || 'Dr. Raj Shaikh / Prof. XYZ';
+
+  // ── PEOs (Programme Educational Objectives - No Verification Required) ──────
+  const [peoList, setPeoList] = useState([
+    { code: 'PEO1', statement: 'To prepare graduates with strong fundamental knowledge in engineering and mathematical principles to solve real-world problems.' },
+    { code: 'PEO2', statement: 'To foster professional competence, leadership, team working skills, and ethical responsibilities in career.' },
+    { code: 'PEO3', statement: 'To encourage lifelong learning, research, higher education, and adaptation to technological advancements.' },
+    { code: 'PEO4', statement: 'To develop entrepreneurial capabilities and innovative mindset for societal contribution.' },
+  ]);
+
+  const handleAddPEO = () => {
+    const newNum = peoList.length + 1;
+    setPeoList([...peoList, { code: `PEO${newNum}`, statement: `New Programme Educational Objective ${newNum} Statement...` }]);
+  };
+
+  const handleUpdatePEOStatement = (index, newStatement) => {
+    const updated = peoList.map((p, i) => (i === index ? { ...p, statement: newStatement } : p));
+    setPeoList(updated);
+  };
+
+  const handleDeletePEO = (index) => {
+    const updated = peoList.filter((_, i) => i !== index);
+    setPeoList(updated);
+  };
 
   // ── POs with Director Verification Status ────────────────────────────────────
   const [poList, setPoList] = useState(() => {
@@ -107,7 +131,7 @@ export default function OutcomesManagement() {
       submittedBy: user?.name || 'Programme Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
       competencies: [
-        { id: `comp-po${newPoNum}-1`, order: 1, statement: `Demonstrate competence statement for PO${newPoNum}` },
+        { id: `comp-${newPoNum}-1`, order: 1, statement: `Demonstrate competence statement 1 for PO${newPoNum}` },
       ],
     };
     const updated = [...poList, newPo];
@@ -139,14 +163,14 @@ export default function OutcomesManagement() {
     const updated = poList.map((p, i) => (i === index ? { ...p, status: 'VERIFIED' } : p));
     setPoList(updated);
     updateProgrammePOs(programmeId, updated);
-    alert(`Programme Outcome ${poList[index].code} VERIFIED by Director!`);
+    alert(`PO ${poList[index].code} VERIFIED by Director!`);
   };
 
   const handleRejectPO = (index) => {
     const updated = poList.map((p, i) => (i === index ? { ...p, status: 'REJECTED' } : p));
     setPoList(updated);
     updateProgrammePOs(programmeId, updated);
-    alert(`Programme Outcome ${poList[index].code} rejected and sent back to Coordinator for revision.`);
+    alert(`PO ${poList[index].code} rejected and sent back to Coordinator for revision.`);
   };
 
   const handleDeletePO = (index) => {
@@ -159,13 +183,16 @@ export default function OutcomesManagement() {
     const updated = poList.map((p, i) => {
       if (i === poIndex) {
         const comps = p.competencies || [];
+        const nextOrder = comps.length + 1;
+        const newComp = {
+          id: `comp-${p.code}-${nextOrder}`,
+          order: nextOrder,
+          statement: `Demonstrate competency statement ${nextOrder} for ${p.code}`,
+        };
         return {
           ...p,
+          competencies: [...comps, newComp],
           status: role === 'PROGRAMME_COORDINATOR' ? 'WAITING_FOR_DIRECTOR_VERIFICATION' : p.status,
-          competencies: [
-            ...comps,
-            { id: `comp-${Date.now()}`, order: comps.length + 1, statement: 'New Competency Statement...' },
-          ],
         };
       }
       return p;
@@ -174,15 +201,15 @@ export default function OutcomesManagement() {
     updateProgrammePOs(programmeId, updated);
   };
 
-  const handleUpdatePOCompetencyStatement = (poIndex, compIndex, newStatement) => {
+  const handleUpdatePOCompetencyStatement = (poIndex, compIndex, statement) => {
     const updated = poList.map((p, i) => {
       if (i === poIndex) {
         const comps = [...(p.competencies || [])];
-        comps[compIndex] = { ...comps[compIndex], statement: newStatement };
+        comps[compIndex] = { ...comps[compIndex], statement };
         return {
           ...p,
-          status: role === 'PROGRAMME_COORDINATOR' ? 'WAITING_FOR_DIRECTOR_VERIFICATION' : p.status,
           competencies: comps,
+          status: role === 'PROGRAMME_COORDINATOR' ? 'WAITING_FOR_DIRECTOR_VERIFICATION' : p.status,
         };
       }
       return p;
@@ -265,13 +292,16 @@ export default function OutcomesManagement() {
     const updated = psoList.map((p, i) => {
       if (i === psoIndex) {
         const comps = p.competencies || [];
+        const nextOrder = comps.length + 1;
+        const newComp = {
+          id: `psocomp-${p.code}-${nextOrder}`,
+          order: nextOrder,
+          statement: `Demonstrate PSO competency statement ${nextOrder} for ${p.code}`,
+        };
         return {
           ...p,
+          competencies: [...comps, newComp],
           status: role === 'PROGRAMME_COORDINATOR' ? 'WAITING_FOR_DIRECTOR_VERIFICATION' : p.status,
-          competencies: [
-            ...comps,
-            { id: `psocomp-${Date.now()}`, order: comps.length + 1, statement: 'New PSO Competency Statement...' },
-          ],
         };
       }
       return p;
@@ -280,15 +310,15 @@ export default function OutcomesManagement() {
     updateProgrammePSOs(programmeId, updated);
   };
 
-  const handleUpdatePSOCompetencyStatement = (psoIndex, compIndex, newStatement) => {
+  const handleUpdatePSOCompetencyStatement = (psoIndex, compIndex, statement) => {
     const updated = psoList.map((p, i) => {
       if (i === psoIndex) {
         const comps = [...(p.competencies || [])];
-        comps[compIndex] = { ...comps[compIndex], statement: newStatement };
+        comps[compIndex] = { ...comps[compIndex], statement };
         return {
           ...p,
-          status: role === 'PROGRAMME_COORDINATOR' ? 'WAITING_FOR_DIRECTOR_VERIFICATION' : p.status,
           competencies: comps,
+          status: role === 'PROGRAMME_COORDINATOR' ? 'WAITING_FOR_DIRECTOR_VERIFICATION' : p.status,
         };
       }
       return p;
@@ -309,34 +339,29 @@ export default function OutcomesManagement() {
     updateProgrammePSOs(programmeId, updated);
   };
 
-  // ── CO Handlers (Faculty Proposes -> Coordinator Approves) ───────────────────
+  // ── CO Handlers (Faculty Proposes -> Programme Coordinator Approves) ──────────
   const handleAddCO = () => {
     const newCoNum = coList.length + 1;
     const newCo = {
       code: `C321.${newCoNum}`,
-      statement: `New proposed Course Outcome ${newCoNum}...`,
+      statement: `New proposed Course Outcome statement ${newCoNum}...`,
       status: role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' ? 'APPROVED' : 'WAITING_FOR_APPROVAL',
       submittedBy: user?.name || 'Faculty Member',
       submittedAt: new Date().toISOString().split('T')[0],
     };
-
     const updated = [...coList, newCo];
     setCoList(updated);
     updateCourseCOs(courseId, updated);
   };
 
   const handleUpdateCOCode = (index, newCode) => {
-    const updated = coList.map((c, i) =>
-      i === index ? { ...c, code: newCode, status: role === 'FACULTY' ? 'WAITING_FOR_APPROVAL' : c.status } : c
-    );
+    const updated = coList.map((c, i) => (i === index ? { ...c, code: newCode, status: isLimitedUser ? 'WAITING_FOR_APPROVAL' : c.status } : c));
     setCoList(updated);
     updateCourseCOs(courseId, updated);
   };
 
   const handleUpdateCOStatement = (index, newStatement) => {
-    const updated = coList.map((c, i) =>
-      i === index ? { ...c, statement: newStatement, status: role === 'FACULTY' ? 'WAITING_FOR_APPROVAL' : c.status } : c
-    );
+    const updated = coList.map((c, i) => (i === index ? { ...c, statement: newStatement, status: isLimitedUser ? 'WAITING_FOR_APPROVAL' : c.status } : c));
     setCoList(updated);
     updateCourseCOs(courseId, updated);
   };
@@ -345,14 +370,14 @@ export default function OutcomesManagement() {
     const updated = coList.map((c, i) => (i === index ? { ...c, status: 'APPROVED' } : c));
     setCoList(updated);
     updateCourseCOs(courseId, updated);
-    alert(`Course Outcome ${coList[index].code} APPROVED by Programme Coordinator!`);
+    alert(`CO ${coList[index].code} APPROVED by Programme Coordinator!`);
   };
 
   const handleRejectCO = (index) => {
     const updated = coList.map((c, i) => (i === index ? { ...c, status: 'REJECTED' } : c));
     setCoList(updated);
     updateCourseCOs(courseId, updated);
-    alert(`Course Outcome ${coList[index].code} rejected and sent back to faculty for revision.`);
+    alert(`CO ${coList[index].code} rejected and sent back to Faculty for revision.`);
   };
 
   const handleDeleteCO = (index) => {
@@ -361,14 +386,14 @@ export default function OutcomesManagement() {
     updateCourseCOs(courseId, updated);
   };
 
-  const handleSaveChanges = (outcomeType) => {
-    alert(`Changes to ${outcomeType} saved successfully!`);
+  const handleSaveChanges = (entityName) => {
+    alert(`Changes to ${entityName} saved successfully!`);
   };
 
-  const pendingCoCount = coList.filter((c) => c.status === 'WAITING_FOR_APPROVAL').length;
+  // Pending Counts
   const pendingPoCount = poList.filter((p) => p.status === 'WAITING_FOR_DIRECTOR_VERIFICATION').length;
   const pendingPsoCount = psoList.filter((p) => p.status === 'WAITING_FOR_DIRECTOR_VERIFICATION').length;
-  const totalDirectorPending = pendingPoCount + pendingPsoCount;
+  const pendingCoCount = coList.filter((c) => c.status === 'WAITING_FOR_APPROVAL').length;
 
   return (
     <div className="animated-page">
@@ -380,7 +405,7 @@ export default function OutcomesManagement() {
               Outcome Management ({role})
             </div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
-              Outcome Management (POs, PSOs & CO Approvals)
+              Outcome Management (PEOs, POs, PSOs & CO Approvals)
             </h2>
             <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#475569' }}>
               Programme: <strong style={{ color: '#0f172a' }}>{selectedProgramme?.code}</strong> • Course: <strong style={{ color: '#0f172a' }}>{selectedCourse?.code} - {selectedCourse?.name}</strong> • Teachers: <strong style={{ color: '#4f46e5' }}>{courseTeachers}</strong>
@@ -388,30 +413,21 @@ export default function OutcomesManagement() {
           </div>
 
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              className={`btn ${entryMode === 'table' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setEntryMode('table')}
-            >
-              📝 Table Entry
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => alert('Excel Import Modal')}
-            >
-              <FileSpreadsheet size={15} /> Import Excel
+            <button className="btn btn-secondary" onClick={() => setEntryMode(entryMode === 'table' ? 'bulk' : 'table')}>
+              <FileSpreadsheet size={15} /> {entryMode === 'table' ? 'Bulk Paste Mode' : 'Table View'}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Director Pending Verification Alert Banner */}
-      {(role === 'DIRECTOR' || role === 'IQAC') && totalDirectorPending > 0 && (
+      {/* Director Pending Verifications Banner */}
+      {(role === 'DIRECTOR' || role === 'IQAC') && (pendingPoCount > 0 || pendingPsoCount > 0) && (
         <div
           className="card"
           style={{
             background: '#fefce8',
             border: '1.5px solid #fef08a',
-            borderLeft: '5px solid #eab308',
+            borderLeft: '5px solid #ca8a04',
             padding: '16px 20px',
             marginBottom: '20px',
           }}
@@ -421,26 +437,39 @@ export default function OutcomesManagement() {
               <ShieldCheck size={24} style={{ color: '#ca8a04' }} />
               <div>
                 <strong style={{ fontSize: '14px', color: '#854d0e' }}>
-                  {totalDirectorPending} PO & PSO Proposals Waiting for Director Verification
+                  {pendingPoCount + pendingPsoCount} Programme Outcome Submissions Waiting for Director Verification
                 </strong>
                 <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#a16207' }}>
-                  Programme Coordinators have added/updated {pendingPoCount} POs and {pendingPsoCount} PSOs for {selectedProgramme?.code}. Review and verify them below.
+                  Programme Coordinator has proposed new PO/PSO definitions. Review and click Verify below.
                 </p>
               </div>
             </div>
-            <button
-              className="btn btn-primary"
-              style={{ fontSize: '12px', padding: '6px 14px' }}
-              onClick={() => setActiveOutcomeTab(pendingPoCount > 0 ? 'pos' : 'psos')}
-            >
-              <UserCheck size={14} /> Review Pending POs/PSOs ({totalDirectorPending})
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {pendingPoCount > 0 && (
+                <button
+                  className="btn btn-primary"
+                  style={{ fontSize: '12px', padding: '6px 12px' }}
+                  onClick={() => setActiveOutcomeTab('pos')}
+                >
+                  Verify POs ({pendingPoCount})
+                </button>
+              )}
+              {pendingPsoCount > 0 && (
+                <button
+                  className="btn btn-primary"
+                  style={{ fontSize: '12px', padding: '6px 12px' }}
+                  onClick={() => setActiveOutcomeTab('psos')}
+                >
+                  Verify PSOs ({pendingPsoCount})
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Programme Coordinator Pending CO Approval Alert Banner */}
-      {role === 'PROGRAMME_COORDINATOR' && pendingCoCount > 0 && (
+      {/* Programme Coordinator Pending CO Approvals Banner */}
+      {(role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC') && pendingCoCount > 0 && (
         <div
           className="card"
           style={{
@@ -479,16 +508,22 @@ export default function OutcomesManagement() {
         {role !== 'FACULTY' && (
           <>
             <button
+              className={`btn ${activeOutcomeTab === 'peos' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveOutcomeTab('peos')}
+            >
+              Programme Educational Objectives (PEOs)
+            </button>
+            <button
               className={`btn ${activeOutcomeTab === 'pos' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setActiveOutcomeTab('pos')}
             >
-              Programme Outcomes (PO & Competencies) {pendingPoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingPoCount} Pending Verification</span>}
+              Programme Outcomes (POs) {pendingPoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingPoCount} Pending</span>}
             </button>
             <button
               className={`btn ${activeOutcomeTab === 'psos' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setActiveOutcomeTab('psos')}
             >
-              Programme Specific Outcomes (PSO & Competencies) {pendingPsoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingPsoCount} Pending Verification</span>}
+              Programme Specific Outcomes (PSOs) {pendingPsoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingPsoCount} Pending</span>}
             </button>
           </>
         )}
@@ -501,15 +536,118 @@ export default function OutcomesManagement() {
         </button>
       </div>
 
+      {/* TAB 0: Programme Educational Objectives (PEOs - Statements Only, No Verification Needed) */}
+      {activeOutcomeTab === 'peos' && role !== 'FACULTY' && (
+        <div>
+          {/* STICKY Action Header Bar */}
+          <div
+            style={{
+              position: 'sticky',
+              top: '0px',
+              zIndex: 30,
+              background: '#ffffff',
+              padding: '12px 18px',
+              margin: '0 0 16px 0',
+              borderRadius: '12px',
+              boxShadow: '0 4px 14px rgba(15, 23, 42, 0.08)',
+              border: '1px solid #cbd5e1',
+              display: 'flex',
+              justify: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+            }}
+          >
+            <div>
+              <h3 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>
+                PEOs for {selectedProgramme?.name} ({selectedProgramme?.code})
+              </h3>
+              <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+                Programme Educational Objectives statements (Managed by Programme Coordinator).
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className="btn btn-success" onClick={handleAddPEO}>
+                <Plus size={15} /> + Add New PEO
+              </button>
+              <button className="btn btn-primary" onClick={() => handleSaveChanges('PEO Statements')}>
+                <Save size={14} /> Save Changes
+              </button>
+            </div>
+          </div>
+
+          <div className="card">
+            <div style={{ overflowX: 'auto', width: '100%' }}>
+              <table className="audit-data-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '50px', textAlign: 'center' }}>#</th>
+                    <th style={{ width: '130px' }}>PEO Code</th>
+                    <th>Programme Educational Objective Statement</th>
+                    <th style={{ width: '80px', textAlign: 'center' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {peoList.map((peo, index) => (
+                    <tr key={index}>
+                      <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>{index + 1}</td>
+                      <td style={{ fontWeight: '800', color: '#4f46e5' }}>{peo.code}</td>
+                      <td>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={peo.statement}
+                          onChange={(e) => handleUpdatePEOStatement(index, e.target.value)}
+                        />
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button className="btn btn-danger" style={{ padding: '4px 6px' }} onClick={() => handleDeletePEO(index)}>
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <RowButtons
+                onAdd={handleAddPEO}
+                onDel={() => handleDeletePEO(peoList.length - 1)}
+                canDel={peoList.length > 1}
+                addLabel="+ Add PEO Row"
+                deleteLabel="- Delete Last PEO Row"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* TAB 1: Programme Outcomes (Programme Coordinator Adds -> Director Verifies) */}
       {activeOutcomeTab === 'pos' && role !== 'FACULTY' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+          {/* STICKY Action Header Bar */}
+          <div
+            style={{
+              position: 'sticky',
+              top: '0px',
+              zIndex: 30,
+              background: '#ffffff',
+              padding: '12px 18px',
+              margin: '0 0 16px 0',
+              borderRadius: '12px',
+              boxShadow: '0 4px 14px rgba(15, 23, 42, 0.08)',
+              border: '1px solid #cbd5e1',
+              display: 'flex',
+              justify: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+            }}
+          >
             <div>
               <h3 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>
                 POs & Competencies for {selectedProgramme?.name} ({selectedProgramme?.code})
               </h3>
-              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
+              <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#64748b' }}>
                 Programme Coordinators can add/edit POs. Submissions require Director verification.
               </p>
             </div>
@@ -603,7 +741,7 @@ export default function OutcomesManagement() {
 
                 <div style={{ marginLeft: '12px', borderLeft: '2px solid #e2e8f0', paddingLeft: '14px', overflowX: 'auto', width: '100%' }}>
                   <h4 style={{ margin: '0 0 8px', fontSize: '11.5px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Competencies ({comps.length})
+                    PO Competencies ({comps.length})
                   </h4>
 
                   <table className="audit-data-table">
@@ -642,6 +780,13 @@ export default function OutcomesManagement() {
                       ))}
                     </tbody>
                   </table>
+                  <RowButtons
+                    onAdd={() => handleAddPOCompetency(index)}
+                    onDel={() => handleDeletePOCompetency(index, comps.length - 1)}
+                    canDel={comps.length > 1}
+                    addLabel="+ Add Competency Row"
+                    deleteLabel="- Delete Last Competency Row"
+                  />
                 </div>
               </div>
             );
@@ -652,12 +797,30 @@ export default function OutcomesManagement() {
       {/* TAB 2: Programme Specific Outcomes (Programme Coordinator Adds -> Director Verifies) */}
       {activeOutcomeTab === 'psos' && role !== 'FACULTY' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+          {/* STICKY Action Header Bar */}
+          <div
+            style={{
+              position: 'sticky',
+              top: '0px',
+              zIndex: 30,
+              background: '#ffffff',
+              padding: '12px 18px',
+              margin: '0 0 16px 0',
+              borderRadius: '12px',
+              boxShadow: '0 4px 14px rgba(15, 23, 42, 0.08)',
+              border: '1px solid #cbd5e1',
+              display: 'flex',
+              justify: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+            }}
+          >
             <div>
               <h3 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>
                 PSOs & Competencies for {selectedProgramme?.name} ({selectedProgramme?.code})
               </h3>
-              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
+              <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#64748b' }}>
                 Programme Coordinators can add/edit PSOs. Submissions require Director verification.
               </p>
             </div>
@@ -677,13 +840,13 @@ export default function OutcomesManagement() {
             const comps = pso.competencies || [];
 
             return (
-              <div key={index} className="card" style={{ padding: '18px', borderLeft: isVerified ? '4px solid #0284c7' : '4px solid #f59e0b', marginBottom: '16px' }}>
+              <div key={index} className="card" style={{ padding: '18px', borderLeft: isVerified ? '4px solid #10b981' : '4px solid #f59e0b', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '14px', flexWrap: 'wrap' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '280px' }}>
                     <input
                       type="text"
                       className="form-control"
-                      style={{ width: '90px', fontWeight: '800', textAlign: 'center', color: isVerified ? '#0284c7' : '#d97706' }}
+                      style={{ width: '90px', fontWeight: '800', textAlign: 'center', color: isVerified ? '#10b981' : '#d97706' }}
                       value={pso.code}
                       onChange={(e) => handleUpdatePSOCode(index, e.target.value)}
                     />
@@ -790,6 +953,13 @@ export default function OutcomesManagement() {
                       ))}
                     </tbody>
                   </table>
+                  <RowButtons
+                    onAdd={() => handleAddPSOCompetency(index)}
+                    onDel={() => handleDeletePSOCompetency(index, comps.length - 1)}
+                    canDel={comps.length > 1}
+                    addLabel="+ Add Competency Row"
+                    deleteLabel="- Delete Last Competency Row"
+                  />
                 </div>
               </div>
             );
@@ -799,14 +969,32 @@ export default function OutcomesManagement() {
 
       {/* TAB 3: Course Outcomes (Faculty Submission & Programme Coordinator Approval) */}
       {activeOutcomeTab === 'cos' && (
-        <div className="card">
-          <div className="card-header">
+        <div>
+          {/* STICKY Action Header Bar */}
+          <div
+            style={{
+              position: 'sticky',
+              top: '0px',
+              zIndex: 30,
+              background: '#ffffff',
+              padding: '12px 18px',
+              margin: '0 0 16px 0',
+              borderRadius: '12px',
+              boxShadow: '0 4px 14px rgba(15, 23, 42, 0.08)',
+              border: '1px solid #cbd5e1',
+              display: 'flex',
+              justify: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+            }}
+          >
             <div>
               <h3 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>
                 Course Outcomes (COs) for {selectedCourse?.code} - {selectedCourse?.name}
               </h3>
-              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
-                Assigned Teachers: <strong style={{ color: '#4f46e5' }}>{courseTeachers}</strong> • Submissions require Programme Coordinator approval.
+              <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+                Assigned Teachers: <strong style={{ color: '#4f46e5' }}>{courseTeachers}</strong> • Submissions require Coordinator approval.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -819,106 +1007,115 @@ export default function OutcomesManagement() {
             </div>
           </div>
 
-          <div style={{ overflowX: 'auto', width: '100%' }}>
-            <table className="audit-data-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '50px', textAlign: 'center' }}>#</th>
-                  <th style={{ width: '130px' }}>CO Code</th>
-                  <th>Course Outcome Statement</th>
-                  <th style={{ width: '150px' }}>Proposed By</th>
-                  <th style={{ width: '180px', textAlign: 'center' }}>Approval Status</th>
-                  <th style={{ width: '180px', textAlign: 'center' }}>Programme Coordinator Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {coList.length === 0 ? (
+          <div className="card">
+            <div style={{ overflowX: 'auto', width: '100%' }}>
+              <table className="audit-data-table">
+                <thead>
                   <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
-                      No Course Outcomes defined for this course yet. Click "+ Submit New CO Proposal".
-                    </td>
+                    <th style={{ width: '50px', textAlign: 'center' }}>#</th>
+                    <th style={{ width: '130px' }}>CO Code</th>
+                    <th>Course Outcome Statement</th>
+                    <th style={{ width: '150px' }}>Proposed By</th>
+                    <th style={{ width: '180px', textAlign: 'center' }}>Approval Status</th>
+                    <th style={{ width: '180px', textAlign: 'center' }}>Programme Coordinator Actions</th>
                   </tr>
-                ) : (
-                  coList.map((co, index) => {
-                    const isApproved = co.status === 'APPROVED';
-                    const isPending = co.status === 'WAITING_FOR_APPROVAL';
+                </thead>
+                <tbody>
+                  {coList.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                        No Course Outcomes defined for this course yet. Click "+ Submit New CO Proposal".
+                      </td>
+                    </tr>
+                  ) : (
+                    coList.map((co, index) => {
+                      const isApproved = co.status === 'APPROVED';
+                      const isPending = co.status === 'WAITING_FOR_APPROVAL';
 
-                    return (
-                      <tr key={index}>
-                        <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>{index + 1}</td>
-                        <td>
-                          <input
-                            type="text"
-                            className="form-control"
-                            style={{ fontWeight: '800', color: isApproved ? '#10b981' : '#d97706' }}
-                            value={co.code}
-                            onChange={(e) => handleUpdateCOCode(index, e.target.value)}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="text"
-                            className="form-control"
-                            value={co.statement}
-                            onChange={(e) => handleUpdateCOStatement(index, e.target.value)}
-                          />
-                        </td>
-                        <td style={{ fontSize: '11.5px', color: '#475569' }}>
-                          <strong>{co.submittedBy}</strong>
-                          <div style={{ fontSize: '10px', color: '#94a3b8' }}>{co.submittedAt}</div>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          {isApproved ? (
-                            <span className="badge badge-success" style={{ gap: '4px' }}>
-                              <CheckCircle2 size={12} /> Approved
-                            </span>
-                          ) : isPending ? (
-                            <span className="badge badge-pending" style={{ gap: '4px', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
-                              <Clock size={12} /> Waiting for Approval
-                            </span>
-                          ) : (
-                            <span className="badge" style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', gap: '4px' }}>
-                              <XCircle size={12} /> Needs Revision
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          {(role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC') ? (
-                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                              {!isApproved && (
-                                <button
-                                  className="btn btn-success"
-                                  style={{ padding: '4px 8px', fontSize: '11px' }}
-                                  onClick={() => handleApproveCO(index)}
-                                >
-                                  <CheckCircle2 size={13} /> Approve
+                      return (
+                        <tr key={index}>
+                          <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>{index + 1}</td>
+                          <td>
+                            <input
+                              type="text"
+                              className="form-control"
+                              style={{ fontWeight: '800', color: isApproved ? '#10b981' : '#d97706' }}
+                              value={co.code}
+                              onChange={(e) => handleUpdateCOCode(index, e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              className="form-control"
+                              value={co.statement}
+                              onChange={(e) => handleUpdateCOStatement(index, e.target.value)}
+                            />
+                          </td>
+                          <td style={{ fontSize: '11.5px', color: '#475569' }}>
+                            <strong>{co.submittedBy}</strong>
+                            <div style={{ fontSize: '10px', color: '#94a3b8' }}>{co.submittedAt}</div>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {isApproved ? (
+                              <span className="badge badge-success" style={{ gap: '4px' }}>
+                                <CheckCircle2 size={12} /> Approved
+                              </span>
+                            ) : isPending ? (
+                              <span className="badge badge-pending" style={{ gap: '4px', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
+                                <Clock size={12} /> Waiting for Approval
+                              </span>
+                            ) : (
+                              <span className="badge" style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', gap: '4px' }}>
+                                <XCircle size={12} /> Needs Revision
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {(role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC') ? (
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                                {!isApproved && (
+                                  <button
+                                    className="btn btn-success"
+                                    style={{ padding: '4px 8px', fontSize: '11px' }}
+                                    onClick={() => handleApproveCO(index)}
+                                  >
+                                    <CheckCircle2 size={13} /> Approve
+                                  </button>
+                                )}
+                                {isPending && (
+                                  <button
+                                    className="btn btn-danger"
+                                    style={{ padding: '4px 8px', fontSize: '11px' }}
+                                    onClick={() => handleRejectCO(index)}
+                                  >
+                                    <XCircle size={13} /> Reject
+                                  </button>
+                                )}
+                                <button className="btn btn-danger" style={{ padding: '4px 6px' }} onClick={() => handleDeleteCO(index)}>
+                                  <Trash2 size={13} />
                                 </button>
-                              )}
-                              {isPending && (
-                                <button
-                                  className="btn btn-danger"
-                                  style={{ padding: '4px 8px', fontSize: '11px' }}
-                                  onClick={() => handleRejectCO(index)}
-                                >
-                                  <XCircle size={13} /> Reject
-                                </button>
-                              )}
-                              <button className="btn btn-danger" style={{ padding: '4px 6px' }} onClick={() => handleDeleteCO(index)}>
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          ) : (
-                            <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                              {isApproved ? 'Approved by Coordinator' : 'Pending Coordinator Review'}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                                {isApproved ? 'Approved by Coordinator' : 'Pending Coordinator Review'}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+              <RowButtons
+                onAdd={handleAddCO}
+                onDel={() => handleDeleteCO(coList.length - 1)}
+                canDel={coList.length > 1}
+                addLabel="+ Add CO Row"
+                deleteLabel="- Delete Last CO Row"
+              />
+            </div>
           </div>
         </div>
       )}
