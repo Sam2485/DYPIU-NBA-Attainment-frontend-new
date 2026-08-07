@@ -373,6 +373,69 @@ export function AcademicProvider({ children }) {
     }));
   };
 
+  // Course-wise Verification Status Store (Two-way sync between Course Coordinator & Programme Coordinator)
+  const [courseVerificationStore, setCourseVerificationStore] = useState({
+    'crs-1': {
+      configStatus: 'VERIFIED',
+      coStatus: 'APPROVED',
+      atrStatus: 'SUBMITTED',
+      verifiedBy: 'Dr. Raj Shaikh (Programme Coordinator)',
+    },
+    'crs-2': {
+      configStatus: 'WAITING_FOR_COORDINATOR_VERIFICATION',
+      coStatus: 'PENDING_APPROVAL',
+      atrStatus: 'DRAFT',
+      verifiedBy: null,
+    },
+    'crs-3': {
+      configStatus: 'WAITING_FOR_COORDINATOR_VERIFICATION',
+      coStatus: 'PENDING_APPROVAL',
+      atrStatus: 'DRAFT',
+      verifiedBy: null,
+    },
+    'crs-4': {
+      configStatus: 'WAITING_FOR_COORDINATOR_VERIFICATION',
+      coStatus: 'PENDING_APPROVAL',
+      atrStatus: 'DRAFT',
+      verifiedBy: null,
+    },
+  });
+
+  const updateCourseVerificationStatus = (targetCourseId, statusType, statusValue) => {
+    setCourseVerificationStore((prev) => ({
+      ...prev,
+      [targetCourseId]: {
+        ...(prev[targetCourseId] || {
+          configStatus: 'WAITING_FOR_COORDINATOR_VERIFICATION',
+          coStatus: 'PENDING_APPROVAL',
+          atrStatus: 'DRAFT',
+        }),
+        [statusType]: statusValue,
+        verifiedBy: user?.name || 'Programme Coordinator',
+      },
+    }));
+  };
+
+  // Course-wise Action Taken Reports (ATR Data Store filled by Course Coordinator)
+  const [courseAtrStore, setCourseAtrStore] = useState({
+    'crs-1': [
+      { code: 'C321.1', title: 'CO1: Fundamental Concepts', target: 2.50, actual: 2.80, pctAchieved: 112.0, status: 'Target Achieved', actions: ['Hands-on Wireshark packet capture lab demonstrations conducted.', 'Interactive quiz sessions held to reinforce OSI vs TCP/IP layer concepts.'] },
+      { code: 'C321.2', title: 'CO2: Data Link Layer', target: 2.50, actual: 2.70, pctAchieved: 108.0, status: 'Target Achieved', actions: ['CRC error detection numerical problem sheets assigned to students.'] },
+      { code: 'C321.3', title: 'CO3: Routing Protocols', target: 2.50, actual: 2.10, pctAchieved: 84.0, status: 'Target Not Achieved', actions: ['Additional remedial tutorial sessions arranged for Distance Vector vs Link State routing algorithms.', 'Packet Tracer simulation lab assigned as a mandatory group assignment.'] },
+    ],
+    'crs-2': [
+      { code: 'CS301.1', title: 'CO1: Complexity Analysis', target: 2.50, actual: 2.60, pctAchieved: 104.0, status: 'Target Achieved', actions: ['Asymptotic notation problem sets assigned in tutorials.'] },
+      { code: 'CS301.2', title: 'CO2: Linear Data Structures', target: 2.50, actual: 2.40, pctAchieved: 96.0, status: 'Target Not Achieved', actions: ['Extra coding lab for stack/queue implementations.'] },
+    ],
+  });
+
+  const updateCourseAtrData = (targetCourseId, newAtrList) => {
+    setCourseAtrStore((prev) => ({
+      ...prev,
+      [targetCourseId]: newAtrList,
+    }));
+  };
+
   return (
     <AcademicContext.Provider
       value={{
@@ -408,6 +471,10 @@ export function AcademicProvider({ children }) {
         updateProgrammePSOs,
         updateCourseCOs,
         updateCourseFacultyAllocation,
+        courseVerificationStore,
+        updateCourseVerificationStatus,
+        courseAtrStore,
+        updateCourseAtrData,
       }}
     >
       {children}

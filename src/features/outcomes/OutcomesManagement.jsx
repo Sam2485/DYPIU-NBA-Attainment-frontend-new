@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -6,6 +7,10 @@ import RowButtons from '../../components/common/RowButtons';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function OutcomesManagement() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isStandalone = searchParams.get('mode') === 'standalone';
+
   const { role, user } = useAuth();
   const {
     programmeId,
@@ -359,6 +364,8 @@ export default function OutcomesManagement() {
     updateProgrammePSOs(programmeId, updated);
   };
 
+  const targetCourseId = selectedCourse?.id || courseId || 'crs-1';
+
   // ── CO Handlers (Faculty Proposes -> Programme Coordinator Approves) ──────────
   const handleAddCO = () => {
     const newCoNum = coList.length + 1;
@@ -371,42 +378,43 @@ export default function OutcomesManagement() {
     };
     const updated = [...coList, newCo];
     setCoList(updated);
-    updateCourseCOs(courseId, updated);
+    updateCourseCOs(targetCourseId, updated);
   };
 
   const handleUpdateCOCode = (index, newCode) => {
     const updated = coList.map((c, i) => (i === index ? { ...c, code: newCode, status: isLimitedUser ? 'WAITING_FOR_APPROVAL' : c.status } : c));
     setCoList(updated);
-    updateCourseCOs(courseId, updated);
+    updateCourseCOs(targetCourseId, updated);
   };
 
   const handleUpdateCOStatement = (index, newStatement) => {
     const updated = coList.map((c, i) => (i === index ? { ...c, statement: newStatement, status: isLimitedUser ? 'WAITING_FOR_APPROVAL' : c.status } : c));
     setCoList(updated);
-    updateCourseCOs(courseId, updated);
+    updateCourseCOs(targetCourseId, updated);
   };
 
   const handleApproveCO = (index) => {
     const updated = coList.map((c, i) => (i === index ? { ...c, status: 'APPROVED' } : c));
     setCoList(updated);
-    updateCourseCOs(courseId, updated);
+    updateCourseCOs(targetCourseId, updated);
     alert(`CO ${coList[index].code} APPROVED by Programme Coordinator!`);
   };
 
   const handleRejectCO = (index) => {
     const updated = coList.map((c, i) => (i === index ? { ...c, status: 'REJECTED' } : c));
     setCoList(updated);
-    updateCourseCOs(courseId, updated);
+    updateCourseCOs(targetCourseId, updated);
     alert(`CO ${coList[index].code} rejected and sent back to Faculty for revision.`);
   };
 
   const handleDeleteCO = (index) => {
     const updated = coList.filter((_, i) => i !== index);
     setCoList(updated);
-    updateCourseCOs(courseId, updated);
+    updateCourseCOs(targetCourseId, updated);
   };
 
   const handleSaveChanges = (entityName) => {
+    updateCourseCOs(targetCourseId, coList);
     alert(`Changes to ${entityName} saved successfully!`);
   };
 
@@ -417,19 +425,32 @@ export default function OutcomesManagement() {
 
   return (
     <div className="animated-page">
-      {/* Standard Header Banner */}
-      <div className="banner-dark-gradient">
+      {/* Standard NBA Header Banner */}
+      <div className="banner-dark-gradient" style={{ marginBottom: '20px' }}>
         <div className="banner-content-row">
           <div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
-              Outcome Management (PEOs, POs, PSOs & CO Approvals)
+              {isStandalone && role === 'FACULTY'
+                ? `Outcome Management — Course Outcomes (${selectedCourse?.code || '310244'})`
+                : 'Outcome Management (PEOs, POs, PSOs & CO Approvals)'}
             </h2>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#475569' }}>
+              {isStandalone && role === 'FACULTY'
+                ? `Define and manage Course Outcomes statements for ${selectedCourse?.code || '310244'} - ${selectedCourse?.name || 'CNS'}`
+                : 'Define and manage Programme Educational Objectives, POs, PSOs & CO Statements'}
+            </p>
           </div>
 
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="btn btn-secondary" onClick={() => setEntryMode(entryMode === 'table' ? 'bulk' : 'table')}>
-              <FileSpreadsheet size={15} /> {entryMode === 'table' ? 'Bulk Paste Mode' : 'Table View'}
-            </button>
+            {isStandalone && role === 'FACULTY' ? (
+              <button className="btn btn-primary" onClick={() => handleSaveChanges('Course Outcomes')}>
+                <Save size={15} /> Save CO Statements
+              </button>
+            ) : (
+              <button className="btn btn-secondary" onClick={() => setEntryMode(entryMode === 'table' ? 'bulk' : 'table')}>
+                <FileSpreadsheet size={15} /> {entryMode === 'table' ? 'Bulk Paste Mode' : 'Table View'}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -482,40 +503,7 @@ export default function OutcomesManagement() {
         </div>
       )}
 
-      {/* Programme Coordinator Pending CO Approvals Banner */}
-      {(role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC') && pendingCoCount > 0 && (
-        <div
-          className="card"
-          style={{
-            background: '#fefce8',
-            border: '1.5px solid #fef08a',
-            borderLeft: '5px solid #ca8a04',
-            padding: '16px 20px',
-            marginBottom: '20px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Clock size={22} style={{ color: '#ca8a04' }} />
-              <div>
-                <strong style={{ fontSize: '14px', color: '#854d0e' }}>
-                  {pendingCoCount} Course Outcome Proposals Waiting for Your Approval
-                </strong>
-                <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#a16207' }}>
-                  Faculty members have submitted CO proposals for {selectedCourse?.code}. Review and click Approve to finalize.
-                </p>
-              </div>
-            </div>
-            <button
-              className="btn btn-primary"
-              style={{ fontSize: '12px', padding: '6px 14px' }}
-              onClick={() => setActiveOutcomeTab('cos')}
-            >
-              <UserCheck size={14} /> Review Pending COs ({pendingCoCount})
-            </button>
-          </div>
-        </div>
-      )}
+
 
       {/* Category Tabs — Single Horizontal Row with Padding Above & Below */}
       <div
@@ -531,7 +519,16 @@ export default function OutcomesManagement() {
           boxSizing: 'border-box',
         }}
       >
-        {role !== 'FACULTY' && (
+        {role === 'FACULTY' ? (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setActiveOutcomeTab('cos')}
+            style={{ whiteSpace: 'nowrap', flex: 1, padding: '10px 16px', fontSize: '13px', fontWeight: '700' }}
+          >
+            COs — Course Outcomes {pendingCoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingCoCount} Pending</span>}
+          </button>
+        ) : (
           <>
             <button
               type="button"
@@ -561,15 +558,6 @@ export default function OutcomesManagement() {
             </button>
           </>
         )}
-
-        <button
-          type="button"
-          className={`btn ${activeOutcomeTab === 'cos' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveOutcomeTab('cos')}
-          style={{ whiteSpace: 'nowrap', flex: 1, padding: '10px 16px', fontSize: '13px', fontWeight: '700' }}
-        >
-          COs — Course Outcomes {pendingCoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingCoCount} Pending</span>}
-        </button>
       </div>
 
       {/* TAB 0: Programme Educational Objectives (PEOs - Statements Only, No Verification Needed) */}
@@ -1046,8 +1034,8 @@ export default function OutcomesManagement() {
                 <thead>
                   <tr>
                     <th style={{ width: '50px', textAlign: 'center' }}>#</th>
-                    <th style={{ width: '130px' }}>CO Code</th>
-                    <th>Course Outcome Statement</th>
+                    <th style={{ width: '90px', minWidth: '90px', maxWidth: '100px', textAlign: 'center' }}>CO Code</th>
+                    <th style={{ width: '100%' }}>Course Outcome Statement</th>
                     <th style={{ width: '150px' }}>Proposed By</th>
                     <th style={{ width: '180px', textAlign: 'center' }}>Approval Status</th>
                     <th style={{ width: '180px', textAlign: 'center' }}>Programme Coordinator Actions</th>
@@ -1068,21 +1056,22 @@ export default function OutcomesManagement() {
                       return (
                         <tr key={index}>
                           <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>{index + 1}</td>
-                          <td>
+                          <td style={{ width: '90px', minWidth: '90px', maxWidth: '100px' }}>
                             <input
                               type="text"
                               className="form-control"
-                              style={{ fontWeight: '800', color: isApproved ? '#10b981' : '#d97706' }}
+                              style={{ fontWeight: '800', textAlign: 'center', width: '80px', color: isApproved ? '#10b981' : '#d97706' }}
                               value={co.code}
                               onChange={(e) => handleUpdateCOCode(index, e.target.value)}
                             />
                           </td>
-                          <td>
+                          <td style={{ width: '100%' }}>
                             <input
                               type="text"
                               className="form-control"
                               value={co.statement}
                               onChange={(e) => handleUpdateCOStatement(index, e.target.value)}
+                              style={{ fontSize: '13px', width: '100%', minWidth: '500px', boxSizing: 'border-box', padding: '8px 12px' }}
                             />
                           </td>
                           <td style={{ fontSize: '11.5px', color: '#475569' }}>
@@ -1096,7 +1085,7 @@ export default function OutcomesManagement() {
                               </span>
                             ) : isPending ? (
                               <span className="badge badge-pending" style={{ gap: '4px', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
-                                <Clock size={12} /> Waiting for Approval
+                                <Clock size={12} /> Pending Approval
                               </span>
                             ) : (
                               <span className="badge" style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', gap: '4px' }}>
@@ -1106,7 +1095,7 @@ export default function OutcomesManagement() {
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             {(role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC') ? (
-                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                              <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                                 {!isApproved && (
                                   <button
                                     className="btn btn-success"
@@ -1153,14 +1142,16 @@ export default function OutcomesManagement() {
         </div>
       )}
 
-      {/* Save, Previous & Save & Next Footer */}
-      <SectionSaveFooter
-        label="Outcome Management"
-        prevPath="/dashboard"
-        nextPath="/co-targets"
-        nextLabel="Save COs & Proceed to Step 2: Target Setting →"
-        onSave={() => handleSaveChanges('Course Outcomes')}
-      />
+      {/* Save, Previous & Save & Next Footer (Hidden in Standalone Nav Mode) */}
+      {!isStandalone && (
+        <SectionSaveFooter
+          label="Outcome Management"
+          prevPath="/dashboard"
+          nextPath="/co-targets"
+          nextLabel="Save COs & Proceed to Step 2: Target Setting →"
+          onSave={() => handleSaveChanges('Course Outcomes')}
+        />
+      )}
     </div>
   );
 }

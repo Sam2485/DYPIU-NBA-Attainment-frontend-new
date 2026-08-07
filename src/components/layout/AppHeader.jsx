@@ -17,7 +17,8 @@ export default function AppHeader() {
   } = useAcademic();
 
   const isFaculty = role === 'FACULTY';
-  const isWorkflowActive = WORKFLOW_STEPS.some((s) => s.path === location.pathname);
+  const isStandaloneMode = location.search.includes('mode=standalone');
+  const isWorkflowActive = !isStandaloneMode && WORKFLOW_STEPS.some((s) => s.path === location.pathname);
 
   // If in the middle of the Course Attainment Process, show ONLY Progress Tracker at top (Hide Main Header)
   if (isWorkflowActive && isFaculty) {
@@ -150,7 +151,7 @@ export default function AppHeader() {
       </div>
 
       {/* Render Start Course Attainment Row ONLY on Dashboard */}
-      {isFaculty && <AttainmentProgressTracker />}
+      {isFaculty && (location.pathname === '/dashboard' || location.pathname === '/') && <AttainmentProgressTracker />}
     </div>
   );
 }

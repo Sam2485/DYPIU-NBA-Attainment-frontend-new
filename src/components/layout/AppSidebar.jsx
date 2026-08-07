@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Shield } from 'lucide-react';
 
-// ── SVG icon map ──────────────────────────────────────────────────────────────
+// ── SVG icon map with centered SVG display ─────────────────────────────────────
 function Icon({ name, active = false, size = 16 }) {
   const col = active ? '#f8fafc' : '#cbd5e1';
   const p = {
     width: size, height: size, viewBox: '0 0 24 24',
     fill: 'none', stroke: col, strokeWidth: 2,
     strokeLinecap: 'round', strokeLinejoin: 'round',
+    style: { display: 'block' },
     'aria-hidden': 'true',
   };
   if (name === 'dashboard')  return <svg {...p}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>;
@@ -31,24 +31,31 @@ function Icon({ name, active = false, size = 16 }) {
   return <svg {...p}><circle cx="12" cy="12" r="9"/></svg>;
 }
 
-// ── Full nav item list with 4 Roles: IQAC, DIRECTOR, PROGRAMME_COORDINATOR, FACULTY
-// For Course Coordinator role: Exactly 5 items (Dashboard, Attainment Config, Attainment Overview, ATR Reports, Reports & Downloads)
-const ALL_NAV = [
-  { id: 'dashboard',           path: '/dashboard',           icon: 'dashboard', label: 'Dashboard',             sub: 'Start Attainment Process',     roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
-  { id: 'users',               path: '/users',               icon: 'users',     label: 'User & Access',          sub: 'Accounts & Roles',             roles: ['IQAC','DIRECTOR'] },
-  { id: 'configurations',      path: '/configurations',      icon: 'config',    label: 'Attainment Config',      sub: 'Weightages & Thresholds Settings', roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
-  { id: 'academic',            path: '/academic',            icon: 'academic',  label: 'Academic Setup',         sub: 'Depts, Programmes, Courses',   roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
-  { id: 'outcomes',            path: '/outcomes',            icon: 'outcomes',  label: 'Outcome Management',     sub: 'POs, PSOs, CO Approvals',      roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
-  { id: 'co-mapping',          path: '/co-mapping',          icon: 'mapping',   label: 'CO Mapping Matrix',      sub: 'CO → PO/PSO Grids',            roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
-  { id: 'marks-upload',        path: '/marks-upload',        icon: 'marks',     label: 'End Sem Marks',          sub: 'Upload & Marks Grid',          roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
-  { id: 'survey-upload',       path: '/survey-upload',       icon: 'survey',    label: 'Course End Survey',      sub: 'Survey Feedback',              roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
-  { id: 'co-attainment',       path: '/co-attainment',       icon: 'coa',       label: 'CO Attainment Engine',   sub: 'Direct, Indirect & Overall',   roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
-  { id: 'attainment-overview', path: '/attainment-overview', icon: 'coa',       label: 'Attainment Overview',    sub: 'CO & PO/PSO Attainments',      roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
-  { id: 'course-atr',          path: '/atr-reports',         icon: 'survey',    label: 'ATR Reports',            sub: 'Carry-Forward & Current ATR',  roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
-  { id: 'coordinator-review',  path: '/coordinator-review',  icon: 'nav',       label: 'Course Submissions Review', sub: 'Inspect & Approve Courses', roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
-  { id: 'po-pso-attainment',   path: '/po-pso-attainment',   icon: 'poa',       label: 'CO to PO & PSO Attainment', sub: 'Outcome Aggregations',         roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
-  { id: 'programme-atr',       path: '/programme-atr',       icon: 'poa',       label: 'Programme ATR',          sub: 'Batch Continuous Improvement', roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
-  { id: 'reports',             path: '/reports',             icon: 'reports',   label: 'Reports & Downloads',    sub: 'PDF & Excel Exports',          roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
+// ── Dropdown 1: Programme Setup & Management (Editing & Setup Pages) ───────────
+const PROGRAMME_SETUP_NAV = [
+  { id: 'dashboard',     path: '/dashboard',     icon: 'dashboard', label: 'Dashboard',                          sub: 'Overview & Analytics' },
+  { id: 'academic',      path: '/academic',      icon: 'academic',  label: 'Academic Setup',                     sub: 'Depts, Programmes, Courses' },
+  { id: 'outcomes',      path: '/outcomes',      icon: 'outcomes',  label: 'Outcome Management (PO, PSO, PEO)', sub: 'POs, PSOs & PEO Targets' },
+  { id: 'programme-atr', path: '/programme-atr', icon: 'poa',       label: 'Programme ATR',                      sub: 'Batch Continuous Improvement' },
+  { id: 'reports',       path: '/reports',       icon: 'reports',   label: 'Reports & Downloads',                sub: 'Master Excel & PDF Exports' },
+];
+
+// ── Dropdown 2: Course Submissions Review (Reviews from Course Coordinator) ─────
+const COURSE_REVIEWS_NAV = [
+  { id: 'review-config',     path: '/coordinator-review?tab=config',     icon: 'config',   label: 'Attainment Config Review', sub: 'Choose Course → Verify Weightages & Threshold' },
+  { id: 'review-cos',        path: '/coordinator-review?tab=cos',        icon: 'outcomes', label: 'CO Verification',            sub: 'Choose Course → Approve Proposed COs' },
+  { id: 'review-attainment', path: '/coordinator-review?tab=attainment', icon: 'coa',      label: 'Attainment Overview',        sub: 'Choose Course → CO & PO/PSO Attainment' },
+  { id: 'review-atr',        path: '/coordinator-review?tab=atr',        icon: 'survey',   label: 'Course ATR Review',          sub: 'Choose Course → Verify Course ATR' },
+];
+
+// ── Course Coordinator Nav Items ─────────────────────────────────
+const FACULTY_NAV = [
+  { id: 'dashboard',           path: '/dashboard',           icon: 'dashboard', label: 'Dashboard',           sub: 'Start Attainment Process' },
+  { id: 'outcomes',            path: '/outcomes?mode=standalone', icon: 'outcomes', label: 'Outcome Management', sub: 'Course Outcomes (COs)' },
+  { id: 'configurations',      path: '/configurations',      icon: 'config',    label: 'Attainment Config',    sub: 'Weightages & Threshold Settings' },
+  { id: 'attainment-overview', path: '/attainment-overview', icon: 'coa',       label: 'Attainment Overview',  sub: 'CO & PO/PSO Attainments' },
+  { id: 'course-atr',          path: '/atr-reports',         icon: 'survey',    label: 'ATR Reports',          sub: 'Carry-Forward & Current ATR' },
+  { id: 'reports',             path: '/reports',             icon: 'reports',   label: 'Reports & Downloads',  sub: 'PDF & Excel Exports' },
 ];
 
 export default function AppSidebar() {
@@ -56,10 +63,18 @@ export default function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [navOpen, setNavOpen] = useState(false);
+  // Dropdown States
+  const [navOpenSetup, setNavOpenSetup] = useState(false);
+  const [navOpenReview, setNavOpenReview] = useState(false);
+  const [navOpenFaculty, setNavOpenFaculty] = useState(false);
 
-  const visibleNav = ALL_NAV.filter(item => item.roles.includes(role));
-  const activePage = visibleNav.find(item => item.path === location.pathname);
+  const isCoordinatorRole = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+
+  const fullPath = location.pathname + location.search;
+
+  const activeSetupItem = PROGRAMME_SETUP_NAV.find((item) => item.path === location.pathname);
+  const activeReviewItem = COURSE_REVIEWS_NAV.find((item) => item.path === fullPath || item.path.split('?')[0] === location.pathname);
+  const activeFacultyItem = FACULTY_NAV.find((item) => item.path === fullPath || item.path.split('?')[0] === location.pathname);
 
   const roleText = {
     IQAC: 'IQAC Admin',
@@ -69,31 +84,46 @@ export default function AppSidebar() {
   }[role] || role;
 
   const initials = user?.name
-    ? user.name.split(' ').map(n => n[0]).join('').slice(0, 2)
+    ? user.name.split(' ').map((n) => n[0]).join('').slice(0, 2)
     : 'DY';
 
   return (
     <aside
       className="nba-sidebar-nav"
       style={{
-        width: 280, flexShrink: 0,
-        height: '100vh', position: 'sticky', top: 0, zIndex: 40,
+        width: 280,
+        flexShrink: 0,
+        height: '100vh',
+        position: 'sticky',
+        top: 0,
+        zIndex: 40,
         background: '#111827',
         borderRight: '1px solid rgba(148,163,184,0.14)',
-        display: 'flex', flexDirection: 'column', gap: 14,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
         padding: '16px 14px 14px',
         boxSizing: 'border-box',
       }}
     >
       {/* ── Brand Header ───────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 4px', flexShrink: 0 }}>
-        <div style={{
-          width: 38, height: 38, borderRadius: 12, flexShrink: 0,
-          background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)',
-          boxShadow: '0 8px 22px rgba(37,99,235,0.35)',
-          color: '#fff', fontWeight: 900, fontSize: 13,
-          display: 'grid', placeItems: 'center', letterSpacing: '0.04em',
-        }}>
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 12,
+            flexShrink: 0,
+            background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)',
+            boxShadow: '0 8px 22px rgba(37,99,235,0.35)',
+            color: '#fff',
+            fontWeight: 900,
+            fontSize: 13,
+            display: 'grid',
+            placeItems: 'center',
+            letterSpacing: '0.04em',
+          }}
+        >
           NBA
         </div>
         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -107,13 +137,18 @@ export default function AppSidebar() {
       </div>
 
       {/* ── Role Switcher ──────────────────────────────────────────── */}
-      <div style={{
-        background: 'rgba(51, 65, 85, 0.45)',
-        border: '1px solid rgba(148,163,184,0.16)',
-        borderRadius: 14, padding: '10px 12px',
-        display: 'flex', flexDirection: 'column', gap: 4,
-        flexShrink: 0,
-      }}>
+      <div
+        style={{
+          background: 'rgba(51, 65, 85, 0.45)',
+          border: '1px solid rgba(148,163,184,0.16)',
+          borderRadius: 14,
+          padding: '8px 12px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+          flexShrink: 0,
+        }}
+      >
         <div style={{ fontSize: 9.5, color: '#60a5fa', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
           Active User Role
         </div>
@@ -141,134 +176,402 @@ export default function AppSidebar() {
         </select>
       </div>
 
-      {/* ── Collapsible Navigation Dropdown Menu ───────────────────── */}
-      <nav style={{ position: 'relative', flexShrink: 0 }}>
-        <button
-          type="button"
-          aria-expanded={navOpen}
-          onClick={() => setNavOpen(prev => !prev)}
-          style={{
-            width: '100%', minHeight: 44,
-            border: navOpen ? '1px solid rgba(165,180,252,0.45)' : '1px solid rgba(148,163,184,0.20)',
-            borderRadius: 13,
-            background: 'rgba(30,41,59,0.72)',
-            color: '#f8fafc',
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-            display: 'flex', alignItems: 'center', gap: 9,
-            padding: '8px 12px',
-            transition: 'border 0.15s ease, background 0.15s ease',
-          }}
-        >
-          <span style={{
-            width: 26, height: 26, borderRadius: 8,
-            background: 'rgba(99,102,241,0.18)',
-            border: '1px solid rgba(165,180,252,0.22)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
-            {activePage
-              ? <Icon name={activePage.icon} active size={14} />
-              : <Icon name="nav" active size={14} />
-            }
-          </span>
-          <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {activePage ? activePage.label : 'Select Navigation Page'}
-          </span>
-          <span style={{ display: 'inline-flex', transition: 'transform 0.2s', transform: navOpen ? 'rotate(180deg)' : 'rotate(0deg)', color: '#64748b' }}>
-            <Icon name="chevron" size={15} />
-          </span>
-        </button>
-
-        {/* Dropdown Options List */}
-        {navOpen && (
-          <div
-            role="listbox"
-            style={{
-              position: 'absolute', top: '100%', left: 0, right: 0,
-              marginTop: 6, padding: 5,
-              background: '#1f2937',
-              border: '1px solid rgba(148,163,184,0.22)',
-              borderRadius: 12,
-              boxShadow: '0 18px 34px rgba(2,6,23,0.32)',
-              display: 'grid', gap: 2,
-              maxHeight: '340px',
-              overflowY: 'auto',
-              zIndex: 50,
-            }}
-          >
-            {visibleNav.map(item => {
-              const isActive = location.pathname === item.path;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="option"
-                  aria-selected={isActive}
-                  onClick={() => {
-                    navigate(item.path);
-                    setNavOpen(false);
-                  }}
-                  className="nba-nav-item"
+      {/* ── MAIN NAVIGATION AREA ─────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', paddingRight: 2 }}>
+        {isCoordinatorRole ? (
+          <>
+            {/* ── DROPDOWN 1: Programme Setup & Management ────────────────────────────── */}
+            <nav style={{ position: 'relative' }}>
+              <button
+                type="button"
+                aria-expanded={navOpenSetup}
+                onClick={() => {
+                  setNavOpenSetup((prev) => !prev);
+                  setNavOpenReview(false);
+                }}
+                style={{
+                  width: '100%',
+                  minHeight: 42,
+                  border: navOpenSetup ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(148,163,184,0.20)',
+                  borderRadius: 12,
+                  background: 'rgba(30,41,59,0.72)',
+                  color: '#f8fafc',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '7px 10px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span
                   style={{
-                    position: 'relative',
-                    minHeight: 42,
-                    border: isActive ? '1px solid rgba(165,180,252,0.24)' : '1px solid transparent',
-                    borderRadius: 10,
-                    background: isActive ? 'rgba(99,102,241,0.18)' : 'transparent',
-                    color: '#f8fafc',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '8px 10px',
-                    textAlign: 'left',
-                    boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none',
-                    overflow: 'hidden',
-                    transition: 'background 0.12s ease',
+                    width: 24,
+                    height: 24,
+                    borderRadius: 7,
+                    background: 'rgba(99,102,241,0.20)',
+                    border: '1px solid rgba(165,180,252,0.25)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    flexShrink: 0,
                   }}
                 >
-                  <span style={{
-                    position: 'relative',
-                    width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                    background: isActive ? 'rgba(99,102,241,0.16)' : 'rgba(148,163,184,0.08)',
-                    border: isActive ? '1px solid rgba(165,180,252,0.24)' : '1px solid rgba(148,163,184,0.08)',
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <Icon name={item.icon} active={isActive} size={14} />
-                  </span>
-                  <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: 12, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#f8fafc' }}>
-                      {item.label}
-                    </div>
-                    <div style={{ fontSize: 9.5, marginTop: 2, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? '#c7d2fe' : '#64748b' }}>
-                      {item.sub}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </nav>
+                  <Icon name={activeSetupItem?.icon || 'academic'} active size={13} />
+                </span>
+                <span style={{ flex: 1, textAlign: 'left', fontSize: 12, fontWeight: 800, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {activeSetupItem ? activeSetupItem.label : '1. Programme Setup & Management'}
+                </span>
+                <span style={{ display: 'grid', placeItems: 'center', transition: 'transform 0.2s', transform: navOpenSetup ? 'rotate(180deg)' : 'rotate(0deg)', color: '#64748b' }}>
+                  <Icon name="chevron" size={14} />
+                </span>
+              </button>
 
-      {/* ── Spacer ─────────────────────────────────────────────────── */}
-      <div style={{ flex: 1 }} />
+              {navOpenSetup && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    marginTop: 6,
+                    padding: 5,
+                    background: '#1f2937',
+                    border: '1px solid rgba(148,163,184,0.22)',
+                    borderRadius: 12,
+                    boxShadow: '0 18px 34px rgba(2,6,23,0.32)',
+                    display: 'grid',
+                    gap: 2,
+                    maxHeight: '280px',
+                    overflowY: 'auto',
+                    zIndex: 50,
+                  }}
+                >
+                  {PROGRAMME_SETUP_NAV.map((item) => {
+                    const isActive = location.pathname === item.path;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          navigate(item.path);
+                          setNavOpenSetup(false);
+                        }}
+                        className="nba-nav-item"
+                        style={{
+                          minHeight: 40,
+                          border: isActive ? '1px solid rgba(165,180,252,0.24)' : '1px solid transparent',
+                          borderRadius: 9,
+                          background: isActive ? 'rgba(99,102,241,0.18)' : 'transparent',
+                          color: '#f8fafc',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 9,
+                          padding: '6px 9px',
+                          textAlign: 'left',
+                          boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none',
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 6,
+                            background: isActive ? 'rgba(99,102,241,0.16)' : 'rgba(148,163,184,0.08)',
+                            display: 'grid',
+                            placeItems: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Icon name={item.icon} active={isActive} size={13} />
+                        </span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 800, fontSize: 11.5, lineHeight: 1.1, color: '#f8fafc' }}>
+                            {item.label}
+                          </div>
+                          <div style={{ fontSize: 9, marginTop: 2, color: isActive ? '#c7d2fe' : '#64748b' }}>
+                            {item.sub}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </nav>
+
+            {/* ── DROPDOWN 2: Course Submissions Review (Reviews from Course Coordinator) ─ */}
+            <nav style={{ position: 'relative' }}>
+              <button
+                type="button"
+                aria-expanded={navOpenReview}
+                onClick={() => {
+                  setNavOpenReview((prev) => !prev);
+                  setNavOpenSetup(false);
+                }}
+                style={{
+                  width: '100%',
+                  minHeight: 42,
+                  border: navOpenReview ? '1px solid rgba(245,158,11,0.5)' : '1px solid rgba(148,163,184,0.20)',
+                  borderRadius: 12,
+                  background: 'rgba(30,41,59,0.72)',
+                  color: '#f8fafc',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '7px 10px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 7,
+                    background: 'rgba(245,158,11,0.18)',
+                    border: '1px solid rgba(253,230,138,0.25)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Icon name={activeReviewItem?.icon || 'nav'} active size={13} />
+                </span>
+                <span style={{ flex: 1, textAlign: 'left', fontSize: 12, fontWeight: 800, color: '#fef08a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {activeReviewItem ? activeReviewItem.label : '2. Course Submissions Review'}
+                </span>
+                <span style={{ display: 'grid', placeItems: 'center', transition: 'transform 0.2s', transform: navOpenReview ? 'rotate(180deg)' : 'rotate(0deg)', color: '#64748b' }}>
+                  <Icon name="chevron" size={14} />
+                </span>
+              </button>
+
+              {navOpenReview && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    marginTop: 6,
+                    padding: 5,
+                    background: '#1f2937',
+                    border: '1px solid rgba(245,158,11,0.3)',
+                    borderRadius: 12,
+                    boxShadow: '0 18px 34px rgba(2,6,23,0.32)',
+                    display: 'grid',
+                    gap: 2,
+                    maxHeight: '280px',
+                    overflowY: 'auto',
+                    zIndex: 50,
+                  }}
+                >
+                  {COURSE_REVIEWS_NAV.map((item) => {
+                    const isActive = fullPath === item.path;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          navigate(item.path);
+                          setNavOpenReview(false);
+                        }}
+                        className="nba-nav-item"
+                        style={{
+                          minHeight: 40,
+                          border: isActive ? '1px solid rgba(253,230,138,0.3)' : '1px solid transparent',
+                          borderRadius: 9,
+                          background: isActive ? 'rgba(245,158,11,0.16)' : 'transparent',
+                          color: '#f8fafc',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 9,
+                          padding: '6px 9px',
+                          textAlign: 'left',
+                          boxShadow: isActive ? 'inset 3px 0 0 #f59e0b' : 'none',
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 6,
+                            background: isActive ? 'rgba(245,158,11,0.18)' : 'rgba(148,163,184,0.08)',
+                            display: 'grid',
+                            placeItems: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Icon name={item.icon} active={isActive} size={13} />
+                        </span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 800, fontSize: 11.5, lineHeight: 1.1, color: '#f8fafc' }}>
+                            {item.label}
+                          </div>
+                          <div style={{ fontSize: 9, marginTop: 2, color: isActive ? '#fef08a' : '#64748b' }}>
+                            {item.sub}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </nav>
+          </>
+        ) : (
+          /* COURSE COORDINATOR: SINGLE DROPDOWN MENU (MATCHING ORIGINAL DESIGN EXACTLY) */
+          <nav style={{ position: 'relative' }}>
+            <button
+              type="button"
+              aria-expanded={navOpenFaculty}
+              onClick={() => setNavOpenFaculty((prev) => !prev)}
+              style={{
+                width: '100%',
+                minHeight: 44,
+                border: navOpenFaculty ? '1px solid rgba(165,180,252,0.45)' : '1px solid rgba(148,163,184,0.20)',
+                borderRadius: 13,
+                background: 'rgba(30,41,59,0.72)',
+                color: '#f8fafc',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 9,
+                padding: '8px 12px',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <span
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 8,
+                  background: 'rgba(99,102,241,0.18)',
+                  border: '1px solid rgba(165,180,252,0.22)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <Icon name={activeFacultyItem?.icon || 'nav'} active size={14} />
+              </span>
+              <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {activeFacultyItem ? activeFacultyItem.label : 'Select Navigation Page'}
+              </span>
+              <span style={{ display: 'grid', placeItems: 'center', transition: 'transform 0.2s', transform: navOpenFaculty ? 'rotate(180deg)' : 'rotate(0deg)', color: '#64748b' }}>
+                <Icon name="chevron" size={15} />
+              </span>
+            </button>
+
+            {navOpenFaculty && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  marginTop: 6,
+                  padding: 5,
+                  background: '#1f2937',
+                  border: '1px solid rgba(148,163,184,0.22)',
+                  borderRadius: 12,
+                  boxShadow: '0 18px 34px rgba(2,6,23,0.32)',
+                  display: 'grid',
+                  gap: 2,
+                  maxHeight: '340px',
+                  overflowY: 'auto',
+                  zIndex: 50,
+                }}
+              >
+                {FACULTY_NAV.map((item) => {
+                  const isActive = fullPath === item.path || item.path.split('?')[0] === location.pathname;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        navigate(item.path);
+                        setNavOpenFaculty(false);
+                      }}
+                      className="nba-nav-item"
+                      style={{
+                        minHeight: 42,
+                        border: isActive ? '1px solid rgba(165,180,252,0.24)' : '1px solid transparent',
+                        borderRadius: 10,
+                        background: isActive ? 'rgba(99,102,241,0.18)' : 'transparent',
+                        color: '#f8fafc',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '8px 10px',
+                        textAlign: 'left',
+                        boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 8,
+                          flexShrink: 0,
+                          background: isActive ? 'rgba(99,102,241,0.16)' : 'rgba(148,163,184,0.08)',
+                          display: 'grid',
+                          placeItems: 'center',
+                        }}
+                      >
+                        <Icon name={item.icon} active={isActive} size={14} />
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, fontSize: 12, lineHeight: 1.1, color: '#f8fafc' }}>
+                          {item.label}
+                        </div>
+                        <div style={{ fontSize: 9.5, marginTop: 2, color: isActive ? '#c7d2fe' : '#64748b' }}>
+                          {item.sub}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </nav>
+        )}
+      </div>
 
       {/* ── Profile card ───────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        background: 'rgba(255,255,255,0.055)',
-        border: '1px solid rgba(148,163,184,0.16)',
-        borderRadius: 16, padding: 10,
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
-        flexShrink: 0,
-      }}>
-        <div style={{
-          width: 38, height: 38, borderRadius: '50%',
-          background: 'linear-gradient(135deg,#475569,#47556999)',
-          color: '#fff', fontWeight: 800, fontSize: 13,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          background: 'rgba(255,255,255,0.055)',
+          border: '1px solid rgba(148,163,184,0.16)',
+          borderRadius: 16,
+          padding: 10,
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
           flexShrink: 0,
-        }}>
+        }}
+      >
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg,#475569,#47556999)',
+            color: '#fff',
+            fontWeight: 800,
+            fontSize: 13,
+            display: 'flex',
+            alignItems: 'center',
+            justify: 'center',
+            flexShrink: 0,
+          }}
+        >
           {initials}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -279,29 +582,45 @@ export default function AppSidebar() {
             {roleText}
           </div>
         </div>
-        <span style={{
-          width: 28, height: 28, borderRadius: 10,
-          background: 'rgba(148,163,184,0.10)',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
+        <span
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 10,
+            background: 'rgba(148,163,184,0.10)',
+            display: 'grid',
+            placeItems: 'center',
+            flexShrink: 0,
+          }}
+        >
           <Icon name="profile" size={14} />
         </span>
       </div>
 
       {/* ── Need Help card ─────────────────────────────────────────── */}
-      <div style={{
-        padding: '11px 12px',
-        background: 'rgba(30,41,59,0.62)',
-        border: '1px solid rgba(148,163,184,0.18)',
-        borderRadius: 16,
-        display: 'flex', alignItems: 'center', gap: 10,
-        flexShrink: 0,
-      }}>
-        <span style={{
-          width: 30, height: 30, borderRadius: 10,
-          background: 'rgba(148,163,184,0.12)',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
+      <div
+        style={{
+          padding: '11px 12px',
+          background: 'rgba(30,41,59,0.62)',
+          border: '1px solid rgba(148,163,184,0.18)',
+          borderRadius: 16,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexShrink: 0,
+        }}
+      >
+        <span
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 10,
+            background: 'rgba(148,163,184,0.12)',
+            display: 'grid',
+            placeItems: 'center',
+            flexShrink: 0,
+          }}
+        >
           <Icon name="mail" size={15} />
         </span>
         <div style={{ minWidth: 0 }}>
@@ -317,16 +636,27 @@ export default function AppSidebar() {
         type="button"
         onClick={logout}
         style={{
-          width: '100%', minHeight: 44,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          width: '100%',
+          minHeight: 44,
+          display: 'flex',
+          alignItems: 'center',
+          justify: 'center',
+          gap: 8,
           background: 'rgba(127,29,29,0.02)',
           border: '1px solid rgba(248,113,113,0.42)',
-          borderRadius: 14, padding: '10px 13px',
-          cursor: 'pointer', fontFamily: 'inherit',
-          transition: 'background 0.15s ease', flexShrink: 0,
+          borderRadius: 14,
+          padding: '10px 13px',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          transition: 'background 0.15s ease',
+          flexShrink: 0,
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(127,29,29,0.18)'; }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(127,29,29,0.02)'; }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'rgba(127,29,29,0.18)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'rgba(127,29,29,0.02)';
+        }}
       >
         <Icon name="logout" size={17} />
         <span style={{ color: '#f87171', fontWeight: 900, fontSize: 12 }}>Logout</span>

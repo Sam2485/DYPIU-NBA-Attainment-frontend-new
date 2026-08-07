@@ -12,12 +12,14 @@ export default function AttainmentConfig() {
     selectedProgramme,
     selectedCourse,
     availableCourses = [],
-    attainmentConfigs,
+    attainmentConfigs = {},
     updateCourseAttainmentConfig,
-    activePOs,
-    activePSOs,
-    poPsoTargets,
+    activePOs = [],
+    activePSOs = [],
+    poPsoTargets = {},
     updatePoPsoTargets,
+    courseVerificationStore = {},
+    updateCourseVerificationStatus = () => {},
   } = useAcademic();
 
   const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
@@ -198,21 +200,27 @@ export default function AttainmentConfig() {
       [cId]: updated,
     }));
     updateCourseAttainmentConfig(cId, updated);
+    updateCourseVerificationStatus(cId, 'configStatus', 'VERIFIED');
     alert(`Attainment configuration for ${courseConfigs[cId]?.courseCode || 'course'} verified and approved by Programme Coordinator!`);
   };
 
-  const handleSaveConfig = () => {
-    updateCourseAttainmentConfig(activeCourseId, currentConfig);
-    if (!isCoordinator) {
-      alert('Attainment Configurations submitted! Waiting for Programme Coordinator verification.');
-    } else {
-      alert('Attainment Configurations saved and verified successfully!');
-    }
-  };
+  const currentVerificationStatus = courseVerificationStore[activeCourseId]?.configStatus || currentConfig.status || 'DRAFT';
 
-  const pendingVerifications = Object.values(courseConfigs).filter(
-    (c) => c.status === 'WAITING_FOR_COORDINATOR_VERIFICATION'
-  );
+  const handleSaveConfig = () => {
+    const updatedConfig = {
+      ...currentConfig,
+      status: 'SUBMITTED',
+      submittedBy: user?.name || 'Course Coordinator',
+      submittedAt: new Date().toISOString().split('T')[0],
+    };
+    setCourseConfigs((prev) => ({
+      ...prev,
+      [activeCourseId]: updatedConfig,
+    }));
+    updateCourseAttainmentConfig(activeCourseId, updatedConfig);
+    updateCourseVerificationStatus(activeCourseId, 'configStatus', 'SUBMITTED');
+    alert(`Attainment Configurations for ${currentConfig.courseCode || 'selected course'} submitted for Programme Coordinator review!`);
+  };
 
   return (
     <div className="animated-page">
@@ -224,58 +232,15 @@ export default function AttainmentConfig() {
               Attainment Configurations Settings
             </h2>
             <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#475569' }}>
-              Configure Direct/Indirect weightages, CO threshold %, and dynamic Min-Max percentage bands (Verified by Programme Coordinator).
+              Configure Direct/Indirect weightages, CO threshold %, and dynamic Min-Max percentage bands.
             </p>
           </div>
 
           <button className="btn btn-primary" onClick={handleSaveConfig}>
-            <Save size={15} /> {!isCoordinator ? 'Submit Configuration Proposal' : 'Save & Verify Configurations'}
+            <Save size={15} /> {!isCoordinator ? 'Submit Configuration Proposal for Review' : 'Save Attainment Configurations'}
           </button>
         </div>
       </div>
-
-      {/* Programme Coordinator Pending Verifications Alert Banner */}
-      {isCoordinator && pendingVerifications.length > 0 && (
-        <div
-          className="card"
-          style={{
-            background: '#fefce8',
-            border: '1.5px solid #fef08a',
-            borderLeft: '5px solid #ca8a04',
-            padding: '16px 20px',
-            marginBottom: '20px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Clock size={24} style={{ color: '#ca8a04' }} />
-              <div>
-                <strong style={{ fontSize: '14px', color: '#854d0e' }}>
-                  {pendingVerifications.length} Course Attainment Configurations Waiting for Your Verification
-                </strong>
-                <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#a16207' }}>
-                  Course Coordinators have updated attainment weightages & target thresholds. Review and click Verify below.
-                </p>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {pendingVerifications.map((c) => (
-                <button
-                  key={c.courseCode}
-                  className="btn btn-secondary"
-                  style={{ fontSize: '11px', padding: '5px 10px' }}
-                  onClick={() => {
-                    const foundId = Object.keys(courseConfigs).find((k) => courseConfigs[k].courseCode === c.courseCode);
-                    if (foundId) setActiveCourseId(foundId);
-                  }}
-                >
-                  {c.courseCode} Pending Review
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Course Selection Strip */}
       <div
@@ -289,6 +254,7 @@ export default function AttainmentConfig() {
       >
         {courseList.map((c) => {
           const cfg = courseConfigs[c.id] || {};
+          const status = courseVerificationStore[c.id]?.configStatus || cfg.status;
           const isCurrent = c.id === activeCourseId;
 
           return (
@@ -308,10 +274,10 @@ export default function AttainmentConfig() {
               <span>
                 {c.code} - {c.name}
               </span>
-              {cfg.status === 'VERIFIED' ? (
+              {status === 'VERIFIED' ? (
                 <CheckCircle2 size={14} style={{ color: '#10b981' }} />
-              ) : cfg.status === 'WAITING_FOR_COORDINATOR_VERIFICATION' ? (
-                <Clock size={14} style={{ color: '#eab308' }} />
+              ) : status === 'SUBMITTED' ? (
+                <Clock size={14} style={{ color: '#f59e0b' }} />
               ) : null}
             </button>
           );
@@ -330,15 +296,17 @@ export default function AttainmentConfig() {
             </p>
           </div>
 
-          {isCoordinator && currentConfig.status === 'WAITING_FOR_COORDINATOR_VERIFICATION' && (
-            <button className="btn btn-primary" onClick={() => handleVerifyConfig(activeCourseId)}>
-              <ShieldCheck size={15} /> Verify & Approve Course Config
-            </button>
-          )}
-
-          {currentConfig.status === 'VERIFIED' && (
-            <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', padding: '6px 14px', fontSize: '12px' }}>
-              ✓ VERIFIED BY PROGRAMME COORDINATOR
+          {currentVerificationStatus === 'VERIFIED' ? (
+            <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', padding: '6px 14px', fontSize: '12px', fontWeight: '800' }}>
+              ✓ VERIFIED & APPROVED BY PROGRAMME COORDINATOR
+            </span>
+          ) : currentVerificationStatus === 'SUBMITTED' ? (
+            <span className="badge badge-pending" style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '6px 14px', fontSize: '12px', fontWeight: '800' }}>
+              ⏳ SUBMITTED FOR PROGRAMME COORDINATOR REVIEW
+            </span>
+          ) : (
+            <span className="badge" style={{ background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1', padding: '6px 14px', fontSize: '12px', fontWeight: '700' }}>
+              DRAFT CONFIGURATION
             </span>
           )}
         </div>
