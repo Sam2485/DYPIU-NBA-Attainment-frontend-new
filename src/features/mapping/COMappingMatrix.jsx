@@ -165,15 +165,9 @@ export default function COMappingMatrix() {
       <div className="banner-dark-gradient">
         <div className="banner-content-row">
           <div>
-            <div className="badge badge-active" style={{ marginBottom: '6px' }}>
-              CO Mapping Matrix
-            </div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
               CO to PO & PSO Mapping Matrix
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#475569' }}>
-              Course: <strong style={{ color: '#0f172a' }}>{selectedCourse?.code} - {selectedCourse?.name}</strong> • Programme: <strong style={{ color: '#0f172a' }}>{selectedProgramme?.code}</strong> • AY: <strong style={{ color: '#0f172a' }}>{academicYear}</strong> ({courseOutcomes.length} COs × {poList.length} POs, {psoList.length} PSOs)
-            </p>
           </div>
 
           <button className="btn btn-primary" onClick={handleSave}>
@@ -618,8 +612,9 @@ export default function COMappingMatrix() {
       {/* Save, Previous & Save & Next Footer */}
       <SectionSaveFooter
         label="CO Mapping Matrix"
-        prevPath="/outcomes"
+        prevPath="/configurations"
         nextPath="/marks-upload"
+        nextLabel="Save & Proceed to Direct Assessment →"
         onSave={handleSave}
       />
     </div>

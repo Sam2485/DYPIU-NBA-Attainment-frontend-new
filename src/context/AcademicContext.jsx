@@ -1,6 +1,24 @@
 import { createContext, useContext, useState } from 'react';
+import { useAuth } from './AuthContext';
 
 const AcademicContext = createContext(null);
+
+// Master Batches (4-Year Batch Cycles matching Workflow Step 1)
+export const MASTER_BATCHES = [
+  { id: 'batch-2025-29', name: 'Batch 2025-29 (AY 2025-26 to AY 2028-29)', startYear: '2025-26', endYear: '2028-29', status: 'ACTIVE' },
+  { id: 'batch-2024-28', name: 'Batch 2024-28 (AY 2024-25 to AY 2027-28)', startYear: '2024-25', endYear: '2027-28', status: 'ACTIVE' },
+  { id: 'batch-2026-30', name: 'Batch 2026-30 (AY 2026-27 to AY 2029-30)', startYear: '2026-27', endYear: '2029-30', status: 'INITIALIZED' },
+];
+
+// Master Faculty Members Roster
+export const MASTER_FACULTY_LIST = [
+  'Dr. Raj Shaikh',
+  'Prof. XYZ',
+  'Prof. Ananya Roy',
+  'Dr. Vikram Joshi',
+  'Dr. Sameer Khan',
+  'Prof. Priya Verma',
+];
 
 // Centralized Master Programmes Database
 export const MASTER_PROGRAMMES = [
@@ -59,7 +77,8 @@ export const INITIAL_COURSES = [
     name: 'Computer Network and Security',
     programmeId: 'prog-1',
     semester: 'Sem I',
-    faculty: 'Dr. Raj Shaikh / XYZ',
+    faculty: 'Dr. Raj Shaikh / Prof. XYZ',
+    assignedFaculty: ['Dr. Raj Shaikh', 'Prof. XYZ'],
     courseOutcomes: [
       { code: 'C321.1', statement: 'Interpret fundamental concepts of Computer Networks, architectures, protocols and technologies' },
       { code: 'C321.2', statement: 'Demonstrate the working and functions of data link layer for flow and error control' },
@@ -75,7 +94,8 @@ export const INITIAL_COURSES = [
     name: 'Data Structures & Algorithms',
     programmeId: 'prog-1',
     semester: 'Sem III',
-    faculty: 'Prof. Ananya Roy',
+    faculty: 'Dr. Raj Shaikh / Prof. Ananya Roy',
+    assignedFaculty: ['Dr. Raj Shaikh', 'Prof. Ananya Roy'],
     courseOutcomes: [
       { code: 'CS301.1', statement: 'Analyze time and space complexity of sorting and searching algorithms' },
       { code: 'CS301.2', statement: 'Implement linear data structures (stacks, queues, linked lists)' },
@@ -90,6 +110,7 @@ export const INITIAL_COURSES = [
     programmeId: 'prog-2',
     semester: 'Sem IV',
     faculty: 'Dr. Vikram Joshi',
+    assignedFaculty: ['Dr. Vikram Joshi'],
     courseOutcomes: [
       { code: 'AI201.1', statement: 'Understand supervised and unsupervised learning algorithms' },
       { code: 'AI201.2', statement: 'Implement linear and logistic regression models' },
@@ -103,6 +124,7 @@ export const INITIAL_COURSES = [
     programmeId: 'prog-3',
     semester: 'Sem I',
     faculty: 'Dr. Sameer Khan',
+    assignedFaculty: ['Dr. Sameer Khan'],
     courseOutcomes: [
       { code: 'MBA101.1', statement: 'Analyze individual and group dynamics in corporate organizations' },
       { code: 'MBA101.2', statement: 'Evaluate leadership models and conflict resolution strategies' },
@@ -139,9 +161,73 @@ const YEAR_ATTAINMENT_METRICS = {
 };
 
 export function AcademicProvider({ children }) {
+  const { role, user } = useAuth();
+  
+  // Step 1: Batch Initialization State
+  const [batches, setBatches] = useState(MASTER_BATCHES);
+  const [batchId, setBatchId] = useState('batch-2025-29');
+  const selectedBatch = batches.find((b) => b.id === batchId) || batches[0];
+
+  const addBatch = (newBatch) => {
+    setBatches((prev) => [...prev, newBatch]);
+  };
+
   const [academicYear, setAcademicYear] = useState('2025-26');
   const availableYears = ['2024-25', '2025-26', '2026-27'];
+
+  // Single Programme Scope for Programme Coordinator (prog-1)
+  const availableProgrammes = MASTER_PROGRAMMES.filter((p) => {
+    if (role === 'PROGRAMME_COORDINATOR') {
+      return p.id === 'prog-1';
+    }
+    return true;
+  });
+
   const [programmeId, setProgrammeIdState] = useState('prog-1');
+
+  // Step 5: Programme PO & PSO Target Levels (Set by Programme Coordinator on 1.0 - 3.0 scale)
+  const [poPsoTargets, setPoPsoTargets] = useState({
+    'prog-1': {
+      poTargets: { PO1: 2.50, PO2: 2.50, PO3: 2.20, PO4: 2.20, PO5: 2.00, PO6: 2.00, PO7: 2.00, PO8: 2.50, PO9: 2.50, PO10: 2.50, PO11: 2.00, PO12: 2.00 },
+      psoTargets: { PSO1: 2.50, PSO2: 2.20, PSO3: 2.00 },
+    },
+    'prog-2': {
+      poTargets: { PO1: 2.50, PO2: 2.50, PO3: 2.20, PO4: 2.00 },
+      psoTargets: { PSO1: 2.50, PSO2: 2.20 },
+    },
+    'prog-3': {
+      poTargets: { PO1: 2.50, PO2: 2.50, PO3: 2.00 },
+      psoTargets: { PSO1: 2.50 },
+    },
+  });
+
+  const updatePoPsoTargets = (targetProgId, newPoTargets, newPsoTargets) => {
+    setPoPsoTargets((prev) => ({
+      ...prev,
+      [targetProgId]: {
+        poTargets: { ...(prev[targetProgId]?.poTargets || {}), ...newPoTargets },
+        psoTargets: { ...(prev[targetProgId]?.psoTargets || {}), ...newPsoTargets },
+      },
+    }));
+  };
+
+  // Step 6: Course CO Target Levels (Set by Course Coordinator / Faculty on 1.0 - 3.0 scale)
+  const [coTargets, setCoTargets] = useState({
+    'crs-1': { 'C321.1': 2.50, 'C321.2': 2.50, 'C321.3': 2.20, 'C321.4': 2.50, 'C321.5': 2.00, 'C321.6': 2.50 },
+    'crs-2': { 'CS301.1': 2.50, 'CS301.2': 2.50, 'CS301.3': 2.20, 'CS301.4': 2.00 },
+    'crs-3': { 'AI201.1': 2.50, 'AI201.2': 2.50, 'AI201.3': 2.20 },
+    'crs-4': { 'MBA101.1': 2.50, 'MBA101.2': 2.50 },
+  });
+
+  const updateCourseCoTargets = (targetCourseId, newCoTargets) => {
+    setCoTargets((prev) => ({
+      ...prev,
+      [targetCourseId]: {
+        ...(prev[targetCourseId] || {}),
+        ...newCoTargets,
+      },
+    }));
+  };
 
   // Master Outcomes State (Keyed by Academic Year)
   const [poStoreByYear, setPoStoreByYear] = useState({
@@ -186,10 +272,28 @@ export function AcademicProvider({ children }) {
   const coursesStore = coursesStoreByYear[academicYear] || INITIAL_COURSES;
   const yearMetrics = YEAR_ATTAINMENT_METRICS[academicYear] || YEAR_ATTAINMENT_METRICS['2025-26'];
 
-  // Derived available courses for active programme
-  const availableCourses = coursesStore.filter((c) => c.programmeId === programmeId);
+  // Faculty Allocation Filter: If Faculty role, filter courses allocated to this faculty member
+  const availableCourses = coursesStore.filter((c) => {
+    if (c.programmeId !== programmeId) return false;
+    if (role === 'FACULTY') {
+      const facultyName = user?.name || 'Dr. Raj Shaikh';
+      const assigned = c.assignedFaculty || [];
+      return (
+        assigned.length === 0 ||
+        assigned.some(
+          (f) =>
+            f.toLowerCase().includes(facultyName.toLowerCase()) ||
+            facultyName.toLowerCase().includes(f.toLowerCase())
+        )
+      );
+    }
+    return true;
+  });
 
   const setProgrammeId = (newProgId) => {
+    if (role === 'PROGRAMME_COORDINATOR' && newProgId !== 'prog-1') {
+      return; // Lock Programme Coordinator to prog-1
+    }
     setProgrammeIdState(newProgId);
     const newAvail = coursesStore.filter((c) => c.programmeId === newProgId);
     if (newAvail.length > 0) {
@@ -203,8 +307,9 @@ export function AcademicProvider({ children }) {
   // Active Objects
   const selectedProgramme = MASTER_PROGRAMMES.find((p) => p.id === programmeId) || MASTER_PROGRAMMES[0];
   const selectedCourse =
-    coursesStore.find((c) => c.id === courseId && c.programmeId === programmeId) ||
+    availableCourses.find((c) => c.id === courseId) ||
     availableCourses[0] ||
+    coursesStore.find((c) => c.programmeId === programmeId) ||
     coursesStore[0];
 
   // Dynamic PO & PSO arrays for active Programme & Year
@@ -252,14 +357,35 @@ export function AcademicProvider({ children }) {
     }));
   };
 
+  // Faculty Course Allocation Action by Programme Coordinator
+  const updateCourseFacultyAllocation = (targetCourseId, assignedFacultyArray) => {
+    setCoursesStoreByYear((prev) => ({
+      ...prev,
+      [academicYear]: (prev[academicYear] || []).map((c) =>
+        c.id === targetCourseId
+          ? {
+              ...c,
+              assignedFaculty: assignedFacultyArray,
+              faculty: assignedFacultyArray.join(' / '),
+            }
+          : c
+      ),
+    }));
+  };
+
   return (
     <AcademicContext.Provider
       value={{
+        batches,
+        batchId,
+        setBatchId,
+        selectedBatch,
+        addBatch,
         academicYear,
         setAcademicYear,
         availableYears,
         yearMetrics,
-        programmes: MASTER_PROGRAMMES,
+        programmes: availableProgrammes,
         programmeId,
         selectedProgramme,
         setProgrammeId,
@@ -273,10 +399,15 @@ export function AcademicProvider({ children }) {
         activeCOs,
         activeAttainmentConfig,
         attainmentConfigs,
+        poPsoTargets,
+        updatePoPsoTargets,
+        coTargets,
+        updateCourseCoTargets,
         updateCourseAttainmentConfig,
         updateProgrammePOs,
         updateProgrammePSOs,
         updateCourseCOs,
+        updateCourseFacultyAllocation,
       }}
     >
       {children}

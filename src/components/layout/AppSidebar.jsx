@@ -32,176 +32,138 @@ function Icon({ name, active = false, size = 16 }) {
 }
 
 // ── Full nav item list with 4 Roles: IQAC, DIRECTOR, PROGRAMME_COORDINATOR, FACULTY
+// For Course Coordinator role: Exactly 5 items (Dashboard, Attainment Config, Attainment Overview, ATR Reports, Reports & Downloads)
 const ALL_NAV = [
-  { id: 'dashboard',         path: '/dashboard',         icon: 'dashboard', label: 'Dashboard',             sub: 'Overview & KPIs',              roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
-  { id: 'users',             path: '/users',              icon: 'users',     label: 'User & Access',          sub: 'Accounts & Roles',             roles: ['IQAC','DIRECTOR'] },
-  { id: 'configurations',    path: '/configurations',     icon: 'config',    label: 'Attainment Config',      sub: 'Weightages & Thresholds',      roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
-  { id: 'academic',          path: '/academic',           icon: 'academic',  label: 'Academic Setup',         sub: 'Depts, Programmes, Courses',   roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
-  { id: 'outcomes',          path: '/outcomes',           icon: 'outcomes',  label: 'Outcome Management',     sub: 'POs, PSOs, CO Approvals',      roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
-  { id: 'co-mapping',        path: '/co-mapping',         icon: 'mapping',   label: 'CO Mapping Matrix',      sub: 'CO → PO/PSO Grids',            roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
-  { id: 'marks-upload',      path: '/marks-upload',       icon: 'marks',     label: 'End Sem Marks',          sub: 'Upload & Marks Grid',          roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
-  { id: 'survey-upload',     path: '/survey-upload',      icon: 'survey',    label: 'Course End Survey',      sub: 'Survey Feedback',              roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
-  { id: 'co-attainment',     path: '/co-attainment',      icon: 'coa',       label: 'CO Attainment Engine',   sub: 'Direct, Indirect & Overall',   roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
-  { id: 'po-pso-attainment', path: '/po-pso-attainment',  icon: 'poa',       label: 'PO & PSO Attainment',    sub: 'Outcome Aggregations',         roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
-  { id: 'reports',           path: '/reports',            icon: 'reports',   label: 'Reports & Downloads',    sub: 'PDF & Excel Exports',          roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
+  { id: 'dashboard',           path: '/dashboard',           icon: 'dashboard', label: 'Dashboard',             sub: 'Start Attainment Process',     roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
+  { id: 'users',               path: '/users',               icon: 'users',     label: 'User & Access',          sub: 'Accounts & Roles',             roles: ['IQAC','DIRECTOR'] },
+  { id: 'configurations',      path: '/configurations',      icon: 'config',    label: 'Attainment Config',      sub: 'Weightages & Thresholds Settings', roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
+  { id: 'academic',            path: '/academic',            icon: 'academic',  label: 'Academic Setup',         sub: 'Depts, Programmes, Courses',   roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
+  { id: 'outcomes',            path: '/outcomes',            icon: 'outcomes',  label: 'Outcome Management',     sub: 'POs, PSOs, CO Approvals',      roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
+  { id: 'co-mapping',          path: '/co-mapping',          icon: 'mapping',   label: 'CO Mapping Matrix',      sub: 'CO → PO/PSO Grids',            roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
+  { id: 'marks-upload',        path: '/marks-upload',        icon: 'marks',     label: 'End Sem Marks',          sub: 'Upload & Marks Grid',          roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
+  { id: 'survey-upload',       path: '/survey-upload',       icon: 'survey',    label: 'Course End Survey',      sub: 'Survey Feedback',              roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
+  { id: 'co-attainment',       path: '/co-attainment',       icon: 'coa',       label: 'CO Attainment Engine',   sub: 'Direct, Indirect & Overall',   roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
+  { id: 'attainment-overview', path: '/attainment-overview', icon: 'coa',       label: 'Attainment Overview',    sub: 'CO & PO/PSO Attainments',      roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
+  { id: 'course-atr',          path: '/atr-reports',         icon: 'survey',    label: 'ATR Reports',            sub: 'Carry-Forward & Current ATR',  roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
+  { id: 'coordinator-review',  path: '/coordinator-review',  icon: 'nav',       label: 'Course Submissions Review', sub: 'Inspect & Approve Courses', roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
+  { id: 'po-pso-attainment',   path: '/po-pso-attainment',   icon: 'poa',       label: 'CO to PO & PSO Attainment', sub: 'Outcome Aggregations',         roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
+  { id: 'programme-atr',       path: '/programme-atr',       icon: 'poa',       label: 'Programme ATR',          sub: 'Batch Continuous Improvement', roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR'] },
+  { id: 'reports',             path: '/reports',             icon: 'reports',   label: 'Reports & Downloads',    sub: 'PDF & Excel Exports',          roles: ['IQAC','DIRECTOR','PROGRAMME_COORDINATOR','FACULTY'] },
 ];
 
-// ── Sidebar shell ─────────────────────────────────────────────────────────────
 export default function AppSidebar() {
   const { user, role, switchRole, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [navOpen, setNavOpen] = useState(true);
+  const [navOpen, setNavOpen] = useState(false);
 
   const visibleNav = ALL_NAV.filter(item => item.roles.includes(role));
+  const activePage = visibleNav.find(item => item.path === location.pathname);
 
-  // label for the dropdown trigger — shows active page name
-  const activePage = visibleNav.find(i => i.path === location.pathname);
+  const roleText = {
+    IQAC: 'IQAC Admin',
+    DIRECTOR: 'Director / HOD',
+    PROGRAMME_COORDINATOR: 'Programme Coordinator',
+    FACULTY: 'Course Coordinator',
+  }[role] || role;
 
-  const initials = (user?.name || 'DY')
-    .split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  const initials = user?.name
+    ? user.name.split(' ').map(n => n[0]).join('').slice(0, 2)
+    : 'DY';
 
   return (
     <aside
-      className="app-sidebar"
+      className="nba-sidebar-nav"
       style={{
-        width: 292,
-        height: '100vh',
-        boxSizing: 'border-box',
-        background: 'linear-gradient(180deg,#111827 0%,#111827 54%,#0f172a 100%)',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '18px 14px',
-        gap: 11,
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        bottom: 0,
-        zIndex: 40,
-        flexShrink: 0,
+        width: 280, flexShrink: 0,
+        height: '100vh', position: 'sticky', top: 0, zIndex: 40,
+        background: '#111827',
         borderRight: '1px solid rgba(148,163,184,0.14)',
-        boxShadow: '10px 0 28px rgba(15,23,42,0.20)',
-        overflowY: 'auto',
-        overflowX: 'hidden',
+        display: 'flex', flexDirection: 'column', gap: 14,
+        padding: '16px 14px 14px',
+        boxSizing: 'border-box',
       }}
     >
-      {/* ── Brand ──────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 1px 3px', flexShrink: 0 }}>
+      {/* ── Brand Header ───────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 4px', flexShrink: 0 }}>
         <div style={{
-          width: 42, height: 42, borderRadius: 13,
-          background: 'linear-gradient(135deg,#475569 0%,#334155 100%)',
-          border: '1px solid rgba(226,232,240,0.12)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#f8fafc', fontWeight: 950, fontSize: 11,
-          boxShadow: '0 10px 20px rgba(15,23,42,0.22)',
-          flexShrink: 0, fontFamily: 'inherit',
+          width: 38, height: 38, borderRadius: 12, flexShrink: 0,
+          background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)',
+          boxShadow: '0 8px 22px rgba(37,99,235,0.35)',
+          color: '#fff', fontWeight: 900, fontSize: 13,
+          display: 'grid', placeItems: 'center', letterSpacing: '0.04em',
         }}>
           NBA
         </div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ color: '#f8fafc', fontWeight: 900, fontSize: 13, lineHeight: 1.15 }}>
-            DYPIU Attainment
-          </div>
-          <div style={{ color: '#94a3b8', fontSize: 10, lineHeight: 1.3, marginTop: 2 }}>
+        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <strong style={{ color: '#fff', fontSize: 13.5, fontWeight: 800, lineHeight: 1.2 }}>
+            NBA Attainment System
+          </strong>
+          <span style={{ color: '#8292ad', fontSize: 10.5, lineHeight: 1.2 }}>
             D. Y. Patil International University
-          </div>
+          </span>
         </div>
       </div>
 
-      {/* ── Role Switcher in Sidebar ────────────────────────────────── */}
+      {/* ── Role Switcher ──────────────────────────────────────────── */}
       <div style={{
-        background: 'rgba(51,65,85,0.45)',
-        border: '1px solid rgba(148,163,184,0.18)',
-        borderRadius: 11, padding: '8px 10px',
-        display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
+        background: 'rgba(51, 65, 85, 0.45)',
+        border: '1px solid rgba(148,163,184,0.16)',
+        borderRadius: 14, padding: '10px 12px',
+        display: 'flex', flexDirection: 'column', gap: 4,
+        flexShrink: 0,
       }}>
-        <Shield size={14} style={{ color: '#818cf8', flexShrink: 0 }} />
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ color: '#94a3b8', fontSize: 8.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            Active Access Role
-          </div>
-          <select
-            value={role}
-            onChange={(e) => switchRole(e.target.value)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              fontSize: '11.5px',
-              fontWeight: '800',
-              color: '#f8fafc',
-              cursor: 'pointer',
-              outline: 'none',
-              width: '100%',
-              padding: 0,
-            }}
-          >
-            <option value="IQAC" style={{ color: '#0f172a' }}>IQAC</option>
-            <option value="DIRECTOR" style={{ color: '#0f172a' }}>DIRECTOR</option>
-            <option value="PROGRAMME_COORDINATOR" style={{ color: '#0f172a' }}>PROGRAMME COORDINATOR</option>
-            <option value="FACULTY" style={{ color: '#0f172a' }}>FACULTY</option>
-          </select>
+        <div style={{ fontSize: 9.5, color: '#60a5fa', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          Active User Role
         </div>
+        <select
+          value={role}
+          onChange={(e) => switchRole(e.target.value)}
+          style={{
+            width: '100%',
+            height: '32px',
+            borderRadius: '8px',
+            border: '1px solid rgba(148, 163, 184, 0.25)',
+            background: '#1e293b',
+            color: '#f8fafc',
+            fontSize: '12px',
+            fontWeight: '800',
+            padding: '0 8px',
+            cursor: 'pointer',
+            outline: 'none',
+          }}
+        >
+          <option value="FACULTY" style={{ color: '#0f172a', background: '#ffffff' }}>Course Coordinator</option>
+          <option value="PROGRAMME_COORDINATOR" style={{ color: '#0f172a', background: '#ffffff' }}>Programme Coordinator</option>
+          <option value="DIRECTOR" style={{ color: '#0f172a', background: '#ffffff' }}>Director / HOD</option>
+          <option value="IQAC" style={{ color: '#0f172a', background: '#ffffff' }}>IQAC Admin</option>
+        </select>
       </div>
 
-      {/* ── OBE label ──────────────────────────────────────────────── */}
-      <div style={{
-        background: 'rgba(99,102,241,0.10)',
-        border: '1px solid rgba(165,180,252,0.20)',
-        borderRadius: 11, padding: '9px 12px',
-        display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0,
-      }}>
-        <span style={{
-          width: 30, height: 30, borderRadius: 9,
-          background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(165,180,252,0.24)',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
-          <Icon name="outcomes" active size={15} />
-        </span>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ color: '#c7d2fe', fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
-            NBA Framework
-          </div>
-          <div style={{ color: '#f8fafc', fontWeight: 800, fontSize: 11.5, lineHeight: 1.2 }}>
-            OBE — Outcome Based Education
-          </div>
-        </div>
-      </div>
-
-      {/* ── Divider ────────────────────────────────────────────────── */}
-      <div style={{ height: 1, background: 'rgba(148,163,184,0.16)', flexShrink: 0 }} />
-
-      {/* ── Single navigation dropdown ────────────────────────────── */}
-      <nav style={{ flexShrink: 0 }} aria-label="Main navigation">
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          padding: '0 4px 7px',
-          fontSize: 9, fontWeight: 900, color: '#64748b',
-          textTransform: 'uppercase', letterSpacing: '0.1em',
-        }}>
-          <Icon name="nav" size={11} />
-          Navigation
-        </div>
-
-        {/* Dropdown trigger button */}
+      {/* ── Collapsible Navigation Dropdown Menu ───────────────────── */}
+      <nav style={{ position: 'relative', flexShrink: 0 }}>
         <button
           type="button"
-          onClick={() => setNavOpen(o => !o)}
           aria-expanded={navOpen}
+          onClick={() => setNavOpen(prev => !prev)}
           style={{
-            width: '100%', minHeight: 42,
-            border: navOpen ? '1px solid rgba(129,140,248,0.62)' : '1px solid rgba(148,163,184,0.16)',
-            borderRadius: 12, padding: '0 11px 0 9px',
-            color: '#f8fafc', background: 'rgba(30,41,59,0.72)',
-            fontFamily: 'inherit', fontWeight: 850, cursor: 'pointer',
+            width: '100%', minHeight: 44,
+            border: navOpen ? '1px solid rgba(165,180,252,0.45)' : '1px solid rgba(148,163,184,0.20)',
+            borderRadius: 13,
+            background: 'rgba(30,41,59,0.72)',
+            color: '#f8fafc',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
             display: 'flex', alignItems: 'center', gap: 9,
-            boxShadow: navOpen ? '0 0 0 3px rgba(99,102,241,0.12)' : 'none',
-            transition: 'border-color 0.15s, box-shadow 0.15s',
+            padding: '8px 12px',
+            transition: 'border 0.15s ease, background 0.15s ease',
           }}
         >
           <span style={{
-            width: 28, height: 28, borderRadius: 8,
-            background: 'rgba(99,102,241,0.16)', border: '1px solid rgba(165,180,252,0.24)',
+            width: 26, height: 26, borderRadius: 8,
+            background: 'rgba(99,102,241,0.18)',
+            border: '1px solid rgba(165,180,252,0.22)',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}>
             {activePage
@@ -210,24 +172,28 @@ export default function AppSidebar() {
             }
           </span>
           <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {activePage ? activePage.label : 'Select Page'}
+            {activePage ? activePage.label : 'Select Navigation Page'}
           </span>
           <span style={{ display: 'inline-flex', transition: 'transform 0.2s', transform: navOpen ? 'rotate(180deg)' : 'rotate(0deg)', color: '#64748b' }}>
             <Icon name="chevron" size={15} />
           </span>
         </button>
 
-        {/* Dropdown list */}
+        {/* Dropdown Options List */}
         {navOpen && (
           <div
             role="listbox"
             style={{
+              position: 'absolute', top: '100%', left: 0, right: 0,
               marginTop: 6, padding: 5,
               background: '#1f2937',
               border: '1px solid rgba(148,163,184,0.22)',
               borderRadius: 12,
               boxShadow: '0 18px 34px rgba(2,6,23,0.32)',
               display: 'grid', gap: 2,
+              maxHeight: '340px',
+              overflowY: 'auto',
+              zIndex: 50,
             }}
           >
             {visibleNav.map(item => {
@@ -238,11 +204,14 @@ export default function AppSidebar() {
                   type="button"
                   role="option"
                   aria-selected={isActive}
-                  onClick={() => { navigate(item.path); }}
+                  onClick={() => {
+                    navigate(item.path);
+                    setNavOpen(false);
+                  }}
                   className="nba-nav-item"
                   style={{
                     position: 'relative',
-                    minHeight: 44,
+                    minHeight: 42,
                     border: isActive ? '1px solid rgba(165,180,252,0.24)' : '1px solid transparent',
                     borderRadius: 10,
                     background: isActive ? 'rgba(99,102,241,0.18)' : 'transparent',
@@ -257,13 +226,6 @@ export default function AppSidebar() {
                     transition: 'background 0.12s ease',
                   }}
                 >
-                  {isActive && (
-                    <span style={{
-                      position: 'absolute', inset: 0,
-                      background: 'linear-gradient(90deg,rgba(99,102,241,0.12),transparent 55%)',
-                      pointerEvents: 'none',
-                    }} />
-                  )}
                   <span style={{
                     position: 'relative',
                     width: 28, height: 28, borderRadius: 8, flexShrink: 0,
@@ -291,9 +253,6 @@ export default function AppSidebar() {
       {/* ── Spacer ─────────────────────────────────────────────────── */}
       <div style={{ flex: 1 }} />
 
-      {/* ── Divider ────────────────────────────────────────────────── */}
-      <div style={{ height: 1, background: 'rgba(148,163,184,0.16)', flexShrink: 0 }} />
-
       {/* ── Profile card ───────────────────────────────────────────── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
@@ -317,7 +276,7 @@ export default function AppSidebar() {
             {(user?.name || 'Dr. Raj Shaikh').split(' ').slice(0, 3).join(' ')}
           </div>
           <div style={{ color: '#9ca3af', fontSize: 10.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {user?.email || 'admin@dypiu.ac.in'}
+            {roleText}
           </div>
         </div>
         <span style={{
@@ -329,7 +288,7 @@ export default function AppSidebar() {
         </span>
       </div>
 
-      {/* ── Help card ──────────────────────────────────────────────── */}
+      {/* ── Need Help card ─────────────────────────────────────────── */}
       <div style={{
         padding: '11px 12px',
         background: 'rgba(30,41,59,0.62)',
@@ -353,7 +312,7 @@ export default function AppSidebar() {
         </div>
       </div>
 
-      {/* ── Logout ─────────────────────────────────────────────────── */}
+      {/* ── Logout Button ─────────────────────────────────────────── */}
       <button
         type="button"
         onClick={logout}

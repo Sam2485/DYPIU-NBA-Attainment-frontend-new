@@ -35,15 +35,9 @@ export default function CourseEndSurveyHub() {
       <div className="banner-dark-gradient">
         <div className="banner-content-row">
           <div>
-            <div className="badge badge-active" style={{ marginBottom: '6px' }}>
-              Course End Survey
-            </div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
               Course End Survey Management
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#475569' }}>
-              Course: <strong style={{ color: '#0f172a' }}>{selectedCourse?.code} - {selectedCourse?.name}</strong> • Programme: <strong style={{ color: '#0f172a' }}>{selectedProgramme?.code}</strong> • AY: <strong style={{ color: '#0f172a' }}>{academicYear}</strong>
-            </p>
           </div>
 
           <div>
@@ -124,6 +118,7 @@ export default function CourseEndSurveyHub() {
         label="Course End Survey"
         prevPath="/marks-upload"
         nextPath="/co-attainment"
+        nextLabel="Save & Proceed to CO Attainment Engine →"
       />
     </div>
   );

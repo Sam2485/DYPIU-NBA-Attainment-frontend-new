@@ -1,22 +1,25 @@
-import { useState } from 'react';
-import { Sliders, Save, CheckCircle2, Clock, XCircle, ShieldCheck, UserCheck } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Sliders, Save, CheckCircle2, Clock, ShieldCheck, Target, Layers, PieChart, Award, Zap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAcademic } from '../../context/AcademicContext';
-import RowButtons from '../../components/common/RowButtons';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function AttainmentConfig() {
   const { role, user } = useAuth();
   const {
     academicYear,
+    programmeId,
     selectedProgramme,
     selectedCourse,
     availableCourses = [],
     attainmentConfigs,
     updateCourseAttainmentConfig,
+    activePOs,
+    activePSOs,
+    poPsoTargets,
+    updatePoPsoTargets,
   } = useAcademic();
 
-  const isFaculty = role === 'FACULTY';
   const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
   const courseList = availableCourses.length > 0 ? availableCourses : [
@@ -24,7 +27,36 @@ export default function AttainmentConfig() {
     { id: 'crs-2', code: 'CS301', name: 'Data Structures & Algorithms' },
   ];
 
-  // Local state initialized with context attainmentConfigs
+  const [activeCourseId, setActiveCourseId] = useState(selectedCourse?.id || 'crs-1');
+
+  useEffect(() => {
+    if (selectedCourse?.id) {
+      setActiveCourseId(selectedCourse.id);
+    }
+  }, [selectedCourse]);
+
+  // Step 5: PO & PSO Target Levels state for active Programme (Scale 1.0 - 3.0)
+  const currentProgTargets = poPsoTargets[programmeId] || {
+    poTargets: { PO1: 2.50, PO2: 2.50, PO3: 2.20, PO4: 2.20, PO5: 2.00, PO6: 2.00, PO7: 2.00, PO8: 2.50, PO9: 2.50, PO10: 2.50, PO11: 2.00, PO12: 2.00 },
+    psoTargets: { PSO1: 2.50, PSO2: 2.20, PSO3: 2.00 },
+  };
+
+  const [localPoTargets, setLocalPoTargets] = useState(currentProgTargets.poTargets || {});
+  const [localPsoTargets, setLocalPsoTargets] = useState(currentProgTargets.psoTargets || {});
+
+  useEffect(() => {
+    if (poPsoTargets[programmeId]) {
+      setLocalPoTargets(poPsoTargets[programmeId].poTargets || {});
+      setLocalPsoTargets(poPsoTargets[programmeId].psoTargets || {});
+    }
+  }, [programmeId, poPsoTargets]);
+
+  const handleSavePoPsoTargets = () => {
+    updatePoPsoTargets(programmeId, localPoTargets, localPsoTargets);
+    alert(`Target Attainment Levels for ${selectedProgramme?.code} saved successfully!`);
+  };
+
+  // Attainment Configuration Store (Direct/Indirect weights, Threshold, Direct/Indirect Level 1-3 Bands)
   const [courseConfigs, setCourseConfigs] = useState({
     'crs-1': {
       courseCode: '310244',
@@ -32,17 +64,17 @@ export default function AttainmentConfig() {
       directWeight: attainmentConfigs?.['crs-1']?.directWeight || 80,
       indirectWeight: attainmentConfigs?.['crs-1']?.indirectWeight || 20,
       directThreshold: attainmentConfigs?.['crs-1']?.directThreshold || 60,
-      slightWeight: 0.33,
-      moderateWeight: 0.66,
-      substantialWeight: 1.00,
-      levels: [
+      directLevels: [
         { level: 1, minPercentage: 0, maxPercentage: 50 },
         { level: 2, minPercentage: 50, maxPercentage: 70 },
         { level: 3, minPercentage: 70, maxPercentage: 100 },
       ],
-      status: 'WAITING_FOR_COORDINATOR_VERIFICATION',
-      proposedBy: 'Dr. Raj Shaikh',
-      proposedAt: '2026-08-04',
+      indirectLevels: [
+        { level: 1, minPercentage: 0, maxPercentage: 50 },
+        { level: 2, minPercentage: 50, maxPercentage: 70 },
+        { level: 3, minPercentage: 70, maxPercentage: 100 },
+      ],
+      status: 'VERIFIED',
     },
     'crs-2': {
       courseCode: 'CS301',
@@ -50,48 +82,47 @@ export default function AttainmentConfig() {
       directWeight: attainmentConfigs?.['crs-2']?.directWeight || 80,
       indirectWeight: attainmentConfigs?.['crs-2']?.indirectWeight || 20,
       directThreshold: attainmentConfigs?.['crs-2']?.directThreshold || 65,
-      slightWeight: 0.33,
-      moderateWeight: 0.66,
-      substantialWeight: 1.00,
-      levels: [
-        { level: 1, minPercentage: 0, maxPercentage: 55 },
-        { level: 2, minPercentage: 55, maxPercentage: 75 },
-        { level: 3, minPercentage: 75, maxPercentage: 100 },
+      directLevels: [
+        { level: 1, minPercentage: 0, maxPercentage: 50 },
+        { level: 2, minPercentage: 50, maxPercentage: 70 },
+        { level: 3, minPercentage: 70, maxPercentage: 100 },
       ],
-      status: 'VERIFIED',
-      proposedBy: 'Prof. Ananya Roy',
-      proposedAt: '2026-08-02',
+      indirectLevels: [
+        { level: 1, minPercentage: 0, maxPercentage: 50 },
+        { level: 2, minPercentage: 50, maxPercentage: 70 },
+        { level: 3, minPercentage: 70, maxPercentage: 100 },
+      ],
+      status: 'WAITING_FOR_COORDINATOR_VERIFICATION',
     },
   });
 
-  const [activeCourseId, setActiveCourseId] = useState(selectedCourse?.id || 'crs-1');
   const currentConfig = courseConfigs[activeCourseId] || {
     courseCode: selectedCourse?.code || '310244',
-    courseName: selectedCourse?.name || 'Computer Network and Security',
-    directWeight: attainmentConfigs?.[selectedCourse?.id]?.directWeight || 80,
-    indirectWeight: attainmentConfigs?.[selectedCourse?.id]?.indirectWeight || 20,
-    directThreshold: attainmentConfigs?.[selectedCourse?.id]?.directThreshold || 60,
-    slightWeight: 0.33,
-    moderateWeight: 0.66,
-    substantialWeight: 1.00,
-    levels: [
+    courseName: selectedCourse?.name || 'Course Title',
+    directWeight: 80,
+    indirectWeight: 20,
+    directThreshold: 60,
+    directLevels: [
+      { level: 1, minPercentage: 0, maxPercentage: 50 },
+      { level: 2, minPercentage: 50, maxPercentage: 70 },
+      { level: 3, minPercentage: 70, maxPercentage: 100 },
+    ],
+    indirectLevels: [
       { level: 1, minPercentage: 0, maxPercentage: 50 },
       { level: 2, minPercentage: 50, maxPercentage: 70 },
       { level: 3, minPercentage: 70, maxPercentage: 100 },
     ],
     status: 'VERIFIED',
-    proposedBy: 'Dr. Raj Shaikh',
-    proposedAt: '2026-08-04',
   };
 
   const handleDirectWeightChange = (val) => {
-    const direct = Number(val);
+    const direct = Math.min(100, Math.max(0, Number(val)));
     const updated = {
       ...currentConfig,
       directWeight: direct,
       indirectWeight: 100 - direct,
-      status: isFaculty ? 'WAITING_FOR_COORDINATOR_VERIFICATION' : currentConfig.status,
-      proposedBy: user?.name || 'Faculty Member',
+      status: 'WAITING_FOR_COORDINATOR_VERIFICATION',
+      proposedBy: user?.name || 'Course Coordinator',
       proposedAt: new Date().toISOString().split('T')[0],
     };
     setCourseConfigs((prev) => ({
@@ -106,8 +137,8 @@ export default function AttainmentConfig() {
     const updated = {
       ...currentConfig,
       directThreshold: threshold,
-      status: isFaculty ? 'WAITING_FOR_COORDINATOR_VERIFICATION' : currentConfig.status,
-      proposedBy: user?.name || 'Faculty Member',
+      status: 'WAITING_FOR_COORDINATOR_VERIFICATION',
+      proposedBy: user?.name || 'Course Coordinator',
       proposedAt: new Date().toISOString().split('T')[0],
     };
     setCourseConfigs((prev) => ({
@@ -117,40 +148,40 @@ export default function AttainmentConfig() {
     updateCourseAttainmentConfig(activeCourseId, updated);
   };
 
-  const handleLevelChange = (idx, field, val) => {
-    const updatedLevels = [...(currentConfig.levels || [])];
-    updatedLevels[idx] = { ...updatedLevels[idx], [field]: Number(val) };
-
+  const handleDirectLevelChange = (levelIndex, field, val) => {
+    const numVal = Math.min(100, Math.max(0, Number(val)));
+    const updatedLevels = (currentConfig.directLevels || []).map((lvl, idx) => {
+      if (idx === levelIndex) {
+        return { ...lvl, [field]: numVal };
+      }
+      return lvl;
+    });
     const updated = {
       ...currentConfig,
-      levels: updatedLevels,
-      status: isFaculty ? 'WAITING_FOR_COORDINATOR_VERIFICATION' : currentConfig.status,
-      proposedBy: user?.name || 'Faculty Member',
+      directLevels: updatedLevels,
+      status: 'WAITING_FOR_COORDINATOR_VERIFICATION',
+      proposedBy: user?.name || 'Course Coordinator',
       proposedAt: new Date().toISOString().split('T')[0],
     };
-
-    setCourseConfigs((prev) => ({
-      ...prev,
-      [activeCourseId]: updated,
-    }));
-    updateCourseAttainmentConfig(activeCourseId, updated);
-  };
-
-  const handleAddLevel = () => {
-    const levels = currentConfig.levels || [];
-    const nextLvl = levels.length + 1;
-    const lastMax = levels.length > 0 ? levels[levels.length - 1].maxPercentage : 70;
-    const updatedLevels = [...levels, { level: nextLvl, minPercentage: lastMax, maxPercentage: 100 }];
-    const updated = { ...currentConfig, levels: updatedLevels };
     setCourseConfigs((prev) => ({ ...prev, [activeCourseId]: updated }));
     updateCourseAttainmentConfig(activeCourseId, updated);
   };
 
-  const handleDeleteLevel = () => {
-    const levels = currentConfig.levels || [];
-    if (levels.length <= 1) return;
-    const updatedLevels = levels.slice(0, -1);
-    const updated = { ...currentConfig, levels: updatedLevels };
+  const handleIndirectLevelChange = (levelIndex, field, val) => {
+    const numVal = Math.min(100, Math.max(0, Number(val)));
+    const updatedLevels = (currentConfig.indirectLevels || []).map((lvl, idx) => {
+      if (idx === levelIndex) {
+        return { ...lvl, [field]: numVal };
+      }
+      return lvl;
+    });
+    const updated = {
+      ...currentConfig,
+      indirectLevels: updatedLevels,
+      status: 'WAITING_FOR_COORDINATOR_VERIFICATION',
+      proposedBy: user?.name || 'Course Coordinator',
+      proposedAt: new Date().toISOString().split('T')[0],
+    };
     setCourseConfigs((prev) => ({ ...prev, [activeCourseId]: updated }));
     updateCourseAttainmentConfig(activeCourseId, updated);
   };
@@ -159,44 +190,29 @@ export default function AttainmentConfig() {
     const updated = {
       ...courseConfigs[cId],
       status: 'VERIFIED',
+      verifiedBy: user?.name || 'Programme Coordinator',
+      verifiedAt: new Date().toISOString().split('T')[0],
     };
     setCourseConfigs((prev) => ({
       ...prev,
       [cId]: updated,
     }));
     updateCourseAttainmentConfig(cId, updated);
-    alert(`Attainment configuration for ${courseConfigs[cId]?.courseCode || 'course'} VERIFIED by Programme Coordinator!`);
-  };
-
-  const handleRejectConfig = (cId) => {
-    const updated = {
-      ...courseConfigs[cId],
-      status: 'REJECTED',
-    };
-    setCourseConfigs((prev) => ({
-      ...prev,
-      [cId]: updated,
-    }));
-    updateCourseAttainmentConfig(cId, updated);
-    alert(`Attainment configuration for ${courseConfigs[cId]?.courseCode || 'course'} rejected and sent back to Faculty for revision.`);
+    alert(`Attainment configuration for ${courseConfigs[cId]?.courseCode || 'course'} verified and approved by Programme Coordinator!`);
   };
 
   const handleSaveConfig = () => {
     updateCourseAttainmentConfig(activeCourseId, currentConfig);
-    if (isFaculty) {
+    if (!isCoordinator) {
       alert('Attainment Configurations submitted! Waiting for Programme Coordinator verification.');
     } else {
       alert('Attainment Configurations saved and verified successfully!');
     }
   };
 
-  // Count pending verifications for Programme Coordinator
   const pendingVerifications = Object.values(courseConfigs).filter(
     (c) => c.status === 'WAITING_FOR_COORDINATOR_VERIFICATION'
   );
-
-  const isVerified = currentConfig.status === 'VERIFIED';
-  const isPending = currentConfig.status === 'WAITING_FOR_COORDINATOR_VERIFICATION';
 
   return (
     <div className="animated-page">
@@ -204,19 +220,16 @@ export default function AttainmentConfig() {
       <div className="banner-dark-gradient">
         <div className="banner-content-row">
           <div>
-            <div className="badge badge-active" style={{ marginBottom: '6px' }}>
-              Attainment Configuration ({role})
-            </div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
-              Course Attainment Configurations & Verification
+              Attainment Configurations Settings
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#475569' }}>
-              Programme: <strong style={{ color: '#0f172a' }}>{selectedProgramme?.code}</strong> • AY: <strong style={{ color: '#0f172a' }}>{academicYear}</strong> • Faculty proposals require Coordinator verification.
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#475569' }}>
+              Configure Direct/Indirect weightages, CO threshold %, and dynamic Min-Max percentage bands (Verified by Programme Coordinator).
             </p>
           </div>
 
           <button className="btn btn-primary" onClick={handleSaveConfig}>
-            <Save size={15} /> {isFaculty ? 'Submit Configuration Proposal' : 'Save & Verify Configurations'}
+            <Save size={15} /> {!isCoordinator ? 'Submit Configuration Proposal' : 'Save & Verify Configurations'}
           </button>
         </div>
       </div>
@@ -241,7 +254,7 @@ export default function AttainmentConfig() {
                   {pendingVerifications.length} Course Attainment Configurations Waiting for Your Verification
                 </strong>
                 <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#a16207' }}>
-                  Faculty members have updated attainment weightages & target thresholds. Review and click Verify below.
+                  Course Coordinators have updated attainment weightages & target thresholds. Review and click Verify below.
                 </p>
               </div>
             </div>
@@ -256,7 +269,7 @@ export default function AttainmentConfig() {
                     if (foundId) setActiveCourseId(foundId);
                   }}
                 >
-                  <UserCheck size={13} /> {c.courseCode} Pending
+                  {c.courseCode} Pending Review
                 </button>
               ))}
             </div>
@@ -264,205 +277,270 @@ export default function AttainmentConfig() {
         </div>
       )}
 
-      {/* Course Selection Bar for Programme Coordinator & Faculty */}
-      <div className="card" style={{ marginBottom: '20px', padding: '16px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Sliders size={18} style={{ color: '#4f46e5' }} />
-            <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>Select Course Configuration:</strong>
-            <select
-              value={activeCourseId}
-              onChange={(e) => setActiveCourseId(e.target.value)}
-              className="glass-selector-group"
+      {/* Course Selection Strip */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '10px',
+          overflowX: 'auto',
+          paddingBottom: '10px',
+          marginBottom: '16px',
+        }}
+      >
+        {courseList.map((c) => {
+          const cfg = courseConfigs[c.id] || {};
+          const isCurrent = c.id === activeCourseId;
+
+          return (
+            <button
+              key={c.id}
+              onClick={() => setActiveCourseId(c.id)}
+              className={`btn ${isCurrent ? 'btn-primary' : 'btn-secondary'}`}
               style={{
-                height: '36px',
-                padding: '0 12px',
-                fontSize: '13px',
-                fontWeight: '800',
-                color: '#4f46e5',
-                background: '#ffffff',
-                border: '1.5px solid #6366f1',
-                borderRadius: '8px',
-                cursor: 'pointer',
+                fontSize: '12px',
+                padding: '8px 14px',
+                whiteSpace: 'nowrap',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
               }}
             >
-              {courseList.map((crs) => {
-                const cfg = courseConfigs[crs.id];
-                const isPendingItem = cfg?.status === 'WAITING_FOR_COORDINATOR_VERIFICATION';
-                return (
-                  <option key={crs.id} value={crs.id} style={{ color: '#0f172a' }}>
-                    {crs.code} - {crs.name} {isPendingItem ? '(Pending Verification)' : '(Verified)'}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-
-          {/* Active Configuration Verification Status Badge & Coordinator Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {isVerified ? (
-              <span className="badge badge-success" style={{ gap: '4px' }}>
-                <CheckCircle2 size={13} /> Verified by Coordinator
+              <span>
+                {c.code} - {c.name}
               </span>
-            ) : isPending ? (
-              <span className="badge badge-pending" style={{ gap: '4px', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
-                <Clock size={13} /> Waiting for Coordinator Verification
-              </span>
-            ) : (
-              <span className="badge" style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', gap: '4px' }}>
-                <XCircle size={13} /> Needs Revision
-              </span>
-            )}
-
-            {isCoordinator && !isVerified && (
-              <button
-                className="btn btn-success"
-                style={{ padding: '6px 12px', fontSize: '12px' }}
-                onClick={() => handleVerifyConfig(activeCourseId)}
-              >
-                <ShieldCheck size={14} /> Verify Course Config
-              </button>
-            )}
-
-            {isCoordinator && isPending && (
-              <button
-                className="btn btn-danger"
-                style={{ padding: '6px 12px', fontSize: '12px' }}
-                onClick={() => handleRejectConfig(activeCourseId)}
-              >
-                <XCircle size={14} /> Reject
-              </button>
-            )}
-          </div>
-        </div>
+              {cfg.status === 'VERIFIED' ? (
+                <CheckCircle2 size={14} style={{ color: '#10b981' }} />
+              ) : cfg.status === 'WAITING_FOR_COORDINATOR_VERIFICATION' ? (
+                <Clock size={14} style={{ color: '#eab308' }} />
+              ) : null}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Grid Layout for Configuration Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px' }}>
-        {/* Card 1: Attainment Weightages & Threshold */}
-        <div className="card">
-          <div className="card-header">
-            <h3 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>
-              Attainment Weightages & Direct Target Threshold ({currentConfig.courseCode})
+      {/* Active Course Attainment Configuration Settings */}
+      <div className="card" style={{ marginBottom: '20px' }}>
+        <div className="card-header" style={{ marginBottom: '16px' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a', fontWeight: '800' }}>
+              Course Attainment Config ({currentConfig.courseCode} - {currentConfig.courseName})
             </h3>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Direct CO Attainment Weightage (%)</span>
-              <strong style={{ color: '#2563eb' }}>{currentConfig.directWeight}%</strong>
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={currentConfig.directWeight}
-              onChange={(e) => handleDirectWeightChange(e.target.value)}
-              style={{ accentColor: '#2563eb' }}
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Indirect CO Attainment Weightage (%)</span>
-              <strong style={{ color: '#0ea5e9' }}>{currentConfig.indirectWeight}%</strong>
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              disabled
-              value={currentConfig.indirectWeight}
-              style={{ accentColor: '#0ea5e9' }}
-            />
-          </div>
-
-          <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '16px 0' }} />
-
-          <div className="form-group">
-            <label className="form-label">Direct Attainment Target Threshold (%)</label>
-            <p style={{ margin: '0 0 6px', fontSize: '11px', color: '#64748b' }}>
-              Minimum marks percentage required for a student to attain a Course Outcome (CO).
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
+              Direct vs. Indirect assessment weightages and CO target threshold percentages.
             </p>
-            <input
-              type="number"
-              className="form-control"
-              value={currentConfig.directThreshold}
-              onChange={(e) => handleThresholdChange(e.target.value)}
-            />
+          </div>
+
+          {isCoordinator && currentConfig.status === 'WAITING_FOR_COORDINATOR_VERIFICATION' && (
+            <button className="btn btn-primary" onClick={() => handleVerifyConfig(activeCourseId)}>
+              <ShieldCheck size={15} /> Verify & Approve Course Config
+            </button>
+          )}
+
+          {currentConfig.status === 'VERIFIED' && (
+            <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', padding: '6px 14px', fontSize: '12px' }}>
+              ✓ VERIFIED BY PROGRAMME COORDINATOR
+            </span>
+          )}
+        </div>
+
+        {/* ── SIMPLE & SUBTLE FORM FIELDS FOR WEIGHTAGES AND THRESHOLD ────────────────── */}
+        <div className="grid-cards-2" style={{ gap: '20px', marginBottom: '24px' }}>
+          {/* Direct Weightage Field */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px' }}>
+            <label style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', display: 'block', marginBottom: '6px' }}>
+              Direct Assessment Weightage (%)
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="number"
+                className="form-input"
+                value={currentConfig.directWeight}
+                onChange={(e) => handleDirectWeightChange(e.target.value)}
+                min="0"
+                max="100"
+                style={{ width: '110px', fontWeight: '800', fontSize: '14px', color: '#4f46e5' }}
+              />
+              <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>% Direct Weight</span>
+            </div>
+            <span style={{ fontSize: '11.5px', color: '#64748b', marginTop: '8px', display: 'block' }}>
+              Indirect Survey Weightage automatically set to: <strong style={{ color: '#0284c7' }}>{currentConfig.indirectWeight}%</strong>
+            </span>
+          </div>
+
+          {/* Direct Exam Threshold Marks Field */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px' }}>
+            <label style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', display: 'block', marginBottom: '6px' }}>
+              Direct Exam Threshold Marks (%)
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="number"
+                className="form-input"
+                value={currentConfig.directThreshold}
+                onChange={(e) => handleThresholdChange(e.target.value)}
+                min="0"
+                max="100"
+                style={{ width: '110px', fontWeight: '800', fontSize: '14px', color: '#059669' }}
+              />
+              <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>% Threshold Marks</span>
+            </div>
+            <span style={{ fontSize: '11.5px', color: '#64748b', marginTop: '8px', display: 'block' }}>
+              Students scoring <strong style={{ color: '#059669' }}>≥ {currentConfig.directThreshold}%</strong> of total exam marks are counted as CO attained.
+            </span>
           </div>
         </div>
 
-        {/* Card 2: Attainment Level Configuration */}
-        <div className="card">
-          <div className="card-header">
-            <h3 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>
-              Attainment Level Ranges (Levels 1–3) ({currentConfig.courseCode})
-            </h3>
-          </div>
-          <p style={{ margin: '0 0 14px', fontSize: '12px', color: '#64748b' }}>
-            Percentage of students attaining threshold mapped to NBA Attainment Levels.
-          </p>
+        {/* ── DYNAMIC EDITABLE MIN-MAX LEVEL 1-3 MAPPING BANDS TABLES ─────────────────── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Direct Assessment Level 1-3 Percentage Bands Table */}
+          <div style={{ border: '1.5px solid #6366f1', borderRadius: '12px', padding: '16px', background: '#faf5ff' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Layers size={18} style={{ color: '#4f46e5' }} />
+                <h4 style={{ margin: 0, fontSize: '14.5px', color: '#3730a3', fontWeight: '800' }}>
+                  Direct Assessment Attainment Level Bands (Levels 1 – 3)
+                </h4>
+              </div>
+              <span style={{ fontSize: '11.5px', color: '#6366f1', fontWeight: '700' }}>
+                Specify Min % & Max % threshold for each attainment level
+              </span>
+            </div>
 
-          <div style={{ overflowX: 'auto', width: '100%' }}>
-            <table className="audit-data-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '90px', textAlign: 'center' }}>Level</th>
-                  <th>Min Student %</th>
-                  <th>Max Student %</th>
-                  <th style={{ textAlign: 'center' }}>Badge</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(currentConfig.levels || []).map((lvl, idx) => (
-                  <tr key={lvl.level}>
-                    <td style={{ textAlign: 'center', fontWeight: '800', color: '#0f172a' }}>
-                      Level {lvl.level}
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        className="form-control"
-                        value={lvl.minPercentage}
-                        onChange={(e) => handleLevelChange(idx, 'minPercentage', e.target.value)}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        className="form-control"
-                        value={lvl.maxPercentage}
-                        onChange={(e) => handleLevelChange(idx, 'maxPercentage', e.target.value)}
-                      />
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span className={`badge badge-level-${lvl.level}`}>
-                        Level {lvl.level}
-                      </span>
-                    </td>
+            <div style={{ overflowX: 'auto', background: '#ffffff', borderRadius: '10px', border: '1px solid #e0e7ff' }}>
+              <table className="audit-data-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '90px', textAlign: 'center' }}>Level</th>
+                    <th style={{ width: '140px', textAlign: 'center' }}>Min % Benchmark</th>
+                    <th style={{ width: '140px', textAlign: 'center' }}>Max % Benchmark</th>
+                    <th style={{ width: '120px', textAlign: 'center' }}>Assigned Score</th>
+                    <th>Attainment Description</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <RowButtons
-              onAdd={handleAddLevel}
-              onDel={handleDeleteLevel}
-              canDel={(currentConfig.levels || []).length > 1}
-              addLabel="+ Add Level Row"
-              deleteLabel="- Delete Last Level Row"
-            />
+                </thead>
+                <tbody>
+                  {(currentConfig.directLevels || []).map((lvl, index) => (
+                    <tr key={lvl.level}>
+                      <td style={{ textAlign: 'center', fontWeight: '900', color: '#4f46e5' }}>
+                        Level {lvl.level}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={lvl.minPercentage}
+                            onChange={(e) => handleDirectLevelChange(index, 'minPercentage', e.target.value)}
+                            className="form-input"
+                            style={{ width: '70px', padding: '5px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #c7d2fe' }}
+                          />
+                          <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>%</span>
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={lvl.maxPercentage}
+                            onChange={(e) => handleDirectLevelChange(index, 'maxPercentage', e.target.value)}
+                            className="form-input"
+                            style={{ width: '70px', padding: '5px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #c7d2fe' }}
+                          />
+                          <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>%</span>
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', fontWeight: '900', fontSize: '12px' }}>
+                          {lvl.level}.0 / 3.0
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '12px', color: '#475569', fontWeight: '600' }}>
+                        {lvl.level === 1 ? 'Low Attainment (< benchmark threshold)' : lvl.level === 2 ? 'Moderate Attainment (meets benchmark)' : 'High Attainment (exceeds benchmark)'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Indirect Assessment Level 1-3 Percentage Bands Table */}
+          <div style={{ border: '1.5px solid #0284c7', borderRadius: '12px', padding: '16px', background: '#f0f9ff' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Layers size={18} style={{ color: '#0284c7' }} />
+                <h4 style={{ margin: 0, fontSize: '14.5px', color: '#0369a1', fontWeight: '800' }}>
+                  Indirect Assessment Attainment Level Bands (Levels 1 – 3)
+                </h4>
+              </div>
+              <span style={{ fontSize: '11.5px', color: '#0284c7', fontWeight: '700' }}>
+                Specify Min % & Max % threshold for indirect survey feedback
+              </span>
+            </div>
+
+            <div style={{ overflowX: 'auto', background: '#ffffff', borderRadius: '10px', border: '1px solid #bae6fd' }}>
+              <table className="audit-data-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '90px', textAlign: 'center' }}>Level</th>
+                    <th style={{ width: '140px', textAlign: 'center' }}>Min % Survey</th>
+                    <th style={{ width: '140px', textAlign: 'center' }}>Max % Survey</th>
+                    <th style={{ width: '120px', textAlign: 'center' }}>Assigned Score</th>
+                    <th>Attainment Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(currentConfig.indirectLevels || []).map((lvl, index) => (
+                    <tr key={lvl.level}>
+                      <td style={{ textAlign: 'center', fontWeight: '900', color: '#0284c7' }}>
+                        Level {lvl.level}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={lvl.minPercentage}
+                            onChange={(e) => handleIndirectLevelChange(index, 'minPercentage', e.target.value)}
+                            className="form-input"
+                            style={{ width: '70px', padding: '5px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #7dd3fc' }}
+                          />
+                          <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>%</span>
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={lvl.maxPercentage}
+                            onChange={(e) => handleIndirectLevelChange(index, 'maxPercentage', e.target.value)}
+                            className="form-input"
+                            style={{ width: '70px', padding: '5px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #7dd3fc' }}
+                          />
+                          <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>%</span>
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span className="badge badge-active" style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: '900', fontSize: '12px' }}>
+                          {lvl.level}.0 / 3.0
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '12px', color: '#475569', fontWeight: '600' }}>
+                        {lvl.level === 1 ? 'Low Survey Rating' : lvl.level === 2 ? 'Moderate Survey Rating' : 'High Survey Rating'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Save, Previous & Save & Next Footer */}
-      <SectionSaveFooter
-        label="Attainment Config"
-        prevPath="/users"
-        nextPath="/academic"
-        onSave={handleSaveConfig}
-      />
     </div>
   );
 }

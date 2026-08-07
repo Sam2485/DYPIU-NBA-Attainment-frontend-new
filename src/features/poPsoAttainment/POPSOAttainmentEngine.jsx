@@ -1,24 +1,26 @@
 import { useState } from 'react';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, Award } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import { useAuth } from '../../context/AuthContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
-export default function POPSOAttainmentEngine() {
+export default function POPSOAttainmentEngine({ hideFooter = false }) {
+  const { role } = useAuth();
   const {
     academicYear,
     selectedProgramme,
     selectedCourse,
-    activePOs,
-    activePSOs,
-    activeCOs,
+    activePOs = [],
+    activePSOs = [],
+    activeCOs = [],
   } = useAcademic();
 
   const [activeTab, setActiveTab] = useState('summary'); // 'summary' or 'competency'
 
   // Dynamic Lists from Outcome Management
-  const poList = activePOs.map((p) => p.code);
-  const psoList = activePSOs.map((p) => p.code);
-  const courseOutcomes = activeCOs;
+  const poList = (activePOs || []).map((p) => p?.code || p).filter(Boolean);
+  const psoList = (activePSOs || []).map((p) => p?.code || p).filter(Boolean);
+  const courseOutcomes = activeCOs || [];
 
   const courseAttainmentStore = {
     'crs-1': { overallCOAttainment: 2.07 },
@@ -27,10 +29,11 @@ export default function POPSOAttainmentEngine() {
     'crs-4': { overallCOAttainment: 2.60 },
   };
 
-  const activeData = courseAttainmentStore[selectedCourse.id] || { overallCOAttainment: 2.07 };
+  const activeData = courseAttainmentStore[selectedCourse?.id || 'crs-1'] || { overallCOAttainment: 2.07 };
 
   // Helper: Get sample mapping strength for a CO and PO/PSO
   const getMappingStrength = (coCode, targetCode) => {
+    if (!coCode) return '-';
     if (targetCode === 'PO1' || targetCode === 'PO2' || targetCode === 'PSO1') return 3;
     if (targetCode === 'PO3' || targetCode === 'PSO2') return 2;
     if (targetCode === 'PO4' || targetCode === 'PO12' || targetCode === 'PSO3') return coCode.endsWith('.5') || coCode.endsWith('.6') ? 1 : 2;
@@ -42,7 +45,7 @@ export default function POPSOAttainmentEngine() {
     let sum = 0;
     let count = 0;
     courseOutcomes.forEach((co) => {
-      const val = getMappingStrength(co.code, key);
+      const val = getMappingStrength(co?.code, key);
       if (typeof val === 'number') {
         sum += val;
         count++;
@@ -80,10 +83,10 @@ export default function POPSOAttainmentEngine() {
             </div>
             <div>
               <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
-                PO & PSO Attainment Engine
+                CO to PO & PSO Attainment Engine
               </h2>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#475569' }}>
-                Course: <strong style={{ color: '#0f172a' }}>{selectedCourse.code} - {selectedCourse.name}</strong> • Programme: <strong style={{ color: '#0f172a' }}>{selectedProgramme?.code}</strong> • AY: <strong style={{ color: '#0f172a' }}>{academicYear}</strong>
+              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#475569' }}>
+                CO to PO & PSO Attainment Mapping & Aggregation Matrix for {selectedCourse?.code || 'Course'}
               </p>
             </div>
           </div>
@@ -101,7 +104,7 @@ export default function POPSOAttainmentEngine() {
           className={`btn ${activeTab === 'summary' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('summary')}
         >
-          PO & PSO Attainment Matrix (Table 1 & Table 2)
+          CO to PO & PSO Attainment Matrix (Table 1 & Table 2)
         </button>
         <button
           className={`btn ${activeTab === 'competency' ? 'btn-primary' : 'btn-secondary'}`}
@@ -127,7 +130,7 @@ export default function POPSOAttainmentEngine() {
                   <th colSpan={2} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a' }}>
                     Table 1: Mapping of CO to PO/PSO
                   </th>
-                  <th colSpan={poList.length} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a' }}>
+                  <th colSpan={poList.length || 1} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a' }}>
                     PO1 - PO{poList.length} ({poList.length} POs)
                   </th>
                   {psoList.length > 0 && (
@@ -154,13 +157,13 @@ export default function POPSOAttainmentEngine() {
               <tbody>
                 {courseOutcomes.length === 0 ? (
                   <tr>
-                    <td colSpan={2 + poList.length + psoList.length} style={{ textAlign: 'center', padding: '16px', color: '#94a3b8' }}>
+                    <td colSpan={2 + Math.max(1, poList.length) + psoList.length} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
                       No Course Outcomes defined in Outcome Management yet.
                     </td>
                   </tr>
                 ) : (
                   courseOutcomes.map((co, idx) => (
-                    <tr key={co.code}>
+                    <tr key={co.code || idx}>
                       <td style={{ textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
                       <td style={{ fontWeight: '700', color: '#0f172a' }}>{co.code}</td>
 
@@ -201,7 +204,7 @@ export default function POPSOAttainmentEngine() {
                   <td colSpan={2} style={{ textAlign: 'right', paddingRight: '12px', color: '#334155' }}>
                     Overall CO Attainment
                   </td>
-                  <td colSpan={poList.length + psoList.length} style={{ textAlign: 'center', color: '#0f172a' }}>
+                  <td colSpan={Math.max(1, poList.length) + psoList.length} style={{ textAlign: 'center', color: '#0f172a' }}>
                     {activeData.overallCOAttainment}
                   </td>
                 </tr>
@@ -283,11 +286,14 @@ export default function POPSOAttainmentEngine() {
       )}
 
       {/* Save, Previous & Save & Next Footer */}
-      <SectionSaveFooter
-        label="PO & PSO Attainment Engine"
-        prevPath="/co-attainment"
-        nextPath="/reports"
-      />
+      {!hideFooter && (
+        <SectionSaveFooter
+          label="CO to PO & PSO Attainment Engine"
+          prevPath={role === 'FACULTY' ? '/survey-upload' : '/course-atr'}
+          nextPath={role === 'FACULTY' ? '/course-atr' : '/programme-atr'}
+          nextLabel={role === 'FACULTY' ? 'Save & Proceed to Course ATR →' : 'Save & Proceed to Programme ATR →'}
+        />
+      )}
     </div>
   );
 }

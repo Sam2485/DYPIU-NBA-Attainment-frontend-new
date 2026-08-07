@@ -79,9 +79,6 @@ export default function UserManagement() {
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
               User & Access Management
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#64748b' }}>
-              Manage user roles, access levels, and department assignments.
-            </p>
           </div>
         </div>
       </div>

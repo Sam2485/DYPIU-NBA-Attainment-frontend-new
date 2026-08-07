@@ -2,7 +2,7 @@ import { Calculator, Save } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
-export default function COAttainmentEngine() {
+export default function COAttainmentEngine({ hideFooter = false }) {
   const {
     academicYear,
     selectedProgramme,
@@ -86,9 +86,6 @@ export default function COAttainmentEngine() {
               <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
                 Course Outcome (CO) Attainment Engine
               </h2>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#475569' }}>
-                Course: <strong style={{ color: '#0f172a' }}>{selectedCourse.code} - {selectedCourse.name}</strong> • Programme: <strong style={{ color: '#0f172a' }}>{selectedProgramme?.code}</strong> • AY: <strong style={{ color: '#0f172a' }}>{academicYear}</strong>
-              </p>
             </div>
           </div>
 
@@ -273,12 +270,15 @@ export default function COAttainmentEngine() {
       </div>
 
       {/* Save, Previous & Save & Next Footer */}
-      <SectionSaveFooter
-        label="CO Attainment Engine"
-        prevPath="/survey-upload"
-        nextPath="/po-pso-attainment"
-        onSave={handleSaveCalculation}
-      />
+      {!hideFooter && (
+        <SectionSaveFooter
+          label="CO Attainment Engine"
+          prevPath="/survey-upload"
+          nextPath="/course-atr"
+          nextLabel="Save & Proceed to Course ATR →"
+          onSave={handleSaveCalculation}
+        />
+      )}
     </div>
   );
 }

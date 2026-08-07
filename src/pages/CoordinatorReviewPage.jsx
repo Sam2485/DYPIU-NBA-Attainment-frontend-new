@@ -1,15 +1,15 @@
 import AppHeader from '../components/layout/AppHeader';
 import AppSidebar from '../components/layout/AppSidebar';
-import POPSOAttainmentEngine from '../features/poPsoAttainment/POPSOAttainmentEngine';
+import CoordinatorReviewHub from '../features/review/CoordinatorReviewHub';
 
-export default function POPSOAttainmentPage() {
+export default function CoordinatorReviewPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
       <main className="nba-layout-main">
-        <AppHeader title="CO to PO & PSO Attainment Engine" subtitle="Programme Outcome Aggregations" />
+        <AppHeader />
         <div className="page-container">
-          <POPSOAttainmentEngine />
+          <CoordinatorReviewHub />
         </div>
       </main>
     </div>

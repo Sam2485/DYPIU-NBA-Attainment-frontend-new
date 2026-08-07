@@ -2,15 +2,17 @@ import { useNavigate } from 'react-router-dom';
 
 /**
  * SectionSaveFooter — matches Faculty Appraisal Form 2.0 save footer:
- *  • Status text on the left (green if saved)
- *  • "Save as Draft"  — white bg, blue border + text
- *  • "Save & Next →" — solid blue, white text, shadow
+ *  • EXTREME LEFT:  "Previous" button
+ *  • CENTER:        Status text
+ *  • EXTREME RIGHT: "Save as Draft" + "Save & Next →" / "Finish Attainment"
  */
 export default function SectionSaveFooter({
   label = 'Section',
   prevPath,
   nextPath,
+  nextLabel = 'Save & Next',
   onSave,
+  onFinish,
   saving = false,
   saved = false,
   locked = false,
@@ -22,6 +24,10 @@ export default function SectionSaveFooter({
   };
 
   const handleSaveNext = () => {
+    if (onFinish) {
+      onFinish();
+      return;
+    }
     if (onSave) onSave(true);
     if (nextPath) navigate(nextPath);
   };
@@ -29,6 +35,8 @@ export default function SectionSaveFooter({
   const handlePrevious = () => {
     if (prevPath) navigate(prevPath);
   };
+
+  const isFinish = nextLabel.toLowerCase().includes('finish');
 
   return (
     <div
@@ -40,19 +48,21 @@ export default function SectionSaveFooter({
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 14,
+        width: '100%',
+        boxSizing: 'border-box',
         flexWrap: 'wrap',
       }}
     >
-      {/* ── Left: status text + optional "Previous" ─────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {prevPath && (
+      {/* ── EXTREME LEFT: Previous Button ─────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        {prevPath ? (
           <button
             type="button"
             onClick={handlePrevious}
             disabled={saving || locked}
             style={{
               minHeight: 40,
-              padding: '9px 16px',
+              padding: '9px 18px',
               background: '#fff',
               color: '#475569',
               border: '1.5px solid #cbd5e1',
@@ -65,6 +75,13 @@ export default function SectionSaveFooter({
               alignItems: 'center',
               gap: 6,
               opacity: saving || locked ? 0.6 : 1,
+              transition: 'background 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              if (!saving && !locked) e.currentTarget.style.background = '#f8fafc';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = '#fff';
             }}
           >
             {/* left arrow */}
@@ -73,24 +90,30 @@ export default function SectionSaveFooter({
             </svg>
             Previous
           </button>
+        ) : (
+          <div style={{ width: 1 }} />
         )}
-
-        <span
-          style={{
-            color: locked ? '#9ca3af' : saved ? '#047857' : '#6b7280',
-            fontSize: 14,
-            fontWeight: 700,
-          }}
-        >
-          {locked
-            ? 'Section locked.'
-            : saved
-            ? `${label} saved successfully.`
-            : `Save ${label} and proceed.`}
-        </span>
       </div>
 
-      {/* ── Right: Save Draft + Save & Next ─────────────────────── */}
+      {/* ── CENTER: Status Text ───────────────────────────── */}
+      <div
+        style={{
+          color: locked ? '#9ca3af' : saved ? '#047857' : '#64748b',
+          fontSize: 13.5,
+          fontWeight: 700,
+          textAlign: 'center',
+        }}
+      >
+        {locked
+          ? 'Section locked.'
+          : saved
+          ? `${label} saved successfully.`
+          : isFinish
+          ? 'Complete and finalize course attainment.'
+          : `Save ${label} and proceed.`}
+      </div>
+
+      {/* ── EXTREME RIGHT: Save as Draft + Save & Next / Finish Attainment ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         {/* Save as Draft — blue outline */}
         <button
@@ -130,8 +153,8 @@ export default function SectionSaveFooter({
           {saving ? 'Saving...' : 'Save as Draft'}
         </button>
 
-        {/* Save & Next — solid blue with shadow */}
-        {nextPath && (
+        {/* Save & Next / Finish Attainment — solid blue/green gradient button with shadow */}
+        {(nextPath || onFinish) && (
           <button
             type="button"
             onClick={handleSaveNext}
@@ -139,7 +162,11 @@ export default function SectionSaveFooter({
             style={{
               minHeight: 40,
               padding: '10px 24px',
-              background: locked ? '#9ca3af' : '#2563eb',
+              background: locked
+                ? '#9ca3af'
+                : isFinish
+                ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
+                : '#2563eb',
               color: '#fff',
               border: 'none',
               borderRadius: 10,
@@ -148,7 +175,11 @@ export default function SectionSaveFooter({
               fontSize: 14,
               fontFamily: 'inherit',
               opacity: saving ? 0.75 : 1,
-              boxShadow: locked ? 'none' : '0 10px 20px rgba(37,99,235,0.22)',
+              boxShadow: locked
+                ? 'none'
+                : isFinish
+                ? '0 10px 20px rgba(16,185,129,0.28)'
+                : '0 10px 20px rgba(37,99,235,0.22)',
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
@@ -156,19 +187,33 @@ export default function SectionSaveFooter({
             }}
             onMouseEnter={(e) => {
               if (!saving && !locked) {
-                e.currentTarget.style.background = '#1d4ed8';
-                e.currentTarget.style.boxShadow = '0 14px 28px rgba(37,99,235,0.30)';
+                if (isFinish) {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #047857 0%, #059669 100%)';
+                  e.currentTarget.style.boxShadow = '0 14px 28px rgba(16,185,129,0.36)';
+                } else {
+                  e.currentTarget.style.background = '#1d4ed8';
+                  e.currentTarget.style.boxShadow = '0 14px 28px rgba(37,99,235,0.30)';
+                }
               }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = locked ? '#9ca3af' : '#2563eb';
-              e.currentTarget.style.boxShadow = locked ? 'none' : '0 10px 20px rgba(37,99,235,0.22)';
+              if (isFinish) {
+                e.currentTarget.style.background = locked ? '#9ca3af' : 'linear-gradient(135deg, #059669 0%, #10b981 100%)';
+                e.currentTarget.style.boxShadow = locked ? 'none' : '0 10px 20px rgba(16,185,129,0.28)';
+              } else {
+                e.currentTarget.style.background = locked ? '#9ca3af' : '#2563eb';
+                e.currentTarget.style.boxShadow = locked ? 'none' : '0 10px 20px rgba(37,99,235,0.22)';
+              }
             }}
           >
-            {saving ? 'Saving...' : 'Save & Next'}
+            {saving ? 'Saving...' : nextLabel}
             {!saving && (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="m9 18 6-6-6-6" />
+                {isFinish ? (
+                  <path d="M20 6 9 17l-5-5" />
+                ) : (
+                  <path d="m9 18 6-6-6-6" />
+                )}
               </svg>
             )}
           </button>

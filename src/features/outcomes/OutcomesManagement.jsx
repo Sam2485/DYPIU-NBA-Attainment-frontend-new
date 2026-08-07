@@ -18,13 +18,33 @@ export default function OutcomesManagement() {
     updateProgrammePOs,
     updateProgrammePSOs,
     updateCourseCOs,
+    coTargets,
+    updateCourseCoTargets,
   } = useAcademic();
+
+  const [localCoTargets, setLocalCoTargets] = useState({});
+
+  useEffect(() => {
+    if (selectedCourse?.id && coTargets[selectedCourse.id]) {
+      setLocalCoTargets(coTargets[selectedCourse.id]);
+    }
+  }, [selectedCourse, coTargets]);
+
+  const handleSaveCoTargets = () => {
+    if (selectedCourse?.id) {
+      updateCourseCoTargets(selectedCourse.id, localCoTargets);
+      alert(`CO Target Levels (1.00 - 3.00 scale) for ${selectedCourse?.code} saved successfully!`);
+    }
+  };
 
   const [entryMode, setEntryMode] = useState('table');
 
   const isLimitedUser = role === 'FACULTY';
-  const initialTab = isLimitedUser ? 'cos' : 'peos';
+  const initialTab = isLimitedUser ? 'cos' : 'pos';
   const [activeOutcomeTab, setActiveOutcomeTab] = useState(initialTab);
+
+  // Sub-tab state to keep Add COs and Target Setting SEPARATE
+  const [coSubTab, setCoSubTab] = useState('statements'); // 'statements' for Add COs, 'targets' for Target Setting
 
   useEffect(() => {
     if (isLimitedUser && activeOutcomeTab !== 'cos') {
@@ -401,15 +421,9 @@ export default function OutcomesManagement() {
       <div className="banner-dark-gradient">
         <div className="banner-content-row">
           <div>
-            <div className="badge badge-active" style={{ marginBottom: '6px' }}>
-              Outcome Management ({role})
-            </div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
               Outcome Management (PEOs, POs, PSOs & CO Approvals)
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#475569' }}>
-              Programme: <strong style={{ color: '#0f172a' }}>{selectedProgramme?.code}</strong> • Course: <strong style={{ color: '#0f172a' }}>{selectedCourse?.code} - {selectedCourse?.name}</strong> • Teachers: <strong style={{ color: '#4f46e5' }}>{courseTeachers}</strong>
-            </p>
           </div>
 
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -503,36 +517,58 @@ export default function OutcomesManagement() {
         </div>
       )}
 
-      {/* Category Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+      {/* Category Tabs — Single Horizontal Row with Padding Above & Below */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          margin: '24px 0 24px 0',
+          padding: '4px 0',
+          flexWrap: 'nowrap',
+          overflowX: 'auto',
+          width: '100%',
+          boxSizing: 'border-box',
+        }}
+      >
         {role !== 'FACULTY' && (
           <>
             <button
-              className={`btn ${activeOutcomeTab === 'peos' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveOutcomeTab('peos')}
-            >
-              Programme Educational Objectives (PEOs)
-            </button>
-            <button
+              type="button"
               className={`btn ${activeOutcomeTab === 'pos' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setActiveOutcomeTab('pos')}
+              style={{ whiteSpace: 'nowrap', flex: 1, padding: '10px 16px', fontSize: '13px', fontWeight: '700' }}
             >
-              Programme Outcomes (POs) {pendingPoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingPoCount} Pending</span>}
+              POs — Programme Outcomes {pendingPoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingPoCount} Pending</span>}
             </button>
+
             <button
+              type="button"
               className={`btn ${activeOutcomeTab === 'psos' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setActiveOutcomeTab('psos')}
+              style={{ whiteSpace: 'nowrap', flex: 1, padding: '10px 16px', fontSize: '13px', fontWeight: '700' }}
             >
-              Programme Specific Outcomes (PSOs) {pendingPsoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingPsoCount} Pending</span>}
+              PSOs — Programme Specific Outcomes {pendingPsoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingPsoCount} Pending</span>}
+            </button>
+
+            <button
+              type="button"
+              className={`btn ${activeOutcomeTab === 'peos' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveOutcomeTab('peos')}
+              style={{ whiteSpace: 'nowrap', flex: 1, padding: '10px 16px', fontSize: '13px', fontWeight: '700' }}
+            >
+              PEOs — Educational Objectives
             </button>
           </>
         )}
 
         <button
+          type="button"
           className={`btn ${activeOutcomeTab === 'cos' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveOutcomeTab('cos')}
+          style={{ whiteSpace: 'nowrap', flex: 1, padding: '10px 16px', fontSize: '13px', fontWeight: '700' }}
         >
-          Course Outcomes (CO Approvals) {pendingCoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingCoCount} Pending</span>}
+          COs — Course Outcomes {pendingCoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingCoCount} Pending</span>}
         </button>
       </div>
 
@@ -567,9 +603,6 @@ export default function OutcomesManagement() {
               </p>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn btn-success" onClick={handleAddPEO}>
-                <Plus size={15} /> + Add New PEO
-              </button>
               <button className="btn btn-primary" onClick={() => handleSaveChanges('PEO Statements')}>
                 <Save size={14} /> Save Changes
               </button>
@@ -1123,9 +1156,10 @@ export default function OutcomesManagement() {
       {/* Save, Previous & Save & Next Footer */}
       <SectionSaveFooter
         label="Outcome Management"
-        prevPath="/academic"
-        nextPath="/co-mapping"
-        onSave={() => handleSaveChanges('Outcome Management')}
+        prevPath="/dashboard"
+        nextPath="/co-targets"
+        nextLabel="Save COs & Proceed to Step 2: Target Setting →"
+        onSave={() => handleSaveChanges('Course Outcomes')}
       />
     </div>
   );
