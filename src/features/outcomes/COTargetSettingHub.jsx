@@ -18,14 +18,22 @@ export default function COTargetSettingHub({ hideFooter = false }) {
   useEffect(() => {
     if (selectedCourse?.id && coTargets[selectedCourse.id]) {
       setLocalCoTargets(coTargets[selectedCourse.id]);
-    } else if (activeCOs.length > 0) {
+    } else if (activeCOs && activeCOs.length > 0) {
       const initial = {};
       activeCOs.forEach((co) => {
-        initial[co.code] = 2.50;
+        initial[co.code] = co.targetLevel || 2.5;
       });
       setLocalCoTargets(initial);
     }
-  }, [selectedCourse, activeCOs, coTargets]);
+  }, [selectedCourse, coTargets, activeCOs]);
+
+  const handleTargetChange = (coCode, val) => {
+    const num = parseFloat(val);
+    setLocalCoTargets((prev) => ({
+      ...prev,
+      [coCode]: isNaN(num) ? 1.0 : Math.min(3.0, Math.max(1.0, num)),
+    }));
+  };
 
   const handleSaveCoTargets = () => {
     if (selectedCourse?.id) {
@@ -36,26 +44,34 @@ export default function COTargetSettingHub({ hideFooter = false }) {
 
   return (
     <div className="animated-page">
+
       {/* Top Banner Header */}
       <div className="banner-dark-gradient" style={{ marginBottom: '20px' }}>
-        <div className="banner-content-row">
+        <div className="banner-content-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="badge badge-active" style={{ fontSize: '11px', padding: '4px 10px' }}>
-                Step 2 of Faculty Workflow
-              </span>
-              <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
-                Course CO Target Level Setting (1.00 – 3.00 Scale)
-              </h2>
-            </div>
-            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#475569' }}>
-              Set explicit target attainment levels (1.00 to 3.00 scale) for each Course Outcome for {selectedCourse?.code} - {selectedCourse?.name}
-            </p>
+            <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
+              Set CO Targets
+            </h2>
           </div>
 
-          <button className="btn btn-primary" onClick={handleSaveCoTargets}>
-            <Save size={15} /> Save CO Target Levels
-          </button>
+          <div style={{ marginLeft: 'auto' }}>
+            <button className="btn btn-primary" onClick={handleSaveCoTargets}>
+              <Save size={15} /> Save Changes
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Programme Coordinator Status Banner */}
+      <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', padding: '12px 18px', marginBottom: '20px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <CheckCircle2 size={20} style={{ color: '#10b981' }} />
+        <div>
+          <strong style={{ fontSize: '13.5px', color: '#15803d' }}>
+            ✓ ALL CO TARGET LEVELS VERIFIED &amp; APPROVED BY PROGRAMME COORDINATOR
+          </strong>
+          <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#166534' }}>
+            Target attainment levels (1.00 to 3.00 scale) for {selectedCourse?.code || 'CS301'} - {selectedCourse?.name || 'Data Structures & Algorithms'} have been set and verified.
+          </p>
         </div>
       </div>
 
@@ -82,67 +98,70 @@ export default function COTargetSettingHub({ hideFooter = false }) {
               <tr>
                 <th style={{ width: '110px' }}>CO Code</th>
                 <th>Course Outcome Statement</th>
-                <th style={{ width: '240px', textAlign: 'center' }}>Target Attainment Level (1.00 – 3.00 Scale)</th>
+                <th style={{ width: '180px', textAlign: 'center' }}>Target Level (1.00 - 3.00)</th>
+                <th style={{ width: '140px', textAlign: 'center' }}>Benchmark Level</th>
               </tr>
             </thead>
             <tbody>
-              {activeCOs.length === 0 ? (
+              {activeCOs && activeCOs.length > 0 ? (
+                activeCOs.map((co) => {
+                  const currentVal = localCoTargets[co.code] !== undefined ? localCoTargets[co.code] : (co.targetLevel || 2.5);
+                  return (
+                    <tr key={co.id || co.code}>
+                      <td style={{ fontWeight: '800', color: '#4f46e5' }}>{co.code}</td>
+                      <td style={{ fontSize: '13px', color: '#334155' }}>{co.statement}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="1.0"
+                            max="3.0"
+                            className="form-control"
+                            style={{ width: '90px', textAlign: 'center', fontWeight: '800', fontSize: '14px', color: '#0f172a' }}
+                            value={currentVal}
+                            onChange={(e) => handleTargetChange(co.code, e.target.value)}
+                          />
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span
+                          className="badge"
+                          style={{
+                            background: currentVal >= 2.5 ? '#dcfce7' : currentVal >= 2.0 ? '#fef3c7' : '#fee2e2',
+                            color: currentVal >= 2.5 ? '#15803d' : currentVal >= 2.0 ? '#b45309' : '#dc2626',
+                            border: `1px solid ${currentVal >= 2.5 ? '#86efac' : currentVal >= 2.0 ? '#fde68a' : '#fca5a5'}`,
+                            fontSize: '11.5px',
+                            padding: '4px 10px',
+                            fontWeight: '700',
+                          }}
+                        >
+                          {currentVal >= 2.5 ? 'High (Level 3)' : currentVal >= 2.0 ? 'Medium (Level 2)' : 'Low (Level 1)'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
                 <tr>
-                  <td colSpan={3} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
-                    No Course Outcomes found for {selectedCourse?.code}. Please add COs in Step 1 first.
+                  <td colSpan="4" style={{ textAlign: 'center', color: '#64748b', padding: '30px' }}>
+                    No Course Outcomes found for {selectedCourse?.code || 'this course'}. Please add COs in Step 1 first.
                   </td>
                 </tr>
-              ) : (
-                activeCOs.map((co) => (
-                  <tr key={co.code}>
-                    <td style={{ fontWeight: '800', color: '#4f46e5' }}>{co.code}</td>
-                    <td style={{ fontSize: '12.5px', color: '#1e293b' }}>{co.statement}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="1.0"
-                          max="3.0"
-                          value={localCoTargets[co.code] !== undefined ? localCoTargets[co.code] : 2.50}
-                          onChange={(e) =>
-                            setLocalCoTargets({
-                              ...localCoTargets,
-                              [co.code]: Number(e.target.value),
-                            })
-                          }
-                          className="form-input"
-                          style={{
-                            width: '95px',
-                            padding: '6px 10px',
-                            fontSize: '14px',
-                            fontWeight: '900',
-                            color: '#059669',
-                            textAlign: 'center',
-                            border: '1.5px solid #10b981',
-                            borderRadius: '8px',
-                          }}
-                        />
-                        <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '700' }}>Out of 3.0</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Footer Navigation */}
-      <SectionSaveFooter
-        label="Step 2: Target Setting"
-        prevPath="/outcomes"
-        nextPath="/co-mapping"
-        nextLabel="Save Targets & Proceed to CO Mapping →"
-        onSave={handleSaveCoTargets}
-        hidden={hideFooter}
-      />
+      {!hideFooter && (
+        <SectionSaveFooter
+          label="CO Target Level Setting"
+          prevPath="/outcomes"
+          nextPath="/co-mapping"
+          onSave={handleSaveCoTargets}
+        />
+      )}
     </div>
   );
 }

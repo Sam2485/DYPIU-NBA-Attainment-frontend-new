@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   BookOpen, Target, Map, Upload, ClipboardList,
-  BarChart2, FileText, Layers, Check, ArrowRight, ArrowLeft, X,
+  BarChart2, FileText, Layers, Check, ArrowRight, ArrowLeft, X, ChevronDown,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -185,17 +185,56 @@ export default function CourseCoordinatorWorkflow() {
   return (
     <div className="animated-page" style={{ paddingBottom: '60px' }}>
 
-      {/* ── HEADER — single title only ────────────────────────────────────── */}
-      <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      {/* ── HEADER — single title only + course selector + exit workflow ────── */}
+      <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
         <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
           Course Attainment Guided Workflow
         </h2>
-        <button
-          onClick={() => navigate('/dashboard')}
-          style={{ height: '38px', padding: '0 14px', fontSize: '12.5px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
-        >
-          <X size={14} /> Exit Workflow
-        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Course Selector Dropdown */}
+          <div style={{ position: 'relative', width: '240px' }}>
+            <select
+              value={course?.id || ''}
+              onChange={(e) => setCourseId(e.target.value)}
+              style={{
+                height: '38px',
+                fontSize: '13px',
+                fontWeight: '700',
+                color: accent,
+                border: '1.5px solid #cbd5e1',
+                borderRadius: '8px',
+                padding: '0 30px 0 12px',
+                background: '#ffffff',
+                width: '100%',
+                outline: 'none',
+                appearance: 'none',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+              }}
+            >
+              {availableCourses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} — {c.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+          </div>
+
+          <button
+            onClick={() => navigate('/dashboard')}
+            style={{
+              height: '38px', padding: '0 14px', fontSize: '12.5px', fontWeight: '600',
+              background: '#f8fafc', color: ink, border: '1px solid #e2e8f0',
+              borderRadius: '8px', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit',
+            }}
+          >
+            <X size={14} /> Exit Workflow
+          </button>
+        </div>
       </div>
 
       {/* ── STEPPER STRIP (GREEN CIRCLES ON SAVE) ─────────────────────────── */}

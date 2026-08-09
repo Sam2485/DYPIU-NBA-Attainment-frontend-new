@@ -203,18 +203,12 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
       {!hideHeader && (
         <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
-              Programme Coordinator &nbsp;·&nbsp; Programme ATR
-            </div>
             <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
-              Programme Action Taken Report
+              Programme ATR
             </h2>
-            <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-              {selectedProgramme?.code} — {selectedProgramme?.name} &nbsp;·&nbsp; {selectedBatch?.name}
-            </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
             {/* Year selector */}
             <div style={{ position: 'relative' }}>
               <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}
@@ -229,18 +223,10 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
               <Printer size={13} /> Print
             </button>
 
-            {isFaculty && !locked && (
-              <button onClick={handleSaveSubmit}
-                style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-                <Save size={13} /> Save &amp; Submit
-              </button>
-            )}
-            {isCoordinator && reportStatus === 'SUBMITTED' && (
-              <button onClick={handleVerify}
-                style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-                <ShieldCheck size={13} /> Verify ATR
-              </button>
-            )}
+            <button onClick={handleSaveSubmit}
+              style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+              <Save size={13} /> Save Changes
+            </button>
           </div>
         </div>
       )}

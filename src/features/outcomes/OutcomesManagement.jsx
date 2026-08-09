@@ -445,32 +445,19 @@ export default function OutcomesManagement({ hideFooter = false }) {
 
   return (
     <div className="animated-page">
-      {/* Standard NBA Header Banner */}
+      {/* ── HEADER BANNER ─────────────────────────────────────────────────── */}
       <div className="banner-dark-gradient" style={{ marginBottom: '20px' }}>
-        <div className="banner-content-row">
+        <div className="banner-content-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
-              {isStandalone && role === 'FACULTY'
-                ? `Outcome Management — Course Outcomes (${selectedCourse?.code || '310244'})`
-                : 'Outcome Management (PEOs, POs, PSOs & CO Approvals)'}
+              Add COs
             </h2>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#475569' }}>
-              {isStandalone && role === 'FACULTY'
-                ? `Define and manage Course Outcomes statements for ${selectedCourse?.code || '310244'} - ${selectedCourse?.name || 'CNS'}`
-                : 'Define and manage Programme Educational Objectives, POs, PSOs & CO Statements'}
-            </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {isStandalone && role === 'FACULTY' ? (
-              <button className="btn btn-primary" onClick={() => handleSaveChanges('Course Outcomes')}>
-                <Save size={15} /> Save CO Statements
-              </button>
-            ) : (
-              <button className="btn btn-secondary" onClick={() => setEntryMode(entryMode === 'table' ? 'bulk' : 'table')}>
-                <FileSpreadsheet size={15} /> {entryMode === 'table' ? 'Bulk Paste Mode' : 'Table View'}
-              </button>
-            )}
+          <div style={{ marginLeft: 'auto' }}>
+            <button className="btn btn-primary" onClick={() => handleSaveChanges('Course Outcomes')}>
+              <Save size={15} /> Save Changes
+            </button>
           </div>
         </div>
       </div>
@@ -526,29 +513,20 @@ export default function OutcomesManagement({ hideFooter = false }) {
 
 
       {/* Category Tabs — Single Horizontal Row with Padding Above & Below */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          margin: '24px 0 24px 0',
-          padding: '4px 0',
-          flexWrap: 'nowrap',
-          overflowX: 'auto',
-          width: '100%',
-          boxSizing: 'border-box',
-        }}
-      >
-        {role === 'FACULTY' ? (
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => setActiveOutcomeTab('cos')}
-            style={{ whiteSpace: 'nowrap', flex: 1, padding: '10px 16px', fontSize: '13px', fontWeight: '700' }}
-          >
-            COs — Course Outcomes {pendingCoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingCoCount} Pending</span>}
-          </button>
-        ) : (
+      {role !== 'FACULTY' && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            margin: '24px 0 24px 0',
+            padding: '4px 0',
+            flexWrap: 'nowrap',
+            overflowX: 'auto',
+            width: '100%',
+            boxSizing: 'border-box',
+          }}
+        >
           <>
             <button
               type="button"
@@ -577,8 +555,8 @@ export default function OutcomesManagement({ hideFooter = false }) {
               PEOs — Educational Objectives
             </button>
           </>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* TAB 0: Programme Educational Objectives (PEOs - Statements Only, No Verification Needed) */}
       {activeOutcomeTab === 'peos' && role !== 'FACULTY' && (
@@ -1011,42 +989,6 @@ export default function OutcomesManagement({ hideFooter = false }) {
       {/* TAB 3: Course Outcomes (Faculty Submission & Programme Coordinator Approval) */}
       {activeOutcomeTab === 'cos' && (
         <div>
-          {/* STICKY Action Header Bar */}
-          <div
-            style={{
-              position: 'sticky',
-              top: '0px',
-              zIndex: 30,
-              background: '#ffffff',
-              padding: '12px 18px',
-              margin: '0 0 16px 0',
-              borderRadius: '12px',
-              boxShadow: '0 4px 14px rgba(15, 23, 42, 0.08)',
-              border: '1px solid #cbd5e1',
-              display: 'flex',
-              justify: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '10px',
-            }}
-          >
-            <div>
-              <h3 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>
-                Course Outcomes (COs) for {selectedCourse?.code} - {selectedCourse?.name}
-              </h3>
-              <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#64748b' }}>
-                Assigned Teachers: <strong style={{ color: '#4f46e5' }}>{courseTeachers}</strong> • Submissions require Coordinator approval.
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn btn-success" onClick={handleAddCO}>
-                <Plus size={14} /> + Submit New CO Proposal
-              </button>
-              <button className="btn btn-primary" onClick={() => handleSaveChanges('Course Outcomes')}>
-                <Save size={14} /> Save Changes
-              </button>
-            </div>
-          </div>
 
           {currentCoVerificationStatus === 'APPROVED' && (
             <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', padding: '12px 18px', marginBottom: '16px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
