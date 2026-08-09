@@ -105,6 +105,9 @@ export default function CourseCoordinatorWorkflow() {
   const { user }  = useAuth();
   const {
     availableCourses       = [],
+    courses                = [],
+    courseId,
+    setCourseId            = () => {},
     selectedCourse,
     academicYear,
     attainmentConfigs      = {},
@@ -193,9 +196,9 @@ export default function CourseCoordinatorWorkflow() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* Course Selector Dropdown */}
-          <div style={{ position: 'relative', width: '240px' }}>
+          <div style={{ position: 'relative', width: '260px' }}>
             <select
-              value={course?.id || ''}
+              value={selectedCourse?.id || ''}
               onChange={(e) => setCourseId(e.target.value)}
               style={{
                 height: '38px',
@@ -214,7 +217,7 @@ export default function CourseCoordinatorWorkflow() {
                 boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
               }}
             >
-              {availableCourses.map((c) => (
+              {(availableCourses.length > 0 ? availableCourses : courses).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.code} — {c.name}
                 </option>

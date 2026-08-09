@@ -149,7 +149,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
         submittedAt: co.submittedAt || '2026-08-04',
       }))
     );
-  }, [courseId, activeCOs, currentCoVerificationStatus]);
+  }, [selectedCourse, activeCOs, currentCoVerificationStatus]);
 
   // ── PO Handlers (Programme Coordinator Proposes -> Director Verifies) ─────────
   const handleAddPO = () => {

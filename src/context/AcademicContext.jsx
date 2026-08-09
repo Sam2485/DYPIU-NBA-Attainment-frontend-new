@@ -546,9 +546,9 @@ export function AcademicProvider({ children }) {
   // Active Objects
   const selectedProgramme = MASTER_PROGRAMMES.find((p) => p.id === programmeId) || MASTER_PROGRAMMES[0];
   const selectedCourse =
+    coursesStore.find((c) => c.id === courseId) ||
     availableCourses.find((c) => c.id === courseId) ||
     availableCourses[0] ||
-    coursesStore.find((c) => c.programmeId === programmeId) ||
     coursesStore[0];
 
   // Dynamic PO & PSO arrays for active Programme & Year
