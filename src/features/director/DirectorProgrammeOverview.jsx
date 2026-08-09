@@ -1,15 +1,19 @@
 import { useState } from 'react';
-import { GraduationCap, Layers, CheckCircle2, Clock, Eye, Building2, User } from 'lucide-react';
+import { GraduationCap, Building2, Check, ChevronDown } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 
 export default function DirectorProgrammeOverview() {
   const {
     masterProgrammes = [],
     departments = [],
-    masterBatches = [],
   } = useAcademic();
 
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
+
+  const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
+  const ink = '#0f172a';
+  const muted = '#64748b';
+  const accent = '#4f46e5';
 
   const filteredProgrammes = masterProgrammes.filter((prog) => {
     if (selectedDeptFilter === 'ALL') return true;
@@ -17,122 +21,93 @@ export default function DirectorProgrammeOverview() {
   });
 
   return (
-    <div className="animated-page" style={{ paddingBottom: '40px' }}>
-      {/* Banner */}
-      <div className="banner-dark-gradient" style={{ marginBottom: '24px' }}>
-        <div className="banner-content-row">
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <span className="badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fef08a', fontWeight: '800', fontSize: '11px' }}>
-                DIRECTOR VIEW • PROGRAMME OVERVIEW
-              </span>
-            </div>
-            <h2 style={{ margin: 0, fontSize: '20px', color: '#ffffff', fontWeight: '800' }}>
-              School Degree Programmes & HOD Allocation Summary
-            </h2>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#cbd5e1' }}>
-              Read-only visibility into degree programmes, managing HODs, coordinators, and batch setup statuses.
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="animated-page" style={{ paddingBottom: '48px' }}>
 
-      {/* ── FILTER BAR ────────────────────────────────────────────────────────────── */}
-      <div className="card" style={{ marginBottom: '20px', padding: '16px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Building2 size={16} style={{ color: '#4f46e5' }} />
-            <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Filter by Department:</span>
+      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+      <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Director View</div>
+          <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>Programme Overview</h2>
+          <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>Degree programmes, coordinators, and batch status across all departments.</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Building2 size={14} style={{ color: muted }} />
+          <div style={{ position: 'relative' }}>
             <select
               value={selectedDeptFilter}
               onChange={(e) => setSelectedDeptFilter(e.target.value)}
-              className="form-input"
-              style={{ height: '36px', fontSize: '12.5px', fontWeight: '700', color: '#4f46e5', minWidth: '240px' }}
+              style={{ height: '38px', paddingLeft: '12px', paddingRight: '32px', fontSize: '12.5px', fontWeight: '600', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ffffff', color: ink, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', appearance: 'none' }}
             >
               <option value="ALL">All Departments</option>
               {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.code} - {d.name}
-                </option>
+                <option key={d.id} value={d.id}>{d.code} – {d.name}</option>
               ))}
             </select>
+            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
           </div>
-
-          <div style={{ fontSize: '12.5px', color: '#64748b', fontWeight: '600' }}>
-            Total Programmes: <strong>{filteredProgrammes.length}</strong>
-          </div>
+          <span style={{ fontSize: '12px', color: muted, whiteSpace: 'nowrap' }}>
+            {filteredProgrammes.length} programme{filteredProgrammes.length !== 1 ? 's' : ''}
+          </span>
         </div>
       </div>
 
-      {/* ── PROGRAMMES GRID ───────────────────────────────────────────────────────── */}
-      <div className="grid-cards-2" style={{ gap: '16px' }}>
-        {filteredProgrammes.map((prog) => {
-          const deptObj = departments.find((d) => d.id === prog.departmentId || d.name === prog.department) || departments[0];
+      {/* ── PROGRAMMES GRID ──────────────────────────────────────────────────── */}
+      {filteredProgrammes.length === 0 ? (
+        <div style={{ ...surface, padding: '48px', textAlign: 'center', color: muted, fontSize: '13px' }}>
+          No programmes found.
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
+          {filteredProgrammes.map((prog) => {
+            const deptObj = departments.find((d) => d.id === prog.departmentId || d.name === prog.department) || departments[0];
 
-          return (
-            <div
-              key={prog.id}
-              style={{
-                background: '#ffffff',
-                borderRadius: '14px',
-                border: '1.5px solid #e2e8f0',
-                padding: '20px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
-                display: 'flex',
-                flexDirection: 'column',
-                justify: 'space-between',
-              }}
-            >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                  <span className="badge badge-active" style={{ background: '#e0e7ff', color: '#4f46e5', fontWeight: '800', fontSize: '11px' }}>
+            return (
+              <div key={prog.id} style={{ ...surface, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+                {/* Top row */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: accent, background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '5px', padding: '2px 9px' }}>
                     {prog.code}
                   </span>
-                  <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', fontWeight: '800', fontSize: '11px' }}>
-                    Read-Only Visibility
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#16a34a', fontWeight: '600', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '5px', padding: '2px 8px' }}>
+                    <Check size={11} /> Active
                   </span>
                 </div>
 
-                <h4 style={{ margin: '0 0 6px 0', fontSize: '16px', color: '#0f172a', fontWeight: '800' }}>
-                  {prog.name}
-                </h4>
-
-                <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>
-                  Department: <strong style={{ color: '#0f172a' }}>{deptObj?.name || prog.department}</strong>
+                {/* Name */}
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: ink, lineHeight: '1.3', marginBottom: '3px' }}>{prog.name}</div>
+                  <div style={{ fontSize: '11.5px', color: muted }}>{deptObj?.name || prog.department}</div>
                 </div>
 
-                <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 14px', border: '1px solid #e2e8f0', display: 'grid', gap: '8px', marginBottom: '16px' }}>
-                  <div style={{ fontSize: '12px', display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748b', fontWeight: '600' }}>Supervising HOD:</span>
-                    <strong style={{ color: '#059669' }}>{deptObj?.hod || 'Dr. Raj Shaikh'}</strong>
+                {/* Details */}
+                <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '10px 12px', border: '1px solid #f1f5f9', display: 'grid', gap: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                    <span style={{ color: muted }}>Supervising HOD</span>
+                    <span style={{ fontWeight: '600', color: ink }}>{deptObj?.hod || '—'}</span>
                   </div>
-
-                  <div style={{ fontSize: '12px', display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748b', fontWeight: '600' }}>Programme Coordinator:</span>
-                    <strong style={{ color: '#4f46e5' }}>{prog.coordinator || 'Dr. A. K. Sharma'}</strong>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                    <span style={{ color: muted }}>Coordinator</span>
+                    <span style={{ fontWeight: '600', color: accent }}>{prog.coordinator || 'Dr. A. K. Sharma'}</span>
                   </div>
-
-                  <div style={{ fontSize: '12px', display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748b', fontWeight: '600' }}>Active Batch Cycle:</span>
-                    <strong style={{ color: '#0f172a' }}>Batch 2025-29 (AY 2025-26)</strong>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                    <span style={{ color: muted }}>Active Batch</span>
+                    <span style={{ fontWeight: '600', color: ink }}>2025–29 (AY 2025-26)</span>
                   </div>
                 </div>
+
+                {/* Footer */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingTop: '4px', borderTop: '1px solid #f1f5f9' }}>
+                  <GraduationCap size={13} style={{ color: '#16a34a' }} />
+                  <span style={{ fontSize: '11.5px', color: muted }}>PO & PSO framework configured</span>
+                </div>
+
               </div>
+            );
+          })}
+        </div>
+      )}
 
-              {/* Status Footer */}
-              <div style={{ paddingTop: '12px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontSize: '11.5px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <CheckCircle2 size={14} style={{ color: '#10b981' }} /> PO & PSO Framework Configured
-                </div>
-
-                <span style={{ fontSize: '11.5px', color: '#4f46e5', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Eye size={13} /> View Status
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }

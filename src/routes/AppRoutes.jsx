@@ -26,6 +26,15 @@ import DirectorApprovalsPage from '../pages/director/DirectorApprovalsPage';
 import DirectorReportsPage from '../pages/director/DirectorReportsPage';
 import DirectorSetupWorkflowPage from '../pages/director/DirectorSetupWorkflowPage';
 
+// HOD Pages
+import HodBatchManagementPage from '../pages/hod/HodBatchManagementPage';
+import HodProgrammeOutcomesPage from '../pages/hod/HodProgrammeOutcomesPage';
+import HodCourseManagementPage from '../pages/hod/HodCourseManagementPage';
+import HodApprovalsPage from '../pages/hod/HodApprovalsPage';
+import HodProgrammeATRPage from '../pages/hod/HodProgrammeATRPage';
+import HodReportsPage from '../pages/hod/HodReportsPage';
+import HodSetupWorkflowPage from '../pages/hod/HodSetupWorkflowPage';
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -39,6 +48,16 @@ export default function AppRoutes() {
       <Route path="/director/programme-overview" element={<DirectorProgrammeOverviewPage />} />
       <Route path="/director/approvals" element={<DirectorApprovalsPage />} />
       <Route path="/director/reports" element={<DirectorReportsPage />} />
+
+      {/* HOD Routes */}
+      <Route path="/hod/dashboard" element={<DashboardPage />} />
+      <Route path="/hod/setup-workflow" element={<HodSetupWorkflowPage />} />
+      <Route path="/hod/batch-management" element={<HodBatchManagementPage />} />
+      <Route path="/hod/programme-outcomes" element={<HodProgrammeOutcomesPage />} />
+      <Route path="/hod/course-management" element={<HodCourseManagementPage />} />
+      <Route path="/hod/approvals" element={<HodApprovalsPage />} />
+      <Route path="/hod/programme-atr" element={<HodProgrammeATRPage />} />
+      <Route path="/hod/reports" element={<HodReportsPage />} />
 
       <Route path="/users" element={<UsersPage />} />
       <Route path="/configurations" element={<ConfigurationPage />} />

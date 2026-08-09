@@ -31,41 +31,52 @@ function Icon({ name, active = false, size = 16 }) {
   return <svg {...p}><circle cx="12" cy="12" r="9"/></svg>;
 }
 
-// ── Director Nav Items (as specified in PDF Page 1-2) ──────────────────────────
+// ── Director Nav Items ─────────────────────────────────────────────────────────
 const DIRECTOR_NAV = [
-  { id: 'dashboard',             path: '/director/dashboard',            icon: 'dashboard', label: 'Dashboard',               sub: 'School Overview & Actions' },
-  { id: 'school-structure',      path: '/director/school-structure',     icon: 'academic',  label: 'School Structure',        sub: 'View Hierarchy & Information' },
-  { id: 'department-management', path: '/director/department-management',icon: 'users',     label: 'Department Management',   sub: 'Depts & HOD Allocations' },
-  { id: 'programme-overview',    path: '/director/programme-overview',   icon: 'outcomes',  label: 'Programme Overview',      sub: 'All Programmes & Status' },
-  { id: 'approvals',             path: '/director/approvals',            icon: 'config',    label: 'Approvals & Visibility',  sub: 'Pending Director Approvals' },
-  { id: 'reports',               path: '/director/reports',              icon: 'reports',   label: 'Reports & Downloads',     sub: 'School & Dept Reports' },
+  { id: 'dashboard',             path: '/director/dashboard',             icon: 'dashboard', label: 'Dashboard',          sub: 'Overview & actions' },
+  { id: 'school-structure',      path: '/director/school-structure',      icon: 'academic',  label: 'School Structure',   sub: 'Hierarchy & info' },
+  { id: 'department-management', path: '/director/department-management', icon: 'users',     label: 'Departments & HODs', sub: 'Manage depts' },
+  { id: 'programme-overview',    path: '/director/programme-overview',    icon: 'outcomes',  label: 'Programmes',         sub: 'Status & coordinators' },
+  { id: 'approvals',             path: '/director/approvals',             icon: 'config',    label: 'Approvals',          sub: 'Pending reviews' },
+  { id: 'reports',               path: '/director/reports',               icon: 'reports',   label: 'Reports',            sub: 'Downloads & exports' },
 ];
 
-// ── Dropdown 1: Programme Setup & Management (Editing & Setup Pages) ───────────
+// ── HOD Nav Items (as specified in PDF Page 2-3) ───────────────────────────────
+const HOD_NAV = [
+  { id: 'dashboard',          path: '/hod/dashboard',          icon: 'dashboard', label: 'Dashboard',             sub: 'HOD Overview & Actions' },
+  { id: 'batch-management',   path: '/hod/batch-management',   icon: 'academic',  label: 'Batch Management',     sub: 'Initialize & Active Batches' },
+  { id: 'programme-outcomes', path: '/hod/programme-outcomes', icon: 'outcomes',  label: 'Programme Outcomes',   sub: 'POs, PSOs & PEOs Setup' },
+  { id: 'course-management',  path: '/hod/course-management',  icon: 'users',     label: 'Course Management',    sub: 'Courses & Coordinators' },
+  { id: 'approvals',          path: '/hod/approvals',          icon: 'config',    label: 'Approvals & Reviews',  sub: 'Verify Submissions' },
+  { id: 'programme-atr',      path: '/hod/programme-atr',      icon: 'survey',    label: 'Programme ATR',        sub: 'Review & Approve ATR' },
+  { id: 'reports',            path: '/hod/reports',            icon: 'reports',   label: 'Reports & Downloads',   sub: 'Batch & Programme Reports' },
+];
+
+// ── Dropdown 1: Programme Setup & Management ───────────────────────────────────
 const PROGRAMME_SETUP_NAV = [
-  { id: 'dashboard',     path: '/dashboard',     icon: 'dashboard', label: 'Dashboard',                          sub: 'Overview & Analytics' },
-  { id: 'academic',      path: '/academic',      icon: 'academic',  label: 'Academic Setup',                     sub: 'Depts, Programmes, Courses' },
-  { id: 'outcomes',      path: '/outcomes',      icon: 'outcomes',  label: 'Outcome Management (PO, PSO, PEO)', sub: 'POs, PSOs & PEO Targets' },
-  { id: 'programme-atr', path: '/programme-atr', icon: 'poa',       label: 'Programme ATR',                      sub: 'Batch Continuous Improvement' },
-  { id: 'reports',       path: '/reports',       icon: 'reports',   label: 'Reports & Downloads',                sub: 'Master Excel & PDF Exports' },
+  { id: 'dashboard',     path: '/dashboard',     icon: 'dashboard', label: 'Dashboard',       sub: 'Overview & analytics' },
+  { id: 'academic',      path: '/academic',      icon: 'academic',  label: 'Academic Setup',  sub: 'Depts, programmes, courses' },
+  { id: 'outcomes',      path: '/outcomes',      icon: 'outcomes',  label: 'Outcomes',        sub: 'POs, PSOs & PEO targets' },
+  { id: 'programme-atr', path: '/programme-atr', icon: 'poa',       label: 'Programme ATR',   sub: 'Continuous improvement' },
+  { id: 'reports',       path: '/reports',       icon: 'reports',   label: 'Reports',         sub: 'Excel & PDF exports' },
 ];
 
-// ── Dropdown 2: Course Submissions Review (Reviews from Course Coordinator) ─────
+// ── Dropdown 2: Course Submissions Review ──────────────────────────────────────
 const COURSE_REVIEWS_NAV = [
-  { id: 'review-config',     path: '/coordinator-review?tab=config',     icon: 'config',   label: 'Attainment Config Review', sub: 'Choose Course → Verify Weightages & Threshold' },
-  { id: 'review-cos',        path: '/coordinator-review?tab=cos',        icon: 'outcomes', label: 'CO Verification',            sub: 'Choose Course → Approve Proposed COs' },
-  { id: 'review-attainment', path: '/coordinator-review?tab=attainment', icon: 'coa',      label: 'Attainment Overview',        sub: 'Choose Course → CO & PO/PSO Attainment' },
-  { id: 'review-atr',        path: '/coordinator-review?tab=atr',        icon: 'survey',   label: 'Course ATR Review',          sub: 'Choose Course → Verify Course ATR' },
+  { id: 'review-config',     path: '/coordinator-review?tab=config',     icon: 'config',   label: 'Attainment Config',  sub: 'Weightages & thresholds' },
+  { id: 'review-cos',        path: '/coordinator-review?tab=cos',        icon: 'outcomes', label: 'CO Verification',    sub: 'Approve proposed COs' },
+  { id: 'review-attainment', path: '/coordinator-review?tab=attainment', icon: 'coa',      label: 'Attainment Overview',sub: 'CO & PO/PSO attainment' },
+  { id: 'review-atr',        path: '/coordinator-review?tab=atr',        icon: 'survey',   label: 'Course ATR Review',  sub: 'Verify course ATR' },
 ];
 
-// ── Course Coordinator Nav Items ─────────────────────────────────
+// ── Course Coordinator Nav Items ───────────────────────────────────────────────
 const FACULTY_NAV = [
-  { id: 'dashboard',           path: '/dashboard',           icon: 'dashboard', label: 'Dashboard',           sub: 'Start Attainment Process' },
-  { id: 'outcomes',            path: '/outcomes?mode=standalone', icon: 'outcomes', label: 'Outcome Management', sub: 'Course Outcomes (COs)' },
-  { id: 'configurations',      path: '/configurations',      icon: 'config',    label: 'Attainment Config',    sub: 'Weightages & Threshold Settings' },
-  { id: 'attainment-overview', path: '/attainment-overview', icon: 'coa',       label: 'Attainment Overview',  sub: 'CO & PO/PSO Attainments' },
-  { id: 'course-atr',          path: '/atr-reports',         icon: 'survey',    label: 'ATR Reports',          sub: 'Carry-Forward & Current ATR' },
-  { id: 'reports',             path: '/reports',             icon: 'reports',   label: 'Reports & Downloads',  sub: 'PDF & Excel Exports' },
+  { id: 'dashboard',           path: '/dashboard',                icon: 'dashboard', label: 'Dashboard',          sub: 'Start attainment process' },
+  { id: 'outcomes',            path: '/outcomes?mode=standalone', icon: 'outcomes',  label: 'Outcomes',           sub: 'Course outcomes (COs)' },
+  { id: 'configurations',      path: '/configurations',           icon: 'config',    label: 'Attainment Config',  sub: 'Weightages & thresholds' },
+  { id: 'attainment-overview', path: '/attainment-overview',      icon: 'coa',       label: 'Attainment',         sub: 'CO & PO/PSO overview' },
+  { id: 'course-atr',          path: '/atr-reports',              icon: 'survey',    label: 'ATR Reports',        sub: 'Current & carry-forward' },
+  { id: 'reports',             path: '/reports',                  icon: 'reports',   label: 'Reports',            sub: 'PDF & Excel exports' },
 ];
 
 export default function AppSidebar() {
@@ -74,6 +85,7 @@ export default function AppSidebar() {
   const location = useLocation();
 
   // Dropdown States
+  const [navOpenDirector, setNavOpenDirector] = useState(false);
   const [navOpenSetup, setNavOpenSetup] = useState(false);
   const [navOpenReview, setNavOpenReview] = useState(false);
   const [navOpenFaculty, setNavOpenFaculty] = useState(false);
@@ -202,12 +214,76 @@ export default function AppSidebar() {
       {/* ── MAIN NAVIGATION AREA ─────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', paddingRight: 2 }}>
         {role === 'DIRECTOR' ? (
+          <nav style={{ position: 'relative' }}>
+            {(() => {
+              const activeDirectorItem = DIRECTOR_NAV.find((item) => location.pathname === item.path);
+              return (
+                <>
+                  <button
+                    type="button"
+                    aria-expanded={navOpenDirector}
+                    onClick={() => setNavOpenDirector((prev) => !prev)}
+                    style={{
+                      width: '100%',
+                      minHeight: 42,
+                      border: navOpenDirector ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(148,163,184,0.20)',
+                      borderRadius: 12,
+                      background: 'rgba(30,41,59,0.72)',
+                      color: '#f8fafc',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '7px 10px',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <span style={{ width: 24, height: 24, borderRadius: 7, background: 'rgba(99,102,241,0.20)', border: '1px solid rgba(165,180,252,0.25)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      <Icon name={activeDirectorItem?.icon || 'dashboard'} active size={13} />
+                    </span>
+                    <span style={{ flex: 1, textAlign: 'left', fontSize: 12, fontWeight: 800, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {activeDirectorItem ? activeDirectorItem.label : 'Director Menu'}
+                    </span>
+                    <span style={{ display: 'grid', placeItems: 'center', transition: 'transform 0.2s', transform: navOpenDirector ? 'rotate(180deg)' : 'rotate(0deg)', color: '#64748b' }}>
+                      <Icon name="chevron" size={14} />
+                    </span>
+                  </button>
+
+                  {navOpenDirector && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6, padding: 5, background: '#1f2937', border: '1px solid rgba(148,163,184,0.22)', borderRadius: 12, boxShadow: '0 18px 34px rgba(2,6,23,0.32)', display: 'grid', gap: 2, maxHeight: '340px', overflowY: 'auto', zIndex: 50 }}>
+                      {DIRECTOR_NAV.map((item) => {
+                        const isActive = location.pathname === item.path;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => { navigate(item.path); setNavOpenDirector(false); }}
+                            style={{ minHeight: 40, border: isActive ? '1px solid rgba(165,180,252,0.24)' : '1px solid transparent', borderRadius: 9, background: isActive ? 'rgba(99,102,241,0.18)' : 'transparent', color: '#f8fafc', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9, padding: '6px 9px', textAlign: 'left', boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none', fontFamily: 'inherit' }}
+                          >
+                            <span style={{ width: 24, height: 24, borderRadius: 6, background: isActive ? 'rgba(99,102,241,0.16)' : 'rgba(148,163,184,0.08)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                              <Icon name={item.icon} active={isActive} size={13} />
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, fontSize: 12, lineHeight: 1.1, color: '#f8fafc' }}>{item.label}</div>
+                              <div style={{ fontSize: 9.5, marginTop: 2, color: isActive ? '#c7d2fe' : '#64748b' }}>{item.sub}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </nav>
+        ) : role === 'HOD' ? (
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ fontSize: 10, color: '#60a5fa', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0 4px 4px' }}>
-              Director Navigation Menu
+              HOD Navigation Menu
             </div>
-            {DIRECTOR_NAV.map((item) => {
-              const isActive = location.pathname === item.path || (item.path === '/director/dashboard' && location.pathname === '/dashboard');
+            {HOD_NAV.map((item) => {
+              const isActive = location.pathname === item.path || (item.path === '/hod/dashboard' && location.pathname === '/dashboard');
               return (
                 <button
                   key={item.id}
@@ -227,6 +303,7 @@ export default function AppSidebar() {
                     padding: '7px 10px',
                     textAlign: 'left',
                     boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none',
+                    fontFamily: 'inherit',
                   }}
                 >
                   <span

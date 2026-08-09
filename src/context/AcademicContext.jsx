@@ -20,12 +20,72 @@ export const MASTER_FACULTY_LIST = [
   'Prof. Priya Verma',
 ];
 
-// Centralized Master Programmes Database
-export const MASTER_PROGRAMMES = [
-  { id: 'prog-1', code: 'BE-COMP', name: 'B.Tech Computer Science & Engineering', department: 'School of Computer Science' },
-  { id: 'prog-2', code: 'BE-AI', name: 'B.Tech AI & Data Science', department: 'School of Computer Science' },
-  { id: 'prog-3', code: 'MBA', name: 'Master of Business Administration', department: 'School of Management' },
+// Centralized Master Schools Database
+export const INITIAL_SCHOOLS = [
+  { id: 'sch-1', code: 'SET', name: 'School of Engineering & Technology', dean: 'Dr. R. K. Deshmukh', estYear: '2019', email: 'set.director@dypiu.ac.in' },
+  { id: 'sch-2', code: 'SOM', name: 'School of Management Studies', dean: 'Dr. P. S. Mehta', estYear: '2020', email: 'som.director@dypiu.ac.in' },
 ];
+
+// Centralized Master Departments Database
+export const INITIAL_DEPARTMENTS = [
+  { id: 'dept-1', schoolId: 'sch-1', code: 'CSE', name: 'Department of Computer Science & Engineering', hod: 'Dr. Raj Shaikh', hodEmail: 'raj.shaikh@dypiu.ac.in', status: 'ACTIVE' },
+  { id: 'dept-2', schoolId: 'sch-1', code: 'ENTC', name: 'Department of Electronics & Telecommunication', hod: 'Prof. Ananya Roy', hodEmail: 'ananya.roy@dypiu.ac.in', status: 'ACTIVE' },
+  { id: 'dept-3', schoolId: 'sch-1', code: 'IT', name: 'Department of Information Technology', hod: 'Dr. Vikram Joshi', hodEmail: 'vikram.joshi@dypiu.ac.in', status: 'ACTIVE' },
+  { id: 'dept-4', schoolId: 'sch-2', code: 'MGMT', name: 'Department of Management Studies', hod: 'Dr. Sameer Khan', hodEmail: 'sameer.khan@dypiu.ac.in', status: 'ACTIVE' },
+];
+
+// Centralized Master Programmes Database
+export const INITIAL_MASTER_PROGRAMMES_LIST = [
+  { id: 'prog-1', departmentId: 'dept-1', code: 'BE-COMP', name: 'B.Tech Computer Science & Engineering', department: 'Department of Computer Science & Engineering', coordinator: 'Dr. A. K. Sharma', status: 'ACTIVE' },
+  { id: 'prog-2', departmentId: 'dept-1', code: 'BE-AI', name: 'B.Tech AI & Data Science', department: 'Department of Computer Science & Engineering', coordinator: 'Prof. R. V. Patel', status: 'ACTIVE' },
+  { id: 'prog-3', departmentId: 'dept-4', code: 'MBA', name: 'Master of Business Administration', department: 'Department of Management Studies', coordinator: 'Dr. S. N. Deshmukh', status: 'ACTIVE' },
+  { id: 'prog-4', departmentId: 'dept-2', code: 'BE-ENTC', name: 'B.Tech Electronics & Telecommunication', department: 'Department of Electronics & Telecommunication', coordinator: 'Prof. Ananya Roy', status: 'ACTIVE' },
+];
+
+// Centralized Director Approvals Database
+export const INITIAL_DIRECTOR_APPROVALS_LIST = [
+  {
+    id: 'app-1',
+    schoolId: 'sch-1',
+    title: 'B.Tech Computer Science & Engineering — PO & PSO Outcome Framework',
+    programme: 'B.Tech CSE',
+    programmeId: 'prog-1',
+    submittedBy: 'Dr. Raj Shaikh (HOD - CSE)',
+    submittedAt: '2026-08-05',
+    type: 'PO_PSO_FRAMEWORK',
+    status: 'PENDING',
+    details: '12 Program Outcomes (POs), 3 Program Specific Outcomes (PSOs), and 4 PEOs submitted for Director approval.',
+  },
+  {
+    id: 'app-2',
+    schoolId: 'sch-1',
+    title: 'B.Tech AI & Data Science — Annual Programme Action Taken Report (ATR)',
+    programme: 'B.Tech AI & DS',
+    programmeId: 'prog-2',
+    submittedBy: 'Prof. Ananya Roy (HOD - ENTC & AI)',
+    submittedAt: '2026-08-06',
+    type: 'PROGRAMME_ATR',
+    status: 'PENDING',
+    details: 'Batch 2024-28 continuous improvement action plan and gap observations submitted for Director review.',
+  },
+  {
+    id: 'app-3',
+    schoolId: 'sch-2',
+    title: 'Master of Business Administration — Program Outcomes Setup',
+    programme: 'MBA',
+    programmeId: 'prog-3',
+    submittedBy: 'Dr. Sameer Khan (HOD - SOM)',
+    submittedAt: '2026-08-02',
+    type: 'PO_PSO_FRAMEWORK',
+    status: 'APPROVED',
+    approvedBy: 'Dr. R. K. Deshmukh (Director)',
+    approvedAt: '2026-08-03',
+    details: '3 POs and 1 PSO framework verified and approved.',
+  },
+];
+
+// Centralized Master Programmes Database
+export const MASTER_PROGRAMMES = INITIAL_MASTER_PROGRAMMES_LIST;
 
 export const INITIAL_PROGRAMME_OUTCOMES = {
   'prog-1': [
@@ -69,6 +129,61 @@ export const INITIAL_PSO_OUTCOMES = {
     { code: 'PSO1', statement: 'Strategic Leadership in Corporate Operations' },
   ],
 };
+
+// Centralized Master PEOs Database for HOD
+export const INITIAL_PEO_OUTCOMES = {
+  'prog-1': [
+    { code: 'PEO1', statement: 'Graduates will establish successful careers in software engineering, technology consulting, and research.' },
+    { code: 'PEO2', statement: 'Graduates will pursue higher studies and continuous professional learning in advanced computing domains.' },
+    { code: 'PEO3', statement: 'Graduates will demonstrate leadership, teamwork, ethical values, and societal responsibility in corporate environments.' },
+  ],
+  'prog-2': [
+    { code: 'PEO1', statement: 'Graduates will deploy ethical AI, data analytics, and machine learning solutions across industries.' },
+    { code: 'PEO2', statement: 'Graduates will engage in innovation, research, and entrepreneurship in data science.' },
+  ],
+  'prog-3': [
+    { code: 'PEO1', statement: 'Graduates will lead business enterprises, strategic management initiatives, and corporate operations.' },
+  ],
+};
+
+// Centralized HOD Approvals Database
+export const INITIAL_HOD_APPROVALS_LIST = [
+  {
+    id: 'hod-app-1',
+    programmeId: 'prog-1',
+    programme: 'B.Tech CSE',
+    title: 'Course Outcomes & Attainment Weightages Submission — CS301 (Data Structures)',
+    submittedBy: 'Dr. Raj Shaikh (Course Coordinator)',
+    submittedAt: '2026-08-07',
+    type: 'COURSE_CO_WEIGHTAGES',
+    status: 'PENDING',
+    details: '6 Course Outcomes (C321.1 - C321.6) and Direct (80%) / Indirect (20%) weightages submitted for HOD verification.',
+  },
+  {
+    id: 'hod-app-2',
+    programmeId: 'prog-1',
+    title: 'Programme Target Levels Setup — Batch 2025-29',
+    programme: 'B.Tech CSE',
+    submittedBy: 'Dr. A. K. Sharma (Programme Coordinator)',
+    submittedAt: '2026-08-06',
+    type: 'PROGRAMME_TARGETS',
+    status: 'PENDING',
+    details: 'Target levels (1.0 to 3.0 scale) set for 12 POs and 3 PSOs submitted for HOD verification.',
+  },
+  {
+    id: 'hod-app-3',
+    programmeId: 'prog-2',
+    title: 'Course Action Taken Report (ATR) — AI201 (Machine Learning)',
+    programme: 'B.Tech AI & DS',
+    submittedBy: 'Prof. Ananya Roy (Course Coordinator)',
+    submittedAt: '2026-08-04',
+    type: 'COURSE_ATR',
+    status: 'APPROVED',
+    approvedBy: 'Dr. Raj Shaikh (HOD - CSE)',
+    approvedAt: '2026-08-05',
+    details: 'Course ATR gap analysis and remedial actions approved.',
+  },
+];
 
 export const INITIAL_COURSES = [
   {
@@ -505,6 +620,145 @@ export function AcademicProvider({ children }) {
     }));
   };
 
+  // Centralized Director Data State Stores & Action Handlers
+  const [schoolsStore, setSchoolsStore] = useState(INITIAL_SCHOOLS);
+  const [selectedSchoolId, setSelectedSchoolId] = useState('sch-1');
+  const selectedSchool = schoolsStore.find((s) => s.id === selectedSchoolId) || schoolsStore[0];
+
+  const updateSchoolInfo = (schoolId, updatedFields) => {
+    setSchoolsStore((prev) =>
+      prev.map((s) => (s.id === schoolId ? { ...s, ...updatedFields } : s))
+    );
+  };
+
+  const [departmentsStore, setDepartmentsStore] = useState(INITIAL_DEPARTMENTS);
+
+  const addDepartment = (newDept) => {
+    setDepartmentsStore((prev) => [...prev, newDept]);
+  };
+
+  const updateDepartment = (deptId, updatedFields) => {
+    setDepartmentsStore((prev) =>
+      prev.map((d) => (d.id === deptId ? { ...d, ...updatedFields } : d))
+    );
+  };
+
+  const deleteDepartment = (deptId) => {
+    setDepartmentsStore((prev) => prev.filter((d) => d.id !== deptId));
+  };
+
+  const [masterProgrammesStore, setMasterProgrammesStore] = useState(INITIAL_MASTER_PROGRAMMES_LIST);
+
+  const addProgramme = (newProg) => {
+    setMasterProgrammesStore((prev) => [...prev, newProg]);
+  };
+
+  const updateProgramme = (progId, updatedFields) => {
+    setMasterProgrammesStore((prev) =>
+      prev.map((p) => (p.id === progId ? { ...p, ...updatedFields } : p))
+    );
+  };
+
+  const deleteProgramme = (progId) => {
+    setMasterProgrammesStore((prev) => prev.filter((p) => p.id !== progId));
+  };
+
+  const [directorApprovalsStore, setDirectorApprovalsStore] = useState(INITIAL_DIRECTOR_APPROVALS_LIST);
+
+  const approveDirectorSubmission = (appId, directorName) => {
+    setDirectorApprovalsStore((prev) =>
+      prev.map((a) =>
+        a.id === appId
+          ? {
+              ...a,
+              status: 'APPROVED',
+              approvedBy: directorName || 'School Director',
+              approvedAt: new Date().toISOString().split('T')[0],
+            }
+          : a
+      )
+    );
+  };
+
+  const rejectDirectorSubmission = (appId, remarks) => {
+    setDirectorApprovalsStore((prev) =>
+      prev.map((a) =>
+        a.id === appId
+          ? {
+              ...a,
+              status: 'NEEDS_REVISION',
+              remarks: remarks || 'Review and resubmit.',
+            }
+          : a
+      )
+    );
+  };
+
+  // Centralized HOD Data State Stores & Action Handlers
+  const [peoStoreByYear, setPeoStoreByYear] = useState({
+    '2024-25': INITIAL_PEO_OUTCOMES,
+    '2025-26': INITIAL_PEO_OUTCOMES,
+    '2026-27': INITIAL_PEO_OUTCOMES,
+  });
+
+  const activePEOs = (peoStoreByYear[academicYear] || {})[programmeId] || INITIAL_PEO_OUTCOMES['prog-1'];
+
+  const updateProgrammePEOs = (targetProgId, newPeos) => {
+    setPeoStoreByYear((prev) => ({
+      ...prev,
+      [academicYear]: {
+        ...(prev[academicYear] || {}),
+        [targetProgId]: newPeos,
+      },
+    }));
+  };
+
+  const [hodApprovalsStore, setHodApprovalsStore] = useState(INITIAL_HOD_APPROVALS_LIST);
+
+  const approveHodSubmission = (appId, hodName) => {
+    setHodApprovalsStore((prev) =>
+      prev.map((a) =>
+        a.id === appId
+          ? {
+              ...a,
+              status: 'APPROVED',
+              approvedBy: hodName || 'Head of Department (HOD)',
+              approvedAt: new Date().toISOString().split('T')[0],
+            }
+          : a
+      )
+    );
+  };
+
+  const rejectHodSubmission = (appId, remarks) => {
+    setHodApprovalsStore((prev) =>
+      prev.map((a) =>
+        a.id === appId
+          ? {
+              ...a,
+              status: 'NEEDS_REVISION',
+              remarks: remarks || 'Review and resubmit.',
+            }
+          : a
+      )
+    );
+  };
+
+  const assignCourseCoordinator = (targetCourseId, facultyName) => {
+    setCoursesStoreByYear((prev) => ({
+      ...prev,
+      [academicYear]: (prev[academicYear] || []).map((c) =>
+        c.id === targetCourseId
+          ? {
+              ...c,
+              coordinator: facultyName,
+              faculty: facultyName,
+            }
+          : c
+      ),
+    }));
+  };
+
   return (
     <AcademicContext.Provider
       value={{
@@ -544,6 +798,29 @@ export function AcademicProvider({ children }) {
         updateCourseVerificationStatus,
         courseAtrStore,
         updateCourseAtrData,
+        // Centralized Director Data Stores & APIs
+        schools: schoolsStore,
+        selectedSchool,
+        setSelectedSchoolId,
+        updateSchoolInfo,
+        departments: departmentsStore,
+        addDepartment,
+        updateDepartment,
+        deleteDepartment,
+        masterProgrammes: masterProgrammesStore,
+        addProgramme,
+        updateProgramme,
+        deleteProgramme,
+        directorApprovals: directorApprovalsStore,
+        approveDirectorSubmission,
+        rejectDirectorSubmission,
+        // Centralized HOD Data Stores & APIs
+        activePEOs,
+        updateProgrammePEOs,
+        hodApprovals: hodApprovalsStore,
+        approveHodSubmission,
+        rejectHodSubmission,
+        assignCourseCoordinator,
       }}
     >
       {children}

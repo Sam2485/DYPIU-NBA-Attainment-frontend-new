@@ -2,6 +2,7 @@ import AppHeader from '../components/layout/AppHeader';
 import AppSidebar from '../components/layout/AppSidebar';
 import DashboardOverview from '../features/dashboard/DashboardOverview';
 import DirectorDashboard from '../features/director/DirectorDashboard';
+import HodDashboard from '../features/hod/HodDashboard';
 import { useAuth } from '../context/AuthContext';
 
 export default function DashboardPage() {
@@ -12,11 +13,23 @@ export default function DashboardPage() {
       <AppSidebar />
       <main className="nba-layout-main">
         <AppHeader
-          title={role === 'DIRECTOR' ? 'Director Overview & Actions' : 'NBA Attainment Overview'}
+          title={
+            role === 'DIRECTOR'
+              ? 'Director Overview & Actions'
+              : role === 'HOD'
+              ? 'HOD Overview & Actions'
+              : 'NBA Attainment Overview'
+          }
           subtitle="D. Y. Patil International University"
         />
         <div className="page-container">
-          {role === 'DIRECTOR' ? <DirectorDashboard /> : <DashboardOverview />}
+          {role === 'DIRECTOR' ? (
+            <DirectorDashboard />
+          ) : role === 'HOD' ? (
+            <HodDashboard />
+          ) : (
+            <DashboardOverview />
+          )}
         </div>
       </main>
     </div>

@@ -1,30 +1,28 @@
 import { useState } from 'react';
-import { ShieldCheck, CheckCircle2, Clock, XCircle, FileText, Check, AlertCircle } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Clock, XCircle, Check } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 
-export default function DirectorApprovals() {
+export default function HodApprovals() {
   const { user } = useAuth();
   const {
-    directorApprovals = [],
-    approveDirectorSubmission,
-    rejectDirectorSubmission,
+    hodApprovals = [],
+    approveHodSubmission = () => {},
+    rejectHodSubmission = () => {},
   } = useAcademic();
 
   const [remarksMap, setRemarksMap] = useState({});
 
   const handleApprove = (appId) => {
-    approveDirectorSubmission(appId, user?.name);
-    alert(`✓ Submission approved by Director!`);
+    approveHodSubmission(appId, user?.name);
+    alert(`✓ Submission approved by HOD!`);
   };
 
   const handleSendBack = (appId) => {
     const remarks = remarksMap[appId] || 'Please review and resubmit.';
-    rejectDirectorSubmission(appId, remarks);
-    alert(`Submission sent back to HOD with remarks: "${remarks}"`);
+    rejectHodSubmission(appId, remarks);
+    alert(`Submission sent back with remarks: "${remarks}"`);
   };
-
-  const pendingCount = approvalList.filter((a) => a.status === 'PENDING').length;
 
   return (
     <div className="animated-page" style={{ paddingBottom: '40px' }}>
@@ -34,14 +32,14 @@ export default function DirectorApprovals() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
               <span className="badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fef08a', fontWeight: '800', fontSize: '11px' }}>
-                DIRECTOR PORTAL • APPROVALS & VISIBILITY
+                HOD PORTAL • APPROVALS & VERIFICATION
               </span>
             </div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#ffffff', fontWeight: '800' }}>
-              Director Level Approvals & Submission Visibility
+              HOD Verification & Submission Approval Panel
             </h2>
             <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#cbd5e1' }}>
-              Review HOD submissions for PO/PSO outcome frameworks and annual Programme Action Taken Reports (ATR).
+              Verify entries submitted by Programme Coordinators & Course Coordinators. Approve or send back with remarks.
             </p>
           </div>
         </div>
@@ -49,7 +47,7 @@ export default function DirectorApprovals() {
 
       {/* ── APPROVALS LIST ────────────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gap: '16px' }}>
-        {directorApprovals.map((item) => {
+        {hodApprovals.map((item) => {
           const isPending = item.status === 'PENDING';
           const isApproved = item.status === 'APPROVED';
           const isNeedsRevision = item.status === 'NEEDS_REVISION';
@@ -77,7 +75,7 @@ export default function DirectorApprovals() {
 
                 {isApproved ? (
                   <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', fontWeight: '800', fontSize: '11.5px' }}>
-                    ✓ Approved by Director
+                    ✓ Approved by HOD
                   </span>
                 ) : isNeedsRevision ? (
                   <span className="badge" style={{ background: '#fee2e2', color: '#dc2626', fontWeight: '800', fontSize: '11.5px' }}>
@@ -85,7 +83,7 @@ export default function DirectorApprovals() {
                   </span>
                 ) : (
                   <span className="badge badge-pending" style={{ background: '#fef3c7', color: '#b45309', fontWeight: '800', fontSize: '11.5px' }}>
-                    ⏳ Pending Director Approval
+                    ⏳ Pending HOD Approval
                   </span>
                 )}
               </div>
@@ -106,7 +104,7 @@ export default function DirectorApprovals() {
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                     <input
                       type="text"
-                      placeholder="Optional remarks or notes for HOD..."
+                      placeholder="Optional remarks or feedback for coordinator..."
                       value={remarksMap[item.id] || ''}
                       onChange={(e) => setRemarksMap({ ...remarksMap, [item.id]: e.target.value })}
                       className="form-input"
@@ -117,7 +115,7 @@ export default function DirectorApprovals() {
                       onClick={() => handleApprove(item.id)}
                       style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '800', gap: '6px', background: '#059669' }}
                     >
-                      <Check size={15} /> Approve Framework
+                      <Check size={15} /> Approve Submission
                     </button>
                     <button
                       className="btn btn-danger"
