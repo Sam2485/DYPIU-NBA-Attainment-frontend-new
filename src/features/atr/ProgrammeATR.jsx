@@ -1,623 +1,336 @@
-import { useState } from 'react';
-import { Award, Save, CheckCircle2, Clock, ShieldCheck, Plus, Trash2, Printer } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import {
+  Save, CheckCircle2, Clock, ShieldCheck, Printer,
+  ChevronDown, AlertCircle, Plus,
+} from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
-import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
-export default function ProgrammeATR() {
-  const { role, user } = useAuth();
+// ── Style tokens (identical to CourseATR) ────────────────────────────────────
+const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
+const ink        = '#0f172a';
+const muted      = '#64748b';
+const accent     = '#4f46e5';
+const inputStyle = {
+  height: '40px', fontSize: '13px', border: '1px solid #e2e8f0',
+  borderRadius: '8px', padding: '0 12px', background: '#ffffff',
+  color: ink, width: '100%', outline: 'none', fontFamily: 'inherit',
+};
+
+export default function ProgrammeATR({ hideFooter = false, hideHeader = false }) {
+  const { role } = useAuth();
   const {
     selectedProgramme,
-    academicYear,
     selectedBatch,
-    availableYears,
+    academicYear    = '2025-26',
+    availableYears  = ['2025-26', '2024-25'],
+    activePOs       = [],
+    activePSOs      = [],
+    poPsoTargets    = {},
+    programmeId     = 'prog-1',
   } = useAcademic();
 
-  const isCoordinator = role === 'PROGRAMME_COORDINATOR';
-  const isDirector = role === 'DIRECTOR' || role === 'IQAC' || role === 'SUPER_ADMIN';
+  const isFaculty     = role === 'FACULTY';
+  const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
   const [selectedYear, setSelectedYear] = useState(academicYear || '2025-26');
+  const [reportStatus, setReportStatus] = useState('DRAFT'); // DRAFT | SUBMITTED | VERIFIED
 
-  // Programme POs Action Taken Report Data (Matching DOCX layout)
-  const [poAtrList, setPoAtrList] = useState([
-    {
-      code: 'PO1',
-      title: 'PO1: Engineering knowledge',
-      statement: 'Apply the knowledge of mathematics, science, engineering fundamentals and engineering specialization to the solution of complex computer engineering problems.',
-      target: 1.80,
-      actual: 1.79,
-      pctAchieved: 99.44,
-      status: 'Target Achieved',
-      actions: [
-        'Expert Sessions on recent trends like Data Mining for Research Applications and Demonstration of Cyber Security Attacks were conducted for better understanding of the concepts.',
-        'Technical Sessions on Coding, Networking, Data Structures were conducted to provide student-centric learning environment.',
-      ],
-    },
-    {
-      code: 'PO2',
-      title: 'PO2: Problem analysis',
-      statement: 'Identify, formulate, review research literature, and analyze complex computer engineering problems reaching substantiated conclusions using first principles of mathematics, natural sciences, and engineering sciences.',
-      target: 1.80,
-      actual: 1.74,
-      pctAchieved: 96.66,
-      status: 'Target Achieved',
-      actions: [
-        'Webinars on latest technology to enhance problem analysis ability are planned.',
-        'Students learning is enhanced by providing complex numerical problems in the field of science and engineering.',
-      ],
-    },
-    {
-      code: 'PO3',
-      title: 'PO3: Design/development of solutions',
-      statement: 'Design solutions for complex computer engineering problems and design system components or processes that meet the specified needs with appropriate consideration for public health and safety.',
-      target: 1.80,
-      actual: 1.60,
-      pctAchieved: 88.88,
-      status: 'Target Achieved',
-      actions: [
-        'To explore safety and societal issues among the students, expert lecture is planned.',
-        'Students are encouraged to do industrial training and internships to enhance the ability to identify and formulate complex engineering problems.',
-      ],
-    },
-    {
-      code: 'PO4',
-      title: 'PO4: Conduct investigations of complex problems',
-      statement: 'Use research-based knowledge and research methods including design of experiments, analysis and interpretation of data, and synthesis of the information to provide valid conclusions.',
-      target: 1.80,
-      actual: 1.62,
-      pctAchieved: 90.00,
-      status: 'Target Achieved',
-      actions: [
-        'Students are encouraged to do industry sponsored projects to enhance skills to investigate / analyze real life complex problem.',
-      ],
-    },
-    {
-      code: 'PO5',
-      title: 'PO5: Modern tool usage',
-      statement: 'Create, select and apply appropriate techniques, resources, and modern engineering and IT tools including prediction and modeling to complex computer engineering activities.',
-      target: 1.80,
-      actual: 1.58,
-      pctAchieved: 87.77,
-      status: 'Target Achieved',
-      actions: [
-        'Students will be encouraged to do industrial training / internship.',
-        'Extra sessions are arranged to make students aware of latest tools, techniques and trends.',
-        'Students are motivated to write seminar/project reports using LATEX.',
-      ],
-    },
-    {
-      code: 'PO6',
-      title: 'PO6: The engineer and society',
-      statement: 'Apply reasoning informed by contextual knowledge to assess societal, health, safety, legal and cultural issues and the consequent responsibilities relevant to professional engineering practice.',
-      target: 1.80,
-      actual: 1.47,
-      pctAchieved: 81.66,
-      status: 'Target Achieved',
-      actions: [
-        'To enhance professional engineering practices students are motivated to take part in Professional society chapter activities.',
-      ],
-    },
-    {
-      code: 'PO7',
-      title: 'PO7: Environment and sustainability',
-      statement: 'Understand the impact of professional engineering solutions in societal and environmental contexts and demonstrate the knowledge of, and need for sustainable development.',
-      target: 1.80,
-      actual: 1.69,
-      pctAchieved: 93.88,
-      status: 'Target Achieved',
-      actions: [
-        'Students are encouraged to develop mini project to address social issues.',
-        'More number of expert lectures to be organized to address environmental and sustainability issues in engineering.',
-        'Techno-social visits are planned for students.',
-      ],
-    },
-    {
-      code: 'PO8',
-      title: 'PO8: Ethics',
-      statement: 'Apply ethical principles and commit to professional ethics and responsibilities and norms of the engineering practice.',
-      target: 1.80,
-      actual: 1.66,
-      pctAchieved: 92.22,
-      status: 'Target Achieved',
-      actions: [
-        'Personality Development Classes conducted.',
-        'Cultivation of ethics in classroom interactions.',
-      ],
-    },
-    {
-      code: 'PO9',
-      title: 'PO9: Individual and team work',
-      statement: 'Function effectively as an individual, and as a member or leader in diverse teams, and in multidisciplinary settings.',
-      target: 1.80,
-      actual: 1.73,
-      pctAchieved: 96.11,
-      status: 'Target Achieved',
-      actions: [
-        'More motivation to involve as volunteer/participant in Tech Fest, National level sports meet, technical and cultural activities to generate leadership and teamwork.',
-        'Final year project groups give students opportunities for team collaborations.',
-      ],
-    },
-    {
-      code: 'PO10',
-      title: 'PO10: Communication',
-      statement: 'Communicate effectively on complex engineering activities with the engineering community and with society at large, such as being able to comprehend and write effective reports.',
-      target: 1.80,
-      actual: 1.88,
-      pctAchieved: 104.44,
-      status: 'Target Achieved',
-      actions: [
-        'Student presentations like seminar and project dissertation.',
-        'Regular communication should be in English even in break timings to improve communication.',
-      ],
-    },
-    {
-      code: 'PO11',
-      title: 'PO11: Project management and finance',
-      statement: 'Demonstrate knowledge and understanding of engineering and management principles and apply these to one’s own work, as a member and leader in a team.',
-      target: 1.80,
-      actual: 1.72,
-      pctAchieved: 95.55,
-      status: 'Target Achieved',
-      actions: [
-        'Awareness program for students regarding management principles in projects.',
-        'More industrial visits organized for real-world managerial exposure.',
-      ],
-    },
-    {
-      code: 'PO12',
-      title: 'PO12: Life-long learning',
-      statement: 'Recognize the need for, and have the preparation and ability to engage in independent and life-long learning in the broadest context of technological change.',
-      target: 1.80,
-      actual: 1.64,
-      pctAchieved: 91.11,
-      status: 'Target Achieved',
-      actions: [
-        'Students are encouraged to enroll for training / certification courses.',
-        'For conduction of practicals, use of virtual labs increased for independent learning.',
-      ],
-    },
-  ]);
+  // ── Build PO/PSO ATR list (mirrors CourseATR buildList pattern) ───────────
+  const progTargets = poPsoTargets[programmeId] || { poTargets: {}, psoTargets: {} };
 
-  // Programme PSOs Action Taken Report Data (Matching DOCX layout)
-  const [psoAtrList, setPsoAtrList] = useState([
-    {
-      code: 'PSO1',
-      title: 'PSO1: Computer Systems Hardware & Software Principles',
-      statement: 'Graduate of programme should be able to demonstrate the principles and working of the hardware and software aspects of computer systems.',
-      target: 1.80,
-      actual: 1.80,
-      pctAchieved: 100.00,
-      status: 'Target Achieved',
-      actions: [
-        'Practical approach of teaching programming to be adapted.',
-      ],
-    },
-    {
-      code: 'PSO2',
-      title: 'PSO2: Software Development & Engineering Practices',
-      statement: 'Graduate of programme should be able to use professional engineering practices, strategies and tactics for the development, maintenance and testing of software solutions.',
-      target: 1.80,
-      actual: 1.65,
-      pctAchieved: 91.66,
-      status: 'Target Achieved',
-      actions: [
-        'Students are encouraged to enroll for training / certification courses.',
-      ],
-    },
-    {
-      code: 'PSO3',
-      title: 'PSO3: IT Domain Real-Time Solutions',
-      statement: 'Graduate of programme should be able to provide effective and efficient real time solutions using practical knowledge in IT domain.',
-      target: 1.80,
-      actual: 1.50,
-      pctAchieved: 83.33,
-      status: 'Target Achieved',
-      actions: [
-        'More industrial visits will be organized.',
-        'Industrial Training or Hands-on Real-time Project experience to reduce gap between industry and students.',
-      ],
-    },
-  ]);
+  // Fallback POs/PSOs if context hasn't loaded outcomes yet
+  const normPOs = activePOs.length > 0 ? activePOs : [
+    { code: 'PO1',  statement: 'Apply knowledge of mathematics, science and engineering fundamentals to complex engineering problems.' },
+    { code: 'PO2',  statement: 'Identify, formulate and analyze complex engineering problems using first principles.' },
+    { code: 'PO3',  statement: 'Design solutions for complex problems with consideration for public health and safety.' },
+    { code: 'PO4',  statement: 'Use research methods including design of experiments to provide valid conclusions.' },
+    { code: 'PO5',  statement: 'Create, select and apply modern engineering tools to complex activities.' },
+    { code: 'PO6',  statement: 'Apply reasoning to assess societal, health, safety and legal issues in engineering practice.' },
+    { code: 'PO7',  statement: 'Understand impact of engineering solutions in environmental context and sustainable development.' },
+    { code: 'PO8',  statement: 'Apply ethical principles and commit to professional ethics and norms of engineering practice.' },
+    { code: 'PO9',  statement: 'Function effectively as an individual, member or leader in diverse teams.' },
+    { code: 'PO10', statement: 'Communicate effectively on complex engineering activities with the engineering community.' },
+    { code: 'PO11', statement: 'Demonstrate knowledge of engineering and management principles as member and leader in a team.' },
+    { code: 'PO12', statement: 'Recognize the need for and ability to engage in independent and life-long learning.' },
+  ];
 
-  // Overall Verification State
-  const [reportStatus, setReportStatus] = useState('SUBMITTED'); // 'DRAFT', 'SUBMITTED', 'VERIFIED'
-  const [verifiedBy, setVerifiedBy] = useState('Director / HOD');
-  const [verifiedAt, setVerifiedAt] = useState('2026-08-05');
+  const normPSOs = activePSOs.length > 0 ? activePSOs : [
+    { code: 'PSO1', statement: 'Demonstrate principles and working of hardware and software aspects of computer systems.' },
+    { code: 'PSO2', statement: 'Use professional engineering practices for development, maintenance and testing of software solutions.' },
+    { code: 'PSO3', statement: 'Provide effective and efficient real-time solutions using practical knowledge in IT domain.' },
+  ];
 
-  // Action Items Management Functions
-  const handleAddPoAction = (poIndex) => {
-    const updated = [...poAtrList];
-    updated[poIndex].actions.push('New corrective action plan...');
-    setPoAtrList(updated);
-  };
+  const buildList = () => [
+    ...normPOs.map((po) => {
+      const target  = progTargets.poTargets?.[po.code] ?? 1.80;
+      const actual  = Number(Math.min(3.0, target * (0.88 + (po.code.charCodeAt(2) % 5) * 0.04)).toFixed(2));
+      const pct     = Number(((actual / target) * 100).toFixed(1));
+      const met     = actual >= target;
+      return {
+        code: po.code, type: 'PO', statement: po.statement,
+        target, actual, pct, met,
+        remark:  met ? 'Target achieved. Maintain current teaching methodology and continuous assessment structure.' : '',
+        actions: met ? [] : [
+          `Conduct expert technical sessions and industry workshops for ${po.code}.`,
+          'Increase hands-on practical problem sets and continuous evaluation frequency.',
+        ],
+      };
+    }),
+    ...normPSOs.map((pso) => {
+      const target  = progTargets.psoTargets?.[pso.code] ?? 1.80;
+      const actual  = Number(Math.min(3.0, target * (0.88 + (pso.code.charCodeAt(3) % 5) * 0.04)).toFixed(2));
+      const pct     = Number(((actual / target) * 100).toFixed(1));
+      const met     = actual >= target;
+      return {
+        code: pso.code, type: 'PSO', statement: pso.statement,
+        target, actual, pct, met,
+        remark:  met ? 'Target achieved. Maintain current project evaluation and hands-on lab sessions.' : '',
+        actions: met ? [] : [
+          `Organize real-time project workshops and industry visits for ${pso.code}.`,
+          'Encourage student certifications in latest IT domain software principles.',
+        ],
+      };
+    }),
+  ];
 
-  const handleUpdatePoAction = (poIndex, actionIndex, val) => {
-    const updated = [...poAtrList];
-    updated[poIndex].actions[actionIndex] = val;
-    setPoAtrList(updated);
-  };
+  const [atrList, setAtrList] = useState(buildList);
 
-  const handleDeletePoAction = (poIndex, actionIndex) => {
-    const updated = [...poAtrList];
-    updated[poIndex].actions.splice(actionIndex, 1);
-    setPoAtrList(updated);
-  };
+  // Rebuild when programme/outcomes change
+  useEffect(() => { setAtrList(buildList()); }, [programmeId, activePOs.length, activePSOs.length]);
 
-  const handleAddPsoAction = (psoIndex) => {
-    const updated = [...psoAtrList];
-    updated[psoIndex].actions.push('New corrective action plan...');
-    setPsoAtrList(updated);
-  };
+  const locked = reportStatus === 'VERIFIED';
 
-  const handleUpdatePsoAction = (psoIndex, actionIndex, val) => {
-    const updated = [...psoAtrList];
-    updated[psoIndex].actions[actionIndex] = val;
-    setPsoAtrList(updated);
-  };
+  // ── Handlers (identical signature to CourseATR) ───────────────────────────
+  const handleSaveSubmit = () => setReportStatus('SUBMITTED');
+  const handleVerify     = () => setReportStatus('VERIFIED');
 
-  const handleDeletePsoAction = (psoIndex, actionIndex) => {
-    const updated = [...psoAtrList];
-    updated[psoIndex].actions.splice(actionIndex, 1);
-    setPsoAtrList(updated);
-  };
+  const handleUpdateRemark = (idx, v)     => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, remark: v } : c));
+  const handleAddAction    = (idx)        => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, actions: [...c.actions, 'New corrective action...'] } : c));
+  const handleUpdateAction = (idx, j, v)  => setAtrList((p) => p.map((c, i) => { if (i !== idx) return c; const a = [...c.actions]; a[j] = v; return { ...c, actions: a }; }));
+  const handleDeleteAction = (idx, j)     => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, actions: c.actions.filter((_, k) => k !== j) } : c));
 
-  const handlePrintReport = () => {
-    window.print();
+  const poList  = atrList.filter((i) => i.type === 'PO');
+  const psoList = atrList.filter((i) => i.type === 'PSO');
+  const metCount = atrList.filter((c) => c.met).length;
+  const gapCount = atrList.length - metCount;
+
+  // ── ATR Card renderer (identical layout to CourseATR cards) ──────────────
+  const renderCard = (item, accentColor) => {
+    const idx       = atrList.findIndex((i) => i.code === item.code);
+    const borderCol = item.met ? '#bbf7d0' : '#fecaca';
+    const bgCol     = item.met ? '#f0fdf4'  : '#fef2f2';
+
+    return (
+      <div key={item.code} style={{ border: `1px solid ${borderCol}`, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+
+        {/* Card banner */}
+        <div style={{ background: bgCol, borderBottom: `1px solid ${borderCol}`, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+          <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
+            <span style={{ color: accentColor, fontWeight: '900', marginRight: '6px' }}>{item.code}:</span>
+            {item.statement}
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: '700', background: item.met ? '#dcfce7' : '#fee2e2', color: item.met ? '#15803d' : '#991b1b', border: `1px solid ${item.met ? '#86efac' : '#fca5a5'}`, borderRadius: '5px', padding: '3px 10px', whiteSpace: 'nowrap' }}>
+            Target: {item.target.toFixed(2)} &nbsp;|&nbsp; Actual: {item.actual.toFixed(2)} &nbsp;({item.pct.toFixed(1)}%) &nbsp;{item.met ? '✓ Target Met' : '⚠ Gap Identified'}
+          </span>
+        </div>
+
+        {/* Inner table — same structure as CourseATR */}
+        <table className="audit-data-table" style={{ margin: 0, border: 'none' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc' }}>
+              <th style={{ width: '70px', textAlign: 'center' }}>{item.type}</th>
+              <th style={{ width: '100px', textAlign: 'center' }}>Target</th>
+              <th style={{ width: '110px', textAlign: 'center' }}>Attainment</th>
+              <th style={{ width: '130px', textAlign: 'center' }}>Observation</th>
+              <th>{item.met ? 'Remark (Target Met)' : 'Corrective Actions for Improvement'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ textAlign: 'center', fontWeight: '800', color: accentColor, verticalAlign: 'top', paddingTop: '12px' }}>{item.code}</td>
+              <td style={{ textAlign: 'center', fontWeight: '700', color: muted, verticalAlign: 'top', paddingTop: '12px' }}>{item.target.toFixed(2)}</td>
+              <td style={{ textAlign: 'center', fontWeight: '800', color: item.met ? '#16a34a' : '#dc2626', verticalAlign: 'top', paddingTop: '12px' }}>{item.actual.toFixed(2)}</td>
+              <td style={{ textAlign: 'center', verticalAlign: 'top', paddingTop: '12px' }}>
+                <span style={{ display: 'inline-block', fontSize: '11px', fontWeight: '700', background: item.met ? '#dcfce7' : '#fee2e2', color: item.met ? '#15803d' : '#991b1b', borderRadius: '5px', padding: '3px 8px' }}>
+                  {item.pct.toFixed(1)}% {item.met ? 'Achieved' : 'Gap'}
+                </span>
+              </td>
+              <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
+                {item.met ? (
+                  <textarea rows={3} value={item.remark} disabled={locked}
+                    onChange={(e) => handleUpdateRemark(idx, e.target.value)}
+                    placeholder={`Enter remark for this ${item.type}...`}
+                    style={{ width: '100%', fontSize: '12.5px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '8px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: locked ? '#f8fafc' : '#ffffff' }}
+                  />
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {item.actions.map((act, aIdx) => (
+                      <div key={aIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                        <span style={{ fontWeight: '800', color: '#3b82f6', minWidth: '68px', fontSize: '12px', paddingTop: '9px' }}>Action {aIdx + 1}:</span>
+                        <textarea rows={2} value={act} disabled={locked}
+                          onChange={(e) => handleUpdateAction(idx, aIdx, e.target.value)}
+                          style={{ flex: 1, fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '6px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: locked ? '#f8fafc' : '#ffffff' }}
+                        />
+                        {!locked && item.actions.length > 1 && (
+                          <button onClick={() => handleDeleteAction(idx, aIdx)}
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
+                            <span style={{ fontSize: '15px', lineHeight: 1 }}>×</span>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {!locked && (
+                      <button onClick={() => handleAddAction(idx)}
+                        style={{ alignSelf: 'flex-start', height: '28px', padding: '0 12px', fontSize: '11.5px', fontWeight: '700', background: '#f8fafc', color: accent, border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>
+                        <Plus size={12} /> Add Action
+                      </button>
+                    )}
+                  </div>
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
   };
 
   return (
-    <div className="animated-page" style={{ paddingBottom: '40px' }}>
-      {/* Top Banner Header */}
-      <div className="banner-dark-gradient print:hidden">
-        <div className="banner-content-row">
+    <div className="animated-page" style={{ paddingBottom: '48px' }}>
+
+      {/* ── PAGE HEADER (mirrors CourseATR exactly) ───────────────────────── */}
+      {!hideHeader && (
+        <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
-              Programme Action Taken Report (ATR) — NBA Section 7.1 Format
+            <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
+              Programme Coordinator &nbsp;·&nbsp; Programme ATR
+            </div>
+            <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
+              Programme Action Taken Report
             </h2>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#475569' }}>
-              Actions taken based on results of evaluation of POs & PSOs ({selectedProgramme?.code} • {selectedBatch?.name})
+            <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
+              {selectedProgramme?.code} — {selectedProgramme?.name} &nbsp;·&nbsp; {selectedBatch?.name}
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button className="btn btn-secondary" onClick={handlePrintReport}>
-              <Printer size={15} /> Print / Export ATR Document
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {/* Year selector */}
+            <div style={{ position: 'relative' }}>
+              <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}
+                style={{ ...inputStyle, width: '130px', paddingRight: '28px', appearance: 'none', cursor: 'pointer', fontWeight: '700', color: accent }}>
+                {availableYears.map((yr) => <option key={yr}>{yr}</option>)}
+              </select>
+              <ChevronDown size={12} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+            </div>
+
+            <button onClick={() => window.print()}
+              style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+              <Printer size={13} /> Print
             </button>
-            {isCoordinator && reportStatus !== 'VERIFIED' && (
-              <button className="btn btn-primary" onClick={() => { setReportStatus('SUBMITTED'); alert('Programme ATR submitted for Director approval!'); }}>
-                <Save size={15} /> Save & Submit ATR
+
+            {isFaculty && !locked && (
+              <button onClick={handleSaveSubmit}
+                style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                <Save size={13} /> Save &amp; Submit
               </button>
             )}
-            {isDirector && reportStatus === 'SUBMITTED' && (
-              <button className="btn btn-primary" onClick={() => { setReportStatus('VERIFIED'); setVerifiedBy(user?.name || 'Director / HOD'); alert('Programme ATR Approved!'); }} style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)' }}>
-                <ShieldCheck size={15} /> Approve & Lock ATR
+            {isCoordinator && reportStatus === 'SUBMITTED' && (
+              <button onClick={handleVerify}
+                style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                <ShieldCheck size={13} /> Verify ATR
               </button>
             )}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Verification Status Alert */}
-      <div
-        className="card print:hidden"
-        style={{
-          marginBottom: '20px',
-          background: reportStatus === 'VERIFIED' ? '#f0fdf4' : reportStatus === 'SUBMITTED' ? '#fefce8' : '#ffffff',
-          border: reportStatus === 'VERIFIED' ? '1.5px solid #a7f3d0' : reportStatus === 'SUBMITTED' ? '1.5px solid #fef08a' : '1px solid #cbd5e1',
-          padding: '14px 20px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {reportStatus === 'VERIFIED' ? (
-              <CheckCircle2 size={24} style={{ color: '#10b981' }} />
-            ) : (
-              <Clock size={24} style={{ color: '#ca8a04' }} />
-            )}
-            <div>
-              <strong style={{ fontSize: '14px', color: '#0f172a' }}>
-                ATR Verification Status: {reportStatus === 'VERIFIED' ? 'VERIFIED & LOCKED BY DIRECTOR / HOD ✓' : 'SUBMITTED — PENDING DIRECTOR FINAL APPROVAL'}
-              </strong>
-              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
-                {selectedProgramme?.name} ({selectedProgramme?.code}) • {selectedBatch?.name}
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '700' }}>Select Academic Year:</span>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="form-input"
-              style={{ width: '130px', padding: '4px 8px', fontSize: '12.5px', fontWeight: '800', color: '#4f46e5' }}
-            >
-              {availableYears.map((yr) => (
-                <option key={yr} value={yr}>{yr}</option>
-              ))}
-            </select>
+      {/* ── VERIFIED BANNER ───────────────────────────────────────────────── */}
+      {reportStatus === 'VERIFIED' && (
+        <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+          <CheckCircle2 size={20} style={{ color: '#16a34a', flexShrink: 0 }} />
+          <div>
+            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#15803d' }}>✓ Programme ATR Approved by HOD / Director</span>
+            <span style={{ fontSize: '12px', color: '#166534', display: 'block', marginTop: '2px' }}>
+              Programme ATR has been verified and locked for this academic cycle.
+            </span>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* 📜 DOCUMENT BODY - MATCHING DOCX REPORT STRUCTURE EXACTLY */}
-      <div
-        className="card"
-        style={{
-          background: '#ffffff',
-          border: '1px solid #cbd5e1',
-          borderRadius: '12px',
-          padding: '28px 32px',
-          boxShadow: '0 4px 20px rgba(15, 23, 42, 0.05)',
-        }}
-      >
-        {/* Document Title Header */}
-        <div style={{ borderBottom: '2px solid #0f172a', paddingBottom: '16px', marginBottom: '24px' }}>
-          <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '900', color: '#0f172a', lineHeight: 1.3 }}>
-            Actions Taken Based on Results of Evaluation of Each of the POs & PSOs
-          </h1>
-          <div style={{ fontSize: '13px', fontWeight: '700', color: '#4f46e5', marginTop: '6px' }}>
-            Department of Computer Engineering • {selectedProgramme?.name} ({selectedProgramme?.code})
+      {/* ── PENDING REVIEW BANNER ─────────────────────────────────────────── */}
+      {reportStatus === 'SUBMITTED' && (
+        <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+          <AlertCircle size={20} style={{ color: '#d97706', flexShrink: 0 }} />
+          <div>
+            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#92400e' }}>Submitted — Awaiting HOD / Director Approval</span>
+            <span style={{ fontSize: '12px', color: '#b45309', display: 'block', marginTop: '2px' }}>
+              Programme ATR has been submitted. Pending review and verification.
+            </span>
           </div>
         </div>
+      )}
 
-        {/* Introductory Preamble Paragraphs (Exact copy from DOCX) */}
-        <div style={{ fontSize: '12.5px', color: '#334155', lineHeight: 1.6, marginBottom: '24px' }}>
-          <p style={{ margin: '0 0 10px 0' }}>
-            Department identifies the areas of weaknesses in the program based on the analysis of evaluation of POs & PSOs attainment levels. Measures identified and implemented to improve POs & PSOs attainment levels for the assessment years.
-          </p>
-          <p style={{ margin: 0 }}>
-            The actual CO-PO attainment is compared with the targeted CO-PO mapping. If the final PO/PSO attainment is more than or equal to targeted CO-PO mapping, then it is considered that the particular PO/PSO is attained. The corrective actions are decided to attain that particular PO/PSO in the next academic year. Even though POs and PSOs are attained, it is ensured that the level of attainment is maintained or improved further by planning improvised action plans.
-          </p>
-        </div>
-
-        {/* Section Heading */}
-        <div style={{ background: '#f1f5f9', borderLeft: '4px solid #4f46e5', padding: '10px 16px', marginBottom: '20px', borderRadius: '0 8px 8px 0' }}>
-          <h3 style={{ margin: 0, fontSize: '15px', color: '#0f172a', fontWeight: '800' }}>
-            Table 7.1.1 : POs Attainment Levels and Actions for Improvement — ({selectedYear})
-          </h3>
-        </div>
-
-        {/* ── PROGRAMME OUTCOMES (POs) ATR TABLES ────────────────────────────────────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '36px' }}>
-          {poAtrList.map((po, poIdx) => (
-            <div
-              key={po.code}
-              style={{
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-              }}
-            >
-              {/* Full PO Statement Banner */}
-              <div
-                style={{
-                  background: '#f8fafc',
-                  borderBottom: '1px solid #cbd5e1',
-                  padding: '10px 14px',
-                  fontSize: '12.5px',
-                  fontWeight: '700',
-                  color: '#0f172a',
-                  lineHeight: 1.4,
-                }}
-              >
-                <span style={{ color: '#4f46e5', fontWeight: '900', marginRight: '6px' }}>{po.code}:</span>
-                <span>{po.statement}</span>
-              </div>
-
-              {/* Data Table per PO (Exact DOCX format) */}
-              <table className="audit-data-table" style={{ margin: 0, border: 'none' }}>
-                <thead>
-                  <tr style={{ background: '#f1f5f9' }}>
-                    <th style={{ width: '80px', textAlign: 'center' }}>PO</th>
-                    <th style={{ width: '110px', textAlign: 'center' }}>Target Level</th>
-                    <th style={{ width: '120px', textAlign: 'center' }}>Attainment Level</th>
-                    <th style={{ width: '170px', textAlign: 'center' }}>Observations</th>
-                    <th>Actions Taken for Continuous Improvement</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ textAlign: 'center', fontWeight: '900', color: '#4f46e5', verticalAlign: 'top', paddingTop: '12px' }}>
-                      {po.code}
-                    </td>
-                    <td style={{ textAlign: 'center', fontWeight: '800', color: '#475569', verticalAlign: 'top', paddingTop: '12px' }}>
-                      {po.target.toFixed(2)}
-                    </td>
-                    <td style={{ textAlign: 'center', fontWeight: '800', color: '#059669', verticalAlign: 'top', paddingTop: '12px' }}>
-                      {po.actual.toFixed(2)}
-                    </td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'top', paddingTop: '12px' }}>
-                      <span
-                        className="badge"
-                        style={{
-                          background: po.pctAchieved >= 100 ? '#dcfce7' : '#fef9c3',
-                          color: po.pctAchieved >= 100 ? '#15803d' : '#a16207',
-                          fontWeight: '800',
-                          fontSize: '11.5px',
-                          padding: '4px 8px',
-                          borderRadius: '6px',
-                          display: 'inline-block',
-                        }}
-                      >
-                        {po.pctAchieved > 0 ? `${po.pctAchieved.toFixed(2)}% ` : ''}{po.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {po.actions.map((act, actIdx) => (
-                          <div key={actIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                            <span style={{ fontWeight: '800', color: '#3b82f6', minWidth: '60px', fontSize: '12px' }}>
-                              Action {actIdx + 1}:
-                            </span>
-                            <textarea
-                              rows={2}
-                              value={act}
-                              onChange={(e) => handleUpdatePoAction(poIdx, actIdx, e.target.value)}
-                              className="form-input"
-                              style={{ flex: 1, fontSize: '12px', padding: '4px 8px', lineHeight: 1.4 }}
-                              disabled={reportStatus === 'VERIFIED'}
-                            />
-                            {reportStatus !== 'VERIFIED' && po.actions.length > 1 && (
-                              <button
-                                type="button"
-                                className="btn btn-secondary"
-                                style={{ padding: '4px 6px', color: '#ef4444' }}
-                                onClick={() => handleDeletePoAction(poIdx, actIdx)}
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-
-                        {reportStatus !== 'VERIFIED' && (
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ fontSize: '11px', padding: '3px 10px', alignSelf: 'flex-start', marginTop: '4px' }}
-                            onClick={() => handleAddPoAction(poIdx)}
-                          >
-                            <Plus size={13} /> + Add Action Item
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+      {/* ── STATUS BAR (mirrors CourseATR exactly) ────────────────────────── */}
+      <div style={{ ...surface, padding: '12px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: locked ? '#f0fdf4' : reportStatus === 'SUBMITTED' ? '#fffbeb' : '#ffffff', borderColor: locked ? '#bbf7d0' : reportStatus === 'SUBMITTED' ? '#fde68a' : '#e2e8f0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {locked ? <CheckCircle2 size={18} style={{ color: '#16a34a' }} /> : <Clock size={18} style={{ color: '#d97706' }} />}
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
+              {locked ? 'Verified & Approved ✓' : reportStatus === 'SUBMITTED' ? 'Submitted — Pending Verification' : 'Draft — Not yet submitted'}
             </div>
-          ))}
-        </div>
-
-        {/* ── PROGRAMME SPECIFIC OUTCOMES (PSOs) ATR TABLES ────────────────────────────────── */}
-        <div style={{ background: '#f1f5f9', borderLeft: '4px solid #0284c7', padding: '10px 16px', marginBottom: '20px', borderRadius: '0 8px 8px 0' }}>
-          <h3 style={{ margin: 0, fontSize: '15px', color: '#0f172a', fontWeight: '800' }}>
-            PSOs Attainment Levels and Actions for Improvement — ({selectedYear})
-          </h3>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {psoAtrList.map((pso, psoIdx) => (
-            <div
-              key={pso.code}
-              style={{
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-              }}
-            >
-              {/* Full PSO Statement Banner */}
-              <div
-                style={{
-                  background: '#f0f9ff',
-                  borderBottom: '1px solid #cbd5e1',
-                  padding: '10px 14px',
-                  fontSize: '12.5px',
-                  fontWeight: '700',
-                  color: '#0f172a',
-                  lineHeight: 1.4,
-                }}
-              >
-                <span style={{ color: '#0284c7', fontWeight: '900', marginRight: '6px' }}>{pso.code}:</span>
-                <span>{pso.statement}</span>
-              </div>
-
-              {/* Data Table per PSO */}
-              <table className="audit-data-table" style={{ margin: 0, border: 'none' }}>
-                <thead>
-                  <tr style={{ background: '#f1f5f9' }}>
-                    <th style={{ width: '80px', textAlign: 'center' }}>PSO</th>
-                    <th style={{ width: '110px', textAlign: 'center' }}>Target Level</th>
-                    <th style={{ width: '120px', textAlign: 'center' }}>Attainment Level</th>
-                    <th style={{ width: '170px', textAlign: 'center' }}>Observations</th>
-                    <th>Actions Taken for Continuous Improvement</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ textAlign: 'center', fontWeight: '900', color: '#0284c7', verticalAlign: 'top', paddingTop: '12px' }}>
-                      {pso.code}
-                    </td>
-                    <td style={{ textAlign: 'center', fontWeight: '800', color: '#475569', verticalAlign: 'top', paddingTop: '12px' }}>
-                      {pso.target.toFixed(2)}
-                    </td>
-                    <td style={{ textAlign: 'center', fontWeight: '800', color: '#059669', verticalAlign: 'top', paddingTop: '12px' }}>
-                      {pso.actual.toFixed(2)}
-                    </td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'top', paddingTop: '12px' }}>
-                      <span
-                        className="badge"
-                        style={{
-                          background: pso.pctAchieved >= 100 ? '#dcfce7' : '#fef9c3',
-                          color: pso.pctAchieved >= 100 ? '#15803d' : '#a16207',
-                          fontWeight: '800',
-                          fontSize: '11.5px',
-                          padding: '4px 8px',
-                          borderRadius: '6px',
-                          display: 'inline-block',
-                        }}
-                      >
-                        {pso.pctAchieved > 0 ? `${pso.pctAchieved.toFixed(2)}% ` : ''}{pso.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {pso.actions.map((act, actIdx) => (
-                          <div key={actIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                            <span style={{ fontWeight: '800', color: '#0284c7', minWidth: '60px', fontSize: '12px' }}>
-                              Action {actIdx + 1}:
-                            </span>
-                            <textarea
-                              rows={2}
-                              value={act}
-                              onChange={(e) => handleUpdatePsoAction(psoIdx, actIdx, e.target.value)}
-                              className="form-input"
-                              style={{ flex: 1, fontSize: '12px', padding: '4px 8px', lineHeight: 1.4 }}
-                              disabled={reportStatus === 'VERIFIED'}
-                            />
-                            {reportStatus !== 'VERIFIED' && pso.actions.length > 1 && (
-                              <button
-                                type="button"
-                                className="btn btn-secondary"
-                                style={{ padding: '4px 6px', color: '#ef4444' }}
-                                onClick={() => handleDeletePsoAction(psoIdx, actIdx)}
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-
-                        {reportStatus !== 'VERIFIED' && (
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ fontSize: '11px', padding: '3px 10px', alignSelf: 'flex-start', marginTop: '4px' }}
-                            onClick={() => handleAddPsoAction(psoIdx)}
-                          >
-                            <Plus size={13} /> + Add Action Item
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>
+              {selectedProgramme?.code} · {selectedProgramme?.name} · {selectedYear}
             </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {[
+            { label: `${metCount} Outcomes Met`, bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
+            { label: `${gapCount} Outcomes Gap`,  bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
+          ].map((s) => (
+            <span key={s.label} style={{ fontSize: '12px', fontWeight: '700', background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '6px', padding: '3px 10px' }}>{s.label}</span>
           ))}
         </div>
       </div>
 
-      {/* Save, Previous & Next Footer */}
-      <SectionSaveFooter
-        label="Programme ATR"
-        prevPath="/course-atr"
-        nextPath="/reports"
-        onSave={() => alert('Programme ATR Saved!')}
-      />
+      {/* ── PO SECTION HEADING ────────────────────────────────────────────── */}
+      <div style={{ background: '#f8fafc', borderLeft: '4px solid #4f46e5', padding: '10px 14px', borderRadius: '0 6px 6px 0', marginBottom: '14px' }}>
+        <h4 style={{ margin: 0, fontSize: '14px', color: ink, fontWeight: '800' }}>
+          Programme Outcomes (POs) — Attainment &amp; Actions for Improvement
+        </h4>
+        <p style={{ margin: '2px 0 0', fontSize: '12px', color: muted }}>
+          NBA Section 7.1 · {selectedYear} · {selectedProgramme?.code}
+        </p>
+      </div>
+
+      <div style={{ display: 'grid', gap: '14px', marginBottom: '28px' }}>
+        {poList.map((po) => renderCard(po, accent))}
+      </div>
+
+      {/* ── PSO SECTION HEADING ───────────────────────────────────────────── */}
+      <div style={{ background: '#f0f9ff', borderLeft: '4px solid #0284c7', padding: '10px 14px', borderRadius: '0 6px 6px 0', marginBottom: '14px' }}>
+        <h4 style={{ margin: 0, fontSize: '14px', color: ink, fontWeight: '800' }}>
+          Programme Specific Outcomes (PSOs) — Attainment &amp; Actions for Improvement
+        </h4>
+        <p style={{ margin: '2px 0 0', fontSize: '12px', color: muted }}>
+          NBA Section 7.1 · {selectedYear} · {selectedProgramme?.code}
+        </p>
+      </div>
+
+      <div style={{ display: 'grid', gap: '14px' }}>
+        {psoList.map((pso) => renderCard(pso, '#0284c7'))}
+      </div>
+
+      {/* ── FOOTER (mirrors CourseATR) ─────────────────────────────────────── */}
+      {!hideFooter && isFaculty && !locked && (
+        <div style={{ ...surface, padding: '14px 20px', marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          <button onClick={handleSaveSubmit}
+            style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+            <Save size={14} /> Save &amp; Submit Programme ATR
+          </button>
+        </div>
+      )}
     </div>
   );
 }

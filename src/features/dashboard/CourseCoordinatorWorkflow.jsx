@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   BookOpen, Target, Map, Upload, ClipboardList,
-  BarChart2, FileText, Check, ArrowRight, ArrowLeft, X,
+  BarChart2, FileText, Layers, Check, ArrowRight, ArrowLeft, X,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -15,6 +15,7 @@ import EndSemMarksHub from '../marks/EndSemMarksHub';
 import CourseEndSurveyHub from '../survey/CourseEndSurveyHub';
 import COAttainmentEngine from '../coAttainment/COAttainmentEngine';
 import CourseATR from '../atr/CourseATR';
+import ProgrammeATR from '../atr/ProgrammeATR';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -87,6 +88,15 @@ const STEPS = [
     color:  '#dc2626',
     bg:     '#fef2f2',
   },
+  {
+    number: 8,
+    title:  'Programme ATR',
+    desc:   'Fill PO/PSO Action Taken Report',
+    path:   '/programme-atr',
+    icon:   Layers,
+    color:  '#059669',
+    bg:     '#f0fdf4',
+  },
 ];
 
 export default function CourseCoordinatorWorkflow() {
@@ -113,12 +123,12 @@ export default function CourseCoordinatorWorkflow() {
   // StepParam URL synchronization
   const initialStepParam = parseInt(searchParams.get('step'), 10);
   const [currentStep, setCurrentStep] = useState(
-    initialStepParam && initialStepParam >= 1 && initialStepParam <= 7 ? initialStepParam : 1
+    initialStepParam && initialStepParam >= 1 && initialStepParam <= 8 ? initialStepParam : 1
   );
 
   useEffect(() => {
     const s = parseInt(searchParams.get('step'), 10);
-    if (s && s >= 1 && s <= 7 && s !== currentStep) {
+    if (s && s >= 1 && s <= 8 && s !== currentStep) {
       setCurrentStep(s);
     }
   }, [searchParams]);
@@ -138,6 +148,7 @@ export default function CourseCoordinatorWorkflow() {
     if (idx === 4) return !!config.indirectUploaded;
     if (idx === 5) return !!config.attainmentRun;
     if (idx === 6) return !!config.atrSubmitted;
+    if (idx === 7) return !!config.progAtrSubmitted;
     return false;
   });
 
@@ -148,7 +159,7 @@ export default function CourseCoordinatorWorkflow() {
     const currentStepObj = STEPS[currentStep - 1];
     markWorkflowStepComplete(course?.id, currentStepObj.path);
 
-    if (currentStep < 7) {
+    if (currentStep < 8) {
       const nextS = currentStep + 1;
       setCurrentStep(nextS);
       setSearchParams({ step: nextS });
@@ -166,7 +177,7 @@ export default function CourseCoordinatorWorkflow() {
   };
 
   const handleFinish = () => {
-    const currentStepObj = STEPS[6];
+    const currentStepObj = STEPS[7];
     markWorkflowStepComplete(course?.id, currentStepObj.path);
     navigate('/dashboard');
   };
@@ -174,62 +185,17 @@ export default function CourseCoordinatorWorkflow() {
   return (
     <div className="animated-page" style={{ paddingBottom: '60px' }}>
 
-      {/* ── HEADER BANNER ─────────────────────────────────────────────────── */}
-      <div style={{
-        ...surface,
-        padding: '20px 24px',
-        marginBottom: '20px',
-        display: 'flex',
-        alignItems: 'center',
-        justify: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px',
-      }}>
-        <div>
-          <div style={{
-            fontSize: '10.5px', fontWeight: '700', color: muted,
-            letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px',
-          }}>
-            Course Coordinator Guided Workflow &nbsp;·&nbsp; Step {currentStep} of 7
-          </div>
-          <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
-            Course Attainment Guided Workflow Process
-          </h2>
-          <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            {courseCode !== '—'
-              ? <><strong style={{ color: ink }}>{courseCode}</strong> — {courseName}</>
-              : 'No course selected'}
-            {academicYear
-              ? <span style={{ color: '#94a3b8' }}> &nbsp;·&nbsp; {academicYear}</span>
-              : null}
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Progress pill */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            background: '#f8fafc', border: '1px solid #e2e8f0',
-            borderRadius: '8px', padding: '6px 12px',
-          }}>
-            <div style={{ width: '80px', height: '5px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{ width: `${progressPct}%`, height: '100%', background: accent, borderRadius: '3px' }} />
-            </div>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: accent }}>{progressPct}%</span>
-          </div>
-
-          <button
-            onClick={() => navigate('/dashboard')}
-            style={{
-              height: '38px', padding: '0 14px', fontSize: '12.5px', fontWeight: '600',
-              background: '#f8fafc', color: ink, border: '1px solid #e2e8f0',
-              borderRadius: '8px', cursor: 'pointer',
-              display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit',
-            }}
-          >
-            <X size={14} /> Exit Workflow
-          </button>
-        </div>
+      {/* ── HEADER — single title only ────────────────────────────────────── */}
+      <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
+          Course Attainment Guided Workflow
+        </h2>
+        <button
+          onClick={() => navigate('/dashboard')}
+          style={{ height: '38px', padding: '0 14px', fontSize: '12.5px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
+        >
+          <X size={14} /> Exit Workflow
+        </button>
       </div>
 
       {/* ── STEPPER STRIP (GREEN CIRCLES ON SAVE) ─────────────────────────── */}
@@ -242,7 +208,7 @@ export default function CourseCoordinatorWorkflow() {
             height: '1px', background: '#e2e8f0', zIndex: 0,
           }} />
           <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
+            display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)',
             gap: '4px', position: 'relative', zIndex: 1,
           }}>
             {STEPS.map((s) => {
@@ -285,54 +251,6 @@ export default function CourseCoordinatorWorkflow() {
 
       {/* ── STEP CONTENT ──────────────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '0', marginBottom: '20px', overflow: 'hidden' }}>
-
-        {/* Step label strip */}
-        {(() => {
-          const s = STEPS[currentStep - 1];
-          const Icon = s.icon;
-          return (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '14px',
-              padding: '16px 24px', borderBottom: '1px solid #f1f5f9',
-              background: s.bg,
-            }}>
-              <div style={{
-                width: '40px', height: '40px', borderRadius: '12px',
-                background: '#ffffff', color: s.color,
-                display: 'grid', placeItems: 'center', flexShrink: 0,
-                border: `1.5px solid ${s.color}33`,
-                boxShadow: `0 2px 8px ${s.color}22`,
-              }}>
-                <Icon size={20} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <span style={{
-                    fontSize: '10.5px', fontWeight: '700', color: s.color,
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
-                  }}>
-                    Step {s.number} of 7
-                  </span>
-                  {stepDone[currentStep - 1] && (
-                    <span style={{
-                      fontSize: '10.5px', fontWeight: '700',
-                      background: '#f0fdf4', color: '#16a34a',
-                      border: '1px solid #bbf7d0', borderRadius: '5px', padding: '2px 8px',
-                    }}>
-                      ✓ Completed &amp; Saved
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontSize: '15px', fontWeight: '800', color: ink, marginTop: '1px' }}>
-                  {s.title}
-                  <span style={{ fontSize: '12.5px', fontWeight: '500', color: muted, marginLeft: '8px' }}>
-                    — {s.desc}
-                  </span>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
 
         {/* ── Step 1: Add COs (OutcomesManagement) ─────────────────────── */}
         {currentStep === 1 && (
@@ -383,6 +301,13 @@ export default function CourseCoordinatorWorkflow() {
           </div>
         )}
 
+        {/* ── Step 8: Programme ATR ────────────────────────────────────── */}
+        {currentStep === 8 && (
+          <div style={{ padding: '0' }}>
+            <ProgrammeATR hideFooter hideHeader />
+          </div>
+        )}
+
       </div>{/* end step content */}
 
       {/* ── FOOTER NAV (SAVE & NEXT) ────────────────────────────────────────── */}
@@ -424,7 +349,7 @@ export default function CourseCoordinatorWorkflow() {
             ))}
           </div>
 
-          {currentStep < 7 ? (
+          {currentStep < 8 ? (
             <button
               type="button"
               onClick={handleSaveAndNext}
