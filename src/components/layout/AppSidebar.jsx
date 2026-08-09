@@ -66,19 +66,19 @@ const PROGRAMME_COORDINATOR_NAV = [
 
 // ── Dropdown 1: Programme Setup & Management ───────────────────────────────────
 const PROGRAMME_SETUP_NAV = [
-  { id: 'dashboard',     path: '/dashboard',     icon: 'dashboard', label: 'Dashboard',       sub: 'Overview & analytics' },
+  { id: 'dashboard',     path: '/programme-coordinator/dashboard', icon: 'dashboard', label: 'Dashboard',       sub: 'Overview & analytics' },
   { id: 'academic',      path: '/academic',      icon: 'academic',  label: 'Academic Setup',  sub: 'Depts, programmes, courses' },
-  { id: 'outcomes',      path: '/outcomes',      icon: 'outcomes',  label: 'Outcomes',        sub: 'POs, PSOs & PEO targets' },
+  { id: 'outcomes',      path: '/programme-coordinator/target-settings', icon: 'outcomes',  label: 'Target Settings',  sub: 'POs, PSOs & PEO targets' },
   { id: 'programme-atr', path: '/programme-atr', icon: 'poa',       label: 'Programme ATR',   sub: 'Continuous improvement' },
   { id: 'reports',       path: '/reports',       icon: 'reports',   label: 'Reports',         sub: 'Excel & PDF exports' },
 ];
 
 // ── Dropdown 2: Course Submissions Review ──────────────────────────────────────
 const COURSE_REVIEWS_NAV = [
-  { id: 'review-config',     path: '/coordinator-review?tab=config',     icon: 'config',   label: 'Attainment Config',  sub: 'Weightages & thresholds' },
-  { id: 'review-cos',        path: '/coordinator-review?tab=cos',        icon: 'outcomes', label: 'CO Verification',    sub: 'Approve proposed COs' },
-  { id: 'review-attainment', path: '/coordinator-review?tab=attainment', icon: 'coa',      label: 'Attainment Overview',sub: 'CO & PO/PSO attainment' },
-  { id: 'review-atr',        path: '/coordinator-review?tab=atr',        icon: 'survey',   label: 'Course ATR Review',  sub: 'Verify course ATR' },
+  { id: 'review-config',        path: '/coordinator-review?tab=config',        icon: 'config',   label: 'Attainment Config',  sub: 'Weightages & thresholds'   },
+  { id: 'review-cos',           path: '/coordinator-review?tab=cos',           icon: 'outcomes', label: 'CO Verification',    sub: 'Approve proposed COs'      },
+  { id: 'review-atr',           path: '/coordinator-review?tab=atr',           icon: 'survey',   label: 'Course ATR Review',  sub: 'Verify course ATR'         },
+  { id: 'review-programme-atr', path: '/coordinator-review?tab=programme-atr', icon: 'poa',      label: 'Programme ATR',      sub: 'PO & PSO attainment review'},
 ];
 
 // ── Course Coordinator Nav Items ───────────────────────────────────────────────

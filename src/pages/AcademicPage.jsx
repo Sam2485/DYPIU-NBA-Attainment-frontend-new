@@ -7,7 +7,7 @@ export default function AcademicPage() {
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
       <main className="nba-layout-main">
-        <AppHeader title="Academic Management" subtitle="Departments, Programmes & Courses" />
+        <AppHeader title="Programme Setup" subtitle="Courses & Coordinator Allocation" />
         <div className="page-container">
           <AcademicSetup />
         </div>

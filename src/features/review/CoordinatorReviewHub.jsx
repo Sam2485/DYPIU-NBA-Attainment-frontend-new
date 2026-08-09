@@ -1,691 +1,556 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ShieldCheck, CheckCircle2, Clock, Check, Sliders, FileText, BarChart3, Layers, XCircle } from 'lucide-react';
+import {
+  ShieldCheck, CheckCircle2, Clock, Check, Sliders,
+  FileText, Layers, XCircle, ChevronDown, AlertCircle,
+} from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
-import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
+
+// ── Style tokens ─────────────────────────────────────────────────────────────
+const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
+const ink        = '#0f172a';
+const muted      = '#64748b';
+const accent     = '#4f46e5';
+const inputStyle = {
+  height: '40px', fontSize: '13px', border: '1px solid #e2e8f0',
+  borderRadius: '8px', padding: '0 12px', background: '#ffffff',
+  color: ink, width: '100%', outline: 'none', fontFamily: 'inherit',
+};
+
+// status pill helper
+function StatusPill({ status }) {
+  const map = {
+    VERIFIED:         { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0', label: '✓ Verified'      },
+    APPROVED:         { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0', label: '✓ Approved'      },
+    PENDING_APPROVAL: { bg: '#fffbeb', color: '#b45309', border: '#fde68a', label: '⏳ Pending'       },
+    DRAFT:            { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0', label: 'Draft'            },
+    REJECTED:         { bg: '#fef2f2', color: '#dc2626', border: '#fecaca', label: '✗ Needs Revision' },
+  };
+  const s = map[status] || map.DRAFT;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: '11px', fontWeight: '700', background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '5px', padding: '2px 8px', whiteSpace: 'nowrap' }}>
+      {s.label}
+    </span>
+  );
+}
+
+// ── Programme ATR Tab — CourseATR-style cards ────────────────────────────────
+function ProgATRTab({ selectedProgramme, activePOs, normPSOs, progAtrRows }) {
+  // Local editable state for actions / remarks per PO-PSO
+  const [entries, setEntries] = useState(() =>
+    progAtrRows.map((r) => ({
+      ...r,
+      actions: r.met
+        ? []
+        : [`Conduct targeted interventions for ${r.code} — ${r.statement.slice(0, 50)}...`,
+           'Review assessment methodology and increase practice problem frequency.'],
+      remark: r.met ? 'Target achieved. Maintain current teaching strategy and assessment approach.' : '',
+    })),
+  );
+
+  const handleAddAction = (idx) => {
+    setEntries((prev) => prev.map((e, i) => i === idx ? { ...e, actions: [...e.actions, 'New corrective action...'] } : e));
+  };
+  const handleUpdateAction = (idx, aIdx, val) => {
+    setEntries((prev) => prev.map((e, i) => {
+      if (i !== idx) return e;
+      const acts = [...e.actions]; acts[aIdx] = val; return { ...e, actions: acts };
+    }));
+  };
+  const handleDeleteAction = (idx, aIdx) => {
+    setEntries((prev) => prev.map((e, i) => i === idx ? { ...e, actions: e.actions.filter((_, j) => j !== aIdx) } : e));
+  };
+  const handleUpdateRemark = (idx, val) => {
+    setEntries((prev) => prev.map((e, i) => i === idx ? { ...e, remark: val } : e));
+  };
+
+  const poEntries  = entries.filter((e) => e.type === 'PO');
+  const psoEntries = entries.filter((e) => e.type === 'PSO');
+
+  const renderCards = (list, accentCol) => list.map((entry, listIdx) => {
+    const globalIdx = entries.findIndex((e) => e.code === entry.code);
+    const pct = Number(((entry.actual / entry.target) * 100).toFixed(1));
+    return (
+      <div key={entry.code} style={{ border: `1px solid ${entry.met ? '#bbf7d0' : '#fecaca'}`, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+        {/* Banner */}
+        <div style={{ background: entry.met ? '#f0fdf4' : '#fef2f2', borderBottom: `1px solid ${entry.met ? '#bbf7d0' : '#fecaca'}`, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+          <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
+            <span style={{ color: accentCol, fontWeight: '900', marginRight: '6px' }}>{entry.code}:</span>
+            {entry.statement}
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: '700', background: entry.met ? '#dcfce7' : '#fee2e2', color: entry.met ? '#15803d' : '#991b1b', border: `1px solid ${entry.met ? '#86efac' : '#fca5a5'}`, borderRadius: '5px', padding: '3px 10px', whiteSpace: 'nowrap' }}>
+            Target: {entry.target.toFixed(2)} &nbsp;|&nbsp; Actual: {entry.actual.toFixed(2)} &nbsp;({pct}%) &nbsp;{entry.met ? '✓ Target Met' : '⚠ Gap Identified'}
+          </span>
+        </div>
+
+        {/* Body table */}
+        <table className="audit-data-table" style={{ margin: 0, border: 'none' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc' }}>
+              <th style={{ width: '70px', textAlign: 'center' }}>Outcome</th>
+              <th style={{ width: '100px', textAlign: 'center' }}>Target</th>
+              <th style={{ width: '110px', textAlign: 'center' }}>Attainment</th>
+              <th style={{ width: '130px', textAlign: 'center' }}>Observation</th>
+              <th>{entry.met ? 'Remark (Target Met)' : 'Corrective Actions for Improvement'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ textAlign: 'center', fontWeight: '800', color: accentCol, verticalAlign: 'top', paddingTop: '12px' }}>{entry.code}</td>
+              <td style={{ textAlign: 'center', fontWeight: '700', color: muted, verticalAlign: 'top', paddingTop: '12px' }}>{entry.target.toFixed(2)}</td>
+              <td style={{ textAlign: 'center', fontWeight: '800', color: entry.met ? '#16a34a' : '#dc2626', verticalAlign: 'top', paddingTop: '12px' }}>{entry.actual.toFixed(2)}</td>
+              <td style={{ textAlign: 'center', verticalAlign: 'top', paddingTop: '12px' }}>
+                <span style={{ display: 'inline-block', fontSize: '11px', fontWeight: '700', background: entry.met ? '#dcfce7' : '#fee2e2', color: entry.met ? '#15803d' : '#991b1b', borderRadius: '5px', padding: '3px 8px' }}>
+                  {pct}% {entry.met ? 'Achieved' : 'Gap'}
+                </span>
+              </td>
+              <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
+                {entry.met ? (
+                  /* Remark field when target is met */
+                  <textarea
+                    rows={3}
+                    value={entry.remark}
+                    onChange={(e) => handleUpdateRemark(globalIdx, e.target.value)}
+                    placeholder="Enter remark for this outcome..."
+                    style={{ width: '100%', fontSize: '12.5px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '8px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: '#fafafa' }}
+                  />
+                ) : (
+                  /* Corrective action fields when gap */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {entry.actions.map((act, aIdx) => (
+                      <div key={aIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                        <span style={{ fontWeight: '800', color: '#3b82f6', minWidth: '68px', fontSize: '12px', paddingTop: '9px' }}>Action {aIdx + 1}:</span>
+                        <textarea
+                          rows={2}
+                          value={act}
+                          onChange={(e) => handleUpdateAction(globalIdx, aIdx, e.target.value)}
+                          style={{ flex: 1, fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '6px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: '#ffffff' }}
+                        />
+                        {entry.actions.length > 1 && (
+                          <button onClick={() => handleDeleteAction(globalIdx, aIdx)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
+                            <span style={{ fontSize: '14px', lineHeight: 1 }}>×</span>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button onClick={() => handleAddAction(globalIdx)} style={{ alignSelf: 'flex-start', height: '28px', padding: '0 12px', fontSize: '11.5px', fontWeight: '700', background: '#f8fafc', color: accent, border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>
+                      + Add Action
+                    </button>
+                  </div>
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  });
+
+  return (
+    <div style={{ display: 'grid', gap: '16px' }}>
+      {/* Header */}
+      <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <div style={{ fontSize: '13.5px', fontWeight: '700', color: ink, marginBottom: '3px' }}>Programme ATR — {selectedProgramme.name} ({selectedProgramme.code})</div>
+          <div style={{ fontSize: '12px', color: muted }}>PO &amp; PSO attainment vs targets. Add corrective actions for gaps; add remarks for outcomes met.</div>
+        </div>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          {[
+            { label: `${poEntries.filter((e) => e.met).length} / ${poEntries.length} POs Met`,   color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+            { label: `${psoEntries.filter((e) => e.met).length} / ${psoEntries.length} PSOs Met`, color: '#059669', bg: '#f0fdf4', border: '#bbf7d0' },
+          ].map((s) => (
+            <span key={s.label} style={{ fontSize: '12px', fontWeight: '700', background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '6px', padding: '4px 12px' }}>{s.label}</span>
+          ))}
+        </div>
+      </div>
+
+      {progAtrRows.length === 0 ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '14px 18px' }}>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: '#92400e' }}>No POs or PSOs configured yet. Set targets via Target Settings first.</span>
+        </div>
+      ) : (
+        <>
+          {poEntries.length > 0 && (
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Programme Outcomes (POs)</div>
+              <div style={{ display: 'grid', gap: '12px' }}>{renderCards(poEntries, accent)}</div>
+            </div>
+          )}
+          {psoEntries.length > 0 && (
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px', marginTop: poEntries.length > 0 ? '8px' : 0 }}>Programme Specific Outcomes (PSOs)</div>
+              <div style={{ display: 'grid', gap: '12px' }}>{renderCards(psoEntries, '#059669')}</div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function CoordinatorReviewHub() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { role, user } = useAuth();
+  const { user } = useAuth();
   const {
     availableCourses = [],
-    selectedProgramme,
+    masterProgrammes = [],
+    programmeId,
     academicYear,
-    attainmentConfigs = {},
-    updateCourseAttainmentConfig,
-    courseVerificationStore = {},
-    updateCourseVerificationStatus,
-    courseAtrStore = {},
-    updateCourseCOs,
-    yearMetrics = {},
+    attainmentConfigs        = {},
+    updateCourseAttainmentConfig = () => {},
+    courseVerificationStore  = {},
+    updateCourseVerificationStatus = () => {},
+    courseAtrStore           = {},
+    updateCourseCOs          = () => {},
+    yearMetrics              = {},
+    activePOs                = [],
+    activePSOs               = [],
+    poPsoTargets             = {},
   } = useAcademic();
 
-  const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+  const selectedProgramme =
+    masterProgrammes.find((p) => p.id === programmeId) ||
+    masterProgrammes[0] ||
+    { name: 'B.Tech CSE', code: 'BE-COMP' };
 
-  // Selected Course State
-  const [reviewCourseId, setReviewCourseId] = useState(availableCourses[0]?.id || 'crs-1');
-  const selectedReviewCourse = availableCourses.find((c) => c.id === reviewCourseId) || availableCourses[0];
-
-  // Active Review Tab read from URL query param ?tab=config|cos|atr|attainment
+  // ── Active tab (URL-driven) ───────────────────────────────────────────────
+  const TABS = ['config', 'cos', 'atr', 'programme-atr'];
   const currentTabParam = searchParams.get('tab') || 'config';
-  const [activeReviewTab, setActiveReviewTab] = useState(currentTabParam);
-
+  const [activeTab, setActiveTab] = useState(
+    TABS.includes(currentTabParam) ? currentTabParam : 'config',
+  );
   useEffect(() => {
-    const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && ['config', 'cos', 'atr', 'attainment'].includes(tabFromUrl)) {
-      setActiveReviewTab(tabFromUrl);
-    }
+    const t = searchParams.get('tab');
+    if (t && TABS.includes(t)) setActiveTab(t);
   }, [searchParams]);
+  const handleTabChange = (t) => { setActiveTab(t); setSearchParams({ tab: t }); };
 
-  const handleTabChange = (tabKey) => {
-    setActiveReviewTab(tabKey);
-    setSearchParams({ tab: tabKey });
+  // ── Selected course ───────────────────────────────────────────────────────
+  const [reviewCourseId, setReviewCourseId] = useState(availableCourses[0]?.id || 'crs-1');
+  const selectedCourse = availableCourses.find((c) => c.id === reviewCourseId) || availableCourses[0];
+
+  const courseReview = courseVerificationStore[reviewCourseId] || {
+    configStatus: 'DRAFT', coStatus: 'PENDING_APPROVAL', atrStatus: 'DRAFT',
   };
 
-  // Verification status for the currently selected course
-  const currentCourseReview = courseVerificationStore[reviewCourseId] || {
-    configStatus: 'DRAFT',
-    coStatus: 'PENDING_APPROVAL',
-    atrStatus: 'DRAFT',
-    verifiedBy: null,
+  const attainmentConfig = attainmentConfigs[reviewCourseId] || {
+    directWeight: 80, indirectWeight: 20, directThreshold: 60,
+    directLevels:   [{ level: 1, minPercentage: 0, maxPercentage: 50 }, { level: 2, minPercentage: 50, maxPercentage: 70 }, { level: 3, minPercentage: 70, maxPercentage: 100 }],
+    indirectLevels: [{ level: 1, minPercentage: 0, maxPercentage: 50 }, { level: 2, minPercentage: 50, maxPercentage: 70 }, { level: 3, minPercentage: 70, maxPercentage: 100 }],
   };
 
-  // 1. Attainment Configuration for selected course
-  const currentAttainmentConfig = attainmentConfigs[reviewCourseId] || {
-    directWeight: 80,
-    indirectWeight: 20,
-    directThreshold: 60,
-    thresholdPct: '60%',
-    status: 'DRAFT',
-    directLevels: [
-      { level: 1, minPercentage: 0, maxPercentage: 50 },
-      { level: 2, minPercentage: 50, maxPercentage: 70 },
-      { level: 3, minPercentage: 70, maxPercentage: 100 },
-    ],
-    indirectLevels: [
-      { level: 1, minPercentage: 0, maxPercentage: 50 },
-      { level: 2, minPercentage: 50, maxPercentage: 70 },
-      { level: 3, minPercentage: 70, maxPercentage: 100 },
-    ],
-  };
-
-  // 2. Course Outcomes for selected course
-  const courseCOs = selectedReviewCourse?.courseOutcomes || [];
-
-  // 3. Course ATR Data for selected course dynamically mapped from actual Course Outcomes
+  const courseCOs  = selectedCourse?.courseOutcomes || [];
   const rawAtrData = courseAtrStore[reviewCourseId] || [];
+
   const courseAtrData = (() => {
     if (courseCOs.length === 0) return rawAtrData;
-    const rawMap = new Map(rawAtrData.map((item) => [item.code, item]));
+    const rawMap = new Map(rawAtrData.map((i) => [i.code, i]));
     return courseCOs.map((co, idx) => {
-      const existing = rawMap.get(co.code);
-      const target = existing?.target || 2.50;
-      const actual = existing?.actual || (idx % 2 === 0 ? 2.80 - idx * 0.1 : 2.10);
-      const pctAchieved = Number(((actual / target) * 100).toFixed(2));
-      const status = actual >= target ? 'Target Achieved' : 'Target Gap Identified';
-      const defaultActions = actual >= target
-        ? ['Maintain current teaching methodology and continuous assessment structure.']
-        : [`Conduct extra tutorial sessions on ${co.statement.slice(0, 45)}...`, 'Provide additional practice numericals and interactive assignment problem sets.'];
+      const ex       = rawMap.get(co.code);
+      const target   = ex?.target ?? 2.50;
+      const actual   = ex?.actual ?? (idx % 2 === 0 ? 2.80 - idx * 0.1 : 2.10);
+      const pct      = Number(((actual / target) * 100).toFixed(2));
+      const met      = actual >= target;
       return {
-        code: co.code,
-        statement: co.statement,
-        title: `${co.code}: ${co.statement}`,
-        target,
-        actual,
-        pctAchieved,
-        status,
-        actions: existing?.actions || defaultActions,
+        code: co.code, statement: co.statement, target, actual, pct, met,
+        actions: ex?.actions || (met
+          ? ['Maintain current teaching methodology and continuous assessment structure.']
+          : [`Conduct extra tutorial sessions on ${co.statement.slice(0, 45)}...`, 'Provide additional practice assignments and interactive problem sets.']),
       };
     });
   })();
 
-  // Handlers for Programme Coordinator Verification Actions
+  // Programme ATR mock data
+  const progTargets  = poPsoTargets[programmeId] || {};
+  const normPSOs     = activePSOs.map((p) => ({ ...p, competencies: p.competencies ?? [] }));
+  const progAtrRows  = [
+    ...activePOs.map((po) => ({
+      code: po.code, type: 'PO', statement: po.statement,
+      target: progTargets.poTargets?.[po.code] ?? 2.0,
+      actual: (progTargets.poTargets?.[po.code] ?? 2.0) * (0.85 + Math.random() * 0.3),
+    })),
+    ...normPSOs.map((pso) => ({
+      code: pso.code, type: 'PSO', statement: pso.statement,
+      target: progTargets.psoTargets?.[pso.code] ?? 2.0,
+      actual: (progTargets.psoTargets?.[pso.code] ?? 2.0) * (0.85 + Math.random() * 0.3),
+    })),
+  ].map((r) => ({ ...r, actual: Math.min(3, Math.round(r.actual * 100) / 100), met: r.actual >= r.target }));
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleVerifyConfig = () => {
-    updateCourseVerificationStatus(reviewCourseId, 'configStatus', 'VERIFIED');
     updateCourseAttainmentConfig(reviewCourseId, { status: 'VERIFIED' });
-    alert(`✓ Attainment Configuration for ${selectedReviewCourse?.code} - ${selectedReviewCourse?.name} verified and approved by Programme Coordinator!`);
+    updateCourseVerificationStatus(reviewCourseId, 'configStatus', 'VERIFIED');
   };
-
   const handleApproveCOs = () => {
-    const approvedCOs = courseCOs.map((co) => ({
-      ...co,
-      status: 'APPROVED',
-      approvedBy: user?.name || 'Programme Coordinator',
-      approvedAt: new Date().toISOString().split('T')[0],
-    }));
-    updateCourseCOs(reviewCourseId, approvedCOs);
+    const updated = courseCOs.map((co) => ({ ...co, status: 'APPROVED', approvedBy: user?.name || 'Programme Coordinator' }));
+    updateCourseCOs(reviewCourseId, updated);
     updateCourseVerificationStatus(reviewCourseId, 'coStatus', 'APPROVED');
-    alert(`✓ All Course Outcomes (COs) for ${selectedReviewCourse?.code} approved successfully!`);
   };
-
-  const handleApproveSingleCO = (targetCoCode) => {
-    const updatedCOs = courseCOs.map((co) =>
-      co.code === targetCoCode
-        ? {
-            ...co,
-            status: 'APPROVED',
-            approvedBy: user?.name || 'Programme Coordinator',
-            approvedAt: new Date().toISOString().split('T')[0],
-          }
-        : co
-    );
-    updateCourseCOs(reviewCourseId, updatedCOs);
-    const allApproved = updatedCOs.every((co) => co.status === 'APPROVED');
-    if (allApproved) {
+  const handleApproveCO = (code) => {
+    const updated = courseCOs.map((co) => co.code === code ? { ...co, status: 'APPROVED', approvedBy: user?.name || 'Programme Coordinator' } : co);
+    updateCourseCOs(reviewCourseId, updated);
+    if (updated.every((co) => co.status === 'APPROVED'))
       updateCourseVerificationStatus(reviewCourseId, 'coStatus', 'APPROVED');
-    }
-    alert(`✓ Course Outcome ${targetCoCode} approved by Programme Coordinator!`);
   };
-
-  const handleRejectSingleCO = (targetCoCode) => {
-    const updatedCOs = courseCOs.map((co) =>
-      co.code === targetCoCode
-        ? {
-            ...co,
-            status: 'REJECTED',
-            approvedBy: null,
-            approvedAt: null,
-          }
-        : co
-    );
-    updateCourseCOs(reviewCourseId, updatedCOs);
+  const handleRejectCO = (code) => {
+    const updated = courseCOs.map((co) => co.code === code ? { ...co, status: 'REJECTED' } : co);
+    updateCourseCOs(reviewCourseId, updated);
     updateCourseVerificationStatus(reviewCourseId, 'coStatus', 'PENDING_APPROVAL');
-    alert(`Course Outcome ${targetCoCode} marked as needing revision.`);
   };
+  const handleVerifyATR = () => updateCourseVerificationStatus(reviewCourseId, 'atrStatus', 'VERIFIED');
 
-  const handleVerifyATR = () => {
-    updateCourseVerificationStatus(reviewCourseId, 'atrStatus', 'VERIFIED');
-    alert(`✓ Course Action Taken Report (ATR) for ${selectedReviewCourse?.code} verified and approved!`);
-  };
-
-  // Dynamic Attainment Overview Calculation for Tab 4
-  const directLevel = yearMetrics?.directExamAttainment || 2.80;
-  const indirectLevel = yearMetrics?.indirectSurveyAttainment || 2.50;
-  const directW = currentAttainmentConfig.directWeight || 80;
-  const indirectW = currentAttainmentConfig.indirectWeight || 20;
-  const overallCOAttainment = ((directLevel * directW + indirectLevel * indirectW) / 100).toFixed(2);
+  const tabDefs = [
+    { id: 'config',        label: '1. Attainment Config', icon: Sliders,       status: courseReview.configStatus },
+    { id: 'cos',           label: '2. CO Approvals',      icon: CheckCircle2,  status: courseReview.coStatus     },
+    { id: 'atr',           label: '3. Course ATR',        icon: FileText,      status: courseReview.atrStatus    },
+    { id: 'programme-atr', label: '4. Programme ATR',     icon: Layers,        status: null                      },
+  ];
 
   return (
-    <div className="animated-page">
-      {/* Top Banner Header */}
-      <div className="banner-dark-gradient">
-        <div className="banner-content-row">
-          <div>
-            <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
-              Programme Coordinator Review Hub
-            </h2>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#475569' }}>
-              Review, verify and approve course submissions from Course Coordinators for {selectedProgramme?.code} ({academicYear})
-            </p>
+    <div className="animated-page" style={{ paddingBottom: '48px' }}>
+
+      {/* ── PAGE HEADER ───────────────────────────────────────────────────── */}
+      <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
+            Programme Coordinator &nbsp;·&nbsp; Verification Panel
           </div>
+          <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
+            Course Submissions Review
+          </h2>
+          <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
+            Verify and approve course submissions for <strong>{selectedProgramme.name}</strong> ({academicYear}).
+          </p>
+        </div>
+
+        {/* Course selector */}
+        <div style={{ position: 'relative', minWidth: '300px' }}>
+          <select
+            value={reviewCourseId}
+            onChange={(e) => setReviewCourseId(e.target.value)}
+            style={{ ...inputStyle, paddingRight: '32px', fontWeight: '700', color: accent, appearance: 'none', cursor: 'pointer' }}
+          >
+            {availableCourses.map((c) => (
+              <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+            ))}
+          </select>
+          <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
         </div>
       </div>
 
-      {/* STEP 1: CHOOSE COURSE DROPDOWN BANNER */}
-      <div
-        className="card"
-        style={{
-          marginBottom: '20px',
-          background: '#ffffff',
-          border: '1.5px solid #6366f1',
-          padding: '16px 24px',
-          boxShadow: '0 4px 14px rgba(99, 102, 241, 0.08)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
-                background: '#eef2ff',
-                color: '#4f46e5',
-                display: 'grid',
-                placeItems: 'center',
-                fontWeight: '900',
-              }}
-            >
-              1
-            </span>
-            <div>
-              <strong style={{ fontSize: '14px', color: '#0f172a' }}>
-                Select Course for Review:
-              </strong>
-              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
-                Choose a course under {selectedProgramme?.name} to inspect submitted configurations, COs, ATR, and attainments.
-              </p>
-            </div>
-          </div>
-
-          <div style={{ minWidth: '300px' }}>
-            <select
-              value={reviewCourseId}
-              onChange={(e) => setReviewCourseId(e.target.value)}
-              className="form-input"
-              style={{
-                height: '40px',
-                fontSize: '13px',
-                fontWeight: '800',
-                color: '#4f46e5',
-                border: '2px solid #6366f1',
-                borderRadius: '10px',
-                background: '#ffffff',
-              }}
-            >
-              {availableCourses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.code} - {c.name} ({c.faculty || 'Course Coordinator'})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* STEP 2: REVIEW CATEGORY TABS */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        <button
-          className={`btn ${activeReviewTab === 'config' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => handleTabChange('config')}
-          style={{ gap: '8px', padding: '10px 16px', fontSize: '12.5px', fontWeight: '700' }}
-        >
-          <Sliders size={15} /> 1. Attainment Config Review
-          {currentCourseReview.configStatus === 'VERIFIED' ? (
-            <CheckCircle2 size={14} style={{ color: '#10b981' }} />
-          ) : (
-            <Clock size={14} style={{ color: '#eab308' }} />
-          )}
-        </button>
-
-        <button
-          className={`btn ${activeReviewTab === 'cos' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => handleTabChange('cos')}
-          style={{ gap: '8px', padding: '10px 16px', fontSize: '12.5px', fontWeight: '700' }}
-        >
-          <CheckCircle2 size={15} /> 2. CO Approvals Review
-          {currentCourseReview.coStatus === 'APPROVED' ? (
-            <CheckCircle2 size={14} style={{ color: '#10b981' }} />
-          ) : (
-            <Clock size={14} style={{ color: '#eab308' }} />
-          )}
-        </button>
-
-        <button
-          className={`btn ${activeReviewTab === 'atr' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => handleTabChange('atr')}
-          style={{ gap: '8px', padding: '10px 16px', fontSize: '12.5px', fontWeight: '700' }}
-        >
-          <FileText size={15} /> 3. Course ATR Review
-          {currentCourseReview.atrStatus === 'VERIFIED' ? (
-            <CheckCircle2 size={14} style={{ color: '#10b981' }} />
-          ) : (
-            <Clock size={14} style={{ color: '#eab308' }} />
-          )}
-        </button>
-
-        <button
-          className={`btn ${activeReviewTab === 'attainment' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => handleTabChange('attainment')}
-          style={{ gap: '8px', padding: '10px 16px', fontSize: '12.5px', fontWeight: '700' }}
-        >
-          <BarChart3 size={15} /> 4. Attainment Review (CO, PO & PSO)
-        </button>
-      </div>
-
-      {/* ── TAB 1: ATTAINMENT CONFIG REVIEW ────────────────────────────────────────── */}
-      {activeReviewTab === 'config' && (
-        <div className="card" style={{ marginBottom: '24px' }}>
-          <div className="card-header" style={{ marginBottom: '16px' }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>
-                Attainment Configuration Review ({selectedReviewCourse?.code} - {selectedReviewCourse?.name})
-              </h3>
-              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
-                Submitted by Course Coordinator ({selectedReviewCourse?.faculty || 'Dr. Raj Shaikh'}).
-              </p>
-            </div>
-
-            {currentCourseReview.configStatus !== 'VERIFIED' ? (
-              <button className="btn btn-primary" onClick={handleVerifyConfig}>
-                <ShieldCheck size={15} /> Verify & Approve Configuration
+      {/* ── TAB STRIP ─────────────────────────────────────────────────────── */}
+      <div style={{ ...surface, padding: '8px 12px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px', flexWrap: 'wrap' }}>
+          {tabDefs.map(({ id, label, icon: Icon, status }) => {
+            const done    = status === 'VERIFIED' || status === 'APPROVED';
+            const pending = status && !done;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => handleTabChange(id)}
+                style={{ padding: '7px 16px', borderRadius: '7px', border: 'none', fontSize: '12.5px', fontWeight: '700', cursor: 'pointer', background: activeTab === id ? '#ffffff' : 'transparent', color: activeTab === id ? accent : muted, boxShadow: activeTab === id ? '0 1px 4px rgba(0,0,0,0.08)' : 'none', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Icon size={13} />
+                {label}
+                {done    && <Check size={12} style={{ color: '#16a34a' }} />}
+                {pending && <Clock size={12} style={{ color: '#d97706' }} />}
               </button>
-            ) : (
-              <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', padding: '6px 14px', fontSize: '12px', fontWeight: '800' }}>
-                ✓ VERIFIED & APPROVED BY PROGRAMME COORDINATOR
-              </span>
-            )}
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── TAB 1: ATTAINMENT CONFIG ──────────────────────────────────────── */}
+      {activeTab === 'config' && (
+        <div style={{ display: 'grid', gap: '16px' }}>
+          {/* Header row */}
+          <div style={{ ...surface, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <div style={{ fontSize: '13.5px', fontWeight: '700', color: ink }}>Attainment Configuration — {selectedCourse?.code} · {selectedCourse?.name}</div>
+              <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>Submitted by {selectedCourse?.faculty || 'Course Coordinator'}</div>
+            </div>
+            {courseReview.configStatus !== 'VERIFIED'
+              ? <button onClick={handleVerifyConfig} style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}><ShieldCheck size={14} /> Verify & Approve</button>
+              : <StatusPill status="VERIFIED" />
+            }
           </div>
 
-          <div className="grid-cards-2" style={{ gap: '16px', marginBottom: '20px' }}>
-            <div style={{ background: '#f8fafc', padding: '18px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '700' }}>Direct Assessment Weightage</div>
-              <div style={{ fontSize: '28px', fontWeight: '900', color: '#4f46e5', margin: '4px 0' }}>
-                {currentAttainmentConfig.directWeight}%
-              </div>
-              <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>
-                Indirect Survey Weightage: <strong style={{ color: '#0284c7' }}>{currentAttainmentConfig.indirectWeight}%</strong>
+          {/* Weight + threshold cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={{ ...surface, padding: '16px 20px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Assessment Weightage</div>
+              <div style={{ display: 'flex', gap: '24px' }}>
+                <div><div style={{ fontSize: '24px', fontWeight: '800', color: accent }}>{attainmentConfig.directWeight}%</div><div style={{ fontSize: '11.5px', color: muted }}>Direct</div></div>
+                <div><div style={{ fontSize: '24px', fontWeight: '800', color: '#0284c7' }}>{attainmentConfig.indirectWeight}%</div><div style={{ fontSize: '11.5px', color: muted }}>Indirect</div></div>
               </div>
             </div>
-
-            <div style={{ background: '#f8fafc', padding: '18px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '700' }}>CO Target Threshold Marks (%)</div>
-              <div style={{ fontSize: '28px', fontWeight: '900', color: '#059669', margin: '4px 0' }}>
-                {currentAttainmentConfig.directThreshold}%
-              </div>
-              <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>
-                Benchmark: Students scoring <strong style={{ color: '#059669' }}>≥ {currentAttainmentConfig.directThreshold}%</strong> total exam marks are counted.
-              </div>
+            <div style={{ ...surface, padding: '16px 20px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>CO Threshold</div>
+              <div style={{ fontSize: '24px', fontWeight: '800', color: '#059669' }}>{attainmentConfig.directThreshold}%</div>
+              <div style={{ fontSize: '11.5px', color: muted }}>Students scoring ≥ {attainmentConfig.directThreshold}% are counted</div>
             </div>
           </div>
 
-          {/* Level 1-3 Mapping Bands summary (Both Direct & Indirect) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* 1. Direct Assessment Attainment Level Bands Table */}
-            <div style={{ border: '1.5px solid #6366f1', borderRadius: '12px', padding: '16px', background: '#faf5ff' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Layers size={18} style={{ color: '#4f46e5' }} />
-                  <h4 style={{ margin: 0, fontSize: '14.5px', color: '#3730a3', fontWeight: '800' }}>
-                    Submitted Direct Assessment Attainment Level Bands (Levels 1–3)
-                  </h4>
-                </div>
-                <span style={{ fontSize: '11.5px', color: '#6366f1', fontWeight: '700' }}>
-                  Direct Exam Benchmark Thresholds
-                </span>
-              </div>
-
-              <div style={{ overflowX: 'auto', background: '#ffffff', borderRadius: '10px', border: '1px solid #e0e7ff' }}>
-                <table className="audit-data-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: '90px', textAlign: 'center' }}>Level</th>
-                      <th style={{ width: '150px', textAlign: 'center' }}>Min % Benchmark</th>
-                      <th style={{ width: '150px', textAlign: 'center' }}>Max % Benchmark</th>
-                      <th style={{ width: '130px', textAlign: 'center' }}>Assigned Score</th>
-                      <th>Attainment Description</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(currentAttainmentConfig.directLevels || [
-                      { level: 1, minPercentage: 0, maxPercentage: 50 },
-                      { level: 2, minPercentage: 50, maxPercentage: 70 },
-                      { level: 3, minPercentage: 70, maxPercentage: 100 },
-                    ]).map((lvl) => (
-                      <tr key={lvl.level}>
-                        <td style={{ textAlign: 'center', fontWeight: '900', color: '#4f46e5' }}>Level {lvl.level}</td>
-                        <td style={{ textAlign: 'center', fontWeight: '800' }}>{lvl.minPercentage}%</td>
-                        <td style={{ textAlign: 'center', fontWeight: '800' }}>{lvl.maxPercentage}%</td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', fontWeight: '900', fontSize: '12px' }}>
-                            {lvl.level}.0 / 3.0
-                          </span>
-                        </td>
-                        <td style={{ fontSize: '12px', color: '#475569', fontWeight: '600' }}>
-                          {lvl.level === 1 ? 'Low Attainment (< benchmark threshold)' : lvl.level === 2 ? 'Moderate Attainment (meets benchmark)' : 'High Attainment (exceeds benchmark)'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          {/* Direct level bands */}
+          <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Layers size={14} style={{ color: accent }} />
+              <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>Direct Assessment Level Bands</span>
             </div>
+            <table className="audit-data-table">
+              <thead><tr><th style={{ width: '80px', textAlign: 'center' }}>Level</th><th style={{ textAlign: 'center' }}>Min %</th><th style={{ textAlign: 'center' }}>Max %</th><th style={{ textAlign: 'center' }}>Score</th><th>Description</th></tr></thead>
+              <tbody>
+                {attainmentConfig.directLevels.map((lvl) => (
+                  <tr key={lvl.level}>
+                    <td style={{ textAlign: 'center', fontWeight: '700', color: accent }}>Level {lvl.level}</td>
+                    <td style={{ textAlign: 'center', fontWeight: '600' }}>{lvl.minPercentage}%</td>
+                    <td style={{ textAlign: 'center', fontWeight: '600' }}>{lvl.maxPercentage}%</td>
+                    <td style={{ textAlign: 'center' }}><span style={{ fontWeight: '800', color: '#16a34a' }}>{lvl.level}.0 / 3.0</span></td>
+                    <td style={{ fontSize: '12px', color: muted }}>{lvl.level === 1 ? 'Low attainment' : lvl.level === 2 ? 'Moderate attainment' : 'High attainment'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-            {/* 2. Indirect Assessment Attainment Level Bands Table */}
-            <div style={{ border: '1.5px solid #0284c7', borderRadius: '12px', padding: '16px', background: '#f0f9ff' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Layers size={18} style={{ color: '#0284c7' }} />
-                  <h4 style={{ margin: 0, fontSize: '14.5px', color: '#0369a1', fontWeight: '800' }}>
-                    Submitted Indirect Assessment Attainment Level Bands (Levels 1–3)
-                  </h4>
-                </div>
-                <span style={{ fontSize: '11.5px', color: '#0284c7', fontWeight: '700' }}>
-                  Indirect Course Survey Feedback Thresholds
-                </span>
-              </div>
-
-              <div style={{ overflowX: 'auto', background: '#ffffff', borderRadius: '10px', border: '1px solid #bae6fd' }}>
-                <table className="audit-data-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: '90px', textAlign: 'center' }}>Level</th>
-                      <th style={{ width: '150px', textAlign: 'center' }}>Min % Survey</th>
-                      <th style={{ width: '150px', textAlign: 'center' }}>Max % Survey</th>
-                      <th style={{ width: '130px', textAlign: 'center' }}>Assigned Score</th>
-                      <th>Attainment Description</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(currentAttainmentConfig.indirectLevels || [
-                      { level: 1, minPercentage: 0, maxPercentage: 50 },
-                      { level: 2, minPercentage: 50, maxPercentage: 70 },
-                      { level: 3, minPercentage: 70, maxPercentage: 100 },
-                    ]).map((lvl) => (
-                      <tr key={lvl.level}>
-                        <td style={{ textAlign: 'center', fontWeight: '900', color: '#0284c7' }}>Level {lvl.level}</td>
-                        <td style={{ textAlign: 'center', fontWeight: '800' }}>{lvl.minPercentage}%</td>
-                        <td style={{ textAlign: 'center', fontWeight: '800' }}>{lvl.maxPercentage}%</td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="badge badge-active" style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: '900', fontSize: '12px' }}>
-                            {lvl.level}.0 / 3.0
-                          </span>
-                        </td>
-                        <td style={{ fontSize: '12px', color: '#475569', fontWeight: '600' }}>
-                          {lvl.level === 1 ? 'Low Survey Rating' : lvl.level === 2 ? 'Moderate Survey Rating' : 'High Survey Rating'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          {/* Indirect level bands */}
+          <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Layers size={14} style={{ color: '#0284c7' }} />
+              <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>Indirect Assessment Level Bands</span>
             </div>
+            <table className="audit-data-table">
+              <thead><tr><th style={{ width: '80px', textAlign: 'center' }}>Level</th><th style={{ textAlign: 'center' }}>Min %</th><th style={{ textAlign: 'center' }}>Max %</th><th style={{ textAlign: 'center' }}>Score</th><th>Description</th></tr></thead>
+              <tbody>
+                {attainmentConfig.indirectLevels.map((lvl) => (
+                  <tr key={lvl.level}>
+                    <td style={{ textAlign: 'center', fontWeight: '700', color: '#0284c7' }}>Level {lvl.level}</td>
+                    <td style={{ textAlign: 'center', fontWeight: '600' }}>{lvl.minPercentage}%</td>
+                    <td style={{ textAlign: 'center', fontWeight: '600' }}>{lvl.maxPercentage}%</td>
+                    <td style={{ textAlign: 'center' }}><span style={{ fontWeight: '800', color: '#0369a1' }}>{lvl.level}.0 / 3.0</span></td>
+                    <td style={{ fontSize: '12px', color: muted }}>{lvl.level === 1 ? 'Low survey rating' : lvl.level === 2 ? 'Moderate survey rating' : 'High survey rating'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      {/* ── TAB 2: CO APPROVALS REVIEW ────────────────────────────────────────────── */}
-      {activeReviewTab === 'cos' && (
-        <div className="card" style={{ marginBottom: '24px' }}>
-          <div className="card-header" style={{ marginBottom: '16px' }}>
+      {/* ── TAB 2: CO APPROVALS ───────────────────────────────────────────── */}
+      {activeTab === 'cos' && (
+        <div style={{ display: 'grid', gap: '16px' }}>
+          <div style={{ ...surface, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>
-                Course Outcomes (CO) Approvals ({selectedReviewCourse?.code} - {selectedReviewCourse?.name})
-              </h3>
-              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
-                Submitted by Course Coordinator ({selectedReviewCourse?.faculty || 'Assigned Faculty'}) for approval.
-              </p>
+              <div style={{ fontSize: '13.5px', fontWeight: '700', color: ink }}>Course Outcomes — {selectedCourse?.code} · {selectedCourse?.name}</div>
+              <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>Submitted by {selectedCourse?.faculty || 'Course Coordinator'}</div>
             </div>
-
-            {currentCourseReview.coStatus !== 'APPROVED' ? (
-              <button className="btn btn-primary" onClick={handleApproveCOs}>
-                <Check size={15} /> Approve CO Statements
-              </button>
-            ) : (
-              <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', padding: '6px 14px', fontSize: '12px', fontWeight: '800' }}>
-                ✓ COs APPROVED BY PROGRAMME COORDINATOR
-              </span>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <StatusPill status={courseReview.coStatus} />
+              {courseReview.coStatus !== 'APPROVED' && (
+                <button onClick={handleApproveCOs} style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                  <Check size={14} /> Approve All COs
+                </button>
+              )}
+            </div>
           </div>
 
-          <table className="audit-data-table">
-            <thead>
-              <tr>
-                <th style={{ width: '90px', textAlign: 'center' }}>CO Code</th>
-                <th>Course Outcome Statement</th>
-                <th style={{ width: '160px' }}>Submitted By</th>
-                <th style={{ width: '140px', textAlign: 'center' }}>Approval Status</th>
-                <th style={{ width: '170px', textAlign: 'center' }}>Programme Coordinator Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {courseCOs.length === 0 ? (
+          <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
+            <table className="audit-data-table">
+              <thead>
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
-                    No Course Outcomes submitted for this course yet.
-                  </td>
+                  <th style={{ width: '80px', textAlign: 'center' }}>Code</th>
+                  <th>Statement</th>
+                  <th style={{ width: '130px', textAlign: 'center' }}>Status</th>
+                  <th style={{ width: '140px', textAlign: 'center' }}>Actions</th>
                 </tr>
-              ) : (
-                courseCOs.map((co) => {
-                  const isApproved = co.status === 'APPROVED' || currentCourseReview.coStatus === 'APPROVED';
-                  const isRejected = co.status === 'REJECTED';
+              </thead>
+              <tbody>
+                {courseCOs.length === 0 && (
+                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>No COs submitted for this course yet.</td></tr>
+                )}
+                {courseCOs.map((co) => {
+                  const approved = co.status === 'APPROVED' || courseReview.coStatus === 'APPROVED';
+                  const rejected = co.status === 'REJECTED';
                   return (
                     <tr key={co.code}>
-                      <td style={{ fontWeight: '800', color: '#4f46e5', textAlign: 'center' }}>{co.code}</td>
-                      <td style={{ fontSize: '12.5px', color: '#0f172a' }}>{co.statement}</td>
-                      <td style={{ fontSize: '11.5px', color: '#475569' }}>
-                        <strong>{co.submittedBy || selectedReviewCourse?.faculty || 'Course Coordinator'}</strong>
-                        {co.submittedAt && <div style={{ fontSize: '10px', color: '#94a3b8' }}>{co.submittedAt}</div>}
-                      </td>
+                      <td style={{ textAlign: 'center', fontWeight: '700', color: accent }}>{co.code}</td>
+                      <td style={{ fontSize: '12.5px', color: ink }}>{co.statement}</td>
                       <td style={{ textAlign: 'center' }}>
-                        {isApproved ? (
-                          <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', fontSize: '11px', fontWeight: '800' }}>
-                            ✓ Approved
-                          </span>
-                        ) : isRejected ? (
-                          <span className="badge" style={{ background: '#fee2e2', color: '#dc2626', fontSize: '11px', fontWeight: '800' }}>
-                            ✗ Needs Revision
-                          </span>
-                        ) : (
-                          <span className="badge badge-pending" style={{ background: '#fef3c7', color: '#b45309', fontSize: '11px', fontWeight: '800' }}>
-                            ⏳ Pending Review
-                          </span>
-                        )}
+                        <StatusPill status={approved ? 'APPROVED' : rejected ? 'REJECTED' : 'PENDING_APPROVAL'} />
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                          {!isApproved && (
-                            <button
-                              className="btn btn-success"
-                              style={{ padding: '4px 8px', fontSize: '11px', gap: '4px' }}
-                              onClick={() => handleApproveSingleCO(co.code)}
-                            >
-                              <CheckCircle2 size={13} /> Approve
+                          {!approved && (
+                            <button onClick={() => handleApproveCO(co.code)} style={{ height: '28px', padding: '0 10px', fontSize: '11.5px', fontWeight: '700', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>
+                              <Check size={12} /> Approve
                             </button>
                           )}
-                          {!isRejected && (
-                            <button
-                              className="btn btn-danger"
-                              style={{ padding: '4px 8px', fontSize: '11px', gap: '4px' }}
-                              onClick={() => handleRejectSingleCO(co.code)}
-                            >
-                              <XCircle size={13} /> Reject
+                          {!rejected && (
+                            <button onClick={() => handleRejectCO(co.code)} style={{ height: '28px', padding: '0 10px', fontSize: '11.5px', fontWeight: '700', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>
+                              <XCircle size={12} /> Reject
                             </button>
                           )}
                         </div>
                       </td>
                     </tr>
                   );
-                })
-              )}
-            </tbody>
-          </table>
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* ── TAB 3: COURSE ATR REVIEW ──────────────────────────────────────────────── */}
-      {activeReviewTab === 'atr' && (
-        <div className="card" style={{ marginBottom: '24px' }}>
-          <div className="card-header" style={{ marginBottom: '16px' }}>
+      {/* ── TAB 3: COURSE ATR REVIEW ──────────────────────────────────────── */}
+      {activeTab === 'atr' && (
+        <div style={{ display: 'grid', gap: '16px' }}>
+          <div style={{ ...surface, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>
-                Course Action Taken Report (ATR) Review ({selectedReviewCourse?.code} - {selectedReviewCourse?.name})
-              </h3>
-              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
-                Inspect Course Coordinator's target gap analysis & corrective action plans.
-              </p>
+              <div style={{ fontSize: '13.5px', fontWeight: '700', color: ink }}>Course ATR — {selectedCourse?.code} · {selectedCourse?.name}</div>
+              <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>Target gap analysis & corrective actions from Course Coordinator.</div>
             </div>
-
-            {currentCourseReview.atrStatus !== 'VERIFIED' ? (
-              <button className="btn btn-primary" onClick={handleVerifyATR}>
-                <ShieldCheck size={15} /> Verify & Approve Course ATR
-              </button>
-            ) : (
-              <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', padding: '6px 14px', fontSize: '12px', fontWeight: '800' }}>
-                ✓ ATR VERIFIED & APPROVED BY PROGRAMME COORDINATOR
-              </span>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <StatusPill status={courseReview.atrStatus} />
+              {courseReview.atrStatus !== 'VERIFIED' && (
+                <button onClick={handleVerifyATR} style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                  <ShieldCheck size={14} /> Verify ATR
+                </button>
+              )}
+            </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {courseAtrData.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
-                No Action Taken Report submitted for this course yet.
+          {courseAtrData.length === 0 ? (
+            <div style={{ ...surface, padding: '32px', textAlign: 'center', color: muted, fontSize: '12.5px' }}>No ATR submitted for this course yet.</div>
+          ) : courseAtrData.map((atr) => (
+            <div key={atr.code} style={{ ...surface, padding: '16px 20px', borderLeft: `3px solid ${atr.met ? '#16a34a' : '#dc2626'}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>{atr.code}: {atr.statement}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: '700', background: atr.met ? '#f0fdf4' : '#fef2f2', color: atr.met ? '#16a34a' : '#dc2626', border: `1px solid ${atr.met ? '#bbf7d0' : '#fecaca'}`, borderRadius: '5px', padding: '3px 10px' }}>
+                  Target: {atr.target.toFixed(2)} &nbsp;|&nbsp; Actual: {atr.actual.toFixed(2)} &nbsp;({atr.pct.toFixed(1)}%)
+                </span>
               </div>
-            ) : (
-              courseAtrData.map((atr) => (
-                <div
-                  key={atr.code}
-                  style={{
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '10px',
-                    padding: '16px',
-                    background: atr.pctAchieved < 100 ? '#fffafb' : '#f8fafc',
-                    borderLeft: atr.pctAchieved < 100 ? '4px solid #e11d48' : '4px solid #10b981',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                    <div style={{ fontWeight: '800', color: atr.pctAchieved < 100 ? '#e11d48' : '#0f172a', fontSize: '13.5px' }}>
-                      {atr.code}: {atr.statement || atr.title}
-                    </div>
-                    <span
-                      className="badge"
-                      style={{
-                        background: atr.pctAchieved >= 100 ? '#dcfce7' : '#fee2e2',
-                        color: atr.pctAchieved >= 100 ? '#15803d' : '#991b1b',
-                        fontWeight: '800',
-                        fontSize: '11.5px',
-                      }}
-                    >
-                      Target: {atr.target?.toFixed(2)} | Actual: {atr.actual?.toFixed(2)} ({atr.pctAchieved?.toFixed(1)}% {atr.status})
-                    </span>
-                  </div>
-
-                  <div style={{ marginTop: '10px' }}>
-                    <strong style={{ fontSize: '12px', color: '#334155' }}>Corrective Action Plans Submitted by Coordinator:</strong>
-                    <ul style={{ margin: '6px 0 0', paddingLeft: '20px', fontSize: '12px', color: '#1e293b' }}>
-                      {(atr.actions || []).map((act, idx) => (
-                        <li key={idx} style={{ marginBottom: '4px' }}>
-                          {act}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── TAB 4: ATTAINMENT REVIEW (CO, PO & PSO) ─────────────────────────── */}
-      {activeReviewTab === 'attainment' && (
-        <div className="card" style={{ marginBottom: '24px' }}>
-          <div className="card-header" style={{ marginBottom: '16px' }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>
-                Course Attainment & PO/PSO Mapping Review ({selectedReviewCourse?.code} - {selectedReviewCourse?.name})
-              </h3>
-              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
-                Direct ({directW}%), Indirect ({indirectW}%), Overall CO Attainments ({overallCOAttainment}) and calculated PO/PSO mapping levels.
-              </p>
+              <div style={{ fontSize: '11.5px', fontWeight: '600', color: muted, marginBottom: '6px' }}>Corrective Actions:</div>
+              <ul style={{ margin: 0, paddingLeft: '18px', display: 'grid', gap: '3px' }}>
+                {atr.actions.map((a, i) => <li key={i} style={{ fontSize: '12.5px', color: ink }}>{a}</li>)}
+              </ul>
             </div>
-          </div>
-
-          <table className="audit-data-table">
-            <thead>
-              <tr>
-                <th style={{ width: '80px', textAlign: 'center' }}>CO Code</th>
-                <th>Course Outcome Statement</th>
-                <th style={{ width: '90px', textAlign: 'center' }}>Direct Att.</th>
-                <th style={{ width: '90px', textAlign: 'center' }}>Indirect Att.</th>
-                <th style={{ width: '100px', textAlign: 'center' }}>Overall CO</th>
-                <th style={{ width: '80px', textAlign: 'center' }}>PO1</th>
-                <th style={{ width: '80px', textAlign: 'center' }}>PO2</th>
-                <th style={{ width: '80px', textAlign: 'center' }}>PSO1</th>
-              </tr>
-            </thead>
-            <tbody>
-              {courseCOs.length === 0 ? (
-                <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
-                    No Course Outcomes defined yet for attainment review.
-                  </td>
-                </tr>
-              ) : (
-                courseCOs.map((co) => (
-                  <tr key={co.code}>
-                    <td style={{ fontWeight: '800', color: '#4f46e5', textAlign: 'center' }}>{co.code}</td>
-                    <td style={{ fontSize: '12.5px', color: '#0f172a' }}>{co.statement}</td>
-                    <td style={{ textAlign: 'center', fontWeight: '700' }}>{directLevel.toFixed(2)}</td>
-                    <td style={{ textAlign: 'center', fontWeight: '700' }}>{indirectLevel.toFixed(2)}</td>
-                    <td style={{ textAlign: 'center', fontWeight: '900', color: '#059669', background: '#f0fdf4' }}>
-                      {overallCOAttainment}
-                    </td>
-                    <td style={{ textAlign: 'center', fontWeight: '700' }}>
-                      {((2.7 * parseFloat(overallCOAttainment)) / 3).toFixed(2)}
-                    </td>
-                    <td style={{ textAlign: 'center', fontWeight: '700' }}>
-                      {((2.5 * parseFloat(overallCOAttainment)) / 3).toFixed(2)}
-                    </td>
-                    <td style={{ textAlign: 'center', fontWeight: '700', color: '#0284c7' }}>
-                      {((2.7 * parseFloat(overallCOAttainment)) / 3).toFixed(2)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+          ))}
         </div>
       )}
 
-      {/* Footer */}
-      <SectionSaveFooter
-        label="Coordinator Review Hub"
-        prevPath="/outcomes"
-        nextPath="/po-pso-attainment"
-      />
+      {/* ── TAB 4: PROGRAMME ATR REVIEW ───────────────────────────────────── */}
+      {activeTab === 'programme-atr' && (
+        <ProgATRTab
+          selectedProgramme={selectedProgramme}
+          activePOs={activePOs}
+          normPSOs={normPSOs}
+          progAtrRows={progAtrRows}
+        />
+      )}
+
     </div>
   );
 }

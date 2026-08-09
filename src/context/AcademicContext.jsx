@@ -640,7 +640,8 @@ export function AcademicProvider({ children }) {
     },
   });
 
-  const updateCourseVerificationStatus = (targetCourseId, statusType, statusValue) => {
+  const updateCourseVerificationStatus = (targetCourseId, statusType, statusValue, remarksValue = '', verifierName = null) => {
+    const remarkKey = statusType.replace('Status', 'Remarks');
     setCourseVerificationStore((prev) => ({
       ...prev,
       [targetCourseId]: {
@@ -648,9 +649,12 @@ export function AcademicProvider({ children }) {
           configStatus: 'DRAFT',
           coStatus: 'PENDING_APPROVAL',
           atrStatus: 'DRAFT',
+          programmeAtrStatus: 'DRAFT',
         }),
         [statusType]: statusValue,
-        verifiedBy: user?.name || 'Programme Coordinator',
+        [remarkKey]: remarksValue,
+        verifiedBy: verifierName || user?.name || 'Programme Coordinator',
+        verifiedAt: new Date().toISOString().split('T')[0],
       },
     }));
   };

@@ -26,6 +26,11 @@ import DirectorApprovalsPage from '../pages/director/DirectorApprovalsPage';
 import DirectorReportsPage from '../pages/director/DirectorReportsPage';
 import DirectorSetupWorkflowPage from '../pages/director/DirectorSetupWorkflowPage';
 
+// Programme Coordinator Pages
+import ProgrammeCoordinatorDashboardPage from '../pages/programme-coordinator/ProgrammeCoordinatorDashboardPage';
+import ProgrammeCoordinatorSetupWorkflowPage from '../pages/programme-coordinator/ProgrammeCoordinatorSetupWorkflowPage';
+import ProgrammeTargetSettingsPage from '../pages/programme-coordinator/ProgrammeTargetSettingsPage';
+
 // HOD Pages
 import HodBatchManagementPage from '../pages/hod/HodBatchManagementPage';
 import HodProgrammeOutcomesPage from '../pages/hod/HodProgrammeOutcomesPage';
@@ -48,6 +53,11 @@ export default function AppRoutes() {
       <Route path="/director/programme-overview" element={<DirectorProgrammeOverviewPage />} />
       <Route path="/director/approvals" element={<DirectorApprovalsPage />} />
       <Route path="/director/reports" element={<DirectorReportsPage />} />
+
+      {/* Programme Coordinator Routes */}
+      <Route path="/programme-coordinator/dashboard" element={<ProgrammeCoordinatorDashboardPage />} />
+      <Route path="/programme-coordinator/setup-workflow" element={<ProgrammeCoordinatorSetupWorkflowPage />} />
+      <Route path="/programme-coordinator/target-settings" element={<ProgrammeTargetSettingsPage />} />
 
       {/* HOD Routes */}
       <Route path="/hod/dashboard" element={<DashboardPage />} />

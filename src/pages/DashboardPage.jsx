@@ -3,6 +3,7 @@ import AppSidebar from '../components/layout/AppSidebar';
 import DashboardOverview from '../features/dashboard/DashboardOverview';
 import DirectorDashboard from '../features/director/DirectorDashboard';
 import HodDashboard from '../features/hod/HodDashboard';
+import ProgrammeCoordinatorDashboard from '../features/programme-coordinator/ProgrammeCoordinatorDashboard';
 import { useAuth } from '../context/AuthContext';
 
 export default function DashboardPage() {
@@ -18,6 +19,8 @@ export default function DashboardPage() {
               ? 'Director Overview & Actions'
               : role === 'HOD'
               ? 'HOD Overview & Actions'
+              : role === 'PROGRAMME_COORDINATOR'
+              ? 'Programme Coordinator Overview & Actions'
               : 'NBA Attainment Overview'
           }
           subtitle="D. Y. Patil International University"
@@ -27,6 +30,8 @@ export default function DashboardPage() {
             <DirectorDashboard />
           ) : role === 'HOD' ? (
             <HodDashboard />
+          ) : role === 'PROGRAMME_COORDINATOR' ? (
+            <ProgrammeCoordinatorDashboard />
           ) : (
             <DashboardOverview />
           )}
