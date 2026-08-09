@@ -4,7 +4,7 @@ import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
-export default function COTargetSettingHub() {
+export default function COTargetSettingHub({ hideFooter = false }) {
   const { role } = useAuth();
   const {
     selectedCourse,
@@ -141,6 +141,7 @@ export default function COTargetSettingHub() {
         nextPath="/co-mapping"
         nextLabel="Save Targets & Proceed to CO Mapping →"
         onSave={handleSaveCoTargets}
+        hidden={hideFooter}
       />
     </div>
   );

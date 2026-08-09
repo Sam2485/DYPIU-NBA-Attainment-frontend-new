@@ -1,4 +1,5 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAcademic } from '../../context/AcademicContext';
 
 /**
  * SectionSaveFooter — matches Faculty Appraisal Form 2.0 save footer:
@@ -16,14 +17,19 @@ export default function SectionSaveFooter({
   saving = false,
   saved = false,
   locked = false,
+  hidden = false,
 }) {
+  if (hidden) return null;
   const navigate = useNavigate();
+  const location = useLocation();
+  const { selectedCourse, markWorkflowStepComplete = () => {} } = useAcademic();
 
   const handleSaveDraft = () => {
     if (onSave) onSave(false);
   };
 
   const handleSaveNext = () => {
+    markWorkflowStepComplete(selectedCourse?.id, location.pathname);
     if (onFinish) {
       onFinish();
       return;

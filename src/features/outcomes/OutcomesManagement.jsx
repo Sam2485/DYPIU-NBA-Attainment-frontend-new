@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import RowButtons from '../../components/common/RowButtons';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
-export default function OutcomesManagement() {
+export default function OutcomesManagement({ hideFooter = false }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isStandalone = searchParams.get('mode') === 'standalone';
@@ -1177,7 +1177,7 @@ export default function OutcomesManagement() {
       )}
 
       {/* Save, Previous & Save & Next Footer (Hidden in Standalone Nav Mode) */}
-      {!isStandalone && (
+      {!isStandalone && !hideFooter && (
         <SectionSaveFooter
           label="Outcome Management"
           prevPath="/dashboard"

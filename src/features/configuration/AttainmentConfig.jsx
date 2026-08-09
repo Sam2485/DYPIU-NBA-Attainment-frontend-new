@@ -186,6 +186,35 @@ export default function AttainmentConfig() {
         </div>
       </div>
 
+      {/* Verification / Rejection Status Banner */}
+      {currentVerificationStatus === 'VERIFIED' && (
+        <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+          <CheckCircle2 size={20} style={{ color: '#16a34a', flexShrink: 0 }} />
+          <div>
+            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#15803d' }}>
+              ✓ Approved by Programme Coordinator
+            </span>
+            <span style={{ fontSize: '12px', color: '#166534', display: 'block', marginTop: '2px' }}>
+              Attainment configuration has been verified and approved by {courseVerificationStore[activeCourseId]?.verifiedBy || 'Programme Coordinator'}.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {currentVerificationStatus === 'REJECTED' && (
+        <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '20px' }}>
+          <AlertCircle size={20} style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
+          <div>
+            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#991b1b' }}>
+              ⚠️ Action Required — Sent Back for Revisions by Programme Coordinator
+            </span>
+            <span style={{ fontSize: '12.5px', color: '#b91c1c', display: 'block', marginTop: '3px', fontWeight: '600' }}>
+              <strong>Remarks Forwarded:</strong> "{courseVerificationStore[activeCourseId]?.configRemarks || 'Please review threshold settings and revise target parameters before resubmission.'}"
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Course Selection Strip */}
       <div
         style={{

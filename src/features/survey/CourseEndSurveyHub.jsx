@@ -3,7 +3,7 @@ import { ClipboardList, Upload } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
-export default function CourseEndSurveyHub() {
+export default function CourseEndSurveyHub({ hideFooter = false }) {
   const {
     academicYear,
     selectedProgramme,
@@ -119,6 +119,7 @@ export default function CourseEndSurveyHub() {
         prevPath="/marks-upload"
         nextPath="/co-attainment"
         nextLabel="Save & Proceed to CO Attainment Engine →"
+        hidden={hideFooter}
       />
     </div>
   );

@@ -567,6 +567,21 @@ export function AcademicProvider({ children }) {
   };
 
   // Dynamic Actions
+  const [workflowProgressStore, setWorkflowProgressStore] = useState({
+    'crs-1': { '/outcomes': true, '/co-targets': true },
+  });
+
+  const markWorkflowStepComplete = (targetCourseId, path) => {
+    const cid = targetCourseId || selectedCourse?.id || 'crs-1';
+    setWorkflowProgressStore((prev) => ({
+      ...prev,
+      [cid]: {
+        ...(prev[cid] || {}),
+        [path]: true,
+      },
+    }));
+  };
+
   const updateProgrammePOs = (progId, newPOs) => {
     setPoStoreByYear((prev) => ({
       ...prev,
@@ -948,6 +963,8 @@ export function AcademicProvider({ children }) {
         programmeAtrStore,
         approveProgrammeAtr,
         updateProgrammeAtrObservations,
+        workflowProgressStore,
+        markWorkflowStepComplete,
       }}
     >
       {children}

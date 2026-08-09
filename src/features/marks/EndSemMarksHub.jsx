@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { FileCheck, Upload, CheckCircle2, FileSpreadsheet } from 'lucide-react';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
-export default function EndSemMarksHub() {
+export default function EndSemMarksHub({ hideFooter = false }) {
   const [uploads] = useState([
     {
       id: 'MARKS-101',
@@ -177,6 +177,7 @@ export default function EndSemMarksHub() {
         prevPath="/co-mapping"
         nextPath="/survey-upload"
         nextLabel="Save & Proceed to Indirect Assessment →"
+        hidden={hideFooter}
       />
     </div>
   );

@@ -1,56 +1,46 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle2, Rocket, BookX } from 'lucide-react';
+import {
+  CheckCircle2, BookX, PlayCircle, Check, ChevronRight,
+  BookOpen, Target, Map, Upload, ClipboardList, BarChart2, FileText,
+} from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 
-// Exact 7-Step Course Coordinator Workflow Sequence:
+// Exact 7-Step Course Coordinator Workflow Sequence
 export const WORKFLOW_STEPS = [
-  { step: 1, label: '1. Add COs', path: '/outcomes' },
-  { step: 2, label: '2. Target Setting', path: '/co-targets' },
-  { step: 3, label: '3. CO Mapping', path: '/co-mapping' },
-  { step: 4, label: '4. Direct Assessment', path: '/marks-upload' },
-  { step: 5, label: '5. Indirect Assessment', path: '/survey-upload' },
-  { step: 6, label: '6. CO Attainment', path: '/co-attainment' },
-  { step: 7, label: '7. Course ATR', path: '/course-atr' },
+  { step: 1, label: 'Add COs',             path: '/outcomes',     icon: BookOpen    },
+  { step: 2, label: 'Target Setting',       path: '/co-targets',   icon: Target      },
+  { step: 3, label: 'CO Mapping',           path: '/co-mapping',   icon: Map         },
+  { step: 4, label: 'Direct Assessment',    path: '/marks-upload', icon: Upload      },
+  { step: 5, label: 'Indirect Assessment',  path: '/survey-upload',icon: ClipboardList },
+  { step: 6, label: 'CO Attainment',        path: '/co-attainment',icon: BarChart2   },
+  { step: 7, label: 'Course ATR',           path: '/course-atr',   icon: FileText    },
 ];
+
+const accent = '#4f46e5';
+const ink    = '#0f172a';
+const muted  = '#64748b';
 
 export default function AttainmentProgressTracker() {
   const { role } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const { selectedCourse, availableCourses = [], academicYear } = useAcademic();
+  const { selectedCourse, availableCourses = [], academicYear, workflowProgressStore = {} } = useAcademic();
+  const courseProgress = workflowProgressStore[selectedCourse?.id || 'crs-1'] || {};
 
-  // ONLY Course Coordinator role sees the Start Process banner & Progress Tracker
-  if (role !== 'FACULTY') {
-    return null;
-  }
+  // Only Course Coordinator role sees this tracker
+  if (role !== 'FACULTY') return null;
 
-  // NO COURSE ASSIGNED YET SCREEN
+  // No course assigned
   if (availableCourses.length === 0) {
     return (
       <div style={{ padding: '16px 28px 0', width: '100%', boxSizing: 'border-box' }}>
-        <div
-          style={{
-            background: '#fff1f2',
-            border: '1.5px solid #fecdd3',
-            borderLeft: '6px solid #e11d48',
-            borderRadius: '12px',
-            padding: '18px 24px',
-            boxShadow: '0 4px 14px rgba(225, 29, 72, 0.08)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            width: '100%',
-            boxSizing: 'border-box',
-          }}
-        >
-          <BookX size={32} style={{ color: '#e11d48', flexShrink: 0 }} />
+        <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderLeft: '6px solid #e11d48', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px', width: '100%', boxSizing: 'border-box' }}>
+          <BookX size={28} style={{ color: '#e11d48', flexShrink: 0 }} />
           <div>
-            <h4 style={{ margin: 0, fontSize: '15px', color: '#9f1239', fontWeight: '800' }}>
-              No Course Assigned Yet
-            </h4>
-            <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: '#be123c' }}>
-              You currently do not have any courses allocated to your account by the Programme Coordinator. Please contact your Programme Coordinator for course allocation before starting the course attainment process.
+            <div style={{ fontSize: '14px', color: '#9f1239', fontWeight: '800', marginBottom: '2px' }}>No Course Assigned Yet</div>
+            <p style={{ margin: 0, fontSize: '12px', color: '#be123c' }}>
+              You have no courses allocated. Contact your Programme Coordinator for course allocation.
             </p>
           </div>
         </div>
@@ -58,201 +48,79 @@ export default function AttainmentProgressTracker() {
     );
   }
 
-  const currentPath = location.pathname;
-  const currentStepIndex = WORKFLOW_STEPS.findIndex((s) => s.path === currentPath);
+  const currentPath       = location.pathname;
+  const currentStepIndex  = WORKFLOW_STEPS.findIndex((s) => s.path === currentPath);
 
-  // If not on one of the 7 workflow steps, show Start Course Attainment row ONLY on /dashboard screen
+  // ── On non-workflow pages (like /dashboard), return null ──
   if (currentStepIndex === -1) {
-    if (currentPath !== '/dashboard') {
-      return null;
-    }
-
-    return (
-      <div style={{ padding: '16px 28px 0', width: '100%', boxSizing: 'border-box' }}>
-        <div
-          style={{
-            background: '#ffffff',
-            border: '1.5px solid #6366f1',
-            borderRadius: '12px',
-            padding: '14px 20px',
-            boxShadow: '0 4px 14px rgba(99, 102, 241, 0.08)',
-            display: 'flex',
-            alignItems: 'center',
-            justify: 'space-between',
-            gap: '16px',
-            flexWrap: 'wrap',
-            width: '100%',
-            boxSizing: 'border-box',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '280px' }}>
-            <div
-              style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '10px',
-                background: '#eef2ff',
-                color: '#4f46e5',
-                display: 'grid',
-                placeItems: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <Rocket size={20} />
-            </div>
-            <div>
-              <strong style={{ fontSize: '14px', color: '#0f172a' }}>
-                Course Attainment Workflow Process ({selectedCourse?.code} • {academicYear})
-              </strong>
-              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
-                Follow the 7-step NBA Outcome-Based Education Attainment process: Add COs → Target Setting → CO Mapping → Direct Assessment → Indirect Assessment → CO Attainment → Course ATR.
-              </p>
-            </div>
-          </div>
-
-          <div style={{ marginLeft: 'auto' }}>
-            <button
-              type="button"
-              style={{
-                padding: '10px 20px',
-                fontSize: '13px',
-                fontWeight: '800',
-                gap: '8px',
-                background: '#ffffff',
-                color: '#2563eb',
-                border: '1.5px solid #2563eb',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#eff6ff';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#ffffff';
-              }}
-              onClick={() => navigate('/outcomes')}
-            >
-              <Rocket size={16} /> Start Course Attainment Process
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
+  // ── On a workflow step page: show the inline stepper bar ─────────────────
   const activeStep = WORKFLOW_STEPS[currentStepIndex];
 
   return (
     <div style={{ padding: '16px 28px 0', width: '100%', boxSizing: 'border-box' }}>
-      <div
-        style={{
-          background: '#ffffff',
-          border: '1px solid #cbd5e1',
-          borderRadius: '14px',
-          padding: '14px 18px',
-          boxShadow: '0 4px 16px rgba(15, 23, 42, 0.04)',
-          width: '100%',
-          boxSizing: 'border-box',
-        }}
-      >
-        {/* Header line of Progress Tracker */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+      <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 2px 8px rgba(15,23,42,0.04)', width: '100%', boxSizing: 'border-box' }}>
+
+        {/* Header row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span
-              style={{
-                background: '#eef2ff',
-                color: '#4f46e5',
-                fontWeight: '800',
-                fontSize: '11px',
-                padding: '3px 10px',
-                borderRadius: '20px',
-                border: '1px solid #c7d2fe',
-                textTransform: 'uppercase',
-                letterSpacing: '0.03em',
-              }}
-            >
-              Step {activeStep.step} of 7: {activeStep.label}
+            <span style={{ background: '#eef2ff', color: accent, fontWeight: '800', fontSize: '11px', padding: '3px 10px', borderRadius: '20px', border: '1px solid #c7d2fe', textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
+              Step {activeStep.step} of 7 &nbsp;·&nbsp; {activeStep.label}
             </span>
-            <span style={{ fontSize: '12.5px', color: '#0f172a', fontWeight: '700' }}>
-              {selectedCourse?.code} - {selectedCourse?.name} ({academicYear})
+            <span style={{ fontSize: '12px', color: ink, fontWeight: '700' }}>
+              {selectedCourse?.code} — {selectedCourse?.name}
+              {academicYear ? <span style={{ color: muted }}> ({academicYear})</span> : null}
             </span>
           </div>
-
-          <button
-            className="btn btn-secondary"
-            style={{ fontSize: '11.5px', padding: '5px 12px' }}
-            onClick={() => navigate('/dashboard')}
-          >
-            Exit Workflow
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => navigate('/course-coordinator/workflow')}
+              style={{ height: '30px', padding: '0 12px', fontSize: '11.5px', fontWeight: '700', background: '#eef2ff', color: accent, border: '1px solid #c7d2fe', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontFamily: 'inherit' }}
+            >
+              View All Steps <ChevronRight size={12} />
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard')}
+              style={{ height: '30px', padding: '0 12px', fontSize: '11.5px', fontWeight: '600', background: '#f8fafc', color: muted, border: '1px solid #e2e8f0', borderRadius: '7px', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Exit Workflow
+            </button>
+          </div>
         </div>
 
-        {/* 7-Step Visual Stepper Bar */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
-            gap: '6px',
-            alignItems: 'center',
-          }}
-        >
+        {/* 7-step stepper strip */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
           {WORKFLOW_STEPS.map((stepItem, idx) => {
-            const isCompleted = idx < currentStepIndex;
-            const isCurrent = idx === currentStepIndex;
-
+            const isCompleted = courseProgress[stepItem.path] || idx < currentStepIndex;
+            const isCurrent   = idx === currentStepIndex;
+            const StepIcon    = stepItem.icon;
             return (
               <button
                 key={stepItem.step}
+                type="button"
                 onClick={() => navigate(stepItem.path)}
                 style={{
-                  border: isCurrent
-                    ? '1.5px solid #4f46e5'
-                    : isCompleted
-                    ? '1px solid #a7f3d0'
-                    : '1px solid #e2e8f0',
-                  background: isCurrent
-                    ? '#eef2ff'
-                    : isCompleted
-                    ? '#f0fdf4'
-                    : '#ffffff',
-                  color: isCurrent
-                    ? '#3730a3'
-                    : isCompleted
-                    ? '#065f46'
-                    : '#64748b',
-                  borderRadius: '8px',
-                  padding: '6px 8px',
-                  fontSize: '11px',
-                  fontWeight: isCurrent || isCompleted ? '800' : '600',
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justify: 'center',
-                  gap: '4px',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  transition: 'all 0.15s ease',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                  border: isCompleted ? '1.5px solid #86efac' : isCurrent ? '1.5px solid #a5b4fc' : '1px solid #e2e8f0',
+                  background: isCompleted ? '#f0fdf4' : isCurrent ? '#eef2ff' : '#f8fafc',
+                  color: isCompleted ? '#16a34a' : isCurrent ? accent : muted,
+                  borderRadius: '8px', padding: '6px 6px', fontSize: '11px',
+                  fontWeight: isCompleted ? '800' : isCurrent ? '800' : '600',
+                  cursor: 'pointer', textAlign: 'center', whiteSpace: 'nowrap',
+                  overflow: 'hidden', textOverflow: 'ellipsis',
+                  transition: 'all 0.15s ease', fontFamily: 'inherit',
                 }}
               >
-                {isCompleted ? (
-                  <CheckCircle2 size={13} style={{ color: '#10b981', flexShrink: 0 }} />
-                ) : isCurrent ? (
-                  <span
-                    style={{
-                      width: '7px',
-                      height: '7px',
-                      borderRadius: '50%',
-                      background: '#4f46e5',
-                      flexShrink: 0,
-                    }}
-                  />
-                ) : null}
-                <span>{stepItem.label}</span>
+                {isCompleted
+                  ? <CheckCircle2 size={12} style={{ flexShrink: 0, color: '#16a34a' }} />
+                  : isCurrent
+                  ? <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: accent, flexShrink: 0, display: 'inline-block' }} />
+                  : <StepIcon size={11} style={{ flexShrink: 0, opacity: 0.5 }} />}
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{stepItem.label}</span>
               </button>
             );
           })}

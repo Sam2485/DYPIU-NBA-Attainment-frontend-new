@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, CheckCircle2, Clock, ShieldCheck, History, Printer, ChevronDown } from 'lucide-react';
+import { Save, CheckCircle2, Clock, ShieldCheck, History, Printer, ChevronDown, AlertCircle } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -41,6 +41,9 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
 
   const activeCourseId = selectedCourse?.id || 'crs-1';
   const activeCOs      = selectedCourse?.courseOutcomes || [];
+
+  const atrStatus = courseVerificationStore[activeCourseId]?.atrStatus || 'DRAFT';
+  const atrRemarks = courseVerificationStore[activeCourseId]?.atrRemarks || '';
 
   // Build ATR list from COs
   const buildList = () => {
@@ -141,6 +144,35 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
                 <ShieldCheck size={13} /> Verify ATR
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Verification / Rejection Status Banner */}
+      {atrStatus === 'VERIFIED' && (
+        <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+          <CheckCircle2 size={20} style={{ color: '#16a34a', flexShrink: 0 }} />
+          <div>
+            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#15803d' }}>
+              ✓ Approved by Programme Coordinator
+            </span>
+            <span style={{ fontSize: '12px', color: '#166534', display: 'block', marginTop: '2px' }}>
+              Course ATR has been verified and approved by {courseVerificationStore[activeCourseId]?.verifiedBy || 'Programme Coordinator'}.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {atrStatus === 'REJECTED' && (
+        <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '20px' }}>
+          <AlertCircle size={20} style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
+          <div>
+            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#991b1b' }}>
+              ⚠️ Action Required — Course ATR Sent Back for Revisions by Programme Coordinator
+            </span>
+            <span style={{ fontSize: '12.5px', color: '#b91c1c', display: 'block', marginTop: '3px', fontWeight: '600' }}>
+              <strong>Remarks Forwarded:</strong> "{atrRemarks || 'Please review corrective actions and revise ATR details before resubmission.'}"
+            </span>
           </div>
         </div>
       )}

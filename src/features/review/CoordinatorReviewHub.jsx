@@ -2,43 +2,85 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   ShieldCheck, CheckCircle2, Clock, Check, Sliders,
-  FileText, Layers, XCircle, ChevronDown, AlertCircle,
+  FileText, Layers, XCircle, ChevronDown, AlertCircle, X,
+  MessageSquare, BookOpen, Target, TrendingUp, TrendingDown,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 
-// ── Style tokens ─────────────────────────────────────────────────────────────
-const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
-const ink        = '#0f172a';
-const muted      = '#64748b';
-const accent     = '#4f46e5';
+// ── Design tokens ─────────────────────────────────────────────────────────────
+const ink    = '#0f172a';
+const muted  = '#64748b';
+const accent = '#4f46e5';
+const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
 const inputStyle = {
   height: '40px', fontSize: '13px', border: '1px solid #e2e8f0',
   borderRadius: '8px', padding: '0 12px', background: '#ffffff',
   color: ink, width: '100%', outline: 'none', fontFamily: 'inherit',
 };
 
-// status pill helper
-function StatusPill({ status }) {
-  const map = {
-    VERIFIED:         { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0', label: '✓ Verified'      },
-    APPROVED:         { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0', label: '✓ Approved'      },
-    PENDING_APPROVAL: { bg: '#fffbeb', color: '#b45309', border: '#fde68a', label: '⏳ Pending'       },
-    DRAFT:            { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0', label: 'Draft'            },
-    REJECTED:         { bg: '#fef2f2', color: '#dc2626', border: '#fecaca', label: '✗ Needs Revision' },
-  };
-  const s = map[status] || map.DRAFT;
+const STATUS_META = {
+  VERIFIED:         { bg: '#f0fdf4', color: '#16a34a', border: '#86efac', label: 'Verified & Approved', icon: '✓' },
+  APPROVED:         { bg: '#f0fdf4', color: '#16a34a', border: '#86efac', label: 'Approved',             icon: '✓' },
+  PENDING_APPROVAL: { bg: '#fffbeb', color: '#b45309', border: '#fde68a', label: 'Pending Review',       icon: '⏳' },
+  DRAFT:            { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0', label: 'Draft',                icon: '—'  },
+  REJECTED:         { bg: '#fef2f2', color: '#dc2626', border: '#fecaca', label: 'Needs Revision',       icon: '⚠' },
+};
+
+function StatusBadge({ status, size = 'md' }) {
+  const s = STATUS_META[status] || STATUS_META.DRAFT;
+  const pad = size === 'sm' ? '2px 8px' : '4px 11px';
+  const fs  = size === 'sm' ? '10.5px'  : '11.5px';
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: '11px', fontWeight: '700', background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '5px', padding: '2px 8px', whiteSpace: 'nowrap' }}>
-      {s.label}
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: fs, fontWeight: '700', background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '6px', padding: pad, whiteSpace: 'nowrap' }}>
+      {s.icon} {s.label}
     </span>
   );
 }
 
-// ── Programme ATR Tab — CourseATR-style cards ────────────────────────────────
-function ProgATRTab({ selectedProgramme, activePOs, normPSOs, progAtrRows }) {
-  // Local editable state for actions / remarks per PO-PSO
-  const [entries, setEntries] = useState(() =>
+function SectionHeader({ title, subtitle, status, onApprove, onReject }) {
+  const isVerified = status === 'VERIFIED' || status === 'APPROVED';
+  const isRejected = status === 'REJECTED';
+
+  return (
+    <div style={{ ...surface, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+      <div>
+        <div style={{ fontSize: '14px', fontWeight: '800', color: ink }}>{title}</div>
+        {subtitle && <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>{subtitle}</div>}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <StatusBadge status={status} />
+
+        {/* If NOT verified (i.e. Pending, Draft, OR Rejected), show Verify button */}
+        {!isVerified && (
+          <button
+            type="button"
+            onClick={onApprove}
+            style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '800', background: '#10b981', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
+          >
+            <Check size={14} /> Verify &amp; Approve
+          </button>
+        )}
+
+        {/* If NOT rejected (i.e. Pending, Draft, OR Verified), show Reject button */}
+        {!isRejected && (
+          <button
+            type="button"
+            onClick={onReject}
+            style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '800', background: '#ef4444', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
+          >
+            <XCircle size={14} /> Send Back / Reject
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── PROGRAMME ATR TAB ────────────────────────────────────────────────────────
+function ProgATRTab({ selectedProgramme, activePOs, normPSOs, progAtrRows, onApprove, onReject, status }) {
+  const [entries] = useState(() =>
     progAtrRows.map((r) => ({
       ...r,
       actions: r.met
@@ -49,31 +91,13 @@ function ProgATRTab({ selectedProgramme, activePOs, normPSOs, progAtrRows }) {
     })),
   );
 
-  const handleAddAction = (idx) => {
-    setEntries((prev) => prev.map((e, i) => i === idx ? { ...e, actions: [...e.actions, 'New corrective action...'] } : e));
-  };
-  const handleUpdateAction = (idx, aIdx, val) => {
-    setEntries((prev) => prev.map((e, i) => {
-      if (i !== idx) return e;
-      const acts = [...e.actions]; acts[aIdx] = val; return { ...e, actions: acts };
-    }));
-  };
-  const handleDeleteAction = (idx, aIdx) => {
-    setEntries((prev) => prev.map((e, i) => i === idx ? { ...e, actions: e.actions.filter((_, j) => j !== aIdx) } : e));
-  };
-  const handleUpdateRemark = (idx, val) => {
-    setEntries((prev) => prev.map((e, i) => i === idx ? { ...e, remark: val } : e));
-  };
-
   const poEntries  = entries.filter((e) => e.type === 'PO');
   const psoEntries = entries.filter((e) => e.type === 'PSO');
 
-  const renderCards = (list, accentCol) => list.map((entry, listIdx) => {
-    const globalIdx = entries.findIndex((e) => e.code === entry.code);
+  const renderCards = (list, accentCol) => list.map((entry) => {
     const pct = Number(((entry.actual / entry.target) * 100).toFixed(1));
     return (
       <div key={entry.code} style={{ border: `1px solid ${entry.met ? '#bbf7d0' : '#fecaca'}`, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-        {/* Banner */}
         <div style={{ background: entry.met ? '#f0fdf4' : '#fef2f2', borderBottom: `1px solid ${entry.met ? '#bbf7d0' : '#fecaca'}`, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
           <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
             <span style={{ color: accentCol, fontWeight: '900', marginRight: '6px' }}>{entry.code}:</span>
@@ -84,7 +108,6 @@ function ProgATRTab({ selectedProgramme, activePOs, normPSOs, progAtrRows }) {
           </span>
         </div>
 
-        {/* Body table */}
         <table className="audit-data-table" style={{ margin: 0, border: 'none' }}>
           <thead>
             <tr style={{ background: '#f8fafc' }}>
@@ -92,7 +115,7 @@ function ProgATRTab({ selectedProgramme, activePOs, normPSOs, progAtrRows }) {
               <th style={{ width: '100px', textAlign: 'center' }}>Target</th>
               <th style={{ width: '110px', textAlign: 'center' }}>Attainment</th>
               <th style={{ width: '130px', textAlign: 'center' }}>Observation</th>
-              <th>{entry.met ? 'Remark (Target Met)' : 'Corrective Actions for Improvement'}</th>
+              <th>{entry.met ? 'Remark' : 'Corrective Actions'}</th>
             </tr>
           </thead>
           <tbody>
@@ -105,39 +128,11 @@ function ProgATRTab({ selectedProgramme, activePOs, normPSOs, progAtrRows }) {
                   {pct}% {entry.met ? 'Achieved' : 'Gap'}
                 </span>
               </td>
-              <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
-                {entry.met ? (
-                  /* Remark field when target is met */
-                  <textarea
-                    rows={3}
-                    value={entry.remark}
-                    onChange={(e) => handleUpdateRemark(globalIdx, e.target.value)}
-                    placeholder="Enter remark for this outcome..."
-                    style={{ width: '100%', fontSize: '12.5px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '8px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: '#fafafa' }}
-                  />
-                ) : (
-                  /* Corrective action fields when gap */
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {entry.actions.map((act, aIdx) => (
-                      <div key={aIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                        <span style={{ fontWeight: '800', color: '#3b82f6', minWidth: '68px', fontSize: '12px', paddingTop: '9px' }}>Action {aIdx + 1}:</span>
-                        <textarea
-                          rows={2}
-                          value={act}
-                          onChange={(e) => handleUpdateAction(globalIdx, aIdx, e.target.value)}
-                          style={{ flex: 1, fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '6px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: '#ffffff' }}
-                        />
-                        {entry.actions.length > 1 && (
-                          <button onClick={() => handleDeleteAction(globalIdx, aIdx)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
-                            <span style={{ fontSize: '14px', lineHeight: 1 }}>×</span>
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <button onClick={() => handleAddAction(globalIdx)} style={{ alignSelf: 'flex-start', height: '28px', padding: '0 12px', fontSize: '11.5px', fontWeight: '700', background: '#f8fafc', color: accent, border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>
-                      + Add Action
-                    </button>
-                  </div>
+              <td style={{ padding: '10px 14px', verticalAlign: 'top', fontSize: '12.5px', color: ink }}>
+                {entry.met ? entry.remark : (
+                  <ul style={{ margin: 0, paddingLeft: '16px', display: 'grid', gap: '4px' }}>
+                    {entry.actions.map((act, aIdx) => <li key={aIdx}>{act}</li>)}
+                  </ul>
                 )}
               </td>
             </tr>
@@ -149,46 +144,31 @@ function ProgATRTab({ selectedProgramme, activePOs, normPSOs, progAtrRows }) {
 
   return (
     <div style={{ display: 'grid', gap: '16px' }}>
-      {/* Header */}
-      <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <div style={{ fontSize: '13.5px', fontWeight: '700', color: ink, marginBottom: '3px' }}>Programme ATR — {selectedProgramme.name} ({selectedProgramme.code})</div>
-          <div style={{ fontSize: '12px', color: muted }}>PO &amp; PSO attainment vs targets. Add corrective actions for gaps; add remarks for outcomes met.</div>
-        </div>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          {[
-            { label: `${poEntries.filter((e) => e.met).length} / ${poEntries.length} POs Met`,   color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
-            { label: `${psoEntries.filter((e) => e.met).length} / ${psoEntries.length} PSOs Met`, color: '#059669', bg: '#f0fdf4', border: '#bbf7d0' },
-          ].map((s) => (
-            <span key={s.label} style={{ fontSize: '12px', fontWeight: '700', background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '6px', padding: '4px 12px' }}>{s.label}</span>
-          ))}
-        </div>
-      </div>
+      <SectionHeader
+        title={`Programme ATR — ${selectedProgramme.name} (${selectedProgramme.code})`}
+        subtitle="Overall PO & PSO target vs attainment analysis across all courses."
+        status={status}
+        onApprove={onApprove}
+        onReject={onReject}
+      />
 
-      {progAtrRows.length === 0 ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '14px 18px' }}>
-          <span style={{ fontSize: '13px', fontWeight: '600', color: '#92400e' }}>No POs or PSOs configured yet. Set targets via Target Settings first.</span>
+      {poEntries.length > 0 && (
+        <div>
+          <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Programme Outcomes (POs)</div>
+          <div style={{ display: 'grid', gap: '12px' }}>{renderCards(poEntries, accent)}</div>
         </div>
-      ) : (
-        <>
-          {poEntries.length > 0 && (
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Programme Outcomes (POs)</div>
-              <div style={{ display: 'grid', gap: '12px' }}>{renderCards(poEntries, accent)}</div>
-            </div>
-          )}
-          {psoEntries.length > 0 && (
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: '700', color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px', marginTop: poEntries.length > 0 ? '8px' : 0 }}>Programme Specific Outcomes (PSOs)</div>
-              <div style={{ display: 'grid', gap: '12px' }}>{renderCards(psoEntries, '#059669')}</div>
-            </div>
-          )}
-        </>
+      )}
+      {psoEntries.length > 0 && (
+        <div>
+          <div style={{ fontSize: '11px', fontWeight: '700', color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px', marginTop: '12px' }}>Programme Specific Outcomes (PSOs)</div>
+          <div style={{ display: 'grid', gap: '12px' }}>{renderCards(psoEntries, '#059669')}</div>
+        </div>
       )}
     </div>
   );
 }
 
+// ── MAIN HUB COMPONENT ────────────────────────────────────────────────────────
 export default function CoordinatorReviewHub() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
@@ -203,7 +183,6 @@ export default function CoordinatorReviewHub() {
     updateCourseVerificationStatus = () => {},
     courseAtrStore           = {},
     updateCourseCOs          = () => {},
-    yearMetrics              = {},
     activePOs                = [],
     activePSOs               = [],
     poPsoTargets             = {},
@@ -231,7 +210,7 @@ export default function CoordinatorReviewHub() {
   const selectedCourse = availableCourses.find((c) => c.id === reviewCourseId) || availableCourses[0];
 
   const courseReview = courseVerificationStore[reviewCourseId] || {
-    configStatus: 'DRAFT', coStatus: 'PENDING_APPROVAL', atrStatus: 'DRAFT',
+    configStatus: 'DRAFT', coStatus: 'PENDING_APPROVAL', atrStatus: 'DRAFT', programmeAtrStatus: 'DRAFT',
   };
 
   const attainmentConfig = attainmentConfigs[reviewCourseId] || {
@@ -261,7 +240,6 @@ export default function CoordinatorReviewHub() {
     });
   })();
 
-  // Programme ATR mock data
   const progTargets  = poPsoTargets[programmeId] || {};
   const normPSOs     = activePSOs.map((p) => ({ ...p, competencies: p.competencies ?? [] }));
   const progAtrRows  = [
@@ -277,34 +255,54 @@ export default function CoordinatorReviewHub() {
     })),
   ].map((r) => ({ ...r, actual: Math.min(3, Math.round(r.actual * 100) / 100), met: r.actual >= r.target }));
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
-  const handleVerifyConfig = () => {
-    updateCourseAttainmentConfig(reviewCourseId, { status: 'VERIFIED' });
-    updateCourseVerificationStatus(reviewCourseId, 'configStatus', 'VERIFIED');
+  // Active status & remarks for top alert banner
+  const activeStatusKey  = activeTab === 'config' ? 'configStatus' : activeTab === 'cos' ? 'coStatus' : activeTab === 'atr' ? 'atrStatus' : 'programmeAtrStatus';
+  const activeRemarkKey  = activeTab === 'config' ? 'configRemarks' : activeTab === 'cos' ? 'coRemarks' : activeTab === 'atr' ? 'atrRemarks' : 'programmeAtrRemarks';
+
+  const activeTabStatus  = courseReview[activeStatusKey] || 'DRAFT';
+  const activeTabRemarks = courseReview[activeRemarkKey] || '';
+
+  // ── REJECTION REMARKS MODAL STATE ───────────────────────────────────────────
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectModalData, setRejectModalData] = useState(null);
+  const [rejectRemarksInput, setRejectRemarksInput] = useState('');
+
+  const openRejectModal = (statusType, title, defaultRemark = '') => {
+    setRejectModalData({ statusType, title });
+    setRejectRemarksInput(defaultRemark || 'Please review threshold settings and revise target attainment parameters before resubmission.');
+    setShowRejectModal(true);
   };
-  const handleApproveCOs = () => {
-    const updated = courseCOs.map((co) => ({ ...co, status: 'APPROVED', approvedBy: user?.name || 'Programme Coordinator' }));
-    updateCourseCOs(reviewCourseId, updated);
-    updateCourseVerificationStatus(reviewCourseId, 'coStatus', 'APPROVED');
+
+  const handleConfirmReject = () => {
+    if (!rejectModalData) return;
+    const { statusType } = rejectModalData;
+    updateCourseVerificationStatus(reviewCourseId, statusType, 'REJECTED', rejectRemarksInput, user?.name || 'Programme Coordinator');
+
+    if (statusType === 'coStatus') {
+      const updated = courseCOs.map((co) => ({ ...co, status: 'REJECTED' }));
+      updateCourseCOs(reviewCourseId, updated);
+    }
+
+    setShowRejectModal(false);
+    setRejectModalData(null);
+    setRejectRemarksInput('');
   };
-  const handleApproveCO = (code) => {
-    const updated = courseCOs.map((co) => co.code === code ? { ...co, status: 'APPROVED', approvedBy: user?.name || 'Programme Coordinator' } : co);
-    updateCourseCOs(reviewCourseId, updated);
-    if (updated.every((co) => co.status === 'APPROVED'))
-      updateCourseVerificationStatus(reviewCourseId, 'coStatus', 'APPROVED');
+
+  const handleApproveSubmission = (statusType) => {
+    updateCourseVerificationStatus(reviewCourseId, statusType, 'VERIFIED', '', user?.name || 'Programme Coordinator');
+    if (statusType === 'configStatus') {
+      updateCourseAttainmentConfig(reviewCourseId, { status: 'VERIFIED' });
+    } else if (statusType === 'coStatus') {
+      const updated = courseCOs.map((co) => ({ ...co, status: 'APPROVED', approvedBy: user?.name || 'Programme Coordinator' }));
+      updateCourseCOs(reviewCourseId, updated);
+    }
   };
-  const handleRejectCO = (code) => {
-    const updated = courseCOs.map((co) => co.code === code ? { ...co, status: 'REJECTED' } : co);
-    updateCourseCOs(reviewCourseId, updated);
-    updateCourseVerificationStatus(reviewCourseId, 'coStatus', 'PENDING_APPROVAL');
-  };
-  const handleVerifyATR = () => updateCourseVerificationStatus(reviewCourseId, 'atrStatus', 'VERIFIED');
 
   const tabDefs = [
     { id: 'config',        label: '1. Attainment Config', icon: Sliders,       status: courseReview.configStatus },
     { id: 'cos',           label: '2. CO Approvals',      icon: CheckCircle2,  status: courseReview.coStatus     },
     { id: 'atr',           label: '3. Course ATR',        icon: FileText,      status: courseReview.atrStatus    },
-    { id: 'programme-atr', label: '4. Programme ATR',     icon: Layers,        status: null                      },
+    { id: 'programme-atr', label: '4. Programme ATR',     icon: Layers,        status: courseReview.programmeAtrStatus },
   ];
 
   return (
@@ -343,8 +341,9 @@ export default function CoordinatorReviewHub() {
       <div style={{ ...surface, padding: '8px 12px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px', flexWrap: 'wrap' }}>
           {tabDefs.map(({ id, label, icon: Icon, status }) => {
-            const done    = status === 'VERIFIED' || status === 'APPROVED';
-            const pending = status && !done;
+            const done     = status === 'VERIFIED' || status === 'APPROVED';
+            const rejected = status === 'REJECTED';
+            const pending  = status && !done && !rejected;
             return (
               <button
                 key={id}
@@ -354,83 +353,125 @@ export default function CoordinatorReviewHub() {
               >
                 <Icon size={13} />
                 {label}
-                {done    && <Check size={12} style={{ color: '#16a34a' }} />}
-                {pending && <Clock size={12} style={{ color: '#d97706' }} />}
+                {done     && <Check size={12} style={{ color: '#16a34a' }} />}
+                {rejected && <XCircle size={12} style={{ color: '#dc2626' }} />}
+                {pending  && <Clock size={12} style={{ color: '#d97706' }} />}
               </button>
             );
           })}
         </div>
       </div>
 
+      {/* ── TOP REJECTION REMARKS ALERT BANNER ────────────────────────────── */}
+      {activeTabStatus === 'REJECTED' && activeTabRemarks && (
+        <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '12px', padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'flex-start', gap: '14px', boxShadow: '0 4px 12px rgba(220,38,38,0.08)' }}>
+          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#fee2e2', color: '#dc2626', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '2px' }}>
+            <AlertCircle size={20} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '14px', fontWeight: '800', color: '#991b1b', marginBottom: '4px' }}>
+              ⚠️ Action Required — Submission Sent Back for Revisions
+            </div>
+            <div style={{ fontSize: '13px', color: '#b91c1c', fontWeight: '600', lineHeight: 1.5, background: '#ffffff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #fca5a5' }}>
+              <strong>Remarks Forwarded:</strong> "{activeTabRemarks}"
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── TAB 1: ATTAINMENT CONFIG ──────────────────────────────────────── */}
       {activeTab === 'config' && (
         <div style={{ display: 'grid', gap: '16px' }}>
-          {/* Header row */}
-          <div style={{ ...surface, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <div style={{ fontSize: '13.5px', fontWeight: '700', color: ink }}>Attainment Configuration — {selectedCourse?.code} · {selectedCourse?.name}</div>
-              <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>Submitted by {selectedCourse?.faculty || 'Course Coordinator'}</div>
-            </div>
-            {courseReview.configStatus !== 'VERIFIED'
-              ? <button onClick={handleVerifyConfig} style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}><ShieldCheck size={14} /> Verify & Approve</button>
-              : <StatusPill status="VERIFIED" />
-            }
-          </div>
+          <SectionHeader
+            title={`Attainment Configuration — ${selectedCourse?.code} · ${selectedCourse?.name}`}
+            subtitle={`Submitted by ${selectedCourse?.faculty || 'Course Coordinator'}`}
+            status={courseReview.configStatus}
+            onApprove={() => handleApproveSubmission('configStatus')}
+            onReject={() => openRejectModal('configStatus', `Attainment Config — ${selectedCourse?.code}`)}
+          />
 
           {/* Weight + threshold cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div style={{ ...surface, padding: '16px 20px' }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Assessment Weightage</div>
               <div style={{ display: 'flex', gap: '24px' }}>
-                <div><div style={{ fontSize: '24px', fontWeight: '800', color: accent }}>{attainmentConfig.directWeight}%</div><div style={{ fontSize: '11.5px', color: muted }}>Direct</div></div>
-                <div><div style={{ fontSize: '24px', fontWeight: '800', color: '#0284c7' }}>{attainmentConfig.indirectWeight}%</div><div style={{ fontSize: '11.5px', color: muted }}>Indirect</div></div>
+                <div><div style={{ fontSize: '24px', fontWeight: '800', color: accent }}>{attainmentConfig.directWeight}%</div><div style={{ fontSize: '11.5px', color: muted }}>Direct Assessment</div></div>
+                <div><div style={{ fontSize: '24px', fontWeight: '800', color: '#0284c7' }}>{attainmentConfig.indirectWeight}%</div><div style={{ fontSize: '11.5px', color: muted }}>Indirect Assessment</div></div>
               </div>
             </div>
             <div style={{ ...surface, padding: '16px 20px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>CO Threshold</div>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>CO Target Attainment Threshold</div>
               <div style={{ fontSize: '24px', fontWeight: '800', color: '#059669' }}>{attainmentConfig.directThreshold}%</div>
-              <div style={{ fontSize: '11.5px', color: muted }}>Students scoring ≥ {attainmentConfig.directThreshold}% are counted</div>
+              <div style={{ fontSize: '11.5px', color: muted }}>Students scoring ≥ {attainmentConfig.directThreshold}% marks meet CO benchmark</div>
             </div>
           </div>
 
-          {/* Direct level bands */}
+          {/* Direct Level Bands Table */}
           <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Layers size={14} style={{ color: accent }} />
-              <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>Direct Assessment Level Bands</span>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc' }}>
+              <Layers size={15} style={{ color: accent }} />
+              <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>Direct Assessment Level Percentage Bands (Configured by Course Coordinator)</span>
             </div>
             <table className="audit-data-table">
-              <thead><tr><th style={{ width: '80px', textAlign: 'center' }}>Level</th><th style={{ textAlign: 'center' }}>Min %</th><th style={{ textAlign: 'center' }}>Max %</th><th style={{ textAlign: 'center' }}>Score</th><th>Description</th></tr></thead>
+              <thead>
+                <tr>
+                  <th style={{ width: '90px', textAlign: 'center' }}>Level</th>
+                  <th style={{ textAlign: 'center' }}>Min % Marks</th>
+                  <th style={{ textAlign: 'center' }}>Max % Marks</th>
+                  <th style={{ textAlign: 'center' }}>Attainment Score</th>
+                  <th>Description / Target Standard</th>
+                </tr>
+              </thead>
               <tbody>
-                {attainmentConfig.directLevels.map((lvl) => (
+                {(attainmentConfig.directLevels || []).map((lvl) => (
                   <tr key={lvl.level}>
-                    <td style={{ textAlign: 'center', fontWeight: '700', color: accent }}>Level {lvl.level}</td>
-                    <td style={{ textAlign: 'center', fontWeight: '600' }}>{lvl.minPercentage}%</td>
-                    <td style={{ textAlign: 'center', fontWeight: '600' }}>{lvl.maxPercentage}%</td>
-                    <td style={{ textAlign: 'center' }}><span style={{ fontWeight: '800', color: '#16a34a' }}>{lvl.level}.0 / 3.0</span></td>
-                    <td style={{ fontSize: '12px', color: muted }}>{lvl.level === 1 ? 'Low attainment' : lvl.level === 2 ? 'Moderate attainment' : 'High attainment'}</td>
+                    <td style={{ textAlign: 'center', fontWeight: '800', color: accent }}>Level {lvl.level}</td>
+                    <td style={{ textAlign: 'center', fontWeight: '700', color: ink }}>{lvl.minPercentage}%</td>
+                    <td style={{ textAlign: 'center', fontWeight: '700', color: ink }}>{lvl.maxPercentage}%</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <span style={{ fontWeight: '800', color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: '5px' }}>
+                        {lvl.level}.0 / 3.0
+                      </span>
+                    </td>
+                    <td style={{ fontSize: '12px', color: muted }}>
+                      {lvl.level === 1 ? 'Low Direct Attainment (Students scoring within minimum threshold)' : lvl.level === 2 ? 'Moderate Direct Attainment (Students scoring within target threshold)' : 'High Direct Attainment (Students exceeding target benchmark)'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {/* Indirect level bands */}
+          {/* Indirect Level Bands Table */}
           <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Layers size={14} style={{ color: '#0284c7' }} />
-              <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>Indirect Assessment Level Bands</span>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc' }}>
+              <Layers size={15} style={{ color: '#0284c7' }} />
+              <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>Indirect Assessment Level Percentage Bands (Configured by Course Coordinator)</span>
             </div>
             <table className="audit-data-table">
-              <thead><tr><th style={{ width: '80px', textAlign: 'center' }}>Level</th><th style={{ textAlign: 'center' }}>Min %</th><th style={{ textAlign: 'center' }}>Max %</th><th style={{ textAlign: 'center' }}>Score</th><th>Description</th></tr></thead>
+              <thead>
+                <tr>
+                  <th style={{ width: '90px', textAlign: 'center' }}>Level</th>
+                  <th style={{ textAlign: 'center' }}>Min % Survey Rating</th>
+                  <th style={{ textAlign: 'center' }}>Max % Survey Rating</th>
+                  <th style={{ textAlign: 'center' }}>Attainment Score</th>
+                  <th>Description / Survey Standard</th>
+                </tr>
+              </thead>
               <tbody>
-                {attainmentConfig.indirectLevels.map((lvl) => (
+                {(attainmentConfig.indirectLevels || []).map((lvl) => (
                   <tr key={lvl.level}>
-                    <td style={{ textAlign: 'center', fontWeight: '700', color: '#0284c7' }}>Level {lvl.level}</td>
-                    <td style={{ textAlign: 'center', fontWeight: '600' }}>{lvl.minPercentage}%</td>
-                    <td style={{ textAlign: 'center', fontWeight: '600' }}>{lvl.maxPercentage}%</td>
-                    <td style={{ textAlign: 'center' }}><span style={{ fontWeight: '800', color: '#0369a1' }}>{lvl.level}.0 / 3.0</span></td>
-                    <td style={{ fontSize: '12px', color: muted }}>{lvl.level === 1 ? 'Low survey rating' : lvl.level === 2 ? 'Moderate survey rating' : 'High survey rating'}</td>
+                    <td style={{ textAlign: 'center', fontWeight: '800', color: '#0284c7' }}>Level {lvl.level}</td>
+                    <td style={{ textAlign: 'center', fontWeight: '700', color: ink }}>{lvl.minPercentage}%</td>
+                    <td style={{ textAlign: 'center', fontWeight: '700', color: ink }}>{lvl.maxPercentage}%</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <span style={{ fontWeight: '800', color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '2px 8px', borderRadius: '5px' }}>
+                        {lvl.level}.0 / 3.0
+                      </span>
+                    </td>
+                    <td style={{ fontSize: '12px', color: muted }}>
+                      {lvl.level === 1 ? 'Low Indirect Rating (Below 50% positive survey feedback)' : lvl.level === 2 ? 'Moderate Indirect Rating (50% to 70% positive survey feedback)' : 'High Indirect Rating (Above 70% positive survey feedback)'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -442,20 +483,13 @@ export default function CoordinatorReviewHub() {
       {/* ── TAB 2: CO APPROVALS ───────────────────────────────────────────── */}
       {activeTab === 'cos' && (
         <div style={{ display: 'grid', gap: '16px' }}>
-          <div style={{ ...surface, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <div style={{ fontSize: '13.5px', fontWeight: '700', color: ink }}>Course Outcomes — {selectedCourse?.code} · {selectedCourse?.name}</div>
-              <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>Submitted by {selectedCourse?.faculty || 'Course Coordinator'}</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <StatusPill status={courseReview.coStatus} />
-              {courseReview.coStatus !== 'APPROVED' && (
-                <button onClick={handleApproveCOs} style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-                  <Check size={14} /> Approve All COs
-                </button>
-              )}
-            </div>
-          </div>
+          <SectionHeader
+            title={`Course Outcomes — ${selectedCourse?.code} · ${selectedCourse?.name}`}
+            subtitle={`Submitted by ${selectedCourse?.faculty || 'Course Coordinator'}`}
+            status={courseReview.coStatus}
+            onApprove={() => handleApproveSubmission('coStatus')}
+            onReject={() => openRejectModal('coStatus', `Course Outcomes — ${selectedCourse?.code}`)}
+          />
 
           <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
             <table className="audit-data-table">
@@ -463,41 +497,19 @@ export default function CoordinatorReviewHub() {
                 <tr>
                   <th style={{ width: '80px', textAlign: 'center' }}>Code</th>
                   <th>Statement</th>
-                  <th style={{ width: '130px', textAlign: 'center' }}>Status</th>
-                  <th style={{ width: '140px', textAlign: 'center' }}>Actions</th>
+                  <th style={{ width: '140px', textAlign: 'center' }}>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {courseCOs.length === 0 && (
-                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>No COs submitted for this course yet.</td></tr>
-                )}
-                {courseCOs.map((co) => {
-                  const approved = co.status === 'APPROVED' || courseReview.coStatus === 'APPROVED';
-                  const rejected = co.status === 'REJECTED';
-                  return (
-                    <tr key={co.code}>
-                      <td style={{ textAlign: 'center', fontWeight: '700', color: accent }}>{co.code}</td>
-                      <td style={{ fontSize: '12.5px', color: ink }}>{co.statement}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <StatusPill status={approved ? 'APPROVED' : rejected ? 'REJECTED' : 'PENDING_APPROVAL'} />
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                          {!approved && (
-                            <button onClick={() => handleApproveCO(co.code)} style={{ height: '28px', padding: '0 10px', fontSize: '11.5px', fontWeight: '700', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>
-                              <Check size={12} /> Approve
-                            </button>
-                          )}
-                          {!rejected && (
-                            <button onClick={() => handleRejectCO(co.code)} style={{ height: '28px', padding: '0 10px', fontSize: '11.5px', fontWeight: '700', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>
-                              <XCircle size={12} /> Reject
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {courseCOs.map((co) => (
+                  <tr key={co.code}>
+                    <td style={{ textAlign: 'center', fontWeight: '700', color: accent }}>{co.code}</td>
+                    <td style={{ fontSize: '12.5px', color: ink }}>{co.statement}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <StatusBadge status={courseReview.coStatus === 'REJECTED' ? 'REJECTED' : co.status || 'PENDING_APPROVAL'} size="sm" />
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -507,24 +519,15 @@ export default function CoordinatorReviewHub() {
       {/* ── TAB 3: COURSE ATR REVIEW ──────────────────────────────────────── */}
       {activeTab === 'atr' && (
         <div style={{ display: 'grid', gap: '16px' }}>
-          <div style={{ ...surface, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <div style={{ fontSize: '13.5px', fontWeight: '700', color: ink }}>Course ATR — {selectedCourse?.code} · {selectedCourse?.name}</div>
-              <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>Target gap analysis & corrective actions from Course Coordinator.</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <StatusPill status={courseReview.atrStatus} />
-              {courseReview.atrStatus !== 'VERIFIED' && (
-                <button onClick={handleVerifyATR} style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-                  <ShieldCheck size={14} /> Verify ATR
-                </button>
-              )}
-            </div>
-          </div>
+          <SectionHeader
+            title={`Course ATR — ${selectedCourse?.code} · ${selectedCourse?.name}`}
+            subtitle="Target gap analysis & corrective actions from Course Coordinator."
+            status={courseReview.atrStatus}
+            onApprove={() => handleApproveSubmission('atrStatus')}
+            onReject={() => openRejectModal('atrStatus', `Course ATR — ${selectedCourse?.code}`)}
+          />
 
-          {courseAtrData.length === 0 ? (
-            <div style={{ ...surface, padding: '32px', textAlign: 'center', color: muted, fontSize: '12.5px' }}>No ATR submitted for this course yet.</div>
-          ) : courseAtrData.map((atr) => (
+          {courseAtrData.map((atr) => (
             <div key={atr.code} style={{ ...surface, padding: '16px 20px', borderLeft: `3px solid ${atr.met ? '#16a34a' : '#dc2626'}` }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>{atr.code}: {atr.statement}</span>
@@ -548,7 +551,60 @@ export default function CoordinatorReviewHub() {
           activePOs={activePOs}
           normPSOs={normPSOs}
           progAtrRows={progAtrRows}
+          onApprove={() => handleApproveSubmission('programmeAtrStatus')}
+          onReject={() => openRejectModal('programmeAtrStatus', `Programme ATR — ${selectedProgramme.code}`)}
+          status={courseReview.programmeAtrStatus}
         />
+      )}
+
+      {/* ── REJECTION REMARKS MODAL DIALOG ──────────────────────────────────── */}
+      {showRejectModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', display: 'grid', placeItems: 'center', zIndex: 100, padding: '20px' }}>
+          <div style={{ background: '#ffffff', borderRadius: '14px', width: '100%', maxWidth: '540px', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#fef2f2', color: '#dc2626', display: 'grid', placeItems: 'center' }}>
+                  <MessageSquare size={18} />
+                </div>
+                <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>
+                  Send Back Submission for Revision
+                </h3>
+              </div>
+              <button type="button" onClick={() => setShowRejectModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: '#475569', marginBottom: '14px', background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              Target Item: <strong>{rejectModalData?.title}</strong>
+            </p>
+
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+              Enter Remarks &amp; Action Required for Course Coordinator:
+            </label>
+            <textarea
+              rows={4}
+              value={rejectRemarksInput}
+              onChange={(e) => setRejectRemarksInput(e.target.value)}
+              placeholder="e.g. Target threshold for CO3 should be revised to 2.8 and direct weightage adjusted to 80%."
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', fontSize: '13px', outline: 'none', fontFamily: 'inherit', resize: 'vertical' }}
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowRejectModal(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleConfirmReject}
+                style={{ background: '#dc2626', color: '#ffffff', fontWeight: '800' }}
+              >
+                Send Back with Remarks →
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

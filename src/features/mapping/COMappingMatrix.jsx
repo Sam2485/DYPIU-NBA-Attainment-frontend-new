@@ -3,7 +3,7 @@ import { FileSpreadsheet, Grid2X2, Save } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
-export default function COMappingMatrix() {
+export default function COMappingMatrix({ hideFooter = false }) {
   const {
     academicYear,
     selectedProgramme,
@@ -616,6 +616,7 @@ export default function COMappingMatrix() {
         nextPath="/marks-upload"
         nextLabel="Save & Proceed to Direct Assessment →"
         onSave={handleSave}
+        hidden={hideFooter}
       />
     </div>
   );

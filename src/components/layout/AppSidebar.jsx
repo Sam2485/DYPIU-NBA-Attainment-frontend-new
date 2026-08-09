@@ -33,62 +33,61 @@ function Icon({ name, active = false, size = 16 }) {
 
 // ── Director Nav Items ─────────────────────────────────────────────────────────
 const DIRECTOR_NAV = [
-  { id: 'dashboard',             path: '/director/dashboard',             icon: 'dashboard', label: 'Dashboard',          sub: 'Overview & actions' },
-  { id: 'school-structure',      path: '/director/school-structure',      icon: 'academic',  label: 'School Structure',   sub: 'Hierarchy & info' },
-  { id: 'department-management', path: '/director/department-management', icon: 'users',     label: 'Departments & HODs', sub: 'Manage depts' },
-  { id: 'programme-overview',    path: '/director/programme-overview',    icon: 'outcomes',  label: 'Programmes',         sub: 'Status & coordinators' },
-  { id: 'approvals',             path: '/director/approvals',             icon: 'config',    label: 'Approvals',          sub: 'Pending reviews' },
-  { id: 'reports',               path: '/director/reports',               icon: 'reports',   label: 'Reports',            sub: 'Downloads & exports' },
+  { id: 'dashboard',             path: '/director/dashboard',             icon: 'dashboard', label: 'Dashboard' },
+  { id: 'school-structure',      path: '/director/school-structure',      icon: 'academic',  label: 'School Structure' },
+  { id: 'department-management', path: '/director/department-management', icon: 'users',     label: 'Departments & HODs' },
+  { id: 'programme-overview',    path: '/director/programme-overview',    icon: 'outcomes',  label: 'Programmes' },
+  { id: 'approvals',             path: '/director/approvals',             icon: 'config',    label: 'Approvals' },
+  { id: 'reports',               path: '/director/reports',               icon: 'reports',   label: 'Reports' },
 ];
 
-// ── HOD Nav Items (as specified in PDF Page 2-3) ───────────────────────────────
+// ── HOD Nav Items ──────────────────────────────────────────────────────────────
 const HOD_NAV = [
-  { id: 'dashboard',          path: '/hod/dashboard',          icon: 'dashboard', label: 'Dashboard',          sub: 'Overview & actions' },
-  { id: 'batch-management',   path: '/hod/batch-management',   icon: 'academic',  label: 'Batch Management',   sub: 'Initialize batches' },
-  { id: 'programme-outcomes', path: '/hod/programme-outcomes', icon: 'outcomes',  label: 'Programme Outcomes', sub: 'POs, PSOs & PEOs' },
-  { id: 'course-management',  path: '/hod/course-management',  icon: 'users',     label: 'Course Management',  sub: 'Courses & coordinators' },
-  { id: 'approvals',          path: '/hod/approvals',          icon: 'config',    label: 'Approvals',          sub: 'Verify submissions' },
-  { id: 'programme-atr',      path: '/hod/programme-atr',      icon: 'survey',    label: 'Programme ATR',      sub: 'Review & approve' },
-  { id: 'reports',            path: '/hod/reports',            icon: 'reports',   label: 'Reports',            sub: 'Batch & programme reports' },
+  { id: 'dashboard',          path: '/hod/dashboard',          icon: 'dashboard', label: 'Dashboard' },
+  { id: 'batch-management',   path: '/hod/batch-management',   icon: 'academic',  label: 'Batch Management' },
+  { id: 'programme-outcomes', path: '/hod/programme-outcomes', icon: 'outcomes',  label: 'Programme Outcomes' },
+  { id: 'course-management',  path: '/hod/course-management',  icon: 'users',     label: 'Course Management' },
+  { id: 'approvals',          path: '/hod/approvals',          icon: 'config',    label: 'Approvals' },
+  { id: 'programme-atr',      path: '/hod/programme-atr',      icon: 'survey',    label: 'Programme ATR' },
+  { id: 'reports',            path: '/hod/reports',            icon: 'reports',   label: 'Reports' },
 ];
 
-// ── Programme Coordinator Nav Items (as specified in PDF Page 4) ────────────────
+// ── Programme Coordinator Nav Items ───────────────────────────────────────────────
 const PROGRAMME_COORDINATOR_NAV = [
-  { id: 'dashboard',          path: '/programme-coordinator/dashboard',          icon: 'dashboard', label: 'Dashboard',                     sub: 'Start process & tracker' },
-  { id: 'programme-setup',    path: '/programme-coordinator/setup',              icon: 'academic',  label: 'Programme Setup',               sub: 'Courses & outcome review' },
-  { id: 'course-allocation',  path: '/programme-coordinator/course-allocation', icon: 'users',     label: 'Course and Faculty Allocation', sub: 'Assign course coordinators' },
-  { id: 'target-settings',    path: '/programme-coordinator/target-settings',    icon: 'config',    label: 'Target Settings',               sub: 'Set PO & PSO target levels' },
-  { id: 'verification-panel', path: '/programme-coordinator/verification',       icon: 'poa',       label: 'Verification Panel',            sub: 'Review course submissions' },
-  { id: 'attainment-summary', path: '/programme-coordinator/attainment-summary', icon: 'coa',       label: 'Attainment Summary',            sub: 'Overall PO/PSO attainment' },
-  { id: 'programme-atr',      path: '/programme-coordinator/programme-atr',      icon: 'survey',    label: 'Programme ATR',                 sub: 'Prepare final ATR' },
-  { id: 'reports',            path: '/programme-coordinator/reports',            icon: 'reports',   label: 'Reports and Downloads',         sub: 'Export data & reports' },
+  { id: 'dashboard',          path: '/programme-coordinator/dashboard',          icon: 'dashboard', label: 'Dashboard' },
+  { id: 'programme-setup',    path: '/academic',                                 icon: 'academic',  label: 'Programme Setup' },
+  { id: 'target-settings',    path: '/programme-coordinator/target-settings',    icon: 'config',    label: 'Target Settings' },
+  { id: 'verification-panel', path: '/coordinator-review',                       icon: 'poa',       label: 'Verification Panel' },
+  { id: 'attainment-summary', path: '/attainment-overview',                      icon: 'coa',       label: 'Attainment Summary' },
+  { id: 'programme-atr',      path: '/programme-atr',                            icon: 'survey',    label: 'Programme ATR' },
+  { id: 'reports',            path: '/reports',                                  icon: 'reports',   label: 'Reports and Downloads' },
 ];
 
 // ── Dropdown 1: Programme Setup & Management ───────────────────────────────────
 const PROGRAMME_SETUP_NAV = [
-  { id: 'dashboard',     path: '/programme-coordinator/dashboard', icon: 'dashboard', label: 'Dashboard',       sub: 'Overview & analytics' },
-  { id: 'academic',      path: '/academic',      icon: 'academic',  label: 'Academic Setup',  sub: 'Depts, programmes, courses' },
-  { id: 'outcomes',      path: '/programme-coordinator/target-settings', icon: 'outcomes',  label: 'Target Settings',  sub: 'POs, PSOs & PEO targets' },
-  { id: 'programme-atr', path: '/programme-atr', icon: 'poa',       label: 'Programme ATR',   sub: 'Continuous improvement' },
-  { id: 'reports',       path: '/reports',       icon: 'reports',   label: 'Reports',         sub: 'Excel & PDF exports' },
+  { id: 'dashboard',     path: '/programme-coordinator/dashboard', icon: 'dashboard', label: 'Dashboard' },
+  { id: 'academic',      path: '/academic',      icon: 'academic',  label: 'Academic Setup' },
+  { id: 'outcomes',      path: '/programme-coordinator/target-settings', icon: 'outcomes',  label: 'Target Settings' },
+  { id: 'programme-atr', path: '/programme-atr', icon: 'poa',       label: 'Programme ATR' },
+  { id: 'reports',       path: '/reports',       icon: 'reports',   label: 'Reports' },
 ];
 
 // ── Dropdown 2: Course Submissions Review ──────────────────────────────────────
 const COURSE_REVIEWS_NAV = [
-  { id: 'review-config',        path: '/coordinator-review?tab=config',        icon: 'config',   label: 'Attainment Config',  sub: 'Weightages & thresholds'   },
-  { id: 'review-cos',           path: '/coordinator-review?tab=cos',           icon: 'outcomes', label: 'CO Verification',    sub: 'Approve proposed COs'      },
-  { id: 'review-atr',           path: '/coordinator-review?tab=atr',           icon: 'survey',   label: 'Course ATR Review',  sub: 'Verify course ATR'         },
-  { id: 'review-programme-atr', path: '/coordinator-review?tab=programme-atr', icon: 'poa',      label: 'Programme ATR',      sub: 'PO & PSO attainment review'},
+  { id: 'review-config',        path: '/coordinator-review?tab=config',        icon: 'config',   label: 'Attainment Config' },
+  { id: 'review-cos',           path: '/coordinator-review?tab=cos',           icon: 'outcomes', label: 'CO Verification' },
+  { id: 'review-atr',           path: '/coordinator-review?tab=atr',           icon: 'survey',   label: 'Course ATR Review' },
+  { id: 'review-programme-atr', path: '/coordinator-review?tab=programme-atr', icon: 'poa',      label: 'Programme ATR' },
 ];
 
 // ── Course Coordinator Nav Items ───────────────────────────────────────────────
 const FACULTY_NAV = [
-  { id: 'dashboard',           path: '/dashboard',                icon: 'dashboard', label: 'Dashboard',          sub: 'Start attainment process' },
-  { id: 'outcomes',            path: '/outcomes?mode=standalone', icon: 'outcomes',  label: 'Outcomes',           sub: 'Course outcomes (COs)' },
-  { id: 'configurations',      path: '/configurations',           icon: 'config',    label: 'Attainment Config',  sub: 'Weightages & thresholds' },
-  { id: 'attainment-overview', path: '/attainment-overview',      icon: 'coa',       label: 'Attainment',         sub: 'CO & PO/PSO overview' },
-  { id: 'course-atr',          path: '/atr-reports',              icon: 'survey',    label: 'ATR Reports',        sub: 'Current & carry-forward' },
-  { id: 'reports',             path: '/reports',                  icon: 'reports',   label: 'Reports',            sub: 'PDF & Excel exports' },
+  { id: 'dashboard',           path: '/dashboard',                icon: 'dashboard', label: 'Dashboard' },
+  { id: 'outcomes',            path: '/outcomes?mode=standalone', icon: 'outcomes',  label: 'Outcomes' },
+  { id: 'configurations',      path: '/configurations',           icon: 'config',    label: 'Attainment Config' },
+  { id: 'attainment-overview', path: '/attainment-overview',      icon: 'coa',       label: 'Attainment' },
+  { id: 'course-atr',          path: '/atr-reports',              icon: 'survey',    label: 'ATR Reports' },
+  { id: 'reports',             path: '/reports',                  icon: 'reports',   label: 'Reports' },
 ];
 
 export default function AppSidebar() {
@@ -279,8 +278,7 @@ export default function AppSidebar() {
                               <Icon name={item.icon} active={isActive} size={13} />
                             </span>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: 700, fontSize: 12, lineHeight: 1.1, color: '#f8fafc' }}>{item.label}</div>
-                              <div style={{ fontSize: 9.5, marginTop: 2, color: isActive ? '#c7d2fe' : '#64748b' }}>{item.sub}</div>
+                              <div style={{ fontWeight: 700, fontSize: 12.5, lineHeight: 1.1, color: '#f8fafc' }}>{item.label}</div>
                             </div>
                           </button>
                         );
@@ -343,8 +341,7 @@ export default function AppSidebar() {
                               <Icon name={item.icon} active={isActive} size={13} />
                             </span>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: 700, fontSize: 12, lineHeight: 1.1, color: '#f8fafc' }}>{item.label}</div>
-                              <div style={{ fontSize: 9.5, marginTop: 2, color: isActive ? '#c7d2fe' : '#64748b' }}>{item.sub}</div>
+                              <div style={{ fontWeight: 700, fontSize: 12.5, lineHeight: 1.1, color: '#f8fafc' }}>{item.label}</div>
                             </div>
                           </button>
                         );
@@ -407,8 +404,7 @@ export default function AppSidebar() {
                               <Icon name={item.icon} active={isActive} size={13} />
                             </span>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: 700, fontSize: 12, lineHeight: 1.1, color: '#f8fafc' }}>{item.label}</div>
-                              <div style={{ fontSize: 9.5, marginTop: 2, color: isActive ? '#c7d2fe' : '#64748b' }}>{item.sub}</div>
+                              <div style={{ fontWeight: 700, fontSize: 12.5, lineHeight: 1.1, color: '#f8fafc' }}>{item.label}</div>
                             </div>
                           </button>
                         );
@@ -528,11 +524,8 @@ export default function AppSidebar() {
                           <Icon name={item.icon} active={isActive} size={13} />
                         </span>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 800, fontSize: 11.5, lineHeight: 1.1, color: '#f8fafc' }}>
+                          <div style={{ fontWeight: 700, fontSize: 12.5, lineHeight: 1.1, color: '#f8fafc' }}>
                             {item.label}
-                          </div>
-                          <div style={{ fontSize: 9, marginTop: 2, color: isActive ? '#c7d2fe' : '#64748b' }}>
-                            {item.sub}
                           </div>
                         </div>
                       </button>
@@ -649,11 +642,8 @@ export default function AppSidebar() {
                           <Icon name={item.icon} active={isActive} size={13} />
                         </span>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 800, fontSize: 11.5, lineHeight: 1.1, color: '#f8fafc' }}>
+                          <div style={{ fontWeight: 700, fontSize: 12.5, lineHeight: 1.1, color: '#f8fafc' }}>
                             {item.label}
-                          </div>
-                          <div style={{ fontSize: 9, marginTop: 2, color: isActive ? '#fef08a' : '#64748b' }}>
-                            {item.sub}
                           </div>
                         </div>
                       </button>
@@ -768,11 +758,8 @@ export default function AppSidebar() {
                         <Icon name={item.icon} active={isActive} size={14} />
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 800, fontSize: 12, lineHeight: 1.1, color: '#f8fafc' }}>
+                        <div style={{ fontWeight: 700, fontSize: 12.5, lineHeight: 1.1, color: '#f8fafc' }}>
                           {item.label}
-                        </div>
-                        <div style={{ fontSize: 9.5, marginTop: 2, color: isActive ? '#c7d2fe' : '#64748b' }}>
-                          {item.sub}
                         </div>
                       </div>
                     </button>

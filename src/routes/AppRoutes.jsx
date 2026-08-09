@@ -39,11 +39,13 @@ import HodApprovalsPage from '../pages/hod/HodApprovalsPage';
 import HodProgrammeATRPage from '../pages/hod/HodProgrammeATRPage';
 import HodReportsPage from '../pages/hod/HodReportsPage';
 import HodSetupWorkflowPage from '../pages/hod/HodSetupWorkflowPage';
+import CourseCoordinatorWorkflowPage from '../pages/CourseCoordinatorWorkflowPage';
 
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/dashboard" element={<DashboardPage />} />
+      <Route path="/course-coordinator/workflow" element={<CourseCoordinatorWorkflowPage />} />
       
       {/* Director Routes */}
       <Route path="/director/dashboard" element={<DashboardPage />} />
