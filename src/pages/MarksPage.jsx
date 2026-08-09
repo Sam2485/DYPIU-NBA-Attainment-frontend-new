@@ -7,9 +7,9 @@ export default function MarksPage() {
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
       <main className="nba-layout-main">
-        <AppHeader title="End Semester Marks Hub" subtitle="Excel Ingestion & Marks Grid" />
+        <AppHeader />
         <div className="page-container">
-          <EndSemMarksHub />
+          <EndSemMarksHub hideFooter={true} />
         </div>
       </main>
     </div>

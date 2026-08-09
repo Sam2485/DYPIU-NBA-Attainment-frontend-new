@@ -7,9 +7,9 @@ export default function COAttainmentPage() {
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
       <main className="nba-layout-main">
-        <AppHeader title="CO Attainment Engine" subtitle="Direct, Indirect & Overall Calculations" />
+        <AppHeader />
         <div className="page-container">
-          <COAttainmentEngine />
+          <COAttainmentEngine hideFooter={true} />
         </div>
       </main>
     </div>

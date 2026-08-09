@@ -9,7 +9,7 @@ export default function CourseATRPage() {
       <main className="nba-layout-main">
         <AppHeader />
         <div className="page-container">
-          <CourseATR />
+          <CourseATR hideFooter={true} />
         </div>
       </main>
     </div>

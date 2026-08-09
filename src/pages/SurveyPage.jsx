@@ -7,9 +7,9 @@ export default function SurveyPage() {
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
       <main className="nba-layout-main">
-        <AppHeader title="Course End Survey Hub" subtitle="Student Survey Feedback Parsing" />
+        <AppHeader />
         <div className="page-container">
-          <CourseEndSurveyHub />
+          <CourseEndSurveyHub hideFooter={true} />
         </div>
       </main>
     </div>

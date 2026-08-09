@@ -9,7 +9,7 @@ export default function ProgrammeATRPage() {
       <main className="nba-layout-main">
         <AppHeader />
         <div className="page-container">
-          <ProgrammeATR />
+          <ProgrammeATR hideFooter={true} />
         </div>
       </main>
     </div>

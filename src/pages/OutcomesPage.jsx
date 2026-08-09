@@ -7,9 +7,9 @@ export default function OutcomesPage() {
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
       <main className="nba-layout-main">
-        <AppHeader title="Outcome Management" subtitle="POs, PSOs, COs & Competencies" />
+        <AppHeader />
         <div className="page-container">
-          <OutcomesManagement />
+          <OutcomesManagement hideFooter={true} />
         </div>
       </main>
     </div>

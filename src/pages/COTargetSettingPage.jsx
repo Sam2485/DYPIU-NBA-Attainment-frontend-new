@@ -9,7 +9,7 @@ export default function COTargetSettingPage() {
       <main className="nba-layout-main">
         <AppHeader />
         <div className="page-container">
-          <COTargetSettingHub />
+          <COTargetSettingHub hideFooter={true} />
         </div>
       </main>
     </div>
