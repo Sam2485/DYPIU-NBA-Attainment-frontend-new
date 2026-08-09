@@ -22,6 +22,7 @@ export default function HodSetupWorkflow() {
     courses = [],
     assignCourseCoordinator = () => {},
     addCourse = () => {},
+    deleteCourse = () => {},
   } = useAcademic();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -98,6 +99,12 @@ export default function HodSetupWorkflow() {
     if (!newCourseCode || !newCourseName) return;
     addCourse({ id: `crs-${Date.now()}`, programmeId, code: newCourseCode, name: newCourseName, semester: newCourseSem, coordinator: 'Dr. Raj Shaikh', faculty: 'Dr. Raj Shaikh' });
     setNewCourseCode(''); setNewCourseName('');
+  };
+
+  const handleDeleteCourse = (c) => {
+    if (window.confirm(`Are you sure you want to delete course "${c.code} - ${c.name}"?`)) {
+      deleteCourse(c.id);
+    }
   };
 
   const handleNext = () => { if (currentStep < 4) { setCurrentStep((p) => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
@@ -343,8 +350,8 @@ export default function HodSetupWorkflow() {
 
             {/* Add course form */}
             <form onSubmit={handleAddCourse} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '10px' }}>Add Course</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr 120px auto', gap: '10px', alignItems: 'flex-end' }}>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '10px' }}>Add Course for {selectedProgramme.code}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr 140px auto', gap: '10px', alignItems: 'flex-end' }}>
                 <div>
                   <label style={labelStyle}>Code *</label>
                   <input type="text" required placeholder="CS305" value={newCourseCode} onChange={(e) => setNewCourseCode(e.target.value)} style={{ ...inputStyle, fontWeight: '700', color: accent }} />
@@ -354,9 +361,11 @@ export default function HodSetupWorkflow() {
                   <input type="text" required placeholder="e.g. Compiler Design" value={newCourseName} onChange={(e) => setNewCourseName(e.target.value)} style={inputStyle} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Semester</label>
-                  <select value={newCourseSem} onChange={(e) => setNewCourseSem(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-                    {['Sem III','Sem IV','Sem V','Sem VI','Sem VII'].map((s) => <option key={s}>{s}</option>)}
+                  <label style={labelStyle}>Semester ({((selectedProgramme?.durationYears || 4) * 2)} Total) *</label>
+                  <select value={newCourseSem} onChange={(e) => setNewCourseSem(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', fontWeight: '700', color: accent }}>
+                    {Array.from({ length: (selectedProgramme?.durationYears || 4) * 2 }, (_, i) => `Sem ${['I','II','III','IV','V','VI','VII','VIII','IX','X'][i] || i + 1}`).map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
                   </select>
                 </div>
                 <button type="submit" style={{ height: '40px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Add</button>
@@ -373,10 +382,11 @@ export default function HodSetupWorkflow() {
                     <th style={{ width: '90px', textAlign: 'center' }}>Semester</th>
                     <th style={{ width: '240px' }}>Course Coordinator</th>
                     <th style={{ width: '100px', textAlign: 'center' }}>Status</th>
+                    <th style={{ width: '60px', textAlign: 'center' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {courses.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>No courses yet — add one above.</td></tr>}
+                  {courses.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>No courses yet — add one above.</td></tr>}
                   {courses.map((c) => (
                     <tr key={c.id}>
                       <td style={{ fontWeight: '700', color: accent }}>{c.code}</td>
@@ -391,6 +401,16 @@ export default function HodSetupWorkflow() {
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '5px', padding: '2px 8px' }}>
                           <Check size={11} /> Allocated
                         </span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCourse(c)}
+                          style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                          title="Delete Course"
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </td>
                     </tr>
                   ))}

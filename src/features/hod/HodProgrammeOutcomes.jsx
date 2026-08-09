@@ -1,6 +1,31 @@
 import { useState } from 'react';
-import { Layers, Plus, Edit2, CheckCircle2, ShieldCheck, Trash2, Save, X } from 'lucide-react';
+import { Plus, Trash2, X, CheckCircle2, ChevronDown } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+
+// ── Style tokens (identical to HodSetupWorkflow) ─────────────────────────────
+const surface  = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
+const ink      = '#0f172a';
+const muted    = '#64748b';
+const accent   = '#4f46e5';
+const inputStyle = {
+  height: '40px',
+  fontSize: '13px',
+  border: '1px solid #e2e8f0',
+  borderRadius: '8px',
+  padding: '0 12px',
+  background: '#ffffff',
+  color: ink,
+  width: '100%',
+  outline: 'none',
+  fontFamily: 'inherit',
+};
+const labelStyle = {
+  display: 'block',
+  fontSize: '11.5px',
+  fontWeight: '600',
+  color: muted,
+  marginBottom: '5px',
+};
 
 export default function HodProgrammeOutcomes() {
   const {
@@ -10,602 +35,475 @@ export default function HodProgrammeOutcomes() {
     activePOs = [],
     activePSOs = [],
     activePEOs = [],
-    updateProgrammePOs = () => {},
+    updateProgrammePOs  = () => {},
     updateProgrammePSOs = () => {},
     updateProgrammePEOs = () => {},
   } = useAcademic();
 
-  const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
+  const selectedProgramme =
+    masterProgrammes.find((p) => p.id === programmeId) ||
+    masterProgrammes[0] ||
+    { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
 
-  const [activeTab, setActiveTab] = useState('PO'); // 'PO', 'PSO', 'PEO'
-  const [showAddModal, setShowAddModal] = useState(false);
-
-  // New Outcome Form State
-  const [code, setCode] = useState('');
-  const [statement, setStatement] = useState('');
-  const [initialCompStatement, setInitialCompStatement] = useState('');
+  const [activeTab, setActiveTab] = useState('PO');
 
   // ── PO HANDLERS ─────────────────────────────────────────────────────────────
   const handleAddPO = () => {
-    const newNum = activePOs.length + 1;
+    const n = activePOs.length + 1;
     const newPo = {
-      code: `PO${newNum}`,
-      statement: `New Programme Outcome ${newNum} Statement...`,
+      code: `PO${n}`,
+      statement: `New Programme Outcome ${n}...`,
       status: 'VERIFIED',
-      competencies: [
-        { id: `comp-PO${newNum}-1`, order: 1, statement: `Demonstrate competency 1 for PO${newNum}` },
-      ],
+      competencies: [{ id: `comp-PO${n}-1`, order: 1, statement: `Competency 1 for PO${n}` }],
     };
     updateProgrammePOs(programmeId, [...activePOs, newPo]);
   };
 
-  const handleUpdatePOCode = (index, newCode) => {
-    const updated = activePOs.map((p, i) => (i === index ? { ...p, code: newCode } : p));
-    updateProgrammePOs(programmeId, updated);
+  const handleUpdatePOCode = (i, v) => {
+    updateProgrammePOs(programmeId, activePOs.map((p, idx) => (idx === i ? { ...p, code: v } : p)));
   };
-
-  const handleUpdatePOStatement = (index, newStatement) => {
-    const updated = activePOs.map((p, i) => (i === index ? { ...p, statement: newStatement } : p));
-    updateProgrammePOs(programmeId, updated);
+  const handleUpdatePOStatement = (i, v) => {
+    updateProgrammePOs(programmeId, activePOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
   };
-
-  const handleDeletePO = (index) => {
-    if (window.confirm(`Are you sure you want to delete ${activePOs[index].code}?`)) {
-      const updated = activePOs.filter((_, i) => i !== index);
-      updateProgrammePOs(programmeId, updated);
-    }
+  const handleDeletePO = (i) => {
+    if (window.confirm(`Delete ${activePOs[i].code}?`))
+      updateProgrammePOs(programmeId, activePOs.filter((_, idx) => idx !== i));
   };
-
-  const handleAddPOCompetency = (poIndex) => {
-    const updated = activePOs.map((p, i) => {
-      if (i === poIndex) {
+  const handleAddPOCompetency = (pi) => {
+    updateProgrammePOs(
+      programmeId,
+      activePOs.map((p, i) => {
+        if (i !== pi) return p;
         const comps = p.competencies || [];
-        const nextOrder = comps.length + 1;
-        const newComp = {
-          id: `comp-${p.code}-${nextOrder}`,
-          order: nextOrder,
-          statement: `Demonstrate competency statement ${nextOrder} for ${p.code}`,
-        };
-        return { ...p, competencies: [...comps, newComp] };
-      }
-      return p;
-    });
-    updateProgrammePOs(programmeId, updated);
+        const n = comps.length + 1;
+        return { ...p, competencies: [...comps, { id: `comp-${p.code}-${n}`, order: n, statement: `Competency ${n} for ${p.code}` }] };
+      }),
+    );
   };
-
-  const handleUpdatePOCompetencyStatement = (poIndex, compIndex, statementText) => {
-    const updated = activePOs.map((p, i) => {
-      if (i === poIndex) {
+  const handleUpdatePOCompetency = (pi, ci, v) => {
+    updateProgrammePOs(
+      programmeId,
+      activePOs.map((p, i) => {
+        if (i !== pi) return p;
         const comps = [...(p.competencies || [])];
-        comps[compIndex] = { ...comps[compIndex], statement: statementText };
+        comps[ci] = { ...comps[ci], statement: v };
         return { ...p, competencies: comps };
-      }
-      return p;
-    });
-    updateProgrammePOs(programmeId, updated);
+      }),
+    );
   };
-
-  const handleDeletePOCompetency = (poIndex, compIndex) => {
-    const updated = activePOs.map((p, i) => {
-      if (i === poIndex) {
-        const comps = (p.competencies || []).filter((_, ci) => ci !== compIndex);
-        return { ...p, competencies: comps.map((c, idx) => ({ ...c, order: idx + 1 })) };
-      }
-      return p;
-    });
-    updateProgrammePOs(programmeId, updated);
+  const handleDeletePOCompetency = (pi, ci) => {
+    updateProgrammePOs(
+      programmeId,
+      activePOs.map((p, i) => {
+        if (i !== pi) return p;
+        const comps = (p.competencies || []).filter((_, c) => c !== ci).map((c, idx) => ({ ...c, order: idx + 1 }));
+        return { ...p, competencies: comps };
+      }),
+    );
   };
 
   // ── PSO HANDLERS ────────────────────────────────────────────────────────────
+  // Normalise: ensure every PSO has a competencies array (context seed data may omit it)
+  const normalisedPSOs = activePSOs.map((pso) => ({
+    ...pso,
+    competencies: pso.competencies ?? [],
+  }));
+
   const handleAddPSO = () => {
-    const newNum = activePSOs.length + 1;
+    const n = normalisedPSOs.length + 1;
     const newPso = {
-      code: `PSO${newNum}`,
-      statement: `New Programme Specific Outcome ${newNum} Statement...`,
-      competencies: [
-        { id: `psocomp-PSO${newNum}-1`, order: 1, statement: `Demonstrate domain competency 1 for PSO${newNum}` },
-      ],
+      code: `PSO${n}`,
+      statement: `New Programme Specific Outcome ${n}...`,
+      competencies: [{ id: `psocomp-PSO${n}-1`, order: 1, statement: `Competency 1 for PSO${n}` }],
     };
-    updateProgrammePSOs(programmeId, [...activePSOs, newPso]);
+    updateProgrammePSOs(programmeId, [...normalisedPSOs, newPso]);
   };
 
-  const handleUpdatePSOCode = (index, newCode) => {
-    const updated = activePSOs.map((p, i) => (i === index ? { ...p, code: newCode } : p));
-    updateProgrammePSOs(programmeId, updated);
+  const handleUpdatePSOCode = (i, v) => {
+    updateProgrammePSOs(programmeId, normalisedPSOs.map((p, idx) => (idx === i ? { ...p, code: v } : p)));
   };
-
-  const handleUpdatePSOStatement = (index, newStatement) => {
-    const updated = activePSOs.map((p, i) => (i === index ? { ...p, statement: newStatement } : p));
-    updateProgrammePSOs(programmeId, updated);
+  const handleUpdatePSOStatement = (i, v) => {
+    updateProgrammePSOs(programmeId, normalisedPSOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
   };
-
-  const handleDeletePSO = (index) => {
-    if (window.confirm(`Are you sure you want to delete ${activePSOs[index].code}?`)) {
-      const updated = activePSOs.filter((_, i) => i !== index);
-      updateProgrammePSOs(programmeId, updated);
-    }
+  const handleDeletePSO = (i) => {
+    if (window.confirm(`Delete ${normalisedPSOs[i].code}?`))
+      updateProgrammePSOs(programmeId, normalisedPSOs.filter((_, idx) => idx !== i));
   };
-
-  const handleAddPSOCompetency = (psoIndex) => {
-    const updated = activePSOs.map((p, i) => {
-      if (i === psoIndex) {
+  const handleAddPSOCompetency = (pi) => {
+    updateProgrammePSOs(
+      programmeId,
+      normalisedPSOs.map((p, i) => {
+        if (i !== pi) return p;
         const comps = p.competencies || [];
-        const nextOrder = comps.length + 1;
-        const newComp = {
-          id: `psocomp-${p.code}-${nextOrder}`,
-          order: nextOrder,
-          statement: `Demonstrate specialized competency statement ${nextOrder} for ${p.code}`,
-        };
-        return { ...p, competencies: [...comps, newComp] };
-      }
-      return p;
-    });
-    updateProgrammePSOs(programmeId, updated);
+        const n = comps.length + 1;
+        return { ...p, competencies: [...comps, { id: `psocomp-${p.code}-${n}`, order: n, statement: `Competency ${n} for ${p.code}` }] };
+      }),
+    );
   };
-
-  const handleUpdatePSOCompetencyStatement = (psoIndex, compIndex, statementText) => {
-    const updated = activePSOs.map((p, i) => {
-      if (i === psoIndex) {
+  const handleUpdatePSOCompetency = (pi, ci, v) => {
+    updateProgrammePSOs(
+      programmeId,
+      normalisedPSOs.map((p, i) => {
+        if (i !== pi) return p;
         const comps = [...(p.competencies || [])];
-        comps[compIndex] = { ...comps[compIndex], statement: statementText };
+        comps[ci] = { ...comps[ci], statement: v };
         return { ...p, competencies: comps };
-      }
-      return p;
-    });
-    updateProgrammePSOs(programmeId, updated);
+      }),
+    );
   };
-
-  const handleDeletePSOCompetency = (psoIndex, compIndex) => {
-    const updated = activePSOs.map((p, i) => {
-      if (i === psoIndex) {
-        const comps = (p.competencies || []).filter((_, ci) => ci !== compIndex);
-        return { ...p, competencies: comps.map((c, idx) => ({ ...c, order: idx + 1 })) };
-      }
-      return p;
-    });
-    updateProgrammePSOs(programmeId, updated);
+  const handleDeletePSOCompetency = (pi, ci) => {
+    updateProgrammePSOs(
+      programmeId,
+      normalisedPSOs.map((p, i) => {
+        if (i !== pi) return p;
+        const comps = (p.competencies || []).filter((_, c) => c !== ci).map((c, idx) => ({ ...c, order: idx + 1 }));
+        return { ...p, competencies: comps };
+      }),
+    );
   };
 
   // ── PEO HANDLERS ────────────────────────────────────────────────────────────
   const handleAddPEO = () => {
-    const newNum = activePEOs.length + 1;
-    const newPeo = { code: `PEO${newNum}`, statement: `New Programme Educational Objective ${newNum} Statement...` };
-    updateProgrammePEOs(programmeId, [...activePEOs, newPeo]);
+    const n = activePEOs.length + 1;
+    updateProgrammePEOs(programmeId, [...activePEOs, { code: `PEO${n}`, statement: `New Programme Educational Objective ${n}...` }]);
   };
-
-  const handleDeletePEO = (index) => {
-    if (window.confirm(`Are you sure you want to delete ${activePEOs[index].code}?`)) {
-      const updated = activePEOs.filter((_, i) => i !== index);
-      updateProgrammePEOs(programmeId, updated);
-    }
+  const handleUpdatePEOStatement = (i, v) => {
+    updateProgrammePEOs(programmeId, activePEOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
   };
-
-  // Submit Modal
-  const handleAddOutcomeModal = (e) => {
-    e.preventDefault();
-    if (!code || !statement) {
-      alert('Please enter Outcome Code and Statement.');
-      return;
-    }
-
-    if (activeTab === 'PO') {
-      const newPo = {
-        code,
-        statement,
-        status: 'VERIFIED',
-        competencies: [
-          { id: `comp-${code}-1`, order: 1, statement: initialCompStatement || `Demonstrate competence 1 for ${code}` },
-        ],
-      };
-      updateProgrammePOs(programmeId, [...activePOs, newPo]);
-    } else if (activeTab === 'PSO') {
-      const newPso = {
-        code,
-        statement,
-        competencies: [
-          { id: `psocomp-${code}-1`, order: 1, statement: initialCompStatement || `Demonstrate specialized competency for ${code}` },
-        ],
-      };
-      updateProgrammePSOs(programmeId, [...activePSOs, newPso]);
-    } else if (activeTab === 'PEO') {
-      updateProgrammePEOs(programmeId, [...activePEOs, { code, statement }]);
-    }
-
-    alert(`🎉 New ${activeTab} (${code}) added successfully!`);
-    setCode('');
-    setStatement('');
-    setInitialCompStatement('');
-    setShowAddModal(false);
+  const handleDeletePEO = (i) => {
+    if (window.confirm(`Delete ${activePEOs[i].code}?`))
+      updateProgrammePEOs(programmeId, activePEOs.filter((_, idx) => idx !== i));
   };
 
   return (
-    <div className="animated-page" style={{ paddingBottom: '40px' }}>
-      {/* Banner */}
-      <div className="banner-dark-gradient" style={{ marginBottom: '24px' }}>
-        <div className="banner-content-row">
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <span className="badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fef08a', fontWeight: '800', fontSize: '11px' }}>
-                HOD PORTAL • OUTCOMES & COMPETENCIES
-              </span>
-            </div>
-            <h2 style={{ margin: 0, fontSize: '20px', color: '#ffffff', fontWeight: '800' }}>
-              Program Outcomes (POs), PSOs & Competencies Management
-            </h2>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#cbd5e1' }}>
-              Create and manage POs, PSOs, and nested Competency Statements for {selectedProgramme.name}.
-            </p>
-          </div>
+    <div className="animated-page" style={{ paddingBottom: '48px' }}>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
-            {activeTab === 'PO' && (
-              <button className="btn btn-primary" onClick={handleAddPO} style={{ height: '40px', padding: '0 20px', fontSize: '12.5px', fontWeight: '800', gap: '8px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
-                <Plus size={16} /> + Propose / Create New PO
-              </button>
-            )}
-            {activeTab === 'PSO' && (
-              <button className="btn btn-primary" onClick={handleAddPSO} style={{ height: '40px', padding: '0 20px', fontSize: '12.5px', fontWeight: '800', gap: '8px', background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
-                <Plus size={16} /> + Propose / Create New PSO
-              </button>
-            )}
-            {activeTab === 'PEO' && (
-              <button className="btn btn-primary" onClick={handleAddPEO} style={{ height: '40px', padding: '0 20px', fontSize: '12.5px', fontWeight: '800', gap: '8px', background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' }}>
-                <Plus size={16} /> + Add New PEO
-              </button>
-            )}
+      {/* ── PAGE HEADER ───────────────────────────────────────────────────────── */}
+      <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
+            HOD Portal &nbsp;·&nbsp; Programme Outcomes
           </div>
+          <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
+            PO / PSO / PEO & Competencies
+          </h2>
+          <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
+            Define outcomes and competency statements for <strong>{selectedProgramme.name}</strong>.
+          </p>
         </div>
-      </div>
 
-      {/* ── PROGRAMME SELECTOR & TAB STRIP ────────────────────────────────────────── */}
-      <div className="card" style={{ marginBottom: '20px', padding: '16px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Select Programme:</span>
-            <select
-              value={programmeId}
-              onChange={(e) => setProgrammeId(e.target.value)}
-              className="form-input"
-              style={{ height: '38px', fontSize: '13px', fontWeight: '800', color: '#4f46e5', minWidth: '280px' }}
-            >
-              {masterProgrammes.map((p) => (
-                <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Outcome Type Tab Buttons */}
-          <div style={{ display: 'flex', gap: '8px', background: '#f1f5f9', padding: '4px', borderRadius: '10px' }}>
-            {['PO', 'PSO', 'PEO'].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                style={{
-                  padding: '6px 18px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  fontSize: '12.5px',
-                  fontWeight: '800',
-                  cursor: 'pointer',
-                  background: activeTab === tab ? '#ffffff' : 'transparent',
-                  color: activeTab === tab ? '#4f46e5' : '#64748b',
-                  boxShadow: activeTab === tab ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
-                }}
-              >
-                {tab === 'PO' ? `Program Outcomes (POs: ${activePOs.length})` : tab === 'PSO' ? `Program Specific Outcomes (PSOs: ${activePSOs.length})` : `Program Educational Objectives (PEOs: ${activePEOs.length})`}
-              </button>
+        {/* Programme selector */}
+        <div style={{ position: 'relative' }}>
+          <select
+            value={programmeId}
+            onChange={(e) => setProgrammeId(e.target.value)}
+            style={{
+              height: '38px',
+              paddingLeft: '12px',
+              paddingRight: '32px',
+              fontSize: '12.5px',
+              fontWeight: '600',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              background: '#ffffff',
+              color: ink,
+              cursor: 'pointer',
+              outline: 'none',
+              fontFamily: 'inherit',
+              appearance: 'none',
+              maxWidth: '300px',
+            }}
+          >
+            {masterProgrammes.map((p) => (
+              <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
             ))}
-          </div>
+          </select>
+          <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
         </div>
       </div>
 
-      {/* ── TAB 1: PO CARDS WITH NESTED COMPETENCY STATEMENTS TABLE ───────────────── */}
-      {activeTab === 'PO' && (
-        <div style={{ display: 'grid', gap: '16px' }}>
-          {activePOs.map((po, index) => {
-            const comps = po.competencies || [];
-
-            return (
-              <div key={index} className="card" style={{ padding: '20px', borderLeft: '4px solid #4f46e5', background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '280px' }}>
-                    <input
-                      type="text"
-                      className="form-input"
-                      style={{ width: '90px', fontWeight: '900', textAlign: 'center', color: '#4f46e5', height: '40px', fontSize: '13.5px' }}
-                      value={po.code}
-                      onChange={(e) => handleUpdatePOCode(index, e.target.value)}
-                    />
-                    <input
-                      type="text"
-                      className="form-input"
-                      style={{ flex: 1, minWidth: '200px', fontWeight: '700', height: '40px', fontSize: '13px' }}
-                      value={po.statement}
-                      onChange={(e) => handleUpdatePOStatement(index, e.target.value)}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', fontWeight: '800' }}>
-                      ✓ Active PO
-                    </span>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{ fontSize: '12px', padding: '6px 14px', fontWeight: '700', gap: '4px' }}
-                      onClick={() => handleAddPOCompetency(index)}
-                    >
-                      <Plus size={14} /> + Add Competency
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-danger"
-                      style={{ padding: '6px 10px' }}
-                      onClick={() => handleDeletePO(index)}
-                      title="Delete PO"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* NESTED COMPETENCY STATEMENTS TABLE */}
-                <div style={{ marginLeft: '12px', borderLeft: '2.5px solid #cbd5e1', paddingLeft: '16px', width: '100%' }}>
-                  <h5 style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: '800' }}>
-                    Competency Statements for {po.code} ({comps.length} Competencies)
-                  </h5>
-
-                  <table className="audit-data-table">
-                    <thead>
-                      <tr>
-                        <th style={{ width: '60px', textAlign: 'center' }}>Order</th>
-                        <th>Competency Statement</th>
-                        <th style={{ width: '70px', textAlign: 'center' }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {comps.map((comp, compIdx) => (
-                        <tr key={comp.id || compIdx}>
-                          <td style={{ textAlign: 'center', fontWeight: '800', color: '#4f46e5' }}>
-                            {po.code}.{compIdx + 1}
-                          </td>
-                          <td>
-                            <input
-                              type="text"
-                              className="form-input"
-                              style={{ height: '36px', fontSize: '12.5px' }}
-                              value={comp.statement}
-                              onChange={(e) => handleUpdatePOCompetencyStatement(index, compIdx, e.target.value)}
-                            />
-                          </td>
-                          <td style={{ textAlign: 'center' }}>
-                            <button
-                              type="button"
-                              className="btn btn-danger"
-                              style={{ padding: '4px 6px' }}
-                              onClick={() => handleDeletePOCompetency(index, compIdx)}
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── TAB 2: PSO CARDS WITH NESTED COMPETENCY STATEMENTS TABLE ───────────────── */}
-      {activeTab === 'PSO' && (
-        <div style={{ display: 'grid', gap: '16px' }}>
-          {activePSOs.map((pso, index) => {
-            const comps = pso.competencies || [];
-
-            return (
-              <div key={index} className="card" style={{ padding: '20px', borderLeft: '4px solid #059669', background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '280px' }}>
-                    <input
-                      type="text"
-                      className="form-input"
-                      style={{ width: '90px', fontWeight: '900', textAlign: 'center', color: '#059669', height: '40px', fontSize: '13.5px' }}
-                      value={pso.code}
-                      onChange={(e) => handleUpdatePSOCode(index, e.target.value)}
-                    />
-                    <input
-                      type="text"
-                      className="form-input"
-                      style={{ flex: 1, minWidth: '200px', fontWeight: '700', height: '40px', fontSize: '13px' }}
-                      value={pso.statement}
-                      onChange={(e) => handleUpdatePSOStatement(index, e.target.value)}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', fontWeight: '800' }}>
-                      ✓ Active PSO
-                    </span>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{ fontSize: '12px', padding: '6px 14px', fontWeight: '700', gap: '4px' }}
-                      onClick={() => handleAddPSOCompetency(index)}
-                    >
-                      <Plus size={14} /> + Add Competency
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-danger"
-                      style={{ padding: '6px 10px' }}
-                      onClick={() => handleDeletePSO(index)}
-                      title="Delete PSO"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* NESTED PSO COMPETENCY STATEMENTS TABLE */}
-                <div style={{ marginLeft: '12px', borderLeft: '2.5px solid #a7f3d0', paddingLeft: '16px', width: '100%' }}>
-                  <h5 style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#047857', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: '800' }}>
-                    PSO Competency Statements for {pso.code} ({comps.length} Competencies)
-                  </h5>
-
-                  <table className="audit-data-table">
-                    <thead>
-                      <tr>
-                        <th style={{ width: '60px', textAlign: 'center' }}>Order</th>
-                        <th>Competency Statement</th>
-                        <th style={{ width: '70px', textAlign: 'center' }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {comps.map((comp, compIdx) => (
-                        <tr key={comp.id || compIdx}>
-                          <td style={{ textAlign: 'center', fontWeight: '800', color: '#059669' }}>
-                            {pso.code}.{compIdx + 1}
-                          </td>
-                          <td>
-                            <input
-                              type="text"
-                              className="form-input"
-                              style={{ height: '36px', fontSize: '12.5px' }}
-                              value={comp.statement}
-                              onChange={(e) => handleUpdatePSOCompetencyStatement(index, compIdx, e.target.value)}
-                            />
-                          </td>
-                          <td style={{ textAlign: 'center' }}>
-                            <button
-                              type="button"
-                              className="btn btn-danger"
-                              style={{ padding: '4px 6px' }}
-                              onClick={() => handleDeletePSOCompetency(index, compIdx)}
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── TAB 3: PEOs ───────────────────────────────────────────────────────────── */}
-      {activeTab === 'PEO' && (
-        <div style={{ display: 'grid', gap: '16px' }}>
-          {activePEOs.map((peo, index) => (
-            <div key={index} className="card" style={{ padding: '18px', borderLeft: '4px solid #0284c7' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                <span style={{ fontWeight: '900', color: '#0284c7', fontSize: '14px', width: '70px' }}>{peo.code}</span>
-                <input
-                  type="text"
-                  className="form-input"
-                  style={{ flex: 1, fontWeight: '700', height: '40px', fontSize: '13px' }}
-                  value={peo.statement}
-                  onChange={(e) => {
-                    const updated = activePEOs.map((p, i) => (i === index ? { ...p, statement: e.target.value } : p));
-                    updateProgrammePEOs(programmeId, updated);
-                  }}
-                />
-                <button className="btn btn-danger" style={{ padding: '6px 10px' }} onClick={() => handleDeletePEO(index)}>
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
+      {/* ── SECTION HEADER + TAB STRIP + ADD BUTTON ──────────────────────────── */}
+      <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        {/* Tab strip */}
+        <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px' }}>
+          {[
+            ['PO',  `POs (${activePOs.length})`],
+            ['PSO', `PSOs (${normalisedPSOs.length})`],
+            ['PEO', `PEOs (${activePEOs.length})`],
+          ].map(([tab, label]) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              style={{
+                padding: '7px 18px',
+                borderRadius: '7px',
+                border: 'none',
+                fontSize: '12.5px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                background: activeTab === tab ? '#ffffff' : 'transparent',
+                color: activeTab === tab ? accent : muted,
+                boxShadow: activeTab === tab ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                fontFamily: 'inherit',
+              }}
+            >
+              {label}
+            </button>
           ))}
         </div>
-      )}
 
-      {/* ── ADD OUTCOME MODAL ──────────────────────────────────────────────────────── */}
-      {showAddModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 100,
-            background: 'rgba(15,23,42,0.6)',
-            backdropFilter: 'blur(4px)',
-            display: 'grid',
-            placeItems: 'center',
-            padding: '20px',
-          }}
-        >
-          <div style={{ background: '#ffffff', borderRadius: '16px', width: '540px', maxWidth: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
-            <div style={{ background: '#1e293b', padding: '18px 24px', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800' }}>
-                Add New {activeTab} & Initial Competency Statement
-              </h3>
-              <button onClick={() => setShowAddModal(false)} style={{ background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: '18px', fontWeight: '800' }}>
-                ✕
-              </button>
+        {/* Add button */}
+        {activeTab === 'PO' && (
+          <button
+            onClick={handleAddPO}
+            style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={14} /> Add PO
+          </button>
+        )}
+        {activeTab === 'PSO' && (
+          <button
+            onClick={handleAddPSO}
+            style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#059669', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={14} /> Add PSO
+          </button>
+        )}
+        {activeTab === 'PEO' && (
+          <button
+            onClick={handleAddPEO}
+            style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={14} /> Add PEO
+          </button>
+        )}
+      </div>
+
+      {/* ── TAB: PO ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'PO' && (
+        <div style={{ display: 'grid', gap: '12px' }}>
+          {activePOs.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '32px', color: muted, fontSize: '12.5px', ...surface }}>
+              No POs yet — click <strong>Add PO</strong> above to get started.
             </div>
+          )}
 
-            <form onSubmit={handleAddOutcomeModal} style={{ padding: '24px', display: 'grid', gap: '16px' }}>
-              <div>
-                <label className="form-label" style={{ fontWeight: '700', fontSize: '12.5px', marginBottom: '6px', display: 'block' }}>
-                  Outcome Code *
-                </label>
+          {activePOs.map((po, idx) => (
+            <div key={idx} style={{ ...surface, padding: '16px', borderLeft: `3px solid ${accent}` }}>
+              {/* PO code + statement row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: po.competencies?.length ? '12px' : 0, flexWrap: 'wrap' }}>
                 <input
                   type="text"
-                  required
-                  placeholder={`e.g. ${activeTab}${activeTab === 'PO' ? activePOs.length + 1 : activeTab === 'PSO' ? activePSOs.length + 1 : activePEOs.length + 1}`}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  className="form-input"
-                  style={{ height: '40px', fontSize: '13px', fontWeight: '800', color: '#4f46e5' }}
+                  value={po.code}
+                  onChange={(e) => handleUpdatePOCode(idx, e.target.value)}
+                  style={{ ...inputStyle, width: '80px', fontWeight: '700', color: accent, textAlign: 'center' }}
                 />
+                <input
+                  type="text"
+                  value={po.statement}
+                  onChange={(e) => handleUpdatePOStatement(idx, e.target.value)}
+                  style={{ ...inputStyle, flex: 1, minWidth: '200px' }}
+                />
+                <button
+                  onClick={() => handleAddPOCompetency(idx)}
+                  style={{ height: '36px', padding: '0 12px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap', fontFamily: 'inherit' }}
+                >
+                  <Plus size={13} /> Competency
+                </button>
+                <button
+                  onClick={() => handleDeletePO(idx)}
+                  style={{ width: '32px', height: '32px', borderRadius: '7px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }}
+                >
+                  <Trash2 size={13} />
+                </button>
               </div>
 
-              <div>
-                <label className="form-label" style={{ fontWeight: '700', fontSize: '12.5px', marginBottom: '6px', display: 'block' }}>
-                  Outcome Statement *
-                </label>
-                <textarea
-                  required
-                  rows={3}
-                  placeholder={`Enter statement for ${activeTab}...`}
-                  value={statement}
-                  onChange={(e) => setStatement(e.target.value)}
-                  className="form-input"
-                  style={{ fontSize: '13px', padding: '10px' }}
-                />
-              </div>
-
-              {(activeTab === 'PO' || activeTab === 'PSO') && (
-                <div>
-                  <label className="form-label" style={{ fontWeight: '700', fontSize: '12.5px', marginBottom: '6px', display: 'block' }}>
-                    Initial Competency Statement ({code ? `${code}.1` : 'Competency 1'})
-                  </label>
-                  <textarea
-                    rows={2}
-                    placeholder={`Enter initial competency statement...`}
-                    value={initialCompStatement}
-                    onChange={(e) => setInitialCompStatement(e.target.value)}
-                    className="form-input"
-                    style={{ fontSize: '12.5px', padding: '10px' }}
-                  />
+              {/* Competencies table */}
+              {(po.competencies || []).length > 0 && (
+                <div style={{ marginLeft: '8px', paddingLeft: '14px', borderLeft: '2px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                    Competencies ({(po.competencies || []).length})
+                  </div>
+                  <table className="audit-data-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '60px', textAlign: 'center' }}>No.</th>
+                        <th>Statement</th>
+                        <th style={{ width: '50px' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(po.competencies || []).map((comp, ci) => (
+                        <tr key={comp.id || ci}>
+                          <td style={{ textAlign: 'center', fontWeight: '700', color: accent, fontSize: '11.5px' }}>
+                            {po.code}.{ci + 1}
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              value={comp.statement}
+                              onChange={(e) => handleUpdatePOCompetency(idx, ci, e.target.value)}
+                              style={{ ...inputStyle, height: '34px', fontSize: '12px' }}
+                            />
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button
+                              onClick={() => handleDeletePOCompetency(idx, ci)}
+                              style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                            >
+                              <X size={12} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
+            </div>
+          ))}
 
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '12px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAddModal(false)}>
-                  Cancel
+          {/* Inline add button */}
+          <button
+            onClick={handleAddPO}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', borderRadius: '10px', border: '1.5px dashed #c7d2fe', background: '#fafafa', color: accent, fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'background .15s', fontFamily: 'inherit' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#eef2ff'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#fafafa'; }}
+          >
+            <Plus size={15} /> Add Programme Outcome (PO{activePOs.length + 1})
+          </button>
+        </div>
+      )}
+
+      {/* ── TAB: PSO ──────────────────────────────────────────────────────────── */}
+      {activeTab === 'PSO' && (
+        <div style={{ display: 'grid', gap: '12px' }}>
+          {normalisedPSOs.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '32px', color: muted, fontSize: '12.5px', ...surface }}>
+              No PSOs yet — click <strong>Add PSO</strong> above to get started.
+            </div>
+          )}
+
+          {normalisedPSOs.map((pso, idx) => (
+            <div key={idx} style={{ ...surface, padding: '16px', borderLeft: '3px solid #059669' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: pso.competencies.length ? '12px' : 0, flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  value={pso.code}
+                  onChange={(e) => handleUpdatePSOCode(idx, e.target.value)}
+                  style={{ ...inputStyle, width: '80px', fontWeight: '700', color: '#059669', textAlign: 'center' }}
+                />
+                <input
+                  type="text"
+                  value={pso.statement}
+                  onChange={(e) => handleUpdatePSOStatement(idx, e.target.value)}
+                  style={{ ...inputStyle, flex: 1, minWidth: '200px' }}
+                />
+                <button
+                  onClick={() => handleAddPSOCompetency(idx)}
+                  style={{ height: '36px', padding: '0 12px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap', fontFamily: 'inherit' }}
+                >
+                  <Plus size={13} /> Competency
                 </button>
-                <button type="submit" className="btn btn-primary" style={{ background: '#4f46e5' }}>
-                  Save Outcome & Competency
+                <button
+                  onClick={() => handleDeletePSO(idx)}
+                  style={{ width: '32px', height: '32px', borderRadius: '7px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }}
+                >
+                  <Trash2 size={13} />
                 </button>
               </div>
-            </form>
-          </div>
+
+              {pso.competencies.length > 0 && (
+                <div style={{ marginLeft: '8px', paddingLeft: '14px', borderLeft: '2px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                    Competencies ({pso.competencies.length})
+                  </div>
+                  <table className="audit-data-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '60px', textAlign: 'center' }}>No.</th>
+                        <th>Statement</th>
+                        <th style={{ width: '50px' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pso.competencies.map((comp, ci) => (
+                        <tr key={comp.id || ci}>
+                          <td style={{ textAlign: 'center', fontWeight: '700', color: '#059669', fontSize: '11.5px' }}>
+                            {pso.code}.{ci + 1}
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              value={comp.statement}
+                              onChange={(e) => handleUpdatePSOCompetency(idx, ci, e.target.value)}
+                              style={{ ...inputStyle, height: '34px', fontSize: '12px' }}
+                            />
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button
+                              onClick={() => handleDeletePSOCompetency(idx, ci)}
+                              style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                            >
+                              <X size={12} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ))}
+
+          <button
+            onClick={handleAddPSO}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', borderRadius: '10px', border: '1.5px dashed #6ee7b7', background: '#fafafa', color: '#059669', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'background .15s', fontFamily: 'inherit' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#f0fdf4'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#fafafa'; }}
+          >
+            <Plus size={15} /> Add Programme Specific Outcome (PSO{normalisedPSOs.length + 1})
+          </button>
+        </div>
+      )}
+
+      {/* ── TAB: PEO ──────────────────────────────────────────────────────────── */}
+      {activeTab === 'PEO' && (
+        <div style={{ display: 'grid', gap: '10px' }}>
+          {activePEOs.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '32px', color: muted, fontSize: '12.5px', ...surface }}>
+              No PEOs yet — click <strong>Add PEO</strong> above to get started.
+            </div>
+          )}
+
+          {activePEOs.map((peo, idx) => (
+            <div key={idx} style={{ ...surface, padding: '14px 16px', borderLeft: '3px solid #0284c7', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '12px', fontWeight: '700', color: '#0284c7', width: '52px', flexShrink: 0 }}>{peo.code}</span>
+              <input
+                type="text"
+                value={peo.statement}
+                onChange={(e) => handleUpdatePEOStatement(idx, e.target.value)}
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <button
+                onClick={() => handleDeletePEO(idx)}
+                style={{ width: '32px', height: '32px', borderRadius: '7px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }}
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+
+          <button
+            onClick={handleAddPEO}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', borderRadius: '10px', border: '1.5px dashed #7dd3fc', background: '#fafafa', color: '#0284c7', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'background .15s', fontFamily: 'inherit' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#f0f9ff'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#fafafa'; }}
+          >
+            <Plus size={15} /> Add Programme Educational Objective (PEO{activePEOs.length + 1})
+          </button>
         </div>
       )}
     </div>

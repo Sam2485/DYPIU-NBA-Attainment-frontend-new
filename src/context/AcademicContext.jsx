@@ -207,6 +207,17 @@ export const INITIAL_HOD_APPROVALS_LIST = [
     details: 'Target levels (1.0 to 3.0 scale) set for 12 POs and 3 PSOs submitted for HOD verification.',
   },
   {
+    id: 'hod-app-4',
+    programmeId: 'prog-1',
+    title: 'Course Roster & Course Coordinator Allocation — BE-COMP',
+    programme: 'B.Tech CSE',
+    submittedBy: 'Dr. A. K. Sharma (Programme Coordinator)',
+    submittedAt: '2026-08-08',
+    type: 'COURSE_ALLOCATION',
+    status: 'PENDING',
+    details: 'Course list and senior faculty Course Coordinator allocations submitted for HOD verification and approval.',
+  },
+  {
     id: 'hod-app-3',
     programmeId: 'prog-2',
     title: 'Course Action Taken Report (ATR) — AI201 (Machine Learning)',
@@ -822,6 +833,22 @@ export function AcademicProvider({ children }) {
     }));
   };
 
+  const updateCourse = (targetCourseId, updatedFields) => {
+    setCoursesStoreByYear((prev) => ({
+      ...prev,
+      [academicYear]: (prev[academicYear] || []).map((c) =>
+        c.id === targetCourseId ? { ...c, ...updatedFields } : c
+      ),
+    }));
+  };
+
+  const deleteCourse = (targetCourseId) => {
+    setCoursesStoreByYear((prev) => ({
+      ...prev,
+      [academicYear]: (prev[academicYear] || []).filter((c) => c.id !== targetCourseId),
+    }));
+  };
+
   const [programmeAtrStore, setProgrammeAtrStore] = useState(INITIAL_PROGRAMME_ATR_LIST);
 
   const approveProgrammeAtr = (targetProgId, hodName) => {
@@ -912,6 +939,8 @@ export function AcademicProvider({ children }) {
         rejectHodSubmission,
         assignCourseCoordinator,
         addCourse,
+        updateCourse,
+        deleteCourse,
         programmeAtrStore,
         approveProgrammeAtr,
         updateProgrammeAtrObservations,
