@@ -59,46 +59,7 @@ export default function AttainmentConfig() {
   };
 
   // Attainment Configuration Store (Direct/Indirect weights, Threshold, Direct/Indirect Level 1-3 Bands)
-  const [courseConfigs, setCourseConfigs] = useState({
-    'crs-1': {
-      courseCode: '310244',
-      courseName: 'Computer Network and Security',
-      directWeight: attainmentConfigs?.['crs-1']?.directWeight || 80,
-      indirectWeight: attainmentConfigs?.['crs-1']?.indirectWeight || 20,
-      directThreshold: attainmentConfigs?.['crs-1']?.directThreshold || 60,
-      directLevels: [
-        { level: 1, minPercentage: 0, maxPercentage: 50 },
-        { level: 2, minPercentage: 50, maxPercentage: 70 },
-        { level: 3, minPercentage: 70, maxPercentage: 100 },
-      ],
-      indirectLevels: [
-        { level: 1, minPercentage: 0, maxPercentage: 50 },
-        { level: 2, minPercentage: 50, maxPercentage: 70 },
-        { level: 3, minPercentage: 70, maxPercentage: 100 },
-      ],
-      status: 'VERIFIED',
-    },
-    'crs-2': {
-      courseCode: 'CS301',
-      courseName: 'Data Structures & Algorithms',
-      directWeight: attainmentConfigs?.['crs-2']?.directWeight || 80,
-      indirectWeight: attainmentConfigs?.['crs-2']?.indirectWeight || 20,
-      directThreshold: attainmentConfigs?.['crs-2']?.directThreshold || 65,
-      directLevels: [
-        { level: 1, minPercentage: 0, maxPercentage: 50 },
-        { level: 2, minPercentage: 50, maxPercentage: 70 },
-        { level: 3, minPercentage: 70, maxPercentage: 100 },
-      ],
-      indirectLevels: [
-        { level: 1, minPercentage: 0, maxPercentage: 50 },
-        { level: 2, minPercentage: 50, maxPercentage: 70 },
-        { level: 3, minPercentage: 70, maxPercentage: 100 },
-      ],
-      status: 'WAITING_FOR_COORDINATOR_VERIFICATION',
-    },
-  });
-
-  const currentConfig = courseConfigs[activeCourseId] || {
+  const currentConfig = attainmentConfigs[activeCourseId] || {
     courseCode: selectedCourse?.code || '310244',
     courseName: selectedCourse?.name || 'Course Title',
     directWeight: 80,
@@ -114,7 +75,7 @@ export default function AttainmentConfig() {
       { level: 2, minPercentage: 50, maxPercentage: 70 },
       { level: 3, minPercentage: 70, maxPercentage: 100 },
     ],
-    status: 'VERIFIED',
+    status: 'DRAFT',
   };
 
   const handleDirectWeightChange = (val) => {
@@ -123,14 +84,10 @@ export default function AttainmentConfig() {
       ...currentConfig,
       directWeight: direct,
       indirectWeight: 100 - direct,
-      status: 'WAITING_FOR_COORDINATOR_VERIFICATION',
+      status: 'SUBMITTED',
       proposedBy: user?.name || 'Course Coordinator',
       proposedAt: new Date().toISOString().split('T')[0],
     };
-    setCourseConfigs((prev) => ({
-      ...prev,
-      [activeCourseId]: updated,
-    }));
     updateCourseAttainmentConfig(activeCourseId, updated);
   };
 
@@ -139,14 +96,10 @@ export default function AttainmentConfig() {
     const updated = {
       ...currentConfig,
       directThreshold: threshold,
-      status: 'WAITING_FOR_COORDINATOR_VERIFICATION',
+      status: 'SUBMITTED',
       proposedBy: user?.name || 'Course Coordinator',
       proposedAt: new Date().toISOString().split('T')[0],
     };
-    setCourseConfigs((prev) => ({
-      ...prev,
-      [activeCourseId]: updated,
-    }));
     updateCourseAttainmentConfig(activeCourseId, updated);
   };
 
@@ -161,11 +114,10 @@ export default function AttainmentConfig() {
     const updated = {
       ...currentConfig,
       directLevels: updatedLevels,
-      status: 'WAITING_FOR_COORDINATOR_VERIFICATION',
+      status: 'SUBMITTED',
       proposedBy: user?.name || 'Course Coordinator',
       proposedAt: new Date().toISOString().split('T')[0],
     };
-    setCourseConfigs((prev) => ({ ...prev, [activeCourseId]: updated }));
     updateCourseAttainmentConfig(activeCourseId, updated);
   };
 
@@ -180,28 +132,24 @@ export default function AttainmentConfig() {
     const updated = {
       ...currentConfig,
       indirectLevels: updatedLevels,
-      status: 'WAITING_FOR_COORDINATOR_VERIFICATION',
+      status: 'SUBMITTED',
       proposedBy: user?.name || 'Course Coordinator',
       proposedAt: new Date().toISOString().split('T')[0],
     };
-    setCourseConfigs((prev) => ({ ...prev, [activeCourseId]: updated }));
     updateCourseAttainmentConfig(activeCourseId, updated);
   };
 
   const handleVerifyConfig = (cId) => {
+    const targetConfig = attainmentConfigs[cId] || currentConfig;
     const updated = {
-      ...courseConfigs[cId],
+      ...targetConfig,
       status: 'VERIFIED',
       verifiedBy: user?.name || 'Programme Coordinator',
       verifiedAt: new Date().toISOString().split('T')[0],
     };
-    setCourseConfigs((prev) => ({
-      ...prev,
-      [cId]: updated,
-    }));
     updateCourseAttainmentConfig(cId, updated);
     updateCourseVerificationStatus(cId, 'configStatus', 'VERIFIED');
-    alert(`Attainment configuration for ${courseConfigs[cId]?.courseCode || 'course'} verified and approved by Programme Coordinator!`);
+    alert(`Attainment configuration for ${targetConfig?.courseCode || 'course'} verified and approved by Programme Coordinator!`);
   };
 
   const currentVerificationStatus = courseVerificationStore[activeCourseId]?.configStatus || currentConfig.status || 'DRAFT';
@@ -213,13 +161,9 @@ export default function AttainmentConfig() {
       submittedBy: user?.name || 'Course Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
     };
-    setCourseConfigs((prev) => ({
-      ...prev,
-      [activeCourseId]: updatedConfig,
-    }));
     updateCourseAttainmentConfig(activeCourseId, updatedConfig);
     updateCourseVerificationStatus(activeCourseId, 'configStatus', 'SUBMITTED');
-    alert(`Attainment Configurations for ${currentConfig.courseCode || 'selected course'} submitted for Programme Coordinator review!`);
+    alert(`Attainment Configurations for ${currentConfig.courseCode || selectedCourse?.code || 'selected course'} submitted for Programme Coordinator review!`);
   };
 
   return (
@@ -253,7 +197,7 @@ export default function AttainmentConfig() {
         }}
       >
         {courseList.map((c) => {
-          const cfg = courseConfigs[c.id] || {};
+          const cfg = attainmentConfigs[c.id] || {};
           const status = courseVerificationStore[c.id]?.configStatus || cfg.status;
           const isCurrent = c.id === activeCourseId;
 

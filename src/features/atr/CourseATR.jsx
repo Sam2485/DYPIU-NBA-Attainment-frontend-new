@@ -11,6 +11,10 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
     academicYear = '2025-26',
     selectedBatch,
     availableYears = ['2025-26', '2024-25'],
+    courseAtrStore = {},
+    updateCourseAtrData = () => {},
+    courseVerificationStore = {},
+    updateCourseVerificationStatus = () => {},
   } = useAcademic();
 
   const isFaculty = role === 'FACULTY';
@@ -25,88 +29,64 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
     }
   }, [showHistoryProp]);
 
-  // Course COs Action Taken Report Data (Matching DOCX layout)
-  const [coAtrList, setCoAtrList] = useState([
-    {
-      code: 'C321.1',
-      title: 'CO1: Interpret Fundamental Computer Network Concepts',
-      statement: 'Interpret fundamental concepts of Computer Networks, architectures, protocols and technologies.',
-      target: 2.50,
-      actual: 2.80,
-      pctAchieved: 112.00,
-      status: 'Target Achieved',
-      actions: [
-        'Hands-on Wireshark packet capture lab demonstrations conducted.',
-        'Interactive quiz sessions held to reinforce OSI vs TCP/IP layer concepts.',
-      ],
-    },
-    {
-      code: 'C321.2',
-      title: 'CO2: Data Link Layer Functions & Error Control',
-      statement: 'Demonstrate the working and functions of data link layer for flow and error control.',
-      target: 2.50,
-      actual: 2.70,
-      pctAchieved: 108.00,
-      status: 'Target Achieved',
-      actions: [
-        'CRC error detection numerical problem sheets assigned to students.',
-      ],
-    },
-    {
-      code: 'C321.3',
-      title: 'CO3: Routing Protocols & Data Transmission',
-      statement: 'Analyze the working of different routing protocols and mechanisms for transmission of data.',
-      target: 2.50,
-      actual: 2.10,
-      pctAchieved: 84.00,
-      status: 'Target Gap Identified',
-      actions: [
-        'Introduce Cisco Packet Tracer lab simulations for OSPF & BGP routing protocol configuration.',
-        'Conduct extra tutorial sessions on link-state and distance-vector routing algorithms.',
-      ],
-    },
-    {
-      code: 'C321.4',
-      title: 'CO4: Client-Server Socket Programming',
-      statement: 'Implement client-server applications using socket programming principles.',
-      target: 2.50,
-      actual: 2.90,
-      pctAchieved: 116.00,
-      status: 'Target Achieved',
-      actions: [
-        'Python TCP/UDP socket programming lab assignments submitted successfully.',
-      ],
-    },
-    {
-      code: 'C321.5',
-      title: 'CO5: Application Layer Protocols',
-      statement: 'Analyze role of application layer with its protocols and client-server architectures.',
-      target: 2.50,
-      actual: 2.20,
-      pctAchieved: 88.00,
-      status: 'Target Gap Identified',
-      actions: [
-        'Organize live HTTP/DNS/DHCP protocol dissection workshops before mid-term exams.',
-      ],
-    },
-    {
-      code: 'C321.6',
-      title: 'CO6: Network Security Fundamentals',
-      statement: 'Interpret the basics of Network Security for secured communication.',
-      target: 2.50,
-      actual: 2.75,
-      pctAchieved: 110.00,
-      status: 'Target Achieved',
-      actions: [
-        'Demonstration of SSL/TLS encryption and RSA public key cryptography.',
-      ],
-    },
-  ]);
+  const activeCourseId = selectedCourse?.id || 'crs-1';
+  const activeCOs = selectedCourse?.courseOutcomes || [];
 
-  // Course ATR Verification State
-  const [reportStatus, setReportStatus] = useState('SUBMITTED'); // 'DRAFT', 'SUBMITTED', 'VERIFIED'
-  const [verifiedBy, setVerifiedBy] = useState('Programme Coordinator');
-  const [verifiedAt, setVerifiedAt] = useState('2026-08-05');
+  // Dynamically build ATR items based on the active course's actual Course Outcomes
+  const buildDynamicAtrList = () => {
+    const savedAtr = courseAtrStore[activeCourseId] || [];
+    const savedMap = new Map(savedAtr.map((item) => [item.code, item]));
+
+    if (activeCOs.length === 0) {
+      return savedAtr.length > 0 ? savedAtr : [];
+    }
+
+    return activeCOs.map((co, idx) => {
+      const existing = savedMap.get(co.code);
+      const target = existing?.target || 2.50;
+      const actual = existing?.actual || (idx % 2 === 0 ? 2.80 - idx * 0.1 : 2.10);
+      const pctAchieved = Number(((actual / target) * 100).toFixed(2));
+      const status = actual >= target ? 'Target Achieved' : 'Target Gap Identified';
+
+      const defaultActions = actual >= target
+        ? ['Maintain current teaching methodology and continuous assessment structure.']
+        : [
+            `Conduct extra tutorial sessions on ${co.statement.slice(0, 45)}...`,
+            'Provide additional practice numericals and interactive assignment problem sets.',
+          ];
+
+      return {
+        code: co.code,
+        title: `${co.code}: ${co.statement}`,
+        statement: co.statement,
+        target,
+        actual,
+        pctAchieved,
+        status,
+        actions: existing?.actions || defaultActions,
+      };
+    });
+  };
+
+  const [coAtrList, setCoAtrList] = useState(buildDynamicAtrList);
+
+  useEffect(() => {
+    setCoAtrList(buildDynamicAtrList());
+  }, [activeCourseId, selectedCourse, courseAtrStore]);
+
+  // Course ATR Verification State from AcademicContext
+  const reportStatus = courseVerificationStore[activeCourseId]?.atrStatus || 'DRAFT';
+
+  const handleSaveSubmitATR = () => {
+    updateCourseAtrData(activeCourseId, coAtrList);
+    updateCourseVerificationStatus(activeCourseId, 'atrStatus', 'SUBMITTED');
+    alert(`🎉 Course ATR for ${selectedCourse?.code || 'Course'} saved and submitted to Programme Coordinator!`);
+  };
+
+  const handleVerifyATR = () => {
+    updateCourseVerificationStatus(activeCourseId, 'atrStatus', 'VERIFIED');
+    alert(`✓ Course ATR for ${selectedCourse?.code || 'Course'} verified and approved by Programme Coordinator!`);
+  };
 
   // Previous Academic Year's Carry-Forward Course ATR Data
   const previousBatchATR = {
@@ -169,12 +149,12 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
                 <Printer size={15} /> Print / Export ATR
               </button>
               {isFaculty && reportStatus !== 'VERIFIED' && (
-                <button className="btn btn-primary" onClick={() => { setReportStatus('SUBMITTED'); alert('Course ATR submitted to Programme Coordinator!'); }}>
+                <button className="btn btn-primary" onClick={handleSaveSubmitATR}>
                   <Save size={15} /> Save & Submit Course ATR
                 </button>
               )}
               {isCoordinator && reportStatus === 'SUBMITTED' && (
-                <button className="btn btn-primary" onClick={() => { setReportStatus('VERIFIED'); setVerifiedBy(user?.name || 'Programme Coordinator'); alert('Course ATR Approved!'); }} style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)' }}>
+                <button className="btn btn-primary" onClick={handleVerifyATR} style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)' }}>
                   <ShieldCheck size={15} /> Verify & Approve Course ATR
                 </button>
               )}

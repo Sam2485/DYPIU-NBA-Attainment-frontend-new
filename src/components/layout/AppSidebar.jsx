@@ -31,6 +31,16 @@ function Icon({ name, active = false, size = 16 }) {
   return <svg {...p}><circle cx="12" cy="12" r="9"/></svg>;
 }
 
+// ── Director Nav Items (as specified in PDF Page 1-2) ──────────────────────────
+const DIRECTOR_NAV = [
+  { id: 'dashboard',             path: '/director/dashboard',            icon: 'dashboard', label: 'Dashboard',               sub: 'School Overview & Actions' },
+  { id: 'school-structure',      path: '/director/school-structure',     icon: 'academic',  label: 'School Structure',        sub: 'View Hierarchy & Information' },
+  { id: 'department-management', path: '/director/department-management',icon: 'users',     label: 'Department Management',   sub: 'Depts & HOD Allocations' },
+  { id: 'programme-overview',    path: '/director/programme-overview',   icon: 'outcomes',  label: 'Programme Overview',      sub: 'All Programmes & Status' },
+  { id: 'approvals',             path: '/director/approvals',            icon: 'config',    label: 'Approvals & Visibility',  sub: 'Pending Director Approvals' },
+  { id: 'reports',               path: '/director/reports',              icon: 'reports',   label: 'Reports & Downloads',     sub: 'School & Dept Reports' },
+];
+
 // ── Dropdown 1: Programme Setup & Management (Editing & Setup Pages) ───────────
 const PROGRAMME_SETUP_NAV = [
   { id: 'dashboard',     path: '/dashboard',     icon: 'dashboard', label: 'Dashboard',                          sub: 'Overview & Analytics' },
@@ -73,12 +83,24 @@ export default function AppSidebar() {
   const fullPath = location.pathname + location.search;
 
   const activeSetupItem = PROGRAMME_SETUP_NAV.find((item) => item.path === location.pathname);
-  const activeReviewItem = COURSE_REVIEWS_NAV.find((item) => item.path === fullPath || item.path.split('?')[0] === location.pathname);
-  const activeFacultyItem = FACULTY_NAV.find((item) => item.path === fullPath || item.path.split('?')[0] === location.pathname);
+
+  const currentReviewTab = location.pathname === '/coordinator-review'
+    ? (new URLSearchParams(location.search).get('tab') || 'config')
+    : null;
+
+  const activeReviewItem = currentReviewTab
+    ? (COURSE_REVIEWS_NAV.find((item) => item.path.includes(`tab=${currentReviewTab}`)) || COURSE_REVIEWS_NAV[0])
+    : null;
+
+  const activeFacultyItem = FACULTY_NAV.find((item) => {
+    if (item.path === fullPath) return true;
+    return item.path.split('?')[0] === location.pathname;
+  });
 
   const roleText = {
     IQAC: 'IQAC Admin',
-    DIRECTOR: 'Director / HOD',
+    DIRECTOR: 'School Director',
+    HOD: 'Head of Department (HOD)',
     PROGRAMME_COORDINATOR: 'Programme Coordinator',
     FACULTY: 'Course Coordinator',
   }[role] || role;
@@ -171,14 +193,68 @@ export default function AppSidebar() {
         >
           <option value="FACULTY" style={{ color: '#0f172a', background: '#ffffff' }}>Course Coordinator</option>
           <option value="PROGRAMME_COORDINATOR" style={{ color: '#0f172a', background: '#ffffff' }}>Programme Coordinator</option>
-          <option value="DIRECTOR" style={{ color: '#0f172a', background: '#ffffff' }}>Director / HOD</option>
+          <option value="HOD" style={{ color: '#0f172a', background: '#ffffff' }}>Head of Department (HOD)</option>
+          <option value="DIRECTOR" style={{ color: '#0f172a', background: '#ffffff' }}>School Director</option>
           <option value="IQAC" style={{ color: '#0f172a', background: '#ffffff' }}>IQAC Admin</option>
         </select>
       </div>
 
       {/* ── MAIN NAVIGATION AREA ─────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', paddingRight: 2 }}>
-        {isCoordinatorRole ? (
+        {role === 'DIRECTOR' ? (
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontSize: 10, color: '#60a5fa', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0 4px 4px' }}>
+              Director Navigation Menu
+            </div>
+            {DIRECTOR_NAV.map((item) => {
+              const isActive = location.pathname === item.path || (item.path === '/director/dashboard' && location.pathname === '/dashboard');
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => navigate(item.path)}
+                  className="nba-nav-item"
+                  style={{
+                    minHeight: 40,
+                    border: isActive ? '1px solid rgba(99,102,241,0.4)' : '1px solid transparent',
+                    borderRadius: 10,
+                    background: isActive ? 'rgba(99,102,241,0.22)' : 'rgba(30,41,59,0.5)',
+                    color: '#f8fafc',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '7px 10px',
+                    textAlign: 'left',
+                    boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: 7,
+                      background: isActive ? 'rgba(99,102,241,0.25)' : 'rgba(148,163,184,0.08)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Icon name={item.icon} active={isActive} size={14} />
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: 12, lineHeight: 1.1, color: '#f8fafc' }}>
+                      {item.label}
+                    </div>
+                    <div style={{ fontSize: 9.5, marginTop: 2, color: isActive ? '#c7d2fe' : '#94a3b8' }}>
+                      {item.sub}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </nav>
+        ) : isCoordinatorRole ? (
           <>
             {/* ── DROPDOWN 1: Programme Setup & Management ────────────────────────────── */}
             <nav style={{ position: 'relative' }}>
@@ -369,7 +445,7 @@ export default function AppSidebar() {
                   }}
                 >
                   {COURSE_REVIEWS_NAV.map((item) => {
-                    const isActive = fullPath === item.path;
+                    const isActive = activeReviewItem?.id === item.id || fullPath === item.path;
                     return (
                       <button
                         key={item.id}

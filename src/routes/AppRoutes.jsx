@@ -18,10 +18,28 @@ import ATRReportsPage from '../pages/ATRReportsPage';
 import CoordinatorReviewPage from '../pages/CoordinatorReviewPage';
 import ReportsPage from '../pages/ReportsPage';
 
+// Director Pages
+import DirectorSchoolStructurePage from '../pages/director/DirectorSchoolStructurePage';
+import DirectorDepartmentPage from '../pages/director/DirectorDepartmentPage';
+import DirectorProgrammeOverviewPage from '../pages/director/DirectorProgrammeOverviewPage';
+import DirectorApprovalsPage from '../pages/director/DirectorApprovalsPage';
+import DirectorReportsPage from '../pages/director/DirectorReportsPage';
+import DirectorSetupWorkflowPage from '../pages/director/DirectorSetupWorkflowPage';
+
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/dashboard" element={<DashboardPage />} />
+      
+      {/* Director Routes */}
+      <Route path="/director/dashboard" element={<DashboardPage />} />
+      <Route path="/director/setup-workflow" element={<DirectorSetupWorkflowPage />} />
+      <Route path="/director/school-structure" element={<DirectorSchoolStructurePage />} />
+      <Route path="/director/department-management" element={<DirectorDepartmentPage />} />
+      <Route path="/director/programme-overview" element={<DirectorProgrammeOverviewPage />} />
+      <Route path="/director/approvals" element={<DirectorApprovalsPage />} />
+      <Route path="/director/reports" element={<DirectorReportsPage />} />
+
       <Route path="/users" element={<UsersPage />} />
       <Route path="/configurations" element={<ConfigurationPage />} />
       <Route path="/academic" element={<AcademicPage />} />

@@ -25,7 +25,12 @@ export default function OutcomesManagement() {
     updateCourseCOs,
     coTargets,
     updateCourseCoTargets,
+    courseVerificationStore = {},
+    updateCourseVerificationStatus = () => {},
   } = useAcademic();
+
+  const targetCourseId = selectedCourse?.id || courseId || 'crs-1';
+  const currentCoVerificationStatus = courseVerificationStore[targetCourseId]?.coStatus || 'PENDING_APPROVAL';
 
   const [localCoTargets, setLocalCoTargets] = useState({});
 
@@ -105,10 +110,10 @@ export default function OutcomesManagement() {
 
   // ── COs with Coordinator Approval Status ─────────────────────────────────────
   const [coList, setCoList] = useState(() => {
-    return activeCOs.map((co, idx) => ({
+    return activeCOs.map((co) => ({
       ...co,
-      status: co.status || (idx % 2 === 0 ? 'APPROVED' : 'WAITING_FOR_APPROVAL'),
-      submittedBy: co.submittedBy || (idx % 2 === 0 ? 'Dr. Raj Shaikh' : 'Prof. XYZ'),
+      status: co.status || (currentCoVerificationStatus === 'APPROVED' ? 'APPROVED' : 'WAITING_FOR_APPROVAL'),
+      submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
       submittedAt: co.submittedAt || '2026-08-04',
     }));
   });
@@ -137,14 +142,14 @@ export default function OutcomesManagement() {
 
   useEffect(() => {
     setCoList(
-      activeCOs.map((co, idx) => ({
+      activeCOs.map((co) => ({
         ...co,
-        status: co.status || (idx % 2 === 0 ? 'APPROVED' : 'WAITING_FOR_APPROVAL'),
-        submittedBy: co.submittedBy || (idx % 2 === 0 ? 'Dr. Raj Shaikh' : 'Prof. XYZ'),
+        status: co.status || (currentCoVerificationStatus === 'APPROVED' ? 'APPROVED' : 'WAITING_FOR_APPROVAL'),
+        submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
         submittedAt: co.submittedAt || '2026-08-04',
       }))
     );
-  }, [courseId, activeCOs]);
+  }, [courseId, activeCOs, currentCoVerificationStatus]);
 
   // ── PO Handlers (Programme Coordinator Proposes -> Director Verifies) ─────────
   const handleAddPO = () => {
@@ -364,8 +369,6 @@ export default function OutcomesManagement() {
     updateProgrammePSOs(programmeId, updated);
   };
 
-  const targetCourseId = selectedCourse?.id || courseId || 'crs-1';
-
   // ── CO Handlers (Faculty Proposes -> Programme Coordinator Approves) ──────────
   const handleAddCO = () => {
     const newCoNum = coList.length + 1;
@@ -373,30 +376,43 @@ export default function OutcomesManagement() {
       code: `C321.${newCoNum}`,
       statement: `New proposed Course Outcome statement ${newCoNum}...`,
       status: role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' ? 'APPROVED' : 'WAITING_FOR_APPROVAL',
-      submittedBy: user?.name || 'Faculty Member',
+      submittedBy: user?.name || 'Course Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
     };
     const updated = [...coList, newCo];
     setCoList(updated);
     updateCourseCOs(targetCourseId, updated);
+    if (isLimitedUser) {
+      updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
+    }
   };
 
   const handleUpdateCOCode = (index, newCode) => {
     const updated = coList.map((c, i) => (i === index ? { ...c, code: newCode, status: isLimitedUser ? 'WAITING_FOR_APPROVAL' : c.status } : c));
     setCoList(updated);
     updateCourseCOs(targetCourseId, updated);
+    if (isLimitedUser) {
+      updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
+    }
   };
 
   const handleUpdateCOStatement = (index, newStatement) => {
     const updated = coList.map((c, i) => (i === index ? { ...c, statement: newStatement, status: isLimitedUser ? 'WAITING_FOR_APPROVAL' : c.status } : c));
     setCoList(updated);
     updateCourseCOs(targetCourseId, updated);
+    if (isLimitedUser) {
+      updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
+    }
   };
 
   const handleApproveCO = (index) => {
-    const updated = coList.map((c, i) => (i === index ? { ...c, status: 'APPROVED' } : c));
+    const updated = coList.map((c, i) => (i === index ? { ...c, status: 'APPROVED', approvedBy: user?.name || 'Programme Coordinator', approvedAt: new Date().toISOString().split('T')[0] } : c));
     setCoList(updated);
     updateCourseCOs(targetCourseId, updated);
+    const allApproved = updated.every((c) => c.status === 'APPROVED');
+    if (allApproved) {
+      updateCourseVerificationStatus(targetCourseId, 'coStatus', 'APPROVED');
+    }
     alert(`CO ${coList[index].code} APPROVED by Programme Coordinator!`);
   };
 
@@ -404,6 +420,7 @@ export default function OutcomesManagement() {
     const updated = coList.map((c, i) => (i === index ? { ...c, status: 'REJECTED' } : c));
     setCoList(updated);
     updateCourseCOs(targetCourseId, updated);
+    updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
     alert(`CO ${coList[index].code} rejected and sent back to Faculty for revision.`);
   };
 
@@ -415,6 +432,9 @@ export default function OutcomesManagement() {
 
   const handleSaveChanges = (entityName) => {
     updateCourseCOs(targetCourseId, coList);
+    if (isLimitedUser) {
+      updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
+    }
     alert(`Changes to ${entityName} saved successfully!`);
   };
 
@@ -1027,6 +1047,20 @@ export default function OutcomesManagement() {
               </button>
             </div>
           </div>
+
+          {currentCoVerificationStatus === 'APPROVED' && (
+            <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', padding: '12px 18px', marginBottom: '16px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <CheckCircle2 size={20} style={{ color: '#10b981' }} />
+              <div>
+                <strong style={{ fontSize: '13.5px', color: '#15803d' }}>
+                  ✓ ALL COURSE OUTCOMES VERIFIED & APPROVED BY PROGRAMME COORDINATOR
+                </strong>
+                <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#166534' }}>
+                  Course outcome statements for {selectedCourse?.code} - {selectedCourse?.name} have been verified and approved by the Programme Coordinator.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="card">
             <div style={{ overflowX: 'auto', width: '100%' }}>
