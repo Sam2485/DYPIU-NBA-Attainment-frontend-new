@@ -3,11 +3,21 @@ import { useAuth } from './AuthContext';
 
 const AcademicContext = createContext(null);
 
-// Master Batches (4-Year Batch Cycles matching Workflow Step 1)
+// Master Batches (Concurrently Active Batches matching Programme Duration e.g. 4 Batches for 4-Yr Degree, 2 Batches for 2-Yr Degree)
 export const MASTER_BATCHES = [
-  { id: 'batch-2025-29', name: 'Batch 2025-29 (AY 2025-26 to AY 2028-29)', startYear: '2025-26', endYear: '2028-29', status: 'ACTIVE' },
-  { id: 'batch-2024-28', name: 'Batch 2024-28 (AY 2024-25 to AY 2027-28)', startYear: '2024-25', endYear: '2027-28', status: 'ACTIVE' },
-  { id: 'batch-2026-30', name: 'Batch 2026-30 (AY 2026-27 to AY 2029-30)', startYear: '2026-27', endYear: '2029-30', status: 'INITIALIZED' },
+  // 4-Year Batches for B.Tech Computer Science & Engineering (prog-1 - Up to 4 Concurrently Active Batches)
+  { id: 'batch-comp-2025-29', programmeId: 'prog-1', programmeCode: 'BE-COMP', programmeName: 'B.Tech Computer Science & Engineering', durationYears: 4, name: 'Batch 2025-29 (BE-COMP) — AY 2025-26 to 2028-29', startYear: '2025-26', endYear: '2028-29', yearLevel: 'Year 1 (Freshmen)', status: 'ACTIVE' },
+  { id: 'batch-comp-2024-28', programmeId: 'prog-1', programmeCode: 'BE-COMP', programmeName: 'B.Tech Computer Science & Engineering', durationYears: 4, name: 'Batch 2024-28 (BE-COMP) — AY 2024-25 to 2027-28', startYear: '2024-25', endYear: '2027-28', yearLevel: 'Year 2 (Sophomores)', status: 'ACTIVE' },
+  { id: 'batch-comp-2023-27', programmeId: 'prog-1', programmeCode: 'BE-COMP', programmeName: 'B.Tech Computer Science & Engineering', durationYears: 4, name: 'Batch 2023-27 (BE-COMP) — AY 2023-24 to 2026-27', startYear: '2023-24', endYear: '2026-27', yearLevel: 'Year 3 (Juniors)', status: 'ACTIVE' },
+  { id: 'batch-comp-2022-26', programmeId: 'prog-1', programmeCode: 'BE-COMP', programmeName: 'B.Tech Computer Science & Engineering', durationYears: 4, name: 'Batch 2022-26 (BE-COMP) — AY 2022-23 to 2025-26', startYear: '2022-23', endYear: '2025-26', yearLevel: 'Year 4 (Seniors / Final Year)', status: 'ACTIVE' },
+  { id: 'batch-comp-2026-30', programmeId: 'prog-1', programmeCode: 'BE-COMP', programmeName: 'B.Tech Computer Science & Engineering', durationYears: 4, name: 'Batch 2026-30 (BE-COMP) — AY 2026-27 to 2029-30', startYear: '2026-27', endYear: '2029-30', yearLevel: 'Upcoming Batch', status: 'INITIALIZED' },
+  { id: 'batch-comp-2021-25', programmeId: 'prog-1', programmeCode: 'BE-COMP', programmeName: 'B.Tech Computer Science & Engineering', durationYears: 4, name: 'Batch 2021-25 (BE-COMP) — AY 2021-22 to 2024-25', startYear: '2021-22', endYear: '2024-25', yearLevel: 'Graduated Alumni', status: 'GRADUATED' },
+
+  // 2-Year Batches for Master of Business Administration (prog-3 - Up to 2 Concurrently Active Batches)
+  { id: 'batch-mba-2025-27', programmeId: 'prog-3', programmeCode: 'MBA', programmeName: 'Master of Business Administration', durationYears: 2, name: 'Batch 2025-27 (MBA) — AY 2025-26 to 2026-27', startYear: '2025-26', endYear: '2026-27', yearLevel: 'Year 1 (Junior Batch)', status: 'ACTIVE' },
+  { id: 'batch-mba-2024-26', programmeId: 'prog-3', programmeCode: 'MBA', programmeName: 'Master of Business Administration', durationYears: 2, name: 'Batch 2024-26 (MBA) — AY 2024-25 to 2025-26', startYear: '2024-25', endYear: '2025-26', yearLevel: 'Year 2 (Senior Batch)', status: 'ACTIVE' },
+  { id: 'batch-mba-2026-28', programmeId: 'prog-3', programmeCode: 'MBA', programmeName: 'Master of Business Administration', durationYears: 2, name: 'Batch 2026-28 (MBA) — AY 2026-27 to 2027-28', startYear: '2026-27', endYear: '2027-28', yearLevel: 'Upcoming Batch', status: 'INITIALIZED' },
+  { id: 'batch-mba-2023-25', programmeId: 'prog-3', programmeCode: 'MBA', programmeName: 'Master of Business Administration', durationYears: 2, name: 'Batch 2023-25 (MBA) — AY 2023-24 to 2024-25', startYear: '2023-24', endYear: '2024-25', yearLevel: 'Graduated Alumni', status: 'GRADUATED' },
 ];
 
 // Master Faculty Members Roster
@@ -34,12 +44,13 @@ export const INITIAL_DEPARTMENTS = [
   { id: 'dept-4', schoolId: 'sch-2', code: 'MGMT', name: 'Department of Management Studies', hod: 'Dr. Sameer Khan', hodEmail: 'sameer.khan@dypiu.ac.in', status: 'ACTIVE' },
 ];
 
-// Centralized Master Programmes Database
+// Centralized Master Programmes Database (Director sets Programme Duration in Years)
 export const INITIAL_MASTER_PROGRAMMES_LIST = [
-  { id: 'prog-1', departmentId: 'dept-1', code: 'BE-COMP', name: 'B.Tech Computer Science & Engineering', department: 'Department of Computer Science & Engineering', coordinator: 'Dr. A. K. Sharma', status: 'ACTIVE' },
-  { id: 'prog-2', departmentId: 'dept-1', code: 'BE-AI', name: 'B.Tech AI & Data Science', department: 'Department of Computer Science & Engineering', coordinator: 'Prof. R. V. Patel', status: 'ACTIVE' },
-  { id: 'prog-3', departmentId: 'dept-4', code: 'MBA', name: 'Master of Business Administration', department: 'Department of Management Studies', coordinator: 'Dr. S. N. Deshmukh', status: 'ACTIVE' },
-  { id: 'prog-4', departmentId: 'dept-2', code: 'BE-ENTC', name: 'B.Tech Electronics & Telecommunication', department: 'Department of Electronics & Telecommunication', coordinator: 'Prof. Ananya Roy', status: 'ACTIVE' },
+  { id: 'prog-1', departmentId: 'dept-1', code: 'BE-COMP', name: 'B.Tech Computer Science & Engineering', durationYears: 4, department: 'Department of Computer Science & Engineering', coordinator: 'Dr. A. K. Sharma', status: 'ACTIVE' },
+  { id: 'prog-2', departmentId: 'dept-1', code: 'BE-AI', name: 'B.Tech AI & Data Science', durationYears: 4, department: 'Department of Computer Science & Engineering', coordinator: 'Prof. R. V. Patel', status: 'ACTIVE' },
+  { id: 'prog-3', departmentId: 'dept-4', code: 'MBA', name: 'Master of Business Administration', durationYears: 2, department: 'Department of Management Studies', coordinator: 'Dr. S. N. Deshmukh', status: 'ACTIVE' },
+  { id: 'prog-4', departmentId: 'dept-2', code: 'BE-ENTC', name: 'B.Tech Electronics & Telecommunication', durationYears: 4, department: 'Department of Electronics & Telecommunication', coordinator: 'Prof. Ananya Roy', status: 'ACTIVE' },
+  { id: 'prog-5', departmentId: 'dept-1', code: 'ME-COMP', name: 'M.Tech Computer Science & Engineering', durationYears: 2, department: 'Department of Computer Science & Engineering', coordinator: 'Dr. Vikram Joshi', status: 'ACTIVE' },
 ];
 
 // Centralized Director Approvals Database
@@ -144,6 +155,31 @@ export const INITIAL_PEO_OUTCOMES = {
   'prog-3': [
     { code: 'PEO1', statement: 'Graduates will lead business enterprises, strategic management initiatives, and corporate operations.' },
   ],
+};
+
+export const INITIAL_PROGRAMME_ATR_LIST = {
+  'prog-1': {
+    status: 'SUBMITTED_FOR_APPROVAL',
+    submittedBy: 'Dr. A. K. Sharma (Programme Coordinator)',
+    submittedAt: '2026-08-06',
+    observations: [
+      {
+        target: 'PO1 & PO2 (Engineering Knowledge & Problem Analysis)',
+        gap: 'Direct assessment target achieved at 84%. Gap identified in advanced data structures problem formulation.',
+        actionPlan: 'Introduce mandatory tutorial lab sessions with HackerRank/LeetCode competitive programming modules.',
+      },
+      {
+        target: 'PO3 & PO5 (Design & Modern Tool Usage)',
+        gap: 'Cloud deployment and DevOps tool usage showed minor deficit in 2024-25 batch.',
+        actionPlan: 'Organize 2-day hands-on AWS & Docker containerization workshop before Sem VI.',
+      },
+      {
+        target: 'PSO1 (Software System Development)',
+        gap: 'Full-stack web framework implementation targets met successfully at 108%.',
+        actionPlan: 'Maintain current project-based learning model and integrate microservices architecture topics.',
+      },
+    ],
+  },
 };
 
 // Centralized HOD Approvals Database
@@ -285,6 +321,26 @@ export function AcademicProvider({ children }) {
 
   const addBatch = (newBatch) => {
     setBatches((prev) => [...prev, newBatch]);
+  };
+
+  const updateBatch = (targetBatchId, updatedFields) => {
+    setBatches((prev) =>
+      prev.map((b) => (b.id === targetBatchId ? { ...b, ...updatedFields } : b))
+    );
+  };
+
+  const deleteBatch = (targetBatchId) => {
+    setBatches((prev) => prev.filter((b) => b.id !== targetBatchId));
+  };
+
+  const toggleBatchActiveStatus = (targetBatchId) => {
+    setBatches((prev) =>
+      prev.map((b) =>
+        b.id === targetBatchId
+          ? { ...b, status: b.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' }
+          : b
+      )
+    );
   };
 
   const [academicYear, setAcademicYear] = useState('2025-26');
@@ -759,6 +815,37 @@ export function AcademicProvider({ children }) {
     }));
   };
 
+  const addCourse = (newCourse) => {
+    setCoursesStoreByYear((prev) => ({
+      ...prev,
+      [academicYear]: [...(prev[academicYear] || INITIAL_COURSES), newCourse],
+    }));
+  };
+
+  const [programmeAtrStore, setProgrammeAtrStore] = useState(INITIAL_PROGRAMME_ATR_LIST);
+
+  const approveProgrammeAtr = (targetProgId, hodName) => {
+    setProgrammeAtrStore((prev) => ({
+      ...prev,
+      [targetProgId]: {
+        ...(prev[targetProgId] || INITIAL_PROGRAMME_ATR_LIST['prog-1']),
+        status: 'APPROVED',
+        approvedBy: hodName || 'Head of Department (HOD)',
+        approvedAt: new Date().toISOString().split('T')[0],
+      },
+    }));
+  };
+
+  const updateProgrammeAtrObservations = (targetProgId, newObservations) => {
+    setProgrammeAtrStore((prev) => ({
+      ...prev,
+      [targetProgId]: {
+        ...(prev[targetProgId] || INITIAL_PROGRAMME_ATR_LIST['prog-1']),
+        observations: newObservations,
+      },
+    }));
+  };
+
   return (
     <AcademicContext.Provider
       value={{
@@ -767,6 +854,9 @@ export function AcademicProvider({ children }) {
         setBatchId,
         selectedBatch,
         addBatch,
+        updateBatch,
+        deleteBatch,
+        toggleBatchActiveStatus,
         academicYear,
         setAcademicYear,
         availableYears,
@@ -821,6 +911,10 @@ export function AcademicProvider({ children }) {
         approveHodSubmission,
         rejectHodSubmission,
         assignCourseCoordinator,
+        addCourse,
+        programmeAtrStore,
+        approveProgrammeAtr,
+        updateProgrammeAtrObservations,
       }}
     >
       {children}

@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Users, GraduationCap, CheckCircle2, Clock, ArrowRight, ShieldCheck, Layers, FileText, Sparkles, AlertCircle, ChevronRight, Calendar } from 'lucide-react';
+import { GraduationCap, CheckCircle2, ArrowRight, ShieldCheck, Layers, FileText, Calendar, Users, ChevronRight, Check, Clock } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -18,262 +17,226 @@ export default function HodDashboard() {
   const totalProgrammes = masterProgrammes.length || 3;
   const totalCourses = courses.length || 6;
   const pendingApprovalsCount = hodApprovals.filter((a) => a.status === 'PENDING').length || 2;
+  const activeBatch = selectedBatch?.name?.split(' ')[1] || '2025–29';
 
-  // Quick Action Navigation Items for HOD
   const quickActions = [
     {
       id: 'batches',
-      title: 'Batch Management & Initialization',
-      desc: 'Initialize 4-year batch cycles (e.g. AY 2025-26 to AY 2028-29) and manage active batches.',
+      title: 'Batch Management',
+      desc: 'Initialize 4-year batch cycles and manage active batches.',
       path: '/hod/batch-management',
       icon: Calendar,
-      color: '#4f46e5',
-      bg: '#e0e7ff',
     },
     {
       id: 'outcomes',
-      title: 'Programme Outcomes (PO, PSO & PEO)',
-      desc: 'Define, edit, and review Program Outcomes, PSOs, and Program Educational Objectives.',
+      title: 'Programme Outcomes',
+      desc: 'Define and review POs, PSOs, and PEOs.',
       path: '/hod/programme-outcomes',
       icon: Layers,
-      color: '#059669',
-      bg: '#dcfce7',
     },
     {
       id: 'courses',
-      title: 'Course Management & Coordinator Allocation',
-      desc: 'Verify department courses and assign Course Coordinators from faculty roster.',
+      title: 'Course Management',
+      desc: 'Verify courses and assign Course Coordinators.',
       path: '/hod/course-management',
       icon: Users,
-      color: '#0284c7',
-      bg: '#e0f2fe',
     },
     {
       id: 'approvals',
-      title: 'Approvals & Verification Panel',
-      desc: 'Verify submissions from Programme Coordinators with Approve or Send Back actions.',
+      title: 'Approvals & Verification',
+      desc: 'Review Programme Coordinator submissions.',
       path: '/hod/approvals',
       icon: ShieldCheck,
-      color: '#d97706',
-      bg: '#fef3c7',
-      badge: pendingApprovalsCount > 0 ? `${pendingApprovalsCount} Pending Verification` : '✓ All Clear',
-      badgeColor: pendingApprovalsCount > 0 ? '#2563eb' : '#15803d',
-      badgeBg: pendingApprovalsCount > 0 ? '#eff6ff' : '#dcfce7',
+      badge: pendingApprovalsCount > 0 ? `${pendingApprovalsCount} pending` : null,
+      badgeWarn: pendingApprovalsCount > 0,
     },
     {
       id: 'atr',
-      title: 'Programme ATR & Continuous Improvement',
-      desc: 'Review and approve final Programme Action Taken Reports and gap action plans.',
+      title: 'Programme ATR',
+      desc: 'Review and approve final Programme ATR reports.',
       path: '/hod/programme-atr',
       icon: FileText,
-      color: '#7c3aed',
-      bg: '#f3e8ff',
     },
   ];
 
+  const setupSteps = [
+    { title: 'Batch Initialized', done: batches.length > 0, desc: batches.length > 0 ? `${batches.length} batch(es) active` : 'No batch created yet' },
+    { title: 'PO, PSO & PEO Defined', done: totalProgrammes > 0, desc: `${totalProgrammes} programme(s) configured` },
+    { title: 'Courses Verified', done: totalCourses > 0, desc: `${totalCourses} course(s) under department` },
+    { title: 'Coordinators Assigned', done: totalCourses > 0, desc: 'Faculty allocation complete' },
+    { title: 'Approvals Cleared', done: pendingApprovalsCount === 0, desc: pendingApprovalsCount > 0 ? `${pendingApprovalsCount} item(s) pending` : 'All submissions reviewed' },
+  ];
+
+  const completedCount = setupSteps.filter((s) => s.done).length;
+  const progressPct = Math.round((completedCount / setupSteps.length) * 100);
+
+  // ─── Style tokens ─────────────────────────────────────────────────────────
+  const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
+  const ink = '#0f172a';
+  const muted = '#64748b';
+  const accent = '#4f46e5';
+
   return (
-    <div className="animated-page" style={{ paddingBottom: '40px' }}>
-      {/* ── TOP WELCOME HEADER BANNER (WHITE BACKGROUND WITH RIGHT-ALIGNED ACTION BUTTON) ── */}
-      <div
-        style={{
-          background: '#ffffff',
-          borderRadius: '16px',
-          padding: '24px 28px',
-          marginBottom: '24px',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
-          border: '1.5px solid #e2e8f0',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '22px', color: '#0f172a', fontWeight: '900', letterSpacing: '-0.3px' }}>
-              Welcome, {user?.name || 'Head of Department'}
-            </h1>
-            <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>
-              Department of Computer Science & Engineering • HOD Control Portal
-            </p>
-          </div>
+    <div className="animated-page" style={{ paddingBottom: '48px' }}>
 
-          {/* RIGHT-ALIGNED PRIMARY ACTION BUTTON */}
-          <div>
-            <button
-              className="btn btn-primary"
-              onClick={() => navigate('/hod/setup-workflow')}
-              style={{
-                height: '46px',
-                padding: '0 24px',
-                fontSize: '13.5px',
-                fontWeight: '800',
-                gap: '10px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
-                color: '#ffffff',
-                border: 'none',
-                boxShadow: '0 8px 20px rgba(79,70,229,0.3)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <Sparkles size={18} style={{ color: '#fef08a' }} />
-              <span style={{ color: '#ffffff' }}>Start / Continue Programme Setup</span>
-              <ArrowRight size={16} style={{ color: '#ffffff' }} />
-            </button>
+      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+      <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
+            HOD Dashboard
           </div>
+          <h1 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
+            Welcome, {user?.name || 'Head of Department'}
+          </h1>
+          <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
+            Department of Computer Science &amp; Engineering
+          </p>
         </div>
+        <button
+          onClick={() => navigate('/hod/setup-workflow')}
+          style={{ height: '40px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px' }}
+        >
+          Start / Continue Setup <ArrowRight size={14} />
+        </button>
       </div>
 
-      {/* ── BATCH & PROGRAMME SUMMARY CARDS ───────────────────────────────────────── */}
-      <div className="grid-cards-4" style={{ gap: '16px', marginBottom: '24px' }}>
-        {/* Card 1: Active Batch */}
-        <div style={{ background: '#ffffff', padding: '20px', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#64748b' }}>Active Batch Cycle</span>
-            <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: '#e0e7ff', display: 'grid', placeItems: 'center', color: '#4f46e5' }}>
-              <Calendar size={18} />
+
+      {/* ── STAT CARDS ──────────────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+
+        {/* Active Batch */}
+        <div style={{ ...surface, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Active Batch</span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#eef2ff', display: 'grid', placeItems: 'center', color: accent }}>
+              <Calendar size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a' }}>
-            {selectedBatch?.name.split(' ')[1] || '2025-29'}
-          </div>
-          <div style={{ fontSize: '11.5px', color: '#15803d', marginTop: '4px', fontWeight: '700' }}>
-            ✓ Active Academic Cycle
+          <div style={{ fontSize: '20px', fontWeight: '800', color: ink, lineHeight: 1 }}>{activeBatch}</div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: '#16a34a', fontWeight: '600', marginTop: '6px' }}>
+            <Check size={11} /> Active cycle
           </div>
         </div>
 
-        {/* Card 2: Degree Programmes */}
-        <div style={{ background: '#ffffff', padding: '20px', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#64748b' }}>Degree Programmes</span>
-            <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: '#e0f2fe', display: 'grid', placeItems: 'center', color: '#0284c7' }}>
-              <GraduationCap size={18} />
+        {/* Programmes */}
+        <div style={{ ...surface, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Programmes</span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f0f9ff', display: 'grid', placeItems: 'center', color: '#0284c7' }}>
+              <GraduationCap size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a' }}>{totalProgrammes}</div>
-          <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '4px' }}>
-            B.Tech CSE, AI & DS, M.Tech
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalProgrammes}</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>Degree programmes</div>
+        </div>
+
+        {/* Courses */}
+        <div style={{ ...surface, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Courses</span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f0fdf4', display: 'grid', placeItems: 'center', color: '#16a34a' }}>
+              <Users size={16} />
+            </div>
+          </div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalCourses}</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>Under department</div>
+        </div>
+
+        {/* Approvals */}
+        <div style={{ ...surface, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Approvals</span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: pendingApprovalsCount > 0 ? '#fffbeb' : '#f0fdf4', display: 'grid', placeItems: 'center', color: pendingApprovalsCount > 0 ? '#d97706' : '#16a34a' }}>
+              <ShieldCheck size={16} />
+            </div>
+          </div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: pendingApprovalsCount > 0 ? '#d97706' : '#16a34a', lineHeight: 1 }}>{pendingApprovalsCount}</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>
+            {pendingApprovalsCount > 0 ? 'Pending review' : 'All clear'}
           </div>
         </div>
 
-        {/* Card 3: Courses Under Dept */}
-        <div style={{ background: '#ffffff', padding: '20px', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#64748b' }}>Courses Managed</span>
-            <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: '#dcfce7', display: 'grid', placeItems: 'center', color: '#15803d' }}>
-              <Users size={18} />
-            </div>
-          </div>
-          <div style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a' }}>{totalCourses}</div>
-          <div style={{ fontSize: '11.5px', color: '#15803d', marginTop: '4px', fontWeight: '700' }}>
-            ✓ Coordinators Assigned
-          </div>
-        </div>
-
-        {/* Card 4: Approvals Tracker */}
-        <div style={{ background: '#ffffff', padding: '20px', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#64748b' }}>Pending Approvals</span>
-            <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: '#fef3c7', display: 'grid', placeItems: 'center', color: '#d97706' }}>
-              <ShieldCheck size={18} />
-            </div>
-          </div>
-          <div style={{ fontSize: '24px', fontWeight: '900', color: pendingApprovalsCount > 0 ? '#2563eb' : '#15803d' }}>
-            {pendingApprovalsCount}
-          </div>
-          <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '4px' }}>
-            Submissions Pending HOD Review
-          </div>
-        </div>
       </div>
 
-      {/* ── HOD QUICK ACTIONS GRID ─────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: '24px' }}>
-        <h3 style={{ margin: '0 0 14px 0', fontSize: '16px', color: '#0f172a', fontWeight: '800' }}>
-          Department Management Quick Actions
-        </h3>
 
-        <div className="grid-cards-2" style={{ gap: '16px' }}>
+      {/* ── QUICK ACTIONS ───────────────────────────────────────────────────── */}
+      <div style={{ marginBottom: '20px' }}>
+        <div style={{ fontSize: '12px', fontWeight: '700', color: muted, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '12px' }}>
+          Quick Actions
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
           {quickActions.map((action) => {
-            const IconComp = action.icon;
-
+            const Icon = action.icon;
             return (
               <div
                 key={action.id}
                 onClick={() => navigate(action.path)}
-                style={{
-                  background: '#ffffff',
-                  borderRadius: '14px',
-                  border: '1.5px solid #e2e8f0',
-                  padding: '20px',
-                  cursor: 'pointer',
-                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.03)',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justify: 'space-between',
-                  gap: '16px',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 10px 24px rgba(0,0,0,0.06)';
-                  e.currentTarget.style.borderColor = '#cbd5e1';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.03)';
-                  e.currentTarget.style.borderColor = '#e2e8f0';
-                }}
+                style={{ ...surface, padding: '16px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px', transition: 'box-shadow .15s ease, border-color .15s ease' }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.06)'; e.currentTarget.style.borderColor = '#c7d2fe'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
               >
-                <div style={{ display: 'flex', gap: '14px' }}>
-                  <div
-                    style={{
-                      width: '44px',
-                      height: '44px',
-                      borderRadius: '12px',
-                      background: action.bg,
-                      color: action.color,
-                      display: 'grid',
-                      placeItems: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <IconComp size={22} />
-                  </div>
-
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <h4 style={{ margin: 0, fontSize: '15px', color: '#0f172a', fontWeight: '800' }}>
-                        {action.title}
-                      </h4>
-                      {action.badge && (
-                        <span
-                          className="badge"
-                          style={{
-                            background: action.badgeBg,
-                            color: action.badgeColor,
-                            fontSize: '10.5px',
-                            fontWeight: '800',
-                            padding: '2px 8px',
-                          }}
-                        >
-                          {action.badge}
-                        </span>
-                      )}
-                    </div>
-
-                    <p style={{ fontSize: '12.5px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
-                      {action.desc}
-                    </p>
-                  </div>
+                <div style={{ width: '38px', height: '38px', borderRadius: '9px', background: '#eef2ff', color: accent, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                  <Icon size={18} />
                 </div>
-
-                <ChevronRight size={20} style={{ color: '#94a3b8', flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                    <span style={{ fontSize: '13.5px', fontWeight: '700', color: ink }}>{action.title}</span>
+                    {action.badge && (
+                      <span style={{
+                        fontSize: '10.5px', fontWeight: '700', borderRadius: '5px', padding: '1px 7px',
+                        background: action.badgeWarn ? '#fffbeb' : '#f0fdf4',
+                        color: action.badgeWarn ? '#b45309' : '#16a34a',
+                        border: `1px solid ${action.badgeWarn ? '#fde68a' : '#bbf7d0'}`,
+                      }}>
+                        {action.badge}
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ margin: 0, fontSize: '12px', color: muted, lineHeight: 1.4 }}>{action.desc}</p>
+                </div>
+                <ChevronRight size={16} style={{ color: '#cbd5e1', flexShrink: 0 }} />
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* ── SETUP PROGRESS ──────────────────────────────────────────────────── */}
+      <div style={{ ...surface, padding: '20px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: ink }}>Setup Progress</div>
+            <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>Department &amp; programme readiness checklist</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '12.5px', fontWeight: '700', color: accent }}>{progressPct}%</span>
+            <div style={{ width: '100px', height: '6px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' }}>
+              <div style={{ width: `${progressPct}%`, height: '100%', background: accent, borderRadius: '3px', transition: 'width .3s ease' }} />
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {setupSteps.map((step, idx) => (
+            <div
+              key={idx}
+              style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '8px', background: step.done ? '#fafafa' : '#ffffff', border: `1px solid ${step.done ? '#e2e8f0' : '#f1f5f9'}` }}
+            >
+              <div style={{ width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', background: step.done ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${step.done ? '#86efac' : '#e2e8f0'}`, color: step.done ? '#16a34a' : '#94a3b8' }}>
+                {step.done ? <Check size={12} /> : <Clock size={11} />}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: step.done ? ink : muted }}>{step.title}</div>
+                <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '1px' }}>{step.desc}</div>
+              </div>
+              <span style={{ fontSize: '11px', fontWeight: '600', borderRadius: '5px', padding: '2px 8px', flexShrink: 0, background: step.done ? '#f0fdf4' : '#f8fafc', color: step.done ? '#16a34a' : '#94a3b8', border: `1px solid ${step.done ? '#bbf7d0' : '#e2e8f0'}` }}>
+                {step.done ? 'Done' : 'Pending'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Layers, Users, CheckCircle2, ArrowRight, ArrowLeft, Save, Sparkles, Check, Plus, GraduationCap, AlertCircle } from 'lucide-react';
+import { Calendar, Layers, Users, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, BookOpen, Trash2, X, AlertCircle, ChevronDown } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 
 export default function HodSetupWorkflow() {
@@ -16,505 +16,454 @@ export default function HodSetupWorkflow() {
     activePOs = [],
     activePSOs = [],
     activePEOs = [],
+    updateProgrammePOs = () => {},
+    updateProgrammePSOs = () => {},
+    updateProgrammePEOs = () => {},
     courses = [],
     assignCourseCoordinator = () => {},
+    addCourse = () => {},
   } = useAcademic();
 
   const [currentStep, setCurrentStep] = useState(1);
+  const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || { id: 'prog-1', name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
 
-  // Selected Programme details
-  const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
-
-  // Step 1 Create Batch Form State (Numeric Typed Inputs with Validation > 2020)
+  // Step 1
   const [startYearInput, setStartYearInput] = useState('2025');
   const [endYearInput, setEndYearInput] = useState('2029');
-  const [validationError, setValidationError] = useState('');
+  const [batchValidationError, setBatchValidationError] = useState('');
 
-  // Workflow Steps Config (4 Guided Steps for HOD)
+  // Step 2
+  const [outcomeTab, setOutcomeTab] = useState('PO');
+  const [poList, setPoList] = useState(() => activePOs.map((po) => ({ ...po, competencies: po.competencies || [{ id: `comp-${po.code}-1`, order: 1, statement: `Demonstrate fundamental competence for ${po.code}` }] })));
+  const [psoList, setPsoList] = useState(() => activePSOs.map((pso) => ({ ...pso, competencies: pso.competencies || [{ id: `psocomp-${pso.code}-1`, order: 1, statement: `Demonstrate specialized competency for ${pso.code}` }] })));
+  const [peoList, setPeoList] = useState(() => activePEOs.map((peo) => ({ ...peo })));
+
+  // Step 3
+  const [newCourseCode, setNewCourseCode] = useState('');
+  const [newCourseName, setNewCourseName] = useState('');
+  const [newCourseSem, setNewCourseSem] = useState('Sem V');
+
   const steps = [
-    { number: 1, title: 'Batch Setup', desc: 'Select prog & type batch year' },
-    { number: 2, title: 'PO / PSO / PEO', desc: 'Verify outcome framework' },
-    { number: 3, title: 'Course Allocation', desc: 'Assign Course Coordinators' },
-    { number: 4, title: 'Final Review & Finish', desc: 'Verify & return to dashboard' },
+    { number: 1, title: 'Batch Setup',       desc: 'Initialize batch year',          icon: Calendar },
+    { number: 2, title: 'PO / PSO / PEO',    desc: 'Outcomes & competencies',        icon: Layers },
+    { number: 3, title: 'Courses',            desc: 'Add courses & coordinators',     icon: BookOpen },
+    { number: 4, title: 'Review',             desc: 'Verify & finish',                icon: CheckCircle2 },
   ];
 
+  const durationYears = selectedProgramme?.durationYears || 4;
+
+  // ── Handlers (logic unchanged) ───────────────────────────────────────────────
   const handleStartYearChange = (val) => {
-    const numericOnly = val.replace(/\D/g, '').slice(0, 4);
-    setStartYearInput(numericOnly);
-
-    if (numericOnly.length === 4) {
-      const num = parseInt(numericOnly, 10);
-      if (num <= 2020) {
-        setValidationError('⚠️ Academic start year must be greater than AY 2020 (e.g. 2021 or later).');
-      } else {
-        setValidationError('');
-        setEndYearInput(String(num + 4));
-      }
-    } else {
-      setValidationError('');
-    }
+    const v = val.replace(/\D/g, '').slice(0, 4);
+    setStartYearInput(v);
+    if (v.length === 4) {
+      const n = parseInt(v, 10);
+      setBatchValidationError(n <= 2020 ? 'Start year must be greater than 2020.' : '');
+      if (n > 2020) setEndYearInput(String(n + durationYears));
+    } else { setBatchValidationError(''); }
   };
+  const handleEndYearChange = (val) => setEndYearInput(val.replace(/\D/g, '').slice(0, 4));
 
-  const handleEndYearChange = (val) => {
-    const numericOnly = val.replace(/\D/g, '').slice(0, 4);
-    setEndYearInput(numericOnly);
-  };
-
-  const handleCreateBatchInline = (e) => {
+  const handleCreateBatch = (e) => {
     e.preventDefault();
-    const startNum = parseInt(startYearInput, 10);
-    const endNum = parseInt(endYearInput, 10);
-
-    if (!startYearInput || isNaN(startNum)) {
-      alert('Please enter a valid 4-digit numeric Start Academic Year (e.g. 2025).');
-      return;
-    }
-    if (startNum <= 2020) {
-      alert('⚠️ Academic start year must be greater than AY 2020 (e.g. 2021 or later).');
-      return;
-    }
-    if (!endYearInput || isNaN(endNum)) {
-      alert('Please enter a valid 4-digit numeric End Academic Year (e.g. 2029).');
-      return;
-    }
-    if (endNum <= startNum) {
-      alert('⚠️ End Academic Year must be greater than Start Academic Year.');
-      return;
-    }
-
-    const startAY = `${startNum}-${String(startNum + 1).slice(-2)}`;
-    const endAY = `${endNum - 1}-${String(endNum).slice(-2)}`;
-
-    const newBatch = {
-      id: `batch-${selectedProgramme.code.toLowerCase()}-${startNum}-${String(endNum).slice(-2)}`,
-      programmeId,
-      programmeName: selectedProgramme.name,
-      programmeCode: selectedProgramme.code,
-      name: `Batch ${startNum}-${String(endNum).slice(-2)} (${selectedProgramme.code}) — AY ${startAY} to ${endAY}`,
-      startYear: startAY,
-      endYear: endAY,
-      status: 'INITIALIZED',
-    };
-
-    addBatch(newBatch);
-    setBatchId(newBatch.id);
-    alert(`🎉 Created & Set Active Batch Year: ${newBatch.name}!`);
+    const s = parseInt(startYearInput, 10), en = parseInt(endYearInput, 10);
+    if (!s || s <= 2020 || !en || en <= s) return;
+    const startAY = `${s}-${String(s + 1).slice(-2)}`, endAY = `${en - 1}-${String(en).slice(-2)}`;
+    const nb = { id: `batch-${selectedProgramme.code.toLowerCase()}-${s}-${String(en).slice(-2)}`, programmeId, programmeName: selectedProgramme.name, programmeCode: selectedProgramme.code, name: `Batch ${s}-${String(en).slice(-2)} (${selectedProgramme.code}) — AY ${startAY} to ${endAY}`, startYear: startAY, endYear: endAY, status: 'INITIALIZED' };
+    addBatch(nb); setBatchId(nb.id);
   };
 
-  const handleNextStep = () => {
-    if (currentStep < 4) {
-      setCurrentStep((prev) => prev + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+  const handleAddPO = () => { const n = poList.length + 1; const np = { code: `PO${n}`, statement: `New Programme Outcome ${n}...`, status: 'VERIFIED', competencies: [{ id: `comp-PO${n}-1`, order: 1, statement: `Competency 1 for PO${n}` }] }; const u = [...poList, np]; setPoList(u); updateProgrammePOs(programmeId, u); };
+  const handleUpdatePOCode = (i, v) => { const u = poList.map((p, idx) => idx === i ? { ...p, code: v } : p); setPoList(u); updateProgrammePOs(programmeId, u); };
+  const handleUpdatePOStatement = (i, v) => { const u = poList.map((p, idx) => idx === i ? { ...p, statement: v } : p); setPoList(u); updateProgrammePOs(programmeId, u); };
+  const handleDeletePO = (i) => { const u = poList.filter((_, idx) => idx !== i); setPoList(u); updateProgrammePOs(programmeId, u); };
+  const handleAddPOCompetency = (pi) => { const u = poList.map((p, i) => { if (i !== pi) return p; const comps = p.competencies || []; const n = comps.length + 1; return { ...p, competencies: [...comps, { id: `comp-${p.code}-${n}`, order: n, statement: `Competency ${n} for ${p.code}` }] }; }); setPoList(u); updateProgrammePOs(programmeId, u); };
+  const handleUpdatePOCompetency = (pi, ci, v) => { const u = poList.map((p, i) => { if (i !== pi) return p; const comps = [...(p.competencies || [])]; comps[ci] = { ...comps[ci], statement: v }; return { ...p, competencies: comps }; }); setPoList(u); updateProgrammePOs(programmeId, u); };
+  const handleDeletePOCompetency = (pi, ci) => { const u = poList.map((p, i) => { if (i !== pi) return p; const comps = (p.competencies || []).filter((_, c) => c !== ci).map((c, idx) => ({ ...c, order: idx + 1 })); return { ...p, competencies: comps }; }); setPoList(u); updateProgrammePOs(programmeId, u); };
+
+  const handleAddPSO = () => { const n = psoList.length + 1; const np = { code: `PSO${n}`, statement: `New Programme Specific Outcome ${n}...`, competencies: [{ id: `psocomp-PSO${n}-1`, order: 1, statement: `Competency 1 for PSO${n}` }] }; const u = [...psoList, np]; setPsoList(u); updateProgrammePSOs(programmeId, u); };
+  const handleUpdatePSOCode = (i, v) => { const u = psoList.map((p, idx) => idx === i ? { ...p, code: v } : p); setPsoList(u); updateProgrammePSOs(programmeId, u); };
+  const handleUpdatePSOStatement = (i, v) => { const u = psoList.map((p, idx) => idx === i ? { ...p, statement: v } : p); setPsoList(u); updateProgrammePSOs(programmeId, u); };
+  const handleDeletePSO = (i) => { const u = psoList.filter((_, idx) => idx !== i); setPsoList(u); updateProgrammePSOs(programmeId, u); };
+  const handleAddPSOCompetency = (pi) => { const u = psoList.map((p, i) => { if (i !== pi) return p; const comps = p.competencies || []; const n = comps.length + 1; return { ...p, competencies: [...comps, { id: `psocomp-${p.code}-${n}`, order: n, statement: `Competency ${n} for ${p.code}` }] }; }); setPsoList(u); updateProgrammePSOs(programmeId, u); };
+  const handleUpdatePSOCompetency = (pi, ci, v) => { const u = psoList.map((p, i) => { if (i !== pi) return p; const comps = [...(p.competencies || [])]; comps[ci] = { ...comps[ci], statement: v }; return { ...p, competencies: comps }; }); setPsoList(u); updateProgrammePSOs(programmeId, u); };
+  const handleDeletePSOCompetency = (pi, ci) => { const u = psoList.map((p, i) => { if (i !== pi) return p; const comps = (p.competencies || []).filter((_, c) => c !== ci).map((c, idx) => ({ ...c, order: idx + 1 })); return { ...p, competencies: comps }; }); setPsoList(u); updateProgrammePSOs(programmeId, u); };
+
+  const handleAddPEO = () => { const n = peoList.length + 1; const np = { code: `PEO${n}`, statement: `New Programme Educational Objective ${n}...` }; const u = [...peoList, np]; setPeoList(u); updateProgrammePEOs(programmeId, u); };
+  const handleDeletePEO = (i) => { const u = peoList.filter((_, idx) => idx !== i); setPeoList(u); updateProgrammePEOs(programmeId, u); };
+  const handleUpdatePEOStatement = (i, v) => { const u = peoList.map((p, idx) => idx === i ? { ...p, statement: v } : p); setPeoList(u); updateProgrammePEOs(programmeId, u); };
+
+  const handleAddCourse = (e) => {
+    e.preventDefault();
+    if (!newCourseCode || !newCourseName) return;
+    addCourse({ id: `crs-${Date.now()}`, programmeId, code: newCourseCode, name: newCourseName, semester: newCourseSem, coordinator: 'Dr. Raj Shaikh', faculty: 'Dr. Raj Shaikh' });
+    setNewCourseCode(''); setNewCourseName('');
   };
 
-  const handlePrevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep((prev) => prev - 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const handleFinishWorkflow = () => {
-    alert('🎉 HOD Programme Setup Workflow completed successfully!');
-    navigate('/hod/dashboard');
-  };
+  const handleNext = () => { if (currentStep < 4) { setCurrentStep((p) => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
+  const handlePrev = () => { if (currentStep > 1) { setCurrentStep((p) => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
+  const handleFinish = () => navigate('/hod/dashboard');
 
   const activeBatchObj = batches.find((b) => b.id === batchId) || batches[0];
 
+  // ── Style tokens ──────────────────────────────────────────────────────────────
+  const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
+  const ink = '#0f172a';
+  const muted = '#64748b';
+  const accent = '#4f46e5';
+  const inputStyle = { height: '40px', fontSize: '13px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 12px', background: '#ffffff', color: ink, width: '100%', outline: 'none', fontFamily: 'inherit' };
+  const labelStyle = { display: 'block', fontSize: '11.5px', fontWeight: '600', color: muted, marginBottom: '5px' };
+
+
   return (
     <div className="animated-page" style={{ paddingBottom: '60px' }}>
-      {/* ── TOP HEADER BANNER ───────────────────────────────────────────────────────── */}
-      <div
-        style={{
-          background: '#ffffff',
-          borderRadius: '16px',
-          padding: '24px 28px',
-          marginBottom: '24px',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
-          border: '1.5px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          justify: 'space-between',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}
-      >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <span className="badge badge-active" style={{ background: '#e0e7ff', color: '#4f46e5', fontWeight: '800', fontSize: '11px' }}>
-              HOD GUIDED WORKFLOW • STEP {currentStep} OF 4
-            </span>
-          </div>
-          <h2 style={{ margin: 0, fontSize: '22px', color: '#0f172a', fontWeight: '900' }}>
-            Start / Continue Programme Setup
-          </h2>
-          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>
-            Guided setup process for Department of Computer Science & Engineering
-          </p>
-        </div>
 
-        <button
-          className="btn btn-secondary"
-          onClick={() => navigate('/hod/dashboard')}
-          style={{ height: '38px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700' }}
-        >
-          Exit Workflow
-        </button>
+      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+      <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
+            HOD Guided Workflow &nbsp;·&nbsp; Step {currentStep} of 4
+          </div>
+          <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
+            Programme Setup
+          </h2>
+          <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>{selectedProgramme.name}</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ position: 'relative' }}>
+            <select
+              value={programmeId}
+              onChange={(e) => setProgrammeId(e.target.value)}
+              style={{ height: '38px', paddingLeft: '12px', paddingRight: '32px', fontSize: '12.5px', fontWeight: '600', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ffffff', color: ink, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', appearance: 'none', maxWidth: '280px' }}
+            >
+              {masterProgrammes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+            </select>
+            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+          </div>
+          <button onClick={() => navigate('/hod/dashboard')} style={{ height: '38px', padding: '0 14px', fontSize: '12.5px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <X size={14} /> Exit
+          </button>
+        </div>
       </div>
 
-      {/* ── STEPPER PROGRESS BAR ───────────────────────────────────────────────────── */}
-      <div style={{ background: '#ffffff', borderRadius: '16px', padding: '20px 24px', marginBottom: '24px', border: '1.5px solid #e2e8f0', boxShadow: '0 4px 14px rgba(0,0,0,0.02)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', position: 'relative' }}>
+      {/* ── STEPPER ─────────────────────────────────────────────────────────── */}
+      <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', position: 'relative' }}>
+          <div style={{ position: 'absolute', top: '18px', left: '12.5%', right: '12.5%', height: '1px', background: '#e2e8f0', zIndex: 0 }} />
           {steps.map((s) => {
-            const isCompleted = currentStep > s.number;
-            const isCurrent = currentStep === s.number;
-
+            const done = currentStep > s.number, active = currentStep === s.number;
+            const Icon = s.icon;
             return (
-              <div
-                key={s.number}
-                onClick={() => setCurrentStep(s.number)}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  textCenter: 'center',
-                  cursor: 'pointer',
-                  opacity: currentStep >= s.number ? 1 : 0.6,
-                }}
-              >
-                <div
-                  style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    background: isCompleted ? '#10b981' : isCurrent ? '#4f46e5' : '#f1f5f9',
-                    color: isCompleted || isCurrent ? '#ffffff' : '#64748b',
-                    display: 'grid',
-                    placeItems: 'center',
-                    fontWeight: '900',
-                    fontSize: '14px',
-                    marginBottom: '8px',
-                    boxShadow: isCurrent ? '0 0 0 4px rgba(79,70,229,0.2)' : 'none',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {isCompleted ? <Check size={18} /> : s.number}
+              <div key={s.number} onClick={() => setCurrentStep(s.number)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', position: 'relative', zIndex: 1, opacity: currentStep >= s.number ? 1 : 0.45, transition: 'opacity .2s' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: done ? '#f0fdf4' : active ? '#eef2ff' : '#f8fafc', border: `1.5px solid ${done ? '#86efac' : active ? '#a5b4fc' : '#e2e8f0'}`, color: done ? '#16a34a' : active ? accent : muted, display: 'grid', placeItems: 'center', marginBottom: '8px', transition: 'all .2s' }}>
+                  {done ? <Check size={15} /> : <Icon size={15} />}
                 </div>
-
-                <div style={{ fontWeight: isCurrent ? '800' : '700', fontSize: '12.5px', color: isCurrent ? '#4f46e5' : '#0f172a', textAlign: 'center' }}>
-                  {s.title}
-                </div>
-                <div style={{ fontSize: '10.5px', color: '#64748b', textAlign: 'center', marginTop: '2px' }}>
-                  {s.desc}
-                </div>
+                <div style={{ fontSize: '12px', fontWeight: active ? '700' : '600', color: active ? ink : muted, textAlign: 'center' }}>{s.title}</div>
+                <div style={{ fontSize: '10.5px', color: '#94a3b8', textAlign: 'center', marginTop: '1px' }}>{s.desc}</div>
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* ── STEP CONTENT AREA ──────────────────────────────────────────────────────── */}
-      <div style={{ background: '#ffffff', borderRadius: '16px', padding: '28px', border: '1.5px solid #e2e8f0', boxShadow: '0 4px 16px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
-        {/* STEP 1: SELECT PROGRAMME & TYPE BATCH YEAR (NUMERIC > 2020) */}
+      {/* ── STEP CONTENT ────────────────────────────────────────────────────── */}
+      <div style={{ ...surface, padding: '24px', marginBottom: '20px' }}>
+
+
+        {/* STEP 1: BATCH SETUP */}
         {currentStep === 1 && (
           <div>
-            <div style={{ marginBottom: '20px', borderBottom: '1px solid #f1f5f9', paddingBottom: '14px' }}>
-              <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>
-                Step 1: Select Programme & Type Batch Year
-              </h3>
-              <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#64748b' }}>
-                First select a degree programme allocated by the Director, then type the numeric batch start and end years (greater than AY 2020).
-              </p>
+            <div style={{ marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>Batch Setup</h3>
+              <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>Initialize a 4-year academic batch for <strong>{selectedProgramme.name}</strong>. Start year must be after 2020.</p>
             </div>
 
-            {/* 1. SELECT PROGRAMME */}
-            <div style={{ marginBottom: '24px', background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-              <label className="form-label" style={{ fontWeight: '800', fontSize: '13.5px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a' }}>
-                <GraduationCap size={18} style={{ color: '#4f46e5' }} />
-                1. Select Degree Programme (Created by Director) *
-              </label>
-              <select
-                value={programmeId}
-                onChange={(e) => setProgrammeId(e.target.value)}
-                className="form-input"
-                style={{ height: '44px', fontSize: '13.5px', fontWeight: '800', color: '#4f46e5', maxWidth: '600px' }}
-              >
-                {masterProgrammes.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.code} — {p.name}
-                  </option>
-                ))}
-              </select>
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', maxWidth: '680px', marginBottom: '16px' }}>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '12px' }}>Add Batch Year</div>
+              <form onSubmit={handleCreateBatch}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', alignItems: 'flex-end' }}>
+                  <div>
+                    <label style={labelStyle}>Start Year *</label>
+                    <input type="text" placeholder="e.g. 2025" value={startYearInput} onChange={(e) => handleStartYearChange(e.target.value)} style={{ ...inputStyle, fontWeight: '700' }} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>End Year *</label>
+                    <input type="text" placeholder="e.g. 2029" value={endYearInput} onChange={(e) => handleEndYearChange(e.target.value)} style={{ ...inputStyle, fontWeight: '700' }} />
+                  </div>
+                  <button type="submit" style={{ height: '40px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    + Add Batch
+                  </button>
+                </div>
+                {batchValidationError && (
+                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#dc2626', fontWeight: '600' }}>
+                    <AlertCircle size={14} /> {batchValidationError}
+                  </div>
+                )}
+              </form>
             </div>
 
-            {/* 2. TYPE BATCH YEAR FOR SELECTED PROGRAMME (NUMERIC ONLY > 2020) */}
-            <div style={{ background: '#ffffff', border: '1.5px solid #4f46e5', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 12px rgba(79,70,229,0.06)' }}>
-              <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#0f172a', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Plus size={18} style={{ color: '#4f46e5' }} />
-                2. Type & Add Batch Year for {selectedProgramme.code} ({selectedProgramme.name})
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '16px', alignItems: 'end' }}>
+            {activeBatchObj && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '14px 16px', maxWidth: '680px' }}>
+                <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
                 <div>
-                  <label className="form-label" style={{ fontWeight: '700', fontSize: '12px', marginBottom: '6px', display: 'block' }}>
-                    Type Start Year (Numeric, &gt; 2020) *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 2025"
-                    value={startYearInput}
-                    onChange={(e) => handleStartYearChange(e.target.value)}
-                    className="form-input"
-                    style={{ height: '42px', fontSize: '13.5px', fontWeight: '800', color: '#0f172a' }}
-                  />
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#15803d' }}>{activeBatchObj.name}</div>
+                  <div style={{ fontSize: '11.5px', color: '#166534', marginTop: '1px' }}>{selectedProgramme.name} ({selectedProgramme.code})</div>
                 </div>
-
-                <div>
-                  <label className="form-label" style={{ fontWeight: '700', fontSize: '12px', marginBottom: '6px', display: 'block' }}>
-                    Type End Year (Numeric, &gt; Start Year) *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 2029"
-                    value={endYearInput}
-                    onChange={(e) => handleEndYearChange(e.target.value)}
-                    className="form-input"
-                    style={{ height: '42px', fontSize: '13.5px', fontWeight: '800', color: '#0f172a' }}
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={handleCreateBatchInline}
-                  style={{
-                    height: '42px',
-                    padding: '0 22px',
-                    fontSize: '13px',
-                    fontWeight: '800',
-                    gap: '8px',
-                    background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
-                    color: '#ffffff',
-                  }}
-                >
-                  + Add Batch Year
-                </button>
               </div>
-
-              {/* Validation Warning */}
-              {validationError && (
-                <div style={{ marginTop: '12px', color: '#dc2626', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <AlertCircle size={15} /> {validationError}
-                </div>
-              )}
-
-              {/* Active Created Batch Confirmation */}
-              {activeBatchObj && (
-                <div style={{ marginTop: '16px', background: '#f0fdf4', padding: '12px 16px', borderRadius: '10px', border: '1px solid #a7f3d0', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <CheckCircle2 size={18} style={{ color: '#10b981' }} />
-                  <span style={{ fontSize: '12.5px', color: '#15803d', fontWeight: '700' }}>
-                    Active Created Batch: <strong>{activeBatchObj.name}</strong> under {selectedProgramme.name}
-                  </span>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         )}
 
-        {/* STEP 2: PROGRAMME OUTCOMES VERIFICATION */}
+        {/* STEP 2: OUTCOMES */}
         {currentStep === 2 && (
           <div>
-            <div style={{ marginBottom: '20px', borderBottom: '1px solid #f1f5f9', paddingBottom: '14px' }}>
-              <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>
-                Step 2: PO, PSO & PEO Outcomes Framework
-              </h3>
-              <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#64748b' }}>
-                Verify active Program Outcomes (POs), PSOs, and Program Educational Objectives (PEOs) for {selectedProgramme.name}.
-              </p>
+            <div style={{ marginBottom: '16px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>PO / PSO / PEO & Competencies</h3>
+                <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>Define outcomes and add competency statements for <strong>{selectedProgramme.name}</strong>.</p>
+              </div>
+              {outcomeTab === 'PO' && <button onClick={handleAddPO} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Plus size={14} /> Add PO</button>}
+              {outcomeTab === 'PSO' && <button onClick={handleAddPSO} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#059669', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Plus size={14} /> Add PSO</button>}
+              {outcomeTab === 'PEO' && <button onClick={handleAddPEO} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Plus size={14} /> Add PEO</button>}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-              <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '700' }}>Program Outcomes</div>
-                <div style={{ fontSize: '20px', fontWeight: '900', color: '#4f46e5', marginTop: '4px' }}>{activePOs.length} POs Configured</div>
-              </div>
-
-              <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '700' }}>Program Specific Outcomes</div>
-                <div style={{ fontSize: '20px', fontWeight: '900', color: '#059669', marginTop: '4px' }}>{activePSOs.length} PSOs Configured</div>
-              </div>
-
-              <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '700' }}>Program Educational Objectives</div>
-                <div style={{ fontSize: '20px', fontWeight: '900', color: '#0284c7', marginTop: '4px' }}>{activePEOs.length} PEOs Configured</div>
-              </div>
+            {/* Tab strip */}
+            <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px', width: 'fit-content', marginBottom: '18px' }}>
+              {[['PO', `POs (${poList.length})`], ['PSO', `PSOs (${psoList.length})`], ['PEO', `PEOs (${peoList.length})`]].map(([tab, label]) => (
+                <button key={tab} type="button" onClick={() => setOutcomeTab(tab)} style={{ padding: '7px 16px', borderRadius: '7px', border: 'none', fontSize: '12.5px', fontWeight: '700', cursor: 'pointer', background: outcomeTab === tab ? '#ffffff' : 'transparent', color: outcomeTab === tab ? accent : muted, boxShadow: outcomeTab === tab ? '0 1px 4px rgba(0,0,0,0.08)' : 'none', fontFamily: 'inherit' }}>
+                  {label}
+                </button>
+              ))}
             </div>
+
+            {/* PO tab */}
+            {outcomeTab === 'PO' && (
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {poList.length === 0 && <div style={{ textAlign: 'center', padding: '24px', color: muted, fontSize: '12.5px' }}>No POs yet — click below to add the first one.</div>}
+                {poList.map((po, idx) => (
+                  <div key={idx} style={{ ...surface, padding: '16px', borderLeft: `3px solid ${accent}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                      <input type="text" value={po.code} onChange={(e) => handleUpdatePOCode(idx, e.target.value)} style={{ ...inputStyle, width: '80px', fontWeight: '700', color: accent, textAlign: 'center' }} />
+                      <input type="text" value={po.statement} onChange={(e) => handleUpdatePOStatement(idx, e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '200px' }} />
+                      <button onClick={() => handleAddPOCompetency(idx)} style={{ height: '36px', padding: '0 12px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}><Plus size={13} /> Competency</button>
+                      <button onClick={() => handleDeletePO(idx)} style={{ width: '32px', height: '32px', borderRadius: '7px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><Trash2 size={13} /></button>
+                    </div>
+                    {(po.competencies || []).length > 0 && (
+                      <div style={{ marginLeft: '8px', paddingLeft: '14px', borderLeft: '2px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Competencies ({(po.competencies || []).length})</div>
+                        <table className="audit-data-table">
+                          <thead><tr><th style={{ width: '60px', textAlign: 'center' }}>No.</th><th>Statement</th><th style={{ width: '50px' }}></th></tr></thead>
+                          <tbody>
+                            {(po.competencies || []).map((comp, ci) => (
+                              <tr key={comp.id || ci}>
+                                <td style={{ textAlign: 'center', fontWeight: '700', color: accent, fontSize: '11.5px' }}>{po.code}.{ci + 1}</td>
+                                <td><input type="text" value={comp.statement} onChange={(e) => handleUpdatePOCompetency(idx, ci, e.target.value)} style={{ ...inputStyle, height: '34px', fontSize: '12px' }} /></td>
+                                <td style={{ textAlign: 'center' }}><button onClick={() => handleDeletePOCompetency(idx, ci)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><X size={12} /></button></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {/* Add PO — inline after last card */}
+                <button onClick={handleAddPO} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', borderRadius: '10px', border: `1.5px dashed #c7d2fe`, background: '#fafafa', color: accent, fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'background .15s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#eef2ff'} onMouseLeave={(e) => e.currentTarget.style.background = '#fafafa'}>
+                  <Plus size={15} /> Add Programme Outcome (PO{poList.length + 1})
+                </button>
+              </div>
+            )}
+
+            {/* PSO tab */}
+            {outcomeTab === 'PSO' && (
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {psoList.length === 0 && <div style={{ textAlign: 'center', padding: '24px', color: muted, fontSize: '12.5px' }}>No PSOs yet — click below to add the first one.</div>}
+                {psoList.map((pso, idx) => (
+                  <div key={idx} style={{ ...surface, padding: '16px', borderLeft: '3px solid #059669' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                      <input type="text" value={pso.code} onChange={(e) => handleUpdatePSOCode(idx, e.target.value)} style={{ ...inputStyle, width: '80px', fontWeight: '700', color: '#059669', textAlign: 'center' }} />
+                      <input type="text" value={pso.statement} onChange={(e) => handleUpdatePSOStatement(idx, e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '200px' }} />
+                      <button onClick={() => handleAddPSOCompetency(idx)} style={{ height: '36px', padding: '0 12px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}><Plus size={13} /> Competency</button>
+                      <button onClick={() => handleDeletePSO(idx)} style={{ width: '32px', height: '32px', borderRadius: '7px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><Trash2 size={13} /></button>
+                    </div>
+                    {(pso.competencies || []).length > 0 && (
+                      <div style={{ marginLeft: '8px', paddingLeft: '14px', borderLeft: '2px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Competencies ({(pso.competencies || []).length})</div>
+                        <table className="audit-data-table">
+                          <thead><tr><th style={{ width: '60px', textAlign: 'center' }}>No.</th><th>Statement</th><th style={{ width: '50px' }}></th></tr></thead>
+                          <tbody>
+                            {(pso.competencies || []).map((comp, ci) => (
+                              <tr key={comp.id || ci}>
+                                <td style={{ textAlign: 'center', fontWeight: '700', color: '#059669', fontSize: '11.5px' }}>{pso.code}.{ci + 1}</td>
+                                <td><input type="text" value={comp.statement} onChange={(e) => handleUpdatePSOCompetency(idx, ci, e.target.value)} style={{ ...inputStyle, height: '34px', fontSize: '12px' }} /></td>
+                                <td style={{ textAlign: 'center' }}><button onClick={() => handleDeletePSOCompetency(idx, ci)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><X size={12} /></button></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {/* Add PSO — inline after last card */}
+                <button onClick={handleAddPSO} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', borderRadius: '10px', border: '1.5px dashed #6ee7b7', background: '#fafafa', color: '#059669', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'background .15s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f0fdf4'} onMouseLeave={(e) => e.currentTarget.style.background = '#fafafa'}>
+                  <Plus size={15} /> Add Programme Specific Outcome (PSO{psoList.length + 1})
+                </button>
+              </div>
+            )}
+
+            {/* PEO tab */}
+            {outcomeTab === 'PEO' && (
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {peoList.length === 0 && <div style={{ textAlign: 'center', padding: '24px', color: muted, fontSize: '12.5px' }}>No PEOs yet — click below to add the first one.</div>}
+                {peoList.map((peo, idx) => (
+                  <div key={idx} style={{ ...surface, padding: '14px 16px', borderLeft: '3px solid #0284c7', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#0284c7', width: '52px', flexShrink: 0 }}>{peo.code}</span>
+                    <input type="text" value={peo.statement} onChange={(e) => handleUpdatePEOStatement(idx, e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                    <button onClick={() => handleDeletePEO(idx)} style={{ width: '32px', height: '32px', borderRadius: '7px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }}><Trash2 size={13} /></button>
+                  </div>
+                ))}
+                {/* Add PEO — inline after last row */}
+                <button onClick={handleAddPEO} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', borderRadius: '10px', border: '1.5px dashed #7dd3fc', background: '#fafafa', color: '#0284c7', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'background .15s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f0f9ff'} onMouseLeave={(e) => e.currentTarget.style.background = '#fafafa'}>
+                  <Plus size={15} /> Add Programme Educational Objective (PEO{peoList.length + 1})
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-        {/* STEP 3: COURSE & COORDINATOR ALLOCATION */}
+
+        {/* STEP 3: COURSES */}
         {currentStep === 3 && (
           <div>
-            <div style={{ marginBottom: '20px', borderBottom: '1px solid #f1f5f9', paddingBottom: '14px' }}>
-              <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>
-                Step 3: Course Management & Coordinator Allocation
-              </h3>
-              <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#64748b' }}>
-                Assign Course Coordinators to each course under {selectedProgramme.name}.
-              </p>
+            <div style={{ marginBottom: '16px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>Courses & Coordinator Allocation</h3>
+              <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>Add courses under <strong>{selectedProgramme.name}</strong> and assign Course Coordinators.</p>
             </div>
 
-            <table className="audit-data-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '90px', textAlign: 'center' }}>Code</th>
-                  <th>Course Name</th>
-                  <th style={{ width: '280px' }}>Assign Course Coordinator</th>
-                </tr>
-              </thead>
-              <tbody>
-                {courses.map((c) => (
-                  <tr key={c.id}>
-                    <td style={{ textAlign: 'center', fontWeight: '900', color: '#4f46e5' }}>{c.code}</td>
-                    <td style={{ fontWeight: '700', color: '#0f172a' }}>{c.name}</td>
-                    <td>
-                      <select
-                        value={c.coordinator || c.faculty.split('/')[0].trim()}
-                        onChange={(e) => assignCourseCoordinator(c.id, e.target.value)}
-                        className="form-input"
-                        style={{ height: '36px', fontSize: '12.5px', fontWeight: '700', color: '#4f46e5' }}
-                      >
-                        {MASTER_FACULTY_LIST.map((fac) => (
-                          <option key={fac} value={fac}>{fac}</option>
-                        ))}
-                      </select>
-                    </td>
+            {/* Add course form */}
+            <form onSubmit={handleAddCourse} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '10px' }}>Add Course</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr 120px auto', gap: '10px', alignItems: 'flex-end' }}>
+                <div>
+                  <label style={labelStyle}>Code *</label>
+                  <input type="text" required placeholder="CS305" value={newCourseCode} onChange={(e) => setNewCourseCode(e.target.value)} style={{ ...inputStyle, fontWeight: '700', color: accent }} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Course Name *</label>
+                  <input type="text" required placeholder="e.g. Compiler Design" value={newCourseName} onChange={(e) => setNewCourseName(e.target.value)} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Semester</label>
+                  <select value={newCourseSem} onChange={(e) => setNewCourseSem(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                    {['Sem III','Sem IV','Sem V','Sem VI','Sem VII'].map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+                <button type="submit" style={{ height: '40px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Add</button>
+              </div>
+            </form>
+
+            {/* Courses table */}
+            <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
+              <table className="audit-data-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '90px' }}>Code</th>
+                    <th>Course Name</th>
+                    <th style={{ width: '90px', textAlign: 'center' }}>Semester</th>
+                    <th style={{ width: '240px' }}>Course Coordinator</th>
+                    <th style={{ width: '100px', textAlign: 'center' }}>Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {courses.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>No courses yet — add one above.</td></tr>}
+                  {courses.map((c) => (
+                    <tr key={c.id}>
+                      <td style={{ fontWeight: '700', color: accent }}>{c.code}</td>
+                      <td style={{ fontWeight: '600', color: ink }}>{c.name}</td>
+                      <td style={{ textAlign: 'center', color: muted, fontSize: '12px' }}>{c.semester}</td>
+                      <td>
+                        <select value={c.coordinator || c.faculty} onChange={(e) => assignCourseCoordinator(c.id, e.target.value)} style={{ ...inputStyle, height: '34px', fontSize: '12px', cursor: 'pointer' }}>
+                          {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                        </select>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '5px', padding: '2px 8px' }}>
+                          <Check size={11} /> Allocated
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
-        {/* STEP 4: FINAL REVIEW & FINISH */}
+        {/* STEP 4: REVIEW */}
         {currentStep === 4 && (
           <div>
-            <div style={{ marginBottom: '20px', borderBottom: '1px solid #f1f5f9', paddingBottom: '14px' }}>
-              <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>
-                Step 4: Final Review & Setup Verification
-              </h3>
-              <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#64748b' }}>
-                Review complete HOD setup before saving and returning to the dashboard.
-              </p>
+            <div style={{ marginBottom: '16px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>Review & Confirm</h3>
+              <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>Verify the setup for <strong>{selectedProgramme.name}</strong> before finishing.</p>
             </div>
 
-            <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', padding: '18px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <CheckCircle2 size={24} style={{ color: '#10b981' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
+              <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
               <div>
-                <strong style={{ fontSize: '14px', color: '#15803d' }}>
-                  ✓ Setup Complete for {selectedProgramme.name}!
-                </strong>
-                <div style={{ fontSize: '12.5px', color: '#166534', marginTop: '2px' }}>
-                  Created Batch: {activeBatchObj?.name} • Outcomes & Coordinators assigned.
+                <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#15803d' }}>Department Setup Complete</div>
+                <div style={{ fontSize: '12px', color: '#166534', marginTop: '1px' }}>
+                  Batch, outcomes, and course coordinators fully configured for {selectedProgramme.name}.
                 </div>
               </div>
             </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+              {[
+                { label: 'Active Batch', value: activeBatchObj?.startYear ? `${activeBatchObj.startYear} – ${activeBatchObj.endYear}` : '—', color: accent },
+                { label: 'Program Outcomes', value: `${poList.length} POs`, color: accent },
+                { label: 'Specific Outcomes', value: `${psoList.length} PSOs`, color: '#059669' },
+                { label: 'Educ. Objectives', value: `${peoList.length} PEOs`, color: '#0284c7' },
+                { label: 'Courses', value: `${courses.length} courses`, color: ink },
+              ].map((item) => (
+                <div key={item.label} style={{ ...surface, padding: '14px 16px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>{item.label}</div>
+                  <div style={{ fontSize: '18px', fontWeight: '800', color: item.color }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-      </div>
 
-      {/* ── WORKFLOW ACTION FOOTER (PREVIOUS ON EXTREME LEFT, SAVE & CONTINUE ON RIGHT WITH WHITE TEXT) ── */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justify: 'space-between',
-          background: '#ffffff',
-          padding: '16px 24px',
-          borderRadius: '14px',
-          border: '1.5px solid #e2e8f0',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
-        }}
-      >
-        {/* EXTREME LEFT: PREVIOUS BUTTON */}
+      </div>{/* end step content */}
+
+      {/* ── FOOTER NAV ────────────────────────────────────────────────────────── */}
+      <div style={{ ...surface, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           {currentStep > 1 && (
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handlePrevStep}
-              style={{
-                height: '42px',
-                padding: '0 22px',
-                fontSize: '13px',
-                fontWeight: '700',
-                gap: '8px',
-                color: '#0f172a',
-                background: '#f1f5f9',
-                border: '1px solid #cbd5e1',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-              }}
-            >
-              <ArrowLeft size={16} /> Previous
+            <button type="button" onClick={handlePrev} style={{ height: '40px', padding: '0 18px', fontSize: '13px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <ArrowLeft size={14} /> Previous
             </button>
           )}
         </div>
-
-        {/* EXTREME RIGHT: SAVE & CONTINUE / FINISH BUTTON WITH WHITE TEXT */}
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '5px' }}>
+            {steps.map((s) => (
+              <div key={s.number} style={{ width: currentStep === s.number ? '16px' : '6px', height: '6px', borderRadius: '3px', background: currentStep === s.number ? accent : '#e2e8f0', transition: 'all .2s' }} />
+            ))}
+          </div>
           {currentStep < 4 ? (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleNextStep}
-              style={{
-                height: '44px',
-                padding: '0 26px',
-                fontSize: '13.5px',
-                fontWeight: '800',
-                gap: '10px',
-                background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
-                color: '#ffffff',
-                border: 'none',
-                boxShadow: '0 8px 20px rgba(79,70,229,0.3)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-              }}
-            >
-              <Save size={16} style={{ color: '#ffffff' }} />
-              <span style={{ color: '#ffffff' }}>Save & Continue to Next Task</span>
-              <ArrowRight size={16} style={{ color: '#ffffff' }} />
+            <button type="button" onClick={handleNext} style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
+              <Save size={14} /> Save & Continue <ArrowRight size={14} />
             </button>
           ) : (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleFinishWorkflow}
-              style={{
-                height: '46px',
-                padding: '0 28px',
-                fontSize: '14px',
-                fontWeight: '900',
-                gap: '10px',
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                color: '#ffffff',
-                border: 'none',
-                boxShadow: '0 8px 20px rgba(16,185,129,0.3)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-              }}
-            >
-              <Sparkles size={18} style={{ color: '#ffffff' }} />
-              <span style={{ color: '#ffffff' }}>Finish & Return to Dashboard</span>
+            <button type="button" onClick={handleFinish} style={{ height: '40px', padding: '0 22px', fontSize: '13px', fontWeight: '700', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
+              <CheckCircle2 size={14} /> Finish & Go to Dashboard
             </button>
           )}
         </div>
       </div>
+
     </div>
   );
 }

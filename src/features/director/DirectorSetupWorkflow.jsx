@@ -36,6 +36,8 @@ export default function DirectorSetupWorkflow() {
   const [newProgCode, setNewProgCode] = useState('');
   const [selectedProgCoordinator, setSelectedProgCoordinator] = useState(MASTER_FACULTY_LIST[0] || 'Dr. Raj Shaikh');
 
+  const [newProgDuration, setNewProgDuration] = useState(4);
+
   const steps = [
     { number: 1, title: 'School Info', desc: 'Metadata & Dean', icon: Building2 },
     { number: 2, title: 'Departments', desc: 'Depts & HODs', icon: Users },
@@ -76,6 +78,7 @@ export default function DirectorSetupWorkflow() {
       id: `prog-${Date.now()}`,
       code: newProgCode,
       name: newProgName,
+      durationYears: parseInt(newProgDuration, 10) || 4,
       departmentId: selectedDeptIdForProg,
       department: deptObj?.name || 'Department of Computer Science',
       coordinator: selectedProgCoordinator,
@@ -287,7 +290,7 @@ export default function DirectorSetupWorkflow() {
             {/* Add programme row */}
             <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
               <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '10px' }}>Add Programme</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 1.6fr 1.4fr auto', gap: '10px', alignItems: 'flex-end' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 1.6fr 0.8fr 1.2fr auto', gap: '10px', alignItems: 'flex-end' }}>
                 <div>
                   <label style={labelStyle}>Department *</label>
                   <select value={selectedDeptIdForProg} onChange={(e) => setSelectedDeptIdForProg(e.target.value)} style={selectStyle}>
@@ -301,6 +304,15 @@ export default function DirectorSetupWorkflow() {
                 <div>
                   <label style={labelStyle}>Programme Name *</label>
                   <input type="text" placeholder="B.Tech Artificial Intelligence & ML" value={newProgName} onChange={(e) => setNewProgName(e.target.value)} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Duration *</label>
+                  <select value={newProgDuration} onChange={(e) => setNewProgDuration(e.target.value)} style={selectStyle}>
+                    <option value={4}>4 Years</option>
+                    <option value={2}>2 Years</option>
+                    <option value={3}>3 Years</option>
+                    <option value={1}>1 Year</option>
+                  </select>
                 </div>
                 <div>
                   <label style={labelStyle}>Coordinator</label>

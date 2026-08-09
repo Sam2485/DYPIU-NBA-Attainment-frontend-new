@@ -58,76 +58,8 @@ export default function AppHeader() {
             </h1>
 
             {/* Sub-header Line 1: College / School Name */}
-            <div style={{ fontSize: '14px', fontWeight: '800', color: '#374151', margin: '2px 0 4px' }}>
+            <div style={{ fontSize: '14px', fontWeight: '800', color: '#374151', margin: '2px 0 0' }}>
               School of Engineering Management & Research
-            </div>
-
-            {/* Sub-header Line 2: Batch Cycle (Step 1) & Academic Year Dropdowns */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginTop: '2px' }}>
-              {/* Step 1: Batch Cycle Selection */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#475569', fontWeight: '700' }}>
-                <Layers size={15} style={{ color: '#4f46e5' }} />
-                <span>Batch:</span>
-                <select
-                  value={batchId}
-                  onChange={(e) => setBatchId(e.target.value)}
-                  style={{
-                    height: '34px',
-                    minWidth: '220px',
-                    border: '1.5px solid #6366f1',
-                    borderRadius: '8px',
-                    padding: '0 12px',
-                    fontSize: '12.5px',
-                    fontFamily: 'inherit',
-                    color: '#4f46e5',
-                    background: '#ffffff',
-                    outline: 'none',
-                    fontWeight: '800',
-                    boxShadow: '0 1px 3px rgba(99,102,241,0.08)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {batches.map((b) => (
-                    <option key={b.id} value={b.id} style={{ color: '#0f172a', fontWeight: '700' }}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Academic Year Selection */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#475569', fontWeight: '700' }}>
-                <Sparkles size={14} style={{ color: '#4f46e5' }} />
-                <span>Academic Year:</span>
-                <select
-                  value={academicYear}
-                  onChange={(e) => setAcademicYear(e.target.value)}
-                  style={{
-                    height: '34px',
-                    minWidth: '150px',
-                    border: '1.5px solid #6366f1',
-                    borderRadius: '8px',
-                    padding: '0 12px',
-                    fontSize: '12.5px',
-                    fontFamily: 'inherit',
-                    color: '#4f46e5',
-                    background: '#ffffff',
-                    outline: 'none',
-                    fontWeight: '800',
-                    boxShadow: '0 1px 3px rgba(99,102,241,0.08)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {availableYears.map((yr) => {
-                    const isActive = yr === '2026-27' || yr === academicYear;
-                    return (
-                      <option key={yr} value={yr} style={{ color: '#0f172a', fontWeight: '700' }}>
-                        {yr} {isActive ? '(Active)' : '(Closed)'}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
             </div>
           </div>
 

@@ -43,13 +43,13 @@ const DIRECTOR_NAV = [
 
 // ── HOD Nav Items (as specified in PDF Page 2-3) ───────────────────────────────
 const HOD_NAV = [
-  { id: 'dashboard',          path: '/hod/dashboard',          icon: 'dashboard', label: 'Dashboard',             sub: 'HOD Overview & Actions' },
-  { id: 'batch-management',   path: '/hod/batch-management',   icon: 'academic',  label: 'Batch Management',     sub: 'Initialize & Active Batches' },
-  { id: 'programme-outcomes', path: '/hod/programme-outcomes', icon: 'outcomes',  label: 'Programme Outcomes',   sub: 'POs, PSOs & PEOs Setup' },
-  { id: 'course-management',  path: '/hod/course-management',  icon: 'users',     label: 'Course Management',    sub: 'Courses & Coordinators' },
-  { id: 'approvals',          path: '/hod/approvals',          icon: 'config',    label: 'Approvals & Reviews',  sub: 'Verify Submissions' },
-  { id: 'programme-atr',      path: '/hod/programme-atr',      icon: 'survey',    label: 'Programme ATR',        sub: 'Review & Approve ATR' },
-  { id: 'reports',            path: '/hod/reports',            icon: 'reports',   label: 'Reports & Downloads',   sub: 'Batch & Programme Reports' },
+  { id: 'dashboard',          path: '/hod/dashboard',          icon: 'dashboard', label: 'Dashboard',          sub: 'Overview & actions' },
+  { id: 'batch-management',   path: '/hod/batch-management',   icon: 'academic',  label: 'Batch Management',   sub: 'Initialize batches' },
+  { id: 'programme-outcomes', path: '/hod/programme-outcomes', icon: 'outcomes',  label: 'Programme Outcomes', sub: 'POs, PSOs & PEOs' },
+  { id: 'course-management',  path: '/hod/course-management',  icon: 'users',     label: 'Course Management',  sub: 'Courses & coordinators' },
+  { id: 'approvals',          path: '/hod/approvals',          icon: 'config',    label: 'Approvals',          sub: 'Verify submissions' },
+  { id: 'programme-atr',      path: '/hod/programme-atr',      icon: 'survey',    label: 'Programme ATR',      sub: 'Review & approve' },
+  { id: 'reports',            path: '/hod/reports',            icon: 'reports',   label: 'Reports',            sub: 'Batch & programme reports' },
 ];
 
 // ── Dropdown 1: Programme Setup & Management ───────────────────────────────────
@@ -86,6 +86,7 @@ export default function AppSidebar() {
 
   // Dropdown States
   const [navOpenDirector, setNavOpenDirector] = useState(false);
+  const [navOpenHod, setNavOpenHod] = useState(false);
   const [navOpenSetup, setNavOpenSetup] = useState(false);
   const [navOpenReview, setNavOpenReview] = useState(false);
   const [navOpenFaculty, setNavOpenFaculty] = useState(false);
@@ -278,58 +279,68 @@ export default function AppSidebar() {
             })()}
           </nav>
         ) : role === 'HOD' ? (
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ fontSize: 10, color: '#60a5fa', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0 4px 4px' }}>
-              HOD Navigation Menu
-            </div>
-            {HOD_NAV.map((item) => {
-              const isActive = location.pathname === item.path || (item.path === '/hod/dashboard' && location.pathname === '/dashboard');
+          <nav style={{ position: 'relative' }}>
+            {(() => {
+              const activeHodItem = HOD_NAV.find((item) => location.pathname === item.path);
               return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => navigate(item.path)}
-                  className="nba-nav-item"
-                  style={{
-                    minHeight: 40,
-                    border: isActive ? '1px solid rgba(99,102,241,0.4)' : '1px solid transparent',
-                    borderRadius: 10,
-                    background: isActive ? 'rgba(99,102,241,0.22)' : 'rgba(30,41,59,0.5)',
-                    color: '#f8fafc',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '7px 10px',
-                    textAlign: 'left',
-                    boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  <span
+                <>
+                  <button
+                    type="button"
+                    aria-expanded={navOpenHod}
+                    onClick={() => setNavOpenHod((prev) => !prev)}
                     style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: 7,
-                      background: isActive ? 'rgba(99,102,241,0.25)' : 'rgba(148,163,184,0.08)',
-                      display: 'grid',
-                      placeItems: 'center',
-                      flexShrink: 0,
+                      width: '100%',
+                      minHeight: 42,
+                      border: navOpenHod ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(148,163,184,0.20)',
+                      borderRadius: 12,
+                      background: 'rgba(30,41,59,0.72)',
+                      color: '#f8fafc',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '7px 10px',
+                      transition: 'all 0.15s ease',
                     }}
                   >
-                    <Icon name={item.icon} active={isActive} size={14} />
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: 12, lineHeight: 1.1, color: '#f8fafc' }}>
-                      {item.label}
+                    <span style={{ width: 24, height: 24, borderRadius: 7, background: 'rgba(99,102,241,0.20)', border: '1px solid rgba(165,180,252,0.25)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      <Icon name={activeHodItem?.icon || 'dashboard'} active size={13} />
+                    </span>
+                    <span style={{ flex: 1, textAlign: 'left', fontSize: 12, fontWeight: 800, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {activeHodItem ? activeHodItem.label : 'HOD Menu'}
+                    </span>
+                    <span style={{ display: 'grid', placeItems: 'center', transition: 'transform 0.2s', transform: navOpenHod ? 'rotate(180deg)' : 'rotate(0deg)', color: '#64748b' }}>
+                      <Icon name="chevron" size={14} />
+                    </span>
+                  </button>
+
+                  {navOpenHod && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6, padding: 5, background: '#1f2937', border: '1px solid rgba(148,163,184,0.22)', borderRadius: 12, boxShadow: '0 18px 34px rgba(2,6,23,0.32)', display: 'grid', gap: 2, maxHeight: '360px', overflowY: 'auto', zIndex: 50 }}>
+                      {HOD_NAV.map((item) => {
+                        const isActive = location.pathname === item.path;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => { navigate(item.path); setNavOpenHod(false); }}
+                            style={{ minHeight: 40, border: isActive ? '1px solid rgba(165,180,252,0.24)' : '1px solid transparent', borderRadius: 9, background: isActive ? 'rgba(99,102,241,0.18)' : 'transparent', color: '#f8fafc', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9, padding: '6px 9px', textAlign: 'left', boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none', fontFamily: 'inherit' }}
+                          >
+                            <span style={{ width: 24, height: 24, borderRadius: 6, background: isActive ? 'rgba(99,102,241,0.16)' : 'rgba(148,163,184,0.08)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                              <Icon name={item.icon} active={isActive} size={13} />
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, fontSize: 12, lineHeight: 1.1, color: '#f8fafc' }}>{item.label}</div>
+                              <div style={{ fontSize: 9.5, marginTop: 2, color: isActive ? '#c7d2fe' : '#64748b' }}>{item.sub}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
-                    <div style={{ fontSize: 9.5, marginTop: 2, color: isActive ? '#c7d2fe' : '#94a3b8' }}>
-                      {item.sub}
-                    </div>
-                  </div>
-                </button>
+                  )}
+                </>
               );
-            })}
+            })()}
           </nav>
         ) : isCoordinatorRole ? (
           <>

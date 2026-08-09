@@ -4,34 +4,42 @@ import { useAcademic } from '../../context/AcademicContext';
 
 export default function HodProgrammeATR() {
   const {
+    programmeId = 'prog-1',
     selectedProgramme = { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' },
     selectedBatch = { name: 'Batch 2024-28' },
+    programmeAtrStore = {},
+    approveProgrammeAtr = () => {},
   } = useAcademic();
 
-  const [atrStatus, setAtrStatus] = useState('SUBMITTED_FOR_APPROVAL'); // 'SUBMITTED_FOR_APPROVAL', 'APPROVED'
-
-  const handleApproveAtr = () => {
-    setAtrStatus('APPROVED');
-    alert('🎉 Final Programme ATR approved by HOD!');
+  const currentAtr = programmeAtrStore[programmeId] || {
+    status: 'SUBMITTED_FOR_APPROVAL',
+    submittedBy: 'Dr. A. K. Sharma (Programme Coordinator)',
+    submittedAt: '2026-08-06',
+    observations: [
+      {
+        target: 'PO1 & PO2 (Engineering Knowledge & Problem Analysis)',
+        gap: 'Direct assessment target achieved at 84%. Gap identified in advanced data structures problem formulation.',
+        actionPlan: 'Introduce mandatory tutorial lab sessions with HackerRank/LeetCode competitive programming modules.',
+      },
+      {
+        target: 'PO3 & PO5 (Design & Modern Tool Usage)',
+        gap: 'Cloud deployment and DevOps tool usage showed minor deficit in 2024-25 batch.',
+        actionPlan: 'Organize 2-day hands-on AWS & Docker containerization workshop before Sem VI.',
+      },
+      {
+        target: 'PSO1 (Software System Development)',
+        gap: 'Full-stack web framework implementation targets met successfully at 108%.',
+        actionPlan: 'Maintain current project-based learning model and integrate microservices architecture topics.',
+      },
+    ],
   };
 
-  const observations = [
-    {
-      target: 'PO1 & PO2 (Engineering Knowledge & Problem Analysis)',
-      gap: 'Direct assessment target achieved at 84%. Gap identified in advanced data structures problem formulation.',
-      actionPlan: 'Introduce mandatory tutorial lab sessions with HackerRank/LeetCode competitive programming modules.',
-    },
-    {
-      target: 'PO3 & PO5 (Design & Modern Tool Usage)',
-      gap: 'Cloud deployment and DevOps tool usage showed minor deficit in 2024-25 batch.',
-      actionPlan: 'Organize 2-day hands-on AWS & Docker containerization workshop before Sem VI.',
-    },
-    {
-      target: 'PSO1 (Software System Development)',
-      gap: 'Full-stack web framework implementation targets met successfully at 108%.',
-      actionPlan: 'Maintain current project-based learning model and integrate microservices architecture topics.',
-    },
-  ];
+  const isApproved = currentAtr.status === 'APPROVED';
+
+  const handleApproveAtr = () => {
+    approveProgrammeAtr(programmeId, 'Dr. Raj Shaikh (HOD)');
+    alert('🎉 Final Programme ATR approved by HOD!');
+  };
 
   return (
     <div className="animated-page" style={{ paddingBottom: '40px' }}>
@@ -53,7 +61,7 @@ export default function HodProgrammeATR() {
           </div>
 
           <div style={{ display: 'flex', gap: '10px' }}>
-            {atrStatus === 'SUBMITTED_FOR_APPROVAL' ? (
+            {!isApproved ? (
               <button
                 className="btn btn-primary"
                 onClick={handleApproveAtr}
@@ -84,7 +92,7 @@ export default function HodProgrammeATR() {
 
           <div style={{ textAlign: 'right' }}>
             <span style={{ fontSize: '12px', color: '#64748b' }}>Submitted by Programme Coordinator:</span>
-            <div style={{ fontSize: '13px', fontWeight: '800', color: '#4f46e5' }}>Dr. A. K. Sharma</div>
+            <div style={{ fontSize: '13px', fontWeight: '800', color: '#4f46e5' }}>{currentAtr.submittedBy}</div>
           </div>
         </div>
       </div>
@@ -95,7 +103,7 @@ export default function HodProgrammeATR() {
       </h3>
 
       <div style={{ display: 'grid', gap: '14px', marginBottom: '24px' }}>
-        {observations.map((obs, idx) => (
+        {(currentAtr.observations || []).map((obs, idx) => (
           <div key={idx} style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <span className="badge badge-active" style={{ background: '#e0e7ff', color: '#4f46e5', fontWeight: '800' }}>
