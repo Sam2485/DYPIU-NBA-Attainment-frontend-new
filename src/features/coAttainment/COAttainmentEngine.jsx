@@ -84,7 +84,7 @@ export default function COAttainmentEngine({ hideFooter = false }) {
             </div>
             <div>
               <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
-                Course Outcome (CO) Attainment Engine
+                Course Outcome (CO) Attainment
               </h2>
             </div>
           </div>
@@ -272,7 +272,7 @@ export default function COAttainmentEngine({ hideFooter = false }) {
       {/* Save, Previous & Save & Next Footer */}
       {!hideFooter && (
         <SectionSaveFooter
-          label="CO Attainment Engine"
+          label="CO Attainment"
           prevPath="/survey-upload"
           nextPath="/course-atr"
           nextLabel="Save & Proceed to Course ATR →"

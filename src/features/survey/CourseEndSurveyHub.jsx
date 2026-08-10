@@ -118,7 +118,7 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
         label="Course End Survey"
         prevPath="/marks-upload"
         nextPath="/co-attainment"
-        nextLabel="Save & Proceed to CO Attainment Engine →"
+        nextLabel="Save & Proceed to CO Attainment →"
         hidden={hideFooter}
       />
     </div>

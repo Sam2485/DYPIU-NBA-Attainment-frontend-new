@@ -83,11 +83,8 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
             </div>
             <div>
               <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
-                CO to PO & PSO Attainment Engine
+                PO/PSO Attainment
               </h2>
-              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#475569' }}>
-                CO to PO & PSO Attainment Mapping & Aggregation Matrix for {selectedCourse?.code || 'Course'}
-              </p>
             </div>
           </div>
 
@@ -288,7 +285,7 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
       {/* Save, Previous & Save & Next Footer */}
       {!hideFooter && (
         <SectionSaveFooter
-          label="CO to PO & PSO Attainment Engine"
+          label="PO/PSO Attainment"
           prevPath={role === 'FACULTY' ? '/survey-upload' : '/course-atr'}
           nextPath={role === 'FACULTY' ? '/course-atr' : '/programme-atr'}
           nextLabel={role === 'FACULTY' ? 'Save & Proceed to Course ATR →' : 'Save & Proceed to Programme ATR →'}

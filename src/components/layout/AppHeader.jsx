@@ -1,7 +1,6 @@
 import { useLocation } from 'react-router-dom';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
-import { Sparkles, Layers } from 'lucide-react';
 import AttainmentProgressTracker from './AttainmentProgressTracker';
 
 export default function AppHeader() {
@@ -17,15 +16,11 @@ export default function AppHeader() {
   } = useAcademic();
 
   const isFaculty = role === 'FACULTY';
-  const isWorkflowRoute = location.pathname.includes('/course-coordinator/workflow');
+  const isWorkflowRoute = location.pathname.includes('workflow');
 
-  // Show Progress Tracker ONLY inside the guided workflow page
-  if (isWorkflowRoute && isFaculty) {
-    return (
-      <div style={{ width: '100%', boxSizing: 'border-box' }}>
-        <AttainmentProgressTracker />
-      </div>
-    );
+  // Completely suppress main header in all workflow routes (Director, HOD, Programme Coordinator, Course Coordinator)
+  if (isWorkflowRoute) {
+    return null;
   }
 
   return (

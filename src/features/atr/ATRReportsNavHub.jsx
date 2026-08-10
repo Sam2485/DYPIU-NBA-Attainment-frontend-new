@@ -26,9 +26,6 @@ export default function ATRReportsNavHub() {
           <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
             Action Taken Report (ATR) Hub
           </h2>
-          <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#475569' }}>
-            Record continuous improvement action plans and observations for {selectedCourse?.code} - {selectedCourse?.name} ({academicYear}).
-          </p>
         </div>
 
         {/* SPACE BETWEEN ACTION BAR: First two options on left, Save option on extreme right */}

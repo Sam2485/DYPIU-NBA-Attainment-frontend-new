@@ -151,16 +151,17 @@ export default function DashboardOverview() {
         </div>
         <div style={{ marginLeft: 'auto' }}>
           <button
-            onClick={() => navigate(nextStep.path)}
+            onClick={() => navigate(`/course-coordinator/workflow?step=${targetStepNum}`)}
             style={{
               height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '800',
               background: accent, color: '#fff', border: 'none', borderRadius: '8px',
               cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px',
               fontFamily: 'inherit', flexShrink: 0,
+              boxShadow: '0 4px 14px rgba(79,70,229,0.28)',
             }}
           >
             <PlayCircle size={15} />
-            Start / Continue Attainment
+            {completedCount > 0 ? 'Continue Attainment' : 'Start Attainment'}
             <ArrowRight size={14} />
           </button>
         </div>
@@ -240,7 +241,7 @@ export default function DashboardOverview() {
             </div>
           </div>
           <button
-            onClick={() => navigate(nextStep.path)}
+            onClick={() => navigate(`/course-coordinator/workflow?step=${nextStep.step}`)}
             style={{ height: '34px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#d97706', color: '#fff', border: 'none', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit', flexShrink: 0 }}
           >
             Go to Step {nextStep.step} <ChevronRight size={14} />
@@ -303,7 +304,7 @@ export default function DashboardOverview() {
             return (
               <div
                 key={s.step}
-                onClick={() => navigate(s.path)}
+                onClick={() => navigate(`/course-coordinator/workflow?step=${s.step}`)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '14px',
                   padding: '12px 16px', borderRadius: '10px', cursor: 'pointer',

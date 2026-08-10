@@ -178,11 +178,8 @@ export default function ReportsHub() {
         <div className="banner-content-row">
           <div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
-              Reports & Attainment Documentation
+              Reports
             </h2>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#475569' }}>
-              Export course attainment master sheets and accreditation documents for {courseCode} - {courseName}.
-            </p>
           </div>
         </div>
       </div>

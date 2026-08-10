@@ -990,19 +990,70 @@ export default function OutcomesManagement({ hideFooter = false }) {
       {activeOutcomeTab === 'cos' && (
         <div>
 
-          {currentCoVerificationStatus === 'APPROVED' && (
-            <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', padding: '12px 18px', marginBottom: '16px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <CheckCircle2 size={20} style={{ color: '#10b981' }} />
-              <div>
-                <strong style={{ fontSize: '13.5px', color: '#15803d' }}>
-                  ✓ ALL COURSE OUTCOMES VERIFIED & APPROVED BY PROGRAMME COORDINATOR
-                </strong>
-                <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#166534' }}>
-                  Course outcome statements for {selectedCourse?.code} - {selectedCourse?.name} have been verified and approved by the Programme Coordinator.
-                </p>
-              </div>
-            </div>
-          )}
+          {/* Programme Coordinator Status & Rejection Remarks Banner */}
+          {(() => {
+            const targetData = courseVerificationStore[targetCourseId] || {};
+            const status = targetData.coStatus || currentCoVerificationStatus || 'PENDING_APPROVAL';
+            const remarks = targetData.coRemarks || '';
+            const verifier = targetData.verifiedBy || 'Dr. Raj Shaikh (Programme Coordinator)';
+
+            const isApproved = status === 'APPROVED' || status === 'VERIFIED';
+            const isRejected = status === 'REJECTED' || status === 'REVISION_REQUESTED';
+
+            if (isApproved) {
+              return (
+                <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', padding: '14px 18px', marginBottom: '18px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <CheckCircle2 size={20} style={{ color: '#10b981', flexShrink: 0 }} />
+                  <div>
+                    <strong style={{ fontSize: '13.5px', color: '#15803d', fontWeight: '800' }}>
+                      ✓ ALL COURSE OUTCOMES VERIFIED &amp; APPROVED BY PROGRAMME COORDINATOR
+                    </strong>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#166534' }}>
+                      Course outcome statements for {selectedCourse?.code} — {selectedCourse?.name} have been verified and approved by <strong>{verifier}</strong>.
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
+            if (isRejected) {
+              return (
+                <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', padding: '16px 20px', marginBottom: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <XCircle size={22} style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <strong style={{ fontSize: '14px', color: '#b91c1c', fontWeight: '800' }}>
+                            Programme Coordinator Verification Status:
+                          </strong>
+                          <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 9px', borderRadius: '20px', background: '#fee2e2', color: '#b91c1c', letterSpacing: '0.04em' }}>
+                            REVISION REQUESTED
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#b91c1c', opacity: 0.9 }}>
+                          Forwarded by: <strong>{verifier}</strong>
+                        </div>
+                      </div>
+                      
+                      {remarks ? (
+                        <div style={{ background: '#ffffff', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', marginTop: '6px' }}>
+                          <div style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '3px' }}>
+                            Forwarded Rejection / Revision Remarks
+                          </div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', lineHeight: 1.5 }}>
+                            "{remarks}"
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            return null;
+          })()}
 
           <div className="card">
             <div style={{ overflowX: 'auto', width: '100%' }}>

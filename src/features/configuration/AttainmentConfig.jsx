@@ -173,11 +173,8 @@ export default function AttainmentConfig() {
         <div className="banner-content-row">
           <div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
-              Attainment Configurations Settings
+              Attainment Settings
             </h2>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#475569' }}>
-              Configure Direct/Indirect weightages, CO threshold %, and dynamic Min-Max percentage bands.
-            </p>
           </div>
 
           <button className="btn btn-primary" onClick={handleSaveConfig}>
@@ -262,7 +259,7 @@ export default function AttainmentConfig() {
         <div className="card-header" style={{ marginBottom: '16px' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a', fontWeight: '800' }}>
-              Course Attainment Config ({currentConfig.courseCode} - {currentConfig.courseName})
+              Course Attainment Settings ({currentConfig.courseCode} - {currentConfig.courseName})
             </h3>
             <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
               Direct vs. Indirect assessment weightages and CO target threshold percentages.
