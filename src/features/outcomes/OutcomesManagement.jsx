@@ -136,15 +136,27 @@ export default function OutcomesManagement({ hideFooter = false }) {
   }, [programmeId, activePSOs]);
 
   useEffect(() => {
+    const targetData = courseVerificationStore[targetCourseId] || {};
+    const globalStatus = targetData.coStatus || currentCoVerificationStatus || 'PENDING_APPROVAL';
+
     setCoList(
-      activeCOs.map((co) => ({
-        ...co,
-        status: co.status || (currentCoVerificationStatus === 'APPROVED' ? 'APPROVED' : 'WAITING_FOR_APPROVAL'),
-        submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
-        submittedAt: co.submittedAt || '2026-08-04',
-      }))
+      activeCOs.map((co) => {
+        const computedStatus =
+          globalStatus === 'APPROVED' || globalStatus === 'VERIFIED'
+            ? 'APPROVED'
+            : globalStatus === 'REJECTED' || globalStatus === 'REVISION_REQUESTED'
+            ? 'REJECTED'
+            : co.status || 'WAITING_FOR_APPROVAL';
+
+        return {
+          ...co,
+          status: computedStatus,
+          submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
+          submittedAt: co.submittedAt || '2026-08-04',
+        };
+      })
     );
-  }, [selectedCourse, activeCOs, currentCoVerificationStatus]);
+  }, [targetCourseId, selectedCourse, activeCOs, currentCoVerificationStatus, courseVerificationStore]);
 
   // ── PO Handlers (Programme Coordinator Proposes -> Director Verifies) ─────────
   const handleAddPO = () => {
@@ -1028,8 +1040,12 @@ export default function OutcomesManagement({ hideFooter = false }) {
                     </tr>
                   ) : (
                     coList.map((co, index) => {
-                      const isApproved = co.status === 'APPROVED';
-                      const isPending = co.status === 'WAITING_FOR_APPROVAL';
+                      const targetData = courseVerificationStore[targetCourseId] || {};
+                      const globalStatus = targetData.coStatus || currentCoVerificationStatus || 'PENDING_APPROVAL';
+
+                      const isApproved = co.status === 'APPROVED' || co.status === 'VERIFIED' || globalStatus === 'APPROVED' || globalStatus === 'VERIFIED';
+                      const isRejected = co.status === 'REJECTED' || co.status === 'REVISION_REQUESTED' || globalStatus === 'REJECTED' || globalStatus === 'REVISION_REQUESTED';
+                      const isPending = !isApproved && !isRejected;
 
                       return (
                         <tr key={index}>

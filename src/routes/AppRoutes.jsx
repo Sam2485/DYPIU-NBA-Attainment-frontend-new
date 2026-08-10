@@ -73,6 +73,7 @@ export default function AppRoutes() {
 
       <Route path="/users" element={<UsersPage />} />
       <Route path="/configurations" element={<ConfigurationPage />} />
+      <Route path="/attainment-config" element={<ConfigurationPage />} />
       <Route path="/academic" element={<AcademicPage />} />
       <Route path="/outcomes" element={<OutcomesPage />} />
       <Route path="/co-targets" element={<COTargetSettingPage />} />

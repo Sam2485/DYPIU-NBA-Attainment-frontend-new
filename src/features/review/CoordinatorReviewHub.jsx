@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import CourseATR from '../atr/CourseATR';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const ink    = '#0f172a';
@@ -80,16 +81,20 @@ function SectionHeader({ title, subtitle, status, onApprove, onReject }) {
 
 // ── PROGRAMME ATR TAB ────────────────────────────────────────────────────────
 function ProgATRTab({ selectedProgramme, activePOs, normPSOs, progAtrRows, onApprove, onReject, status }) {
-  const [entries] = useState(() =>
-    progAtrRows.map((r) => ({
-      ...r,
-      actions: r.met
-        ? []
-        : [`Conduct targeted interventions for ${r.code} — ${r.statement.slice(0, 50)}...`,
-           'Review assessment methodology and increase practice problem frequency.'],
-      remark: r.met ? 'Target achieved. Maintain current teaching strategy and assessment approach.' : '',
-    })),
-  );
+  const [entries, setEntries] = useState([]);
+
+  useEffect(() => {
+    setEntries(
+      progAtrRows.map((r) => ({
+        ...r,
+        actions: r.met
+          ? []
+          : [`Conduct targeted interventions for ${r.code} — ${r.statement.slice(0, 50)}...`,
+             'Review assessment methodology and increase practice problem frequency.'],
+        remark: r.met ? 'Target achieved. Maintain current teaching strategy and assessment approach.' : '',
+      }))
+    );
+  }, [progAtrRows]);
 
   const poEntries  = entries.filter((e) => e.type === 'PO');
   const psoEntries = entries.filter((e) => e.type === 'PSO');
@@ -102,9 +107,6 @@ function ProgATRTab({ selectedProgramme, activePOs, normPSOs, progAtrRows, onApp
           <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
             <span style={{ color: accentCol, fontWeight: '900', marginRight: '6px' }}>{entry.code}:</span>
             {entry.statement}
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: '700', background: entry.met ? '#dcfce7' : '#fee2e2', color: entry.met ? '#15803d' : '#991b1b', border: `1px solid ${entry.met ? '#86efac' : '#fca5a5'}`, borderRadius: '5px', padding: '3px 10px', whiteSpace: 'nowrap' }}>
-            Target: {entry.target.toFixed(2)} &nbsp;|&nbsp; Actual: {entry.actual.toFixed(2)} &nbsp;({pct}%) &nbsp;{entry.met ? '✓ Target Met' : '⚠ Gap Identified'}
           </span>
         </div>
 
@@ -527,20 +529,7 @@ export default function CoordinatorReviewHub() {
             onReject={() => openRejectModal('atrStatus', `Course ATR — ${selectedCourse?.code}`)}
           />
 
-          {courseAtrData.map((atr) => (
-            <div key={atr.code} style={{ ...surface, padding: '16px 20px', borderLeft: `3px solid ${atr.met ? '#16a34a' : '#dc2626'}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>{atr.code}: {atr.statement}</span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: '700', background: atr.met ? '#f0fdf4' : '#fef2f2', color: atr.met ? '#16a34a' : '#dc2626', border: `1px solid ${atr.met ? '#bbf7d0' : '#fecaca'}`, borderRadius: '5px', padding: '3px 10px' }}>
-                  Target: {atr.target.toFixed(2)} &nbsp;|&nbsp; Actual: {atr.actual.toFixed(2)} &nbsp;({atr.pct.toFixed(1)}%)
-                </span>
-              </div>
-              <div style={{ fontSize: '11.5px', fontWeight: '600', color: muted, marginBottom: '6px' }}>Corrective Actions:</div>
-              <ul style={{ margin: 0, paddingLeft: '18px', display: 'grid', gap: '3px' }}>
-                {atr.actions.map((a, i) => <li key={i} style={{ fontSize: '12.5px', color: ink }}>{a}</li>)}
-              </ul>
-            </div>
-          ))}
+          <CourseATR courseId={reviewCourseId} hideHeader={true} hideFooter={true} readOnly={true} />
         </div>
       )}
 

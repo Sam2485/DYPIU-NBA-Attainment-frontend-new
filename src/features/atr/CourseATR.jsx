@@ -15,10 +15,12 @@ const inputStyle = {
   color: ink, width: '100%', outline: 'none', fontFamily: 'inherit',
 };
 
-export default function CourseATR({ hideFooter = false, hideHeader = false, showHistoryProp }) {
+export default function CourseATR({ hideFooter = false, hideHeader = false, showHistoryProp, readOnly = false, courseId }) {
   const navigate = useNavigate();
   const { role } = useAuth();
   const {
+    courses = [],
+    availableCourses = [],
     selectedCourse,
     academicYear    = '2025-26',
     selectedBatch,
@@ -39,8 +41,13 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
     if (showHistoryProp !== undefined) setShowHistory(showHistoryProp);
   }, [showHistoryProp]);
 
-  const activeCourseId = selectedCourse?.id || 'crs-1';
-  const activeCOs      = selectedCourse?.courseOutcomes || [];
+  const allCourses = availableCourses.length > 0 ? availableCourses : courses;
+  const currentCourse = courseId
+    ? allCourses.find((c) => c.id === courseId) || selectedCourse
+    : selectedCourse;
+
+  const activeCourseId = courseId || currentCourse?.id || selectedCourse?.id || 'crs-1';
+  const activeCOs      = currentCourse?.courseOutcomes || [];
 
   const atrStatus = courseVerificationStore[activeCourseId]?.atrStatus || 'DRAFT';
   const atrRemarks = courseVerificationStore[activeCourseId]?.atrRemarks || '';
@@ -68,10 +75,10 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   };
 
   const [coList, setCoList] = useState(buildList);
-  useEffect(() => { setCoList(buildList()); }, [activeCourseId, selectedCourse, courseAtrStore]);
+  useEffect(() => { setCoList(buildList()); }, [activeCourseId, currentCourse, activeCOs, courseAtrStore]);
 
   const reportStatus = courseVerificationStore[activeCourseId]?.atrStatus || 'DRAFT';
-  const locked       = reportStatus === 'VERIFIED';
+  const locked       = readOnly || reportStatus === 'VERIFIED' || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleSaveSubmit = () => {
@@ -164,27 +171,29 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
       )}
 
       {/* ── STATUS BAR ────────────────────────────────────────────────────── */}
-      <div style={{ ...surface, padding: '12px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: locked ? '#f0fdf4' : reportStatus === 'SUBMITTED' ? '#fffbeb' : '#ffffff', borderColor: locked ? '#bbf7d0' : reportStatus === 'SUBMITTED' ? '#fde68a' : '#e2e8f0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {locked ? <CheckCircle2 size={18} style={{ color: '#16a34a' }} /> : <Clock size={18} style={{ color: '#d97706' }} />}
-          <div>
-            <div style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
-              {locked ? 'Verified & Approved by Programme Coordinator ✓' : reportStatus === 'SUBMITTED' ? 'Submitted — Pending Verification' : 'Draft — Not yet submitted'}
-            </div>
-            <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>
-              {selectedCourse?.code} · {selectedCourse?.name} · {selectedBatch?.name}
+      {!readOnly && !hideHeader && (
+        <div style={{ ...surface, padding: '12px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: locked ? '#f0fdf4' : reportStatus === 'SUBMITTED' ? '#fffbeb' : '#ffffff', borderColor: locked ? '#bbf7d0' : reportStatus === 'SUBMITTED' ? '#fde68a' : '#e2e8f0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {locked ? <CheckCircle2 size={18} style={{ color: '#16a34a' }} /> : <Clock size={18} style={{ color: '#d97706' }} />}
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
+                {locked ? 'Verified & Approved by Programme Coordinator ✓' : reportStatus === 'SUBMITTED' ? 'Submitted — Pending Verification' : 'Draft — Not yet submitted'}
+              </div>
+              <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>
+                {currentCourse?.code} · {currentCourse?.name} · {selectedBatch?.name}
+              </div>
             </div>
           </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            {[
+              { label: `${metCount} COs Met`,   bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
+              { label: `${gapCount} COs Gap`,   bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
+            ].map((s) => (
+              <span key={s.label} style={{ fontSize: '12px', fontWeight: '700', background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '6px', padding: '3px 10px' }}>{s.label}</span>
+            ))}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          {[
-            { label: `${metCount} COs Met`,   bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
-            { label: `${gapCount} COs Gap`,   bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
-          ].map((s) => (
-            <span key={s.label} style={{ fontSize: '12px', fontWeight: '700', background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '6px', padding: '3px 10px' }}>{s.label}</span>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* ── CARRY-FORWARD REFERENCE ───────────────────────────────────────── */}
       {showHistory && (
@@ -226,9 +235,6 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
                     <span style={{ color: accent, fontWeight: '900', marginRight: '6px' }}>{co.code}:</span>
                     {co.statement}
                   </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: '700', background: co.met ? '#dcfce7' : '#fee2e2', color: co.met ? '#15803d' : '#991b1b', border: `1px solid ${co.met ? '#86efac' : '#fca5a5'}`, borderRadius: '5px', padding: '3px 10px', whiteSpace: 'nowrap' }}>
-                    Target: {co.target.toFixed(2)} &nbsp;|&nbsp; Actual: {co.actual.toFixed(2)} &nbsp;({co.pct.toFixed(1)}%) &nbsp;{co.met ? '✓ Target Met' : '⚠ Gap Identified'}
-                  </span>
                 </div>
 
                 {/* Inner table */}
@@ -254,35 +260,51 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
                       </td>
                       <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
                         {co.met ? (
-                          <textarea rows={3} value={co.remark} disabled={locked}
-                            onChange={(e) => handleUpdateRemark(idx, e.target.value)}
-                            placeholder="Enter remark for this CO..."
-                            style={{ width: '100%', fontSize: '12.5px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '8px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: locked ? '#f8fafc' : '#ffffff' }}
-                          />
+                          locked ? (
+                            <div style={{ fontSize: '12.5px', color: ink, background: '#f8fafc', padding: '10px 14px', borderRadius: '7px', border: '1px solid #e2e8f0', lineHeight: 1.5, fontWeight: '500' }}>
+                              {co.remark || 'Target achieved. Maintain current teaching methodology and assessment structure.'}
+                            </div>
+                          ) : (
+                            <textarea rows={3} value={co.remark} disabled={locked}
+                              onChange={(e) => handleUpdateRemark(idx, e.target.value)}
+                              placeholder="Enter remark for this CO..."
+                              style={{ width: '100%', fontSize: '12.5px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '8px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: '#ffffff' }}
+                            />
+                          )
                         ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {co.actions.map((act, aIdx) => (
-                              <div key={aIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                                <span style={{ fontWeight: '800', color: '#3b82f6', minWidth: '68px', fontSize: '12px', paddingTop: '9px' }}>Action {aIdx + 1}:</span>
-                                <textarea rows={2} value={act} disabled={locked}
-                                  onChange={(e) => handleUpdateAction(idx, aIdx, e.target.value)}
-                                  style={{ flex: 1, fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '6px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: locked ? '#f8fafc' : '#ffffff' }}
-                                />
-                                {!locked && co.actions.length > 1 && (
-                                  <button onClick={() => handleDeleteAction(idx, aIdx)}
-                                    style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
-                                    <span style={{ fontSize: '15px', lineHeight: 1 }}>×</span>
-                                  </button>
-                                )}
-                              </div>
-                            ))}
-                            {!locked && (
-                              <button onClick={() => handleAddAction(idx)}
-                                style={{ alignSelf: 'flex-start', height: '28px', padding: '0 12px', fontSize: '11.5px', fontWeight: '700', background: '#f8fafc', color: accent, border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>
-                                + Add Action
-                              </button>
-                            )}
-                          </div>
+                          locked ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              {co.actions.map((act, aIdx) => (
+                                <div key={aIdx} style={{ fontSize: '12px', color: ink, background: '#f8fafc', padding: '8px 12px', borderRadius: '7px', border: '1px solid #e2e8f0', lineHeight: 1.45 }}>
+                                  <strong style={{ color: '#2563eb', marginRight: '6px' }}>Action {aIdx + 1}:</strong> {act}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {co.actions.map((act, aIdx) => (
+                                <div key={aIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                  <span style={{ fontWeight: '800', color: '#3b82f6', minWidth: '68px', fontSize: '12px', paddingTop: '9px' }}>Action {aIdx + 1}:</span>
+                                  <textarea rows={2} value={act} disabled={locked}
+                                    onChange={(e) => handleUpdateAction(idx, aIdx, e.target.value)}
+                                    style={{ flex: 1, fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '6px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: '#ffffff' }}
+                                  />
+                                  {!locked && co.actions.length > 1 && (
+                                    <button onClick={() => handleDeleteAction(idx, aIdx)}
+                                      style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
+                                      <span style={{ fontSize: '15px', lineHeight: 1 }}>×</span>
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                              {!locked && (
+                                <button onClick={() => handleAddAction(idx)}
+                                  style={{ alignSelf: 'flex-start', height: '28px', padding: '0 12px', fontSize: '11.5px', fontWeight: '700', background: '#f8fafc', color: accent, border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>
+                                  + Add Action
+                                </button>
+                              )}
+                            </div>
+                          )
                         )}
                       </td>
                     </tr>

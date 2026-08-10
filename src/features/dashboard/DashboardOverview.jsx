@@ -3,7 +3,7 @@ import {
   BookOpen, Target, BarChart2, FileText, ArrowRight,
   ChevronRight, Check, Clock, AlertCircle, Upload,
   Map, ClipboardList, TrendingUp, Award, ShieldCheck,
-  PlayCircle,
+  PlayCircle, Settings, Layers,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -22,7 +22,8 @@ const WORKFLOW_STEPS = [
   { step: 4, label: 'Direct Assessment',   desc: 'Upload end-sem marks',                path: '/marks-upload',   icon: Upload,       color: '#0369a1', bg: '#e0f2fe' },
   { step: 5, label: 'Indirect Assessment', desc: 'Upload course-end survey',            path: '/survey-upload',  icon: ClipboardList, color: '#059669', bg: '#f0fdf4' },
   { step: 6, label: 'CO Attainment',       desc: 'Compute & view CO attainment',        path: '/co-attainment',  icon: BarChart2,    color: '#d97706', bg: '#fffbeb' },
-  { step: 7, label: 'Course ATR',          desc: 'Fill action-taken report',            path: '/course-atr',     icon: FileText,     color: '#dc2626', bg: '#fef2f2' },
+  { step: 7, label: 'Course ATR',          desc: 'Fill course action-taken report',     path: '/course-atr',     icon: FileText,     color: '#dc2626', bg: '#fef2f2' },
+  { step: 8, label: 'Programme ATR',       desc: 'Fill PO/PSO action-taken report',     path: '/programme-atr',  icon: Layers,       color: '#059669', bg: '#f0fdf4' },
 ];
 
 export default function DashboardOverview() {
@@ -56,6 +57,7 @@ export default function DashboardOverview() {
     if (i === 4) return !!config.indirectUploaded;
     if (i === 5) return !!config.attainmentRun;
     if (i === 6) return !!config.atrSubmitted;
+    if (i === 7) return !!config.progAtrSubmitted;
     return false;
   });
 
@@ -66,6 +68,15 @@ export default function DashboardOverview() {
 
   // Quick action cards
   const quickActions = [
+    {
+      id: 'attainment-config',
+      title: 'Attainment Settings',
+      desc: 'Configure Direct/Indirect weightages and CO thresholds.',
+      path: '/attainment-config',
+      icon: Settings,
+      iconColor: '#6366f1',
+      iconBg: '#eef2ff',
+    },
     {
       id: 'outcomes',
       title: 'Outcome Management',

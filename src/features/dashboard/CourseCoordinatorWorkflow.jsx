@@ -172,92 +172,7 @@ export default function CourseCoordinatorWorkflow() {
         </div>
       </div>
 
-      {/* ── PROGRESS BAR STRIP ────────────────────────────────────────────────── */}
-      <div style={{
-        background: '#ffffff',
-        border: '1px solid #e2e8f0',
-        borderTop: 'none',
-        borderRadius: '0 0 12px 12px',
-        padding: '14px 24px 18px',
-        marginBottom: '20px',
-      }}>
-        {/* Labels row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: ink }}>Overall Progress</span>
-            <span style={{
-              fontSize: '11px', fontWeight: '700', background: progressPct === 100 ? '#f0fdf4' : '#eef2ff',
-              color: progressPct === 100 ? '#16a34a' : accent,
-              border: `1px solid ${progressPct === 100 ? '#bbf7d0' : '#c7d2fe'}`,
-              borderRadius: '5px', padding: '1px 7px',
-            }}>
-              {completedCount} / {STEPS.length} steps done
-            </span>
-          </div>
-          <span style={{ fontSize: '13px', fontWeight: '800', color: progressPct === 100 ? '#16a34a' : accent }}>
-            {progressPct}%
-          </span>
-        </div>
-
-        {/* Full-width segmented bar */}
-        <div style={{ height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
-          <div style={{
-            width: `${progressPct}%`, height: '100%',
-            background: progressPct === 100
-              ? 'linear-gradient(90deg, #059669, #10b981)'
-              : `linear-gradient(90deg, ${accent}, #818cf8)`,
-            borderRadius: '4px',
-            transition: 'width .5s ease',
-          }} />
-        </div>
-
-        {/* Step segment tick marks */}
-        <div style={{ display: 'flex', gap: '4px', marginTop: '10px' }}>
-          {STEPS.map((s, idx) => {
-            const done   = stepDone[idx];
-            const active = currentStep === s.number;
-            return (
-              <button
-                key={s.number}
-                onClick={() => goToStep(s.number)}
-                title={`Step ${s.number}: ${s.title}`}
-                style={{
-                  flex: 1, height: '28px', borderRadius: '6px',
-                  cursor: 'pointer', fontFamily: 'inherit',
-                  background: done ? '#f0fdf4' : active ? s.bg : '#f8fafc',
-                  border: `1.5px solid ${done ? '#86efac' : active ? s.color + '66' : '#e2e8f0'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
-                  transition: 'all .15s',
-                  transform: active ? 'translateY(-1px)' : 'none',
-                  boxShadow: active ? `0 3px 10px ${s.color}22` : 'none',
-                }}
-              >
-                {done ? (
-                  <Check size={11} style={{ color: '#16a34a' }} />
-                ) : (
-                  <span style={{ fontSize: '10px', fontWeight: '700', color: active ? s.color : '#94a3b8' }}>
-                    {s.number}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Step label for active step */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
-          <div style={{
-            width: '8px', height: '8px', borderRadius: '50%',
-            background: currentStepMeta.color, flexShrink: 0,
-          }} />
-          <span style={{ fontSize: '11.5px', fontWeight: '700', color: currentStepMeta.color }}>
-            Step {currentStep}:
-          </span>
-          <span style={{ fontSize: '11.5px', color: muted }}>
-            {currentStepMeta.title} — {currentStepMeta.desc}
-          </span>
-        </div>
-      </div>
+      {/* Top Banner Header with Course Selector */}
 
       {/* ── STEP STEPPER (icon circles) ───────────────────────────────────────── */}
       <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px' }}>
@@ -322,8 +237,30 @@ export default function CourseCoordinatorWorkflow() {
         {currentStep === 4 && <EndSemMarksHub hideFooter />}
         {currentStep === 5 && <CourseEndSurveyHub hideFooter />}
         {currentStep === 6 && <COAttainmentEngine hideFooter />}
-        {currentStep === 7 && <CourseATR hideFooter hideHeader />}
-        {currentStep === 8 && <ProgrammeATR hideFooter hideHeader />}
+        {currentStep === 7 && (
+          <div>
+            <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 24px' }}>
+              <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>
+                Course ATR
+              </h3>
+            </div>
+            <div style={{ padding: '20px' }}>
+              <CourseATR hideFooter hideHeader />
+            </div>
+          </div>
+        )}
+        {currentStep === 8 && (
+          <div>
+            <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 24px' }}>
+              <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>
+                Programme ATR
+              </h3>
+            </div>
+            <div style={{ padding: '20px' }}>
+              <ProgrammeATR hideFooter hideHeader />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── FOOTER NAV ────────────────────────────────────────────────────────── */}

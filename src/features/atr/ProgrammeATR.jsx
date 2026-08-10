@@ -130,9 +130,6 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
             <span style={{ color: accentColor, fontWeight: '900', marginRight: '6px' }}>{item.code}:</span>
             {item.statement}
           </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: '700', background: item.met ? '#dcfce7' : '#fee2e2', color: item.met ? '#15803d' : '#991b1b', border: `1px solid ${item.met ? '#86efac' : '#fca5a5'}`, borderRadius: '5px', padding: '3px 10px', whiteSpace: 'nowrap' }}>
-            Target: {item.target.toFixed(2)} &nbsp;|&nbsp; Actual: {item.actual.toFixed(2)} &nbsp;({item.pct.toFixed(1)}%) &nbsp;{item.met ? '✓ Target Met' : '⚠ Gap Identified'}
-          </span>
         </div>
 
         {/* Inner table — same structure as CourseATR */}
@@ -257,37 +254,36 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
         </div>
       )}
 
-      {/* ── STATUS BAR (mirrors CourseATR exactly) ────────────────────────── */}
-      <div style={{ ...surface, padding: '12px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: locked ? '#f0fdf4' : reportStatus === 'SUBMITTED' ? '#fffbeb' : '#ffffff', borderColor: locked ? '#bbf7d0' : reportStatus === 'SUBMITTED' ? '#fde68a' : '#e2e8f0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {locked ? <CheckCircle2 size={18} style={{ color: '#16a34a' }} /> : <Clock size={18} style={{ color: '#d97706' }} />}
-          <div>
-            <div style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
-              {locked ? 'Verified & Approved ✓' : reportStatus === 'SUBMITTED' ? 'Submitted — Pending Verification' : 'Draft — Not yet submitted'}
-            </div>
-            <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>
-              {selectedProgramme?.code} · {selectedProgramme?.name} · {selectedYear}
+      {/* ── STATUS BAR ────────────────────────────────────────────────────── */}
+      {!hideHeader && (
+        <div style={{ ...surface, padding: '12px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: locked ? '#f0fdf4' : reportStatus === 'SUBMITTED' ? '#fffbeb' : '#ffffff', borderColor: locked ? '#bbf7d0' : reportStatus === 'SUBMITTED' ? '#fde68a' : '#e2e8f0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {locked ? <CheckCircle2 size={18} style={{ color: '#16a34a' }} /> : <Clock size={18} style={{ color: '#d97706' }} />}
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
+                {locked ? 'Verified & Approved ✓' : reportStatus === 'SUBMITTED' ? 'Submitted — Pending Verification' : 'Draft — Not yet submitted'}
+              </div>
+              <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>
+                {selectedProgramme?.code} · {selectedProgramme?.name} · {selectedYear}
+              </div>
             </div>
           </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            {[
+              { label: `${metCount} Outcomes Met`,   bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
+              { label: `${gapCount} Outcomes Gap`,   bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
+            ].map((s) => (
+              <span key={s.label} style={{ fontSize: '12px', fontWeight: '700', background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '6px', padding: '3px 10px' }}>{s.label}</span>
+            ))}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          {[
-            { label: `${metCount} Outcomes Met`, bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
-            { label: `${gapCount} Outcomes Gap`,  bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
-          ].map((s) => (
-            <span key={s.label} style={{ fontSize: '12px', fontWeight: '700', background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '6px', padding: '3px 10px' }}>{s.label}</span>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* ── PO SECTION HEADING ────────────────────────────────────────────── */}
       <div style={{ background: '#f8fafc', borderLeft: '4px solid #4f46e5', padding: '10px 14px', borderRadius: '0 6px 6px 0', marginBottom: '14px' }}>
         <h4 style={{ margin: 0, fontSize: '14px', color: ink, fontWeight: '800' }}>
-          Programme Outcomes (POs) — Attainment &amp; Actions for Improvement
+          Programme Outcomes (POs)
         </h4>
-        <p style={{ margin: '2px 0 0', fontSize: '12px', color: muted }}>
-          NBA Section 7.1 · {selectedYear} · {selectedProgramme?.code}
-        </p>
       </div>
 
       <div style={{ display: 'grid', gap: '14px', marginBottom: '28px' }}>
@@ -297,11 +293,8 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
       {/* ── PSO SECTION HEADING ───────────────────────────────────────────── */}
       <div style={{ background: '#f0f9ff', borderLeft: '4px solid #0284c7', padding: '10px 14px', borderRadius: '0 6px 6px 0', marginBottom: '14px' }}>
         <h4 style={{ margin: 0, fontSize: '14px', color: ink, fontWeight: '800' }}>
-          Programme Specific Outcomes (PSOs) — Attainment &amp; Actions for Improvement
+          Programme Specific Outcomes (PSOs)
         </h4>
-        <p style={{ margin: '2px 0 0', fontSize: '12px', color: muted }}>
-          NBA Section 7.1 · {selectedYear} · {selectedProgramme?.code}
-        </p>
       </div>
 
       <div style={{ display: 'grid', gap: '14px' }}>
