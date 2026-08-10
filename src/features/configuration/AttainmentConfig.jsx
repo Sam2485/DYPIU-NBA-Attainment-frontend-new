@@ -261,9 +261,6 @@ export default function AttainmentConfig() {
             <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a', fontWeight: '800' }}>
               Course Attainment Settings ({currentConfig.courseCode} - {currentConfig.courseName})
             </h3>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
-              Direct vs. Indirect assessment weightages and CO target threshold percentages.
-            </p>
           </div>
 
           {currentVerificationStatus === 'VERIFIED' ? (
@@ -300,9 +297,6 @@ export default function AttainmentConfig() {
               />
               <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>% Direct Weight</span>
             </div>
-            <span style={{ fontSize: '11.5px', color: '#64748b', marginTop: '8px', display: 'block' }}>
-              Indirect Survey Weightage automatically set to: <strong style={{ color: '#0284c7' }}>{currentConfig.indirectWeight}%</strong>
-            </span>
           </div>
 
           {/* Direct Exam Threshold Marks Field */}
@@ -322,9 +316,6 @@ export default function AttainmentConfig() {
               />
               <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>% Threshold Marks</span>
             </div>
-            <span style={{ fontSize: '11.5px', color: '#64748b', marginTop: '8px', display: 'block' }}>
-              Students scoring <strong style={{ color: '#059669' }}>≥ {currentConfig.directThreshold}%</strong> of total exam marks are counted as CO attained.
-            </span>
           </div>
         </div>
 

@@ -49,18 +49,13 @@ export default function OutcomesManagement({ hideFooter = false }) {
 
   const [entryMode, setEntryMode] = useState('table');
 
-  const isLimitedUser = role === 'FACULTY';
-  const initialTab = isLimitedUser ? 'cos' : 'pos';
-  const [activeOutcomeTab, setActiveOutcomeTab] = useState(initialTab);
-
-  // Sub-tab state to keep Add COs and Target Setting SEPARATE
-  const [coSubTab, setCoSubTab] = useState('statements'); // 'statements' for Add COs, 'targets' for Target Setting
+  const [activeOutcomeTab, setActiveOutcomeTab] = useState('cos');
 
   useEffect(() => {
-    if (isLimitedUser && activeOutcomeTab !== 'cos') {
+    if (activeOutcomeTab !== 'cos') {
       setActiveOutcomeTab('cos');
     }
-  }, [role, activeOutcomeTab, isLimitedUser]);
+  }, [role, activeOutcomeTab]);
 
   // Multiple Teachers for Course
   const courseTeachers = selectedCourse?.faculty || 'Dr. Raj Shaikh / Prof. XYZ';
@@ -512,51 +507,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
 
 
 
-      {/* Category Tabs — Single Horizontal Row with Padding Above & Below */}
-      {role !== 'FACULTY' && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            margin: '24px 0 24px 0',
-            padding: '4px 0',
-            flexWrap: 'nowrap',
-            overflowX: 'auto',
-            width: '100%',
-            boxSizing: 'border-box',
-          }}
-        >
-          <>
-            <button
-              type="button"
-              className={`btn ${activeOutcomeTab === 'pos' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveOutcomeTab('pos')}
-              style={{ whiteSpace: 'nowrap', flex: 1, padding: '10px 16px', fontSize: '13px', fontWeight: '700' }}
-            >
-              POs — Programme Outcomes {pendingPoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingPoCount} Pending</span>}
-            </button>
 
-            <button
-              type="button"
-              className={`btn ${activeOutcomeTab === 'psos' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveOutcomeTab('psos')}
-              style={{ whiteSpace: 'nowrap', flex: 1, padding: '10px 16px', fontSize: '13px', fontWeight: '700' }}
-            >
-              PSOs — Programme Specific Outcomes {pendingPsoCount > 0 && <span className="badge badge-pending" style={{ marginLeft: '6px' }}>{pendingPsoCount} Pending</span>}
-            </button>
-
-            <button
-              type="button"
-              className={`btn ${activeOutcomeTab === 'peos' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveOutcomeTab('peos')}
-              style={{ whiteSpace: 'nowrap', flex: 1, padding: '10px 16px', fontSize: '13px', fontWeight: '700' }}
-            >
-              PEOs — Educational Objectives
-            </button>
-          </>
-        </div>
-      )}
 
       {/* TAB 0: Programme Educational Objectives (PEOs - Statements Only, No Verification Needed) */}
       {activeOutcomeTab === 'peos' && role !== 'FACULTY' && (

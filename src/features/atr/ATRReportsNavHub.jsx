@@ -1,10 +1,17 @@
 import { useState } from 'react';
-import { Save, History, Printer, CheckCircle2 } from 'lucide-react';
+import { Save, History, Printer, CheckCircle2, ChevronDown } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import CourseATR from './CourseATR';
 
 export default function ATRReportsNavHub() {
-  const { selectedCourse, academicYear } = useAcademic();
+  const {
+    availableCourses = [],
+    courses = [],
+    selectedCourse,
+    setCourseId = () => {},
+    academicYear,
+  } = useAcademic();
+
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
@@ -28,7 +35,7 @@ export default function ATRReportsNavHub() {
           </h2>
         </div>
 
-        {/* SPACE BETWEEN ACTION BAR: First two options on left, Save option on extreme right */}
+        {/* SPACE BETWEEN ACTION BAR: First two options on left, Course Selector & Save option on extreme right */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           {/* FIRST TWO OPTIONS (LEFT) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -49,8 +56,39 @@ export default function ATRReportsNavHub() {
             </button>
           </div>
 
-          {/* SAVE OPTION (EXTREME RIGHT) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* COURSE SELECTOR & SAVE OPTION (EXTREME RIGHT) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {/* Course Selector Dropdown */}
+            <div style={{ position: 'relative', width: '260px' }}>
+              <select
+                value={selectedCourse?.id || ''}
+                onChange={(e) => setCourseId(e.target.value)}
+                style={{
+                  height: '38px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  color: '#4f46e5',
+                  border: '1.5px solid #cbd5e1',
+                  borderRadius: '8px',
+                  padding: '0 30px 0 12px',
+                  background: '#ffffff',
+                  width: '100%',
+                  outline: 'none',
+                  appearance: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                }}
+              >
+                {(availableCourses.length > 0 ? availableCourses : courses).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} — {c.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
+            </div>
+
             {isSubmitted && (
               <span className="badge badge-active" style={{ height: '38px', boxSizing: 'border-box', background: '#dcfce7', color: '#15803d', padding: '0 14px', fontSize: '12px', fontWeight: '800', display: 'inline-flex', alignItems: 'center' }}>
                 ✓ SUBMITTED TO PROGRAMME COORDINATOR
@@ -62,7 +100,7 @@ export default function ATRReportsNavHub() {
               onClick={handleSaveSubmitATR}
               style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '800', gap: '8px', display: 'inline-flex', alignItems: 'center' }}
             >
-              <Save size={16} /> Save & Submit Course ATR
+              <Save size={16} /> Save &amp; Submit Course ATR
             </button>
           </div>
         </div>
