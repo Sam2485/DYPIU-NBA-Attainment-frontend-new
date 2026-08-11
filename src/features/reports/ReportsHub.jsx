@@ -825,9 +825,9 @@ export default function ReportsHub() {
                     <table className="audit-data-table" style={{ margin: 0 }}>
                       <thead>
                         <tr>
-                          <th style={{ width: '130px' }}>Sem</th>
-                          <th style={{ width: '120px' }}>Course Code</th>
-                          <th>Course Name</th>
+                          <th style={{ width: '160px', minWidth: '160px' }}>Sem</th>
+                          <th style={{ width: '120px', minWidth: '120px' }}>Course Code</th>
+                          <th style={{ minWidth: '280px', width: '320px' }}>Course Name</th>
                           {poList.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
                           {psoList.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5', color: '#065f46' }}>{pso}</th>)}
                         </tr>
@@ -835,14 +835,31 @@ export default function ReportsHub() {
                       <tbody>
                         {SEMESTER_GROUPS.map((group, gIdx) => (
                           <React.Fragment key={group.semLabel}>
-                            <tr style={{ background: '#f1f5f9', borderTop: gIdx > 0 ? '2px solid #cbd5e1' : 'none' }}>
-                              <td colSpan={3 + poList.length + psoList.length} style={{ fontWeight: '800', color: '#1e293b', fontSize: '13px', padding: '10px 14px' }}>
-                                📌 {group.semLabel}
-                              </td>
-                            </tr>
                             {group.courses.map((c, cIdx) => (
-                              <tr key={c.code}>
-                                <td style={{ fontWeight: '700', color: '#64748b', fontSize: '12px' }}>{group.semLabel}</td>
+                              <tr
+                                key={c.code}
+                                style={{
+                                  borderTop: cIdx === 0 && gIdx > 0 ? '2px solid #cbd5e1' : 'none',
+                                }}
+                              >
+                                {cIdx === 0 && (
+                                  <td
+                                    rowSpan={group.courses.length}
+                                    style={{
+                                      textAlign: 'center',
+                                      verticalAlign: 'middle',
+                                      fontWeight: '800',
+                                      fontSize: '12.5px',
+                                      color: '#334155',
+                                      background: '#f8fafc',
+                                      borderRight: '1.5px solid #e2e8f0',
+                                      borderTop: gIdx > 0 ? '2px solid #cbd5e1' : 'none',
+                                      padding: '12px 14px',
+                                    }}
+                                  >
+                                    {group.semLabel}
+                                  </td>
+                                )}
                                 <td style={{ fontWeight: '800', color: '#4f46e5' }}>{c.code}</td>
                                 <td style={{ fontSize: '12.5px', color: '#0f172a' }}>{c.name}</td>
                                 {poList.map((po, pIdx) => (
@@ -877,9 +894,9 @@ export default function ReportsHub() {
                     <table className="audit-data-table" style={{ margin: 0 }}>
                       <thead>
                         <tr>
-                          <th style={{ width: '130px' }}>Sem</th>
-                          <th style={{ width: '120px' }}>Course Code</th>
-                          <th>Course Name</th>
+                          <th style={{ width: '160px', minWidth: '160px' }}>Sem</th>
+                          <th style={{ width: '120px', minWidth: '120px' }}>Course Code</th>
+                          <th style={{ minWidth: '280px', width: '320px' }}>Course Name</th>
                           {poList.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
                           {psoList.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5', color: '#065f46' }}>{pso}</th>)}
                         </tr>
@@ -887,14 +904,31 @@ export default function ReportsHub() {
                       <tbody>
                         {SEMESTER_GROUPS.map((group, gIdx) => (
                           <React.Fragment key={group.semLabel}>
-                            <tr style={{ background: '#f1f5f9', borderTop: gIdx > 0 ? '2px solid #cbd5e1' : 'none' }}>
-                              <td colSpan={3 + poList.length + psoList.length} style={{ fontWeight: '800', color: '#1e293b', fontSize: '13px', padding: '10px 14px' }}>
-                                📌 {group.semLabel}
-                              </td>
-                            </tr>
                             {group.courses.map((c, cIdx) => (
-                              <tr key={c.code}>
-                                <td style={{ fontWeight: '700', color: '#64748b', fontSize: '12px' }}>{group.semLabel}</td>
+                              <tr
+                                key={c.code}
+                                style={{
+                                  borderTop: cIdx === 0 && gIdx > 0 ? '2px solid #cbd5e1' : 'none',
+                                }}
+                              >
+                                {cIdx === 0 && (
+                                  <td
+                                    rowSpan={group.courses.length}
+                                    style={{
+                                      textAlign: 'center',
+                                      verticalAlign: 'middle',
+                                      fontWeight: '800',
+                                      fontSize: '12.5px',
+                                      color: '#334155',
+                                      background: '#f8fafc',
+                                      borderRight: '1.5px solid #e2e8f0',
+                                      borderTop: gIdx > 0 ? '2px solid #cbd5e1' : 'none',
+                                      padding: '12px 14px',
+                                    }}
+                                  >
+                                    {group.semLabel}
+                                  </td>
+                                )}
                                 <td style={{ fontWeight: '800', color: '#4f46e5' }}>{c.code}</td>
                                 <td style={{ fontSize: '12.5px', color: '#0f172a' }}>{c.name}</td>
                                 {poList.map((po, pIdx) => {
