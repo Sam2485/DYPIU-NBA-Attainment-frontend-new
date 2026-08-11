@@ -118,7 +118,15 @@ export default function DirectorSchoolStructure() {
                         </div>
                         <div style={{ fontSize: '13px', fontWeight: '700', color: ink, lineHeight: '1.3', marginBottom: '4px' }}>{prog.name}</div>
                         <div style={{ fontSize: '11.5px', color: muted }}>
-                          Coordinator: <span style={{ color: ink, fontWeight: '600' }}>{prog.coordinator || 'Dr. A. K. Sharma'}</span>
+                          Coordinator: {prog.coordinator && prog.coordinator !== 'No coordinator assigned yet' && prog.coordinator !== 'Pending HOD Assignment' ? (
+                            <span style={{ color: accent, fontWeight: '700', background: '#eef2ff', padding: '1px 6px', borderRadius: '4px' }}>
+                              {prog.coordinator}
+                            </span>
+                          ) : (
+                            <span style={{ color: '#d97706', fontWeight: '700', background: '#fffbeb', padding: '1px 6px', borderRadius: '4px' }}>
+                              No coordinator assigned yet
+                            </span>
+                          )}
                         </div>
                       </div>
                     ))}

@@ -7,8 +7,10 @@ const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 
 export default function HodCourseManagement() {
   const {
     masterProgrammes = [],
+    departments = [],
     programmeId,
     setProgrammeId,
+    updateProgramme = () => {},
     courses = [],
     assignCourseCoordinator = () => {},
     addCourse = () => {},
@@ -17,6 +19,8 @@ export default function HodCourseManagement() {
   } = useAcademic();
 
   const [searchQuery, setSearchQuery] = useState('');
+
+  const assignedHods = departments.map((d) => d.hod).filter(Boolean);
 
   const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP', durationYears: 4 };
 
@@ -113,9 +117,9 @@ export default function HodCourseManagement() {
       <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>HOD View</div>
-          <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>Course Management</h2>
+          <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>Programme &amp; Course Allocation</h2>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            Manage courses & Course Coordinators for {selectedProgramme.name} ({durationYears} Years → {totalSemesters} Semesters).
+            Assign Programme Coordinator and manage courses for {selectedProgramme.name} ({durationYears} Years → {totalSemesters} Semesters).
           </p>
         </div>
 
@@ -130,6 +134,56 @@ export default function HodCourseManagement() {
             {masterProgrammes.map((p) => (
               <option key={p.id} value={p.id}>{p.code} — {p.name} ({p.durationYears || 4} Yrs / {(p.durationYears || 4) * 2} Sems)</option>
             ))}
+          </select>
+        </div>
+      </div>
+
+      {/* ── PROGRAMME COORDINATOR ALLOCATION CONTROL (BY HOD) ───────────────── */}
+      <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px', background: '#f8fafc', borderColor: '#cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eef2ff', color: accent, display: 'grid', placeItems: 'center' }}>
+            <UserCheck size={20} />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: '800', color: muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Programme Coordinator Allocation (Assigned by HOD)
+            </div>
+            <div style={{ fontSize: '14.5px', fontWeight: '800', color: ink, marginTop: '2px' }}>
+              {selectedProgramme.name} ({selectedProgramme.code})
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <label style={{ fontSize: '12.5px', fontWeight: '700', color: ink }}>Assigned Programme Coordinator:</label>
+          <select
+            value={selectedProgramme.coordinator || 'Dr. A. K. Sharma'}
+            onChange={(e) => {
+              updateProgramme(selectedProgramme.id, { coordinator: e.target.value });
+              alert(`✓ Assigned ${e.target.value} as Programme Coordinator for ${selectedProgramme.code}!`);
+            }}
+            style={{
+              height: '38px',
+              padding: '0 12px',
+              fontSize: '13px',
+              fontWeight: '800',
+              color: accent,
+              background: '#ffffff',
+              border: '1.5px solid #4f46e5',
+              borderRadius: '8px',
+              outline: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(79,70,229,0.1)',
+            }}
+          >
+            {MASTER_FACULTY_LIST.map((fac) => {
+              const isHod = assignedHods.includes(fac);
+              return (
+                <option key={fac} value={fac} disabled={isHod} style={{ color: isHod ? '#94a3b8' : '#0f172a' }}>
+                  {fac} {isHod ? '(Disabled — Is HOD)' : ''}
+                </option>
+              );
+            })}
           </select>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useAcademic } from '../../context/AcademicContext';
 
 // ── SVG icon map with centered SVG display ─────────────────────────────────────
 function Icon({ name, active = false, size = 16 }) {
@@ -92,6 +93,7 @@ const FACULTY_NAV = [
 
 export default function AppSidebar() {
   const { user, role, switchRole, logout } = useAuth();
+  const { academicYear = '2025-26', setAcademicYear = () => {} } = useAcademic();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -221,6 +223,60 @@ export default function AppSidebar() {
           <option value="HOD" style={{ color: '#0f172a', background: '#ffffff' }}>Head of Department (HOD)</option>
           <option value="DIRECTOR" style={{ color: '#0f172a', background: '#ffffff' }}>School Director</option>
           <option value="IQAC" style={{ color: '#0f172a', background: '#ffffff' }}>IQAC Admin</option>
+        </select>
+      </div>
+
+      {/* ── Academic Year Selector with Status Tags ────────────────── */}
+      <div
+        style={{
+          background: 'rgba(51, 65, 85, 0.45)',
+          border: '1px solid rgba(148,163,184,0.16)',
+          borderRadius: 14,
+          padding: '8px 12px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 5,
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 9.5, color: '#38bdf8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            Academic Year
+          </span>
+          <span
+            style={{
+              fontSize: '9px',
+              fontWeight: '800',
+              padding: '1px 6px',
+              borderRadius: '4px',
+              background: academicYear === '2024-25' ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)',
+              color: academicYear === '2024-25' ? '#f87171' : '#4ade80',
+              border: `1px solid ${academicYear === '2024-25' ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'}`,
+            }}
+          >
+            {academicYear === '2024-25' ? 'CLOSED' : 'ACTIVE'}
+          </span>
+        </div>
+        <select
+          value={academicYear}
+          onChange={(e) => setAcademicYear(e.target.value)}
+          style={{
+            width: '100%',
+            height: '32px',
+            borderRadius: '8px',
+            border: '1px solid rgba(148, 163, 184, 0.25)',
+            background: '#1e293b',
+            color: '#f8fafc',
+            fontSize: '12px',
+            fontWeight: '800',
+            padding: '0 8px',
+            cursor: 'pointer',
+            outline: 'none',
+          }}
+        >
+          <option value="2026-27" style={{ color: '#0f172a', background: '#ffffff' }}>AY 2026-27 (Active)</option>
+          <option value="2025-26" style={{ color: '#0f172a', background: '#ffffff' }}>AY 2025-26 (Active — Current)</option>
+          <option value="2024-25" style={{ color: '#0f172a', background: '#ffffff' }}>AY 2024-25 (Closed / Archived)</option>
         </select>
       </div>
 

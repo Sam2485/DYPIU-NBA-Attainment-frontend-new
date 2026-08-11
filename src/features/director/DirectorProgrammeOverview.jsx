@@ -6,6 +6,7 @@ export default function DirectorProgrammeOverview() {
   const {
     masterProgrammes = [],
     departments = [],
+    updateProgramme = () => {},
   } = useAcademic();
 
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
@@ -14,6 +15,8 @@ export default function DirectorProgrammeOverview() {
   const ink = '#0f172a';
   const muted = '#64748b';
   const accent = '#4f46e5';
+
+  const assignedHods = departments.map((d) => d.hod).filter(Boolean);
 
   const filteredProgrammes = masterProgrammes.filter((prog) => {
     if (selectedDeptFilter === 'ALL') return true;
@@ -81,15 +84,27 @@ export default function DirectorProgrammeOverview() {
                 </div>
 
                 {/* Details */}
-                <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '10px 12px', border: '1px solid #f1f5f9', display: 'grid', gap: '6px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '10px 12px', border: '1px solid #f1f5f9', display: 'grid', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
                     <span style={{ color: muted }}>Supervising HOD</span>
-                    <span style={{ fontWeight: '600', color: ink }}>{deptObj?.hod || '—'}</span>
+                    <span style={{ fontWeight: '700', color: ink, background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>
+                      {deptObj?.hod || '—'}
+                    </span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                    <span style={{ color: muted }}>Coordinator</span>
-                    <span style={{ fontWeight: '600', color: accent }}>{prog.coordinator || 'Dr. A. K. Sharma'}</span>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                    <span style={{ color: muted }}>Programme Coordinator</span>
+                    {prog.coordinator && prog.coordinator !== 'No coordinator assigned yet' && prog.coordinator !== 'Pending HOD Assignment' ? (
+                      <span style={{ fontWeight: '700', color: accent, background: '#eef2ff', border: '1px solid #c7d2fe', padding: '3px 10px', borderRadius: '6px', fontSize: '11.5px' }}>
+                        {prog.coordinator}
+                      </span>
+                    ) : (
+                      <span style={{ fontWeight: '700', color: '#d97706', background: '#fffbeb', border: '1px solid #fde68a', padding: '3px 10px', borderRadius: '6px', fontSize: '11.5px' }}>
+                        No coordinator assigned yet
+                      </span>
+                    )}
                   </div>
+
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
                     <span style={{ color: muted }}>Active Batch</span>
                     <span style={{ fontWeight: '600', color: ink }}>2025–29 (AY 2025-26)</span>

@@ -6,7 +6,7 @@ import {
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 
-// ── Style tokens (identical to CourseATR) ────────────────────────────────────
+// ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
 const ink        = '#0f172a';
 const muted      = '#64748b';
@@ -17,9 +17,10 @@ const inputStyle = {
   color: ink, width: '100%', outline: 'none', fontFamily: 'inherit',
 };
 
-export default function ProgrammeATR({ hideFooter = false, hideHeader = false }) {
+export default function ProgrammeATR({ courseId = null, hideFooter = false, hideHeader = false, readOnly = false }) {
   const { role } = useAuth();
   const {
+    selectedCourse,
     selectedProgramme,
     selectedBatch,
     academicYear    = '2025-26',
@@ -28,18 +29,25 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
     activePSOs      = [],
     poPsoTargets    = {},
     programmeId     = 'prog-1',
+    courseVerificationStore = {},
+    updateCourseVerificationStatus = () => {},
   } = useAcademic();
+
+  const targetCourseId = courseId || selectedCourse?.id || 'crs-1';
+  const vRecord = courseVerificationStore[targetCourseId] || {};
+  const reportStatus = vRecord.programmeAtrStatus || 'DRAFT';
+  const verificationRemarks = vRecord.programmeAtrRemarks || '';
+  const verifierName = vRecord.verifiedBy || 'Programme Coordinator';
 
   const isFaculty     = role === 'FACULTY';
   const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
   const [selectedYear, setSelectedYear] = useState(academicYear || '2025-26');
-  const [reportStatus, setReportStatus] = useState('DRAFT'); // DRAFT | SUBMITTED | VERIFIED
+  const locked = readOnly || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
 
-  // ── Build PO/PSO ATR list (mirrors CourseATR buildList pattern) ───────────
+  // ── Build PO/PSO ATR list ──────────────────────────────────────────
   const progTargets = poPsoTargets[programmeId] || { poTargets: {}, psoTargets: {} };
 
-  // Fallback POs/PSOs if context hasn't loaded outcomes yet
   const normPOs = activePOs.length > 0 ? activePOs : [
     { code: 'PO1',  statement: 'Apply knowledge of mathematics, science and engineering fundamentals to complex engineering problems.' },
     { code: 'PO2',  statement: 'Identify, formulate and analyze complex engineering problems using first principles.' },
@@ -96,26 +104,24 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
 
   const [atrList, setAtrList] = useState(buildList);
 
-  // Rebuild when programme/outcomes change
-  useEffect(() => { setAtrList(buildList()); }, [programmeId, activePOs.length, activePSOs.length]);
+  useEffect(() => { setAtrList(buildList()); }, [programmeId, targetCourseId, activePOs.length, activePSOs.length]);
 
-  const locked = reportStatus === 'VERIFIED';
+  const handleSaveSubmit = () => {
+    updateCourseVerificationStatus(targetCourseId, 'programmeAtrStatus', 'SUBMITTED', '');
+    alert(`🎉 Programme ATR for ${selectedCourse?.code || 'Course'} saved and submitted successfully to ${verifierName}!`);
+  };
 
-  // ── Handlers (identical signature to CourseATR) ───────────────────────────
-  const handleSaveSubmit = () => setReportStatus('SUBMITTED');
-  const handleVerify     = () => setReportStatus('VERIFIED');
-
-  const handleUpdateRemark = (idx, v)     => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, remark: v } : c));
-  const handleAddAction    = (idx)        => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, actions: [...c.actions, 'New corrective action...'] } : c));
-  const handleUpdateAction = (idx, j, v)  => setAtrList((p) => p.map((c, i) => { if (i !== idx) return c; const a = [...c.actions]; a[j] = v; return { ...c, actions: a }; }));
-  const handleDeleteAction = (idx, j)     => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, actions: c.actions.filter((_, k) => k !== j) } : c));
+  const handleUpdateRemark = (idx, v)    => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, remark: v } : c));
+  const handleAddAction    = (idx)       => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, actions: [...c.actions, 'New corrective action...'] } : c));
+  const handleUpdateAction = (idx, j, v) => setAtrList((p) => p.map((c, i) => { if (i !== idx) return c; const a = [...c.actions]; a[j] = v; return { ...c, actions: a }; }));
+  const handleDeleteAction = (idx, j)    => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, actions: c.actions.filter((_, k) => k !== j) } : c));
 
   const poList  = atrList.filter((i) => i.type === 'PO');
   const psoList = atrList.filter((i) => i.type === 'PSO');
   const metCount = atrList.filter((c) => c.met).length;
   const gapCount = atrList.length - metCount;
 
-  // ── ATR Card renderer (identical layout to CourseATR cards) ──────────────
+  // ── ATR Card renderer ────────────────────────────────────────────
   const renderCard = (item, accentColor) => {
     const idx       = atrList.findIndex((i) => i.code === item.code);
     const borderCol = item.met ? '#bbf7d0' : '#fecaca';
@@ -123,7 +129,6 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
 
     return (
       <div key={item.code} style={{ border: `1px solid ${borderCol}`, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-
         {/* Card banner */}
         <div style={{ background: bgCol, borderBottom: `1px solid ${borderCol}`, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
           <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
@@ -132,7 +137,7 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
           </span>
         </div>
 
-        {/* Inner table — same structure as CourseATR */}
+        {/* Inner table */}
         <table className="audit-data-table" style={{ margin: 0, border: 'none' }}>
           <thead>
             <tr style={{ background: '#f8fafc' }}>
@@ -155,20 +160,32 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
               </td>
               <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
                 {item.met ? (
-                  <textarea rows={3} value={item.remark} disabled={locked}
-                    onChange={(e) => handleUpdateRemark(idx, e.target.value)}
-                    placeholder={`Enter remark for this ${item.type}...`}
-                    style={{ width: '100%', fontSize: '12.5px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '8px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: locked ? '#f8fafc' : '#ffffff' }}
-                  />
+                  locked ? (
+                    <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#475569', fontSize: '12.5px' }}>
+                      {item.remark || 'Target achieved. Maintain current teaching strategy.'}
+                    </div>
+                  ) : (
+                    <textarea rows={3} value={item.remark}
+                      onChange={(e) => handleUpdateRemark(idx, e.target.value)}
+                      placeholder={`Enter remark for this ${item.type}...`}
+                      style={{ width: '100%', fontSize: '12.5px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '8px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: '#ffffff' }}
+                    />
+                  )
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {item.actions.map((act, aIdx) => (
                       <div key={aIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                         <span style={{ fontWeight: '800', color: '#3b82f6', minWidth: '68px', fontSize: '12px', paddingTop: '9px' }}>Action {aIdx + 1}:</span>
-                        <textarea rows={2} value={act} disabled={locked}
-                          onChange={(e) => handleUpdateAction(idx, aIdx, e.target.value)}
-                          style={{ flex: 1, fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '6px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: locked ? '#f8fafc' : '#ffffff' }}
-                        />
+                        {locked ? (
+                          <div style={{ flex: 1, background: '#f8fafc', padding: '6px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#475569', fontSize: '12px' }}>
+                            {act}
+                          </div>
+                        ) : (
+                          <textarea rows={2} value={act}
+                            onChange={(e) => handleUpdateAction(idx, aIdx, e.target.value)}
+                            style={{ flex: 1, fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '6px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: '#ffffff' }}
+                          />
+                        )}
                         {!locked && item.actions.length > 1 && (
                           <button onClick={() => handleDeleteAction(idx, aIdx)}
                             style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
@@ -196,7 +213,7 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
 
-      {/* ── PAGE HEADER (mirrors CourseATR exactly) ───────────────────────── */}
+      {/* ── PAGE HEADER ───────────────────────────────────────────────────── */}
       {!hideHeader && (
         <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           <div>
@@ -206,7 +223,6 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
-            {/* Year selector */}
             <div style={{ position: 'relative' }}>
               <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}
                 style={{ ...inputStyle, width: '130px', paddingRight: '28px', appearance: 'none', cursor: 'pointer', fontWeight: '700', color: accent }}>
@@ -220,20 +236,24 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
               <Printer size={13} /> Print
             </button>
 
-            <button onClick={handleSaveSubmit}
-              style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-              <Save size={13} /> Save Changes
-            </button>
+            {!locked && (
+              <button onClick={handleSaveSubmit}
+                style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                <Save size={13} /> Save &amp; Submit Programme ATR
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {/* ── VERIFIED BANNER ───────────────────────────────────────────────── */}
-      {reportStatus === 'VERIFIED' && (
+      {/* ── VERIFICATION APPROVED BANNER ─────────────────────────────────── */}
+      {(reportStatus === 'VERIFIED' || reportStatus === 'APPROVED') && (
         <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
           <CheckCircle2 size={20} style={{ color: '#16a34a', flexShrink: 0 }} />
           <div>
-            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#15803d' }}>✓ Programme ATR Approved by HOD / Director</span>
+            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#15803d' }}>
+              ✓ Verified &amp; Approved by {verifierName}
+            </span>
             <span style={{ fontSize: '12px', color: '#166534', display: 'block', marginTop: '2px' }}>
               Programme ATR has been verified and locked for this academic cycle.
             </span>
@@ -241,14 +261,33 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
         </div>
       )}
 
+      {/* ── REVISION REQUESTED BANNER ─────────────────────────────────────── */}
+      {reportStatus === 'REVISION_REQUESTED' && (
+        <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+          <AlertCircle size={20} style={{ color: '#dc2626', flexShrink: 0 }} />
+          <div>
+            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#991b1b' }}>
+              ⚠ Revision Requested by {verifierName}
+            </span>
+            {verificationRemarks && (
+              <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#7f1d1d', fontStyle: 'italic' }}>
+                "{verificationRemarks}"
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── PENDING REVIEW BANNER ─────────────────────────────────────────── */}
       {reportStatus === 'SUBMITTED' && (
         <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-          <AlertCircle size={20} style={{ color: '#d97706', flexShrink: 0 }} />
+          <Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} />
           <div>
-            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#92400e' }}>Submitted — Awaiting HOD / Director Approval</span>
+            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#92400e' }}>
+              Submitted — Pending Verification
+            </span>
             <span style={{ fontSize: '12px', color: '#b45309', display: 'block', marginTop: '2px' }}>
-              Programme ATR has been submitted. Pending review and verification.
+              Submitted for Programme Coordinator verification.
             </span>
           </div>
         </div>
@@ -256,12 +295,12 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
 
       {/* ── STATUS BAR ────────────────────────────────────────────────────── */}
       {!hideHeader && (
-        <div style={{ ...surface, padding: '12px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: locked ? '#f0fdf4' : reportStatus === 'SUBMITTED' ? '#fffbeb' : '#ffffff', borderColor: locked ? '#bbf7d0' : reportStatus === 'SUBMITTED' ? '#fde68a' : '#e2e8f0' }}>
+        <div style={{ ...surface, padding: '12px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: locked ? '#f0fdf4' : reportStatus === 'SUBMITTED' ? '#fffbeb' : reportStatus === 'REVISION_REQUESTED' ? '#fef2f2' : '#ffffff', borderColor: locked ? '#bbf7d0' : reportStatus === 'SUBMITTED' ? '#fde68a' : reportStatus === 'REVISION_REQUESTED' ? '#fecaca' : '#e2e8f0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {locked ? <CheckCircle2 size={18} style={{ color: '#16a34a' }} /> : <Clock size={18} style={{ color: '#d97706' }} />}
             <div>
               <div style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
-                {locked ? 'Verified & Approved ✓' : reportStatus === 'SUBMITTED' ? 'Submitted — Pending Verification' : 'Draft — Not yet submitted'}
+                {locked ? `Verified & Approved by ${verifierName} ✓` : reportStatus === 'SUBMITTED' ? 'Submitted — Pending Verification' : reportStatus === 'REVISION_REQUESTED' ? 'Revision Requested' : 'Draft — Not yet submitted'}
               </div>
               <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>
                 {selectedProgramme?.code} · {selectedProgramme?.name} · {selectedYear}
@@ -301,7 +340,7 @@ export default function ProgrammeATR({ hideFooter = false, hideHeader = false })
         {psoList.map((pso) => renderCard(pso, '#0284c7'))}
       </div>
 
-      {/* ── FOOTER (mirrors CourseATR) ─────────────────────────────────────── */}
+      {/* ── FOOTER ────────────────────────────────────────────────────────── */}
       {!hideFooter && isFaculty && !locked && (
         <div style={{ ...surface, padding: '14px 20px', marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           <button onClick={handleSaveSubmit}

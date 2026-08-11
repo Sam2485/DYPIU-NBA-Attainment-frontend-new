@@ -24,7 +24,6 @@ export default function DirectorDashboard() {
     { title: 'Department Hierarchy', done: totalDepts > 0, desc: `${totalDepts} departments established` },
     { title: 'HOD Assignments', done: pendingHODs === 0, desc: `${assignedHODs} of ${totalDepts} HODs assigned` },
     { title: 'Programme Allocation', done: totalProgrammes > 0, desc: `${totalProgrammes} programmes mapped` },
-    { title: 'Final Approvals', done: pendingApprovalsCount === 0, desc: `${pendingApprovalsCount} approvals pending` },
   ];
 
   const completedCount = setupSteps.filter((s) => s.done).length;
@@ -53,15 +52,6 @@ export default function DirectorDashboard() {
       desc: 'View degree programmes, coordinators, and setup status.',
       path: '/director/programme-overview',
       icon: GraduationCap,
-    },
-    {
-      id: 'approvals',
-      title: 'Approvals & Submissions',
-      desc: 'Review HOD frameworks and Programme ATR submissions.',
-      path: '/director/approvals',
-      icon: ShieldCheck,
-      badge: pendingApprovalsCount > 0 ? `${pendingApprovalsCount} pending` : null,
-      badgeWarn: pendingApprovalsCount > 0,
     },
   ];
 
@@ -138,21 +128,6 @@ export default function DirectorDashboard() {
           <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalProgrammes}</div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>Degree programmes</div>
         </div>
-
-        {/* Approvals */}
-        <div style={{ ...surface, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Approvals</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: pendingApprovalsCount > 0 ? '#fffbeb' : '#f0fdf4', display: 'grid', placeItems: 'center', color: pendingApprovalsCount > 0 ? '#d97706' : '#16a34a' }}>
-              <ShieldCheck size={16} />
-            </div>
-          </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: pendingApprovalsCount > 0 ? '#d97706' : '#16a34a', lineHeight: 1 }}>{pendingApprovalsCount}</div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>
-            {pendingApprovalsCount > 0 ? 'Pending review' : 'Up to date'}
-          </div>
-        </div>
-
       </div>
 
 

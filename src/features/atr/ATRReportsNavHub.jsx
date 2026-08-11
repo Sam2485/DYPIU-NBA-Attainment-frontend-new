@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, History, Printer, CheckCircle2, ChevronDown, Layers, FileText } from 'lucide-react';
+import { Save, History, Printer, CheckCircle2, ChevronDown, Layers, FileText, AlertCircle, Clock } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import CourseATR from './CourseATR';
 
@@ -51,6 +51,8 @@ export default function ATRReportsNavHub() {
     activePSOs = [],
     poPsoTargets = {},
     programmeId = 'prog-1',
+    courseVerificationStore = {},
+    updateCourseVerificationStatus = () => {},
   } = useAcademic();
 
   const [activeAtrTab, setActiveAtrTab] = useState('course-atr');
@@ -58,6 +60,11 @@ export default function ATRReportsNavHub() {
   const [showHistory, setShowHistory] = useState(false);
 
   const courseId = selectedCourse?.id || 'crs-1';
+  const vRecord = courseVerificationStore[courseId] || {};
+  const progStatus = vRecord.programmeAtrStatus || 'DRAFT';
+  const progRemarks = vRecord.programmeAtrRemarks || '';
+  const verifierName = vRecord.verifiedBy || 'Programme Coordinator';
+  const isProgLocked = progStatus === 'VERIFIED' || progStatus === 'APPROVED';
 
   // Derive Programme ATR Rows dynamically per selected course
   const buildProgEntries = () => {
@@ -132,7 +139,9 @@ export default function ATRReportsNavHub() {
 
   const handleSaveSubmitATR = () => {
     setIsSubmitted(true);
-    alert(`🎉 Course ATR & Programme ATR for ${selectedCourse?.code || 'Course'} saved and submitted successfully to the Programme Coordinator!`);
+    updateCourseVerificationStatus(courseId, 'atrStatus', 'SUBMITTED');
+    updateCourseVerificationStatus(courseId, 'programmeAtrStatus', 'SUBMITTED');
+    alert(`🎉 Course ATR & Programme ATR for ${selectedCourse?.code || 'Course'} saved and submitted successfully to ${verifierName}!`);
   };
 
   const handlePrint = () => {
@@ -204,19 +213,33 @@ export default function ATRReportsNavHub() {
               <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
             </div>
 
-            {isSubmitted && (
+            {(isProgLocked || progStatus === 'VERIFIED' || progStatus === 'APPROVED') && (
               <span className="badge badge-active" style={{ height: '38px', boxSizing: 'border-box', background: '#dcfce7', color: '#15803d', padding: '0 14px', fontSize: '12px', fontWeight: '800', display: 'inline-flex', alignItems: 'center' }}>
+                ✓ VERIFIED BY {verifierName.toUpperCase()}
+              </span>
+            )}
+
+            {progStatus === 'REVISION_REQUESTED' && (
+              <span className="badge badge-rejected" style={{ height: '38px', boxSizing: 'border-box', background: '#fee2e2', color: '#dc2626', padding: '0 14px', fontSize: '12px', fontWeight: '800', display: 'inline-flex', alignItems: 'center' }}>
+                ⚠ REVISION REQUESTED
+              </span>
+            )}
+
+            {(progStatus === 'SUBMITTED' || isSubmitted) && !isProgLocked && progStatus !== 'REVISION_REQUESTED' && (
+              <span className="badge badge-active" style={{ height: '38px', boxSizing: 'border-box', background: '#fef3c7', color: '#b45309', padding: '0 14px', fontSize: '12px', fontWeight: '800', display: 'inline-flex', alignItems: 'center' }}>
                 ✓ SUBMITTED TO PROGRAMME COORDINATOR
               </span>
             )}
 
-            <button
-              className="btn btn-primary"
-              onClick={handleSaveSubmitATR}
-              style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '800', gap: '8px', display: 'inline-flex', alignItems: 'center' }}
-            >
-              <Save size={16} /> Save &amp; Submit ATR
-            </button>
+            {!isProgLocked && (
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveSubmitATR}
+                style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '800', gap: '8px', display: 'inline-flex', alignItems: 'center' }}
+              >
+                <Save size={16} /> Save &amp; Submit ATR
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -287,7 +310,7 @@ export default function ATRReportsNavHub() {
         </div>
       )}
 
-      {/* TAB 2: PROGRAMME ATR (EDITABLE & DYNAMIC PER COURSE) */}
+      {/* TAB 2: PROGRAMME ATR */}
       {activeAtrTab === 'programme-atr' && (
         <div>
           <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px 20px', marginBottom: '20px' }}>
@@ -303,7 +326,52 @@ export default function ATRReportsNavHub() {
             </div>
           </div>
 
-          {/* Editable PO & PSO Cards List */}
+          {/* VERIFICATION ALERT BANNERS */}
+          {isProgLocked && (
+            <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <CheckCircle2 size={20} style={{ color: '#16a34a', flexShrink: 0 }} />
+              <div>
+                <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#15803d' }}>
+                  ✓ Verified &amp; Approved by {verifierName}
+                </span>
+                <span style={{ fontSize: '12px', color: '#166534', display: 'block', marginTop: '2px' }}>
+                  Programme ATR has been verified and locked for this academic cycle.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {progStatus === 'REVISION_REQUESTED' && (
+            <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <AlertCircle size={20} style={{ color: '#dc2626', flexShrink: 0 }} />
+              <div>
+                <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#991b1b' }}>
+                  ⚠ Revision Requested by {verifierName}
+                </span>
+                {progRemarks && (
+                  <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#7f1d1d', fontStyle: 'italic' }}>
+                    "{progRemarks}"
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {progStatus === 'SUBMITTED' && !isProgLocked && (
+            <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} />
+              <div>
+                <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#92400e' }}>
+                  Submitted — Pending Verification
+                </span>
+                <span style={{ fontSize: '12px', color: '#b45309', display: 'block', marginTop: '2px' }}>
+                  Submitted for Programme Coordinator verification.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Editable / Read-Only PO & PSO Cards List */}
           <div style={{ display: 'grid', gap: '14px' }}>
             {progEntries.map((entry, idx) => {
               const pct = Number(((entry.actual / entry.target) * 100).toFixed(1));
@@ -340,25 +408,37 @@ export default function ATRReportsNavHub() {
                         </td>
                         <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
                           {entry.met ? (
-                            <textarea
-                              rows={2}
-                              value={entry.remark}
-                              onChange={(e) => handleUpdateProgRemark(idx, e.target.value)}
-                              placeholder="Enter remark for this outcome..."
-                              style={{ width: '100%', fontSize: '12.5px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '8px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: '#0f172a', background: '#ffffff' }}
-                            />
+                            isProgLocked ? (
+                              <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#475569', fontSize: '12.5px' }}>
+                                {entry.remark || 'Target achieved. Maintain current teaching strategy.'}
+                              </div>
+                            ) : (
+                              <textarea
+                                rows={2}
+                                value={entry.remark}
+                                onChange={(e) => handleUpdateProgRemark(idx, e.target.value)}
+                                placeholder="Enter remark for this outcome..."
+                                style={{ width: '100%', fontSize: '12.5px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '8px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: '#0f172a', background: '#ffffff' }}
+                              />
+                            )
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                               {entry.actions.map((act, aIdx) => (
                                 <div key={aIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                                   <span style={{ fontWeight: '800', color: '#3b82f6', minWidth: '68px', fontSize: '12px', paddingTop: '9px' }}>Action {aIdx + 1}:</span>
-                                  <textarea
-                                    rows={2}
-                                    value={act}
-                                    onChange={(e) => handleUpdateProgAction(idx, aIdx, e.target.value)}
-                                    style={{ flex: 1, fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '6px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: '#0f172a', background: '#ffffff' }}
-                                  />
-                                  {entry.actions.length > 1 && (
+                                  {isProgLocked ? (
+                                    <div style={{ flex: 1, background: '#f8fafc', padding: '6px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#475569', fontSize: '12px' }}>
+                                      {act}
+                                    </div>
+                                  ) : (
+                                    <textarea
+                                      rows={2}
+                                      value={act}
+                                      onChange={(e) => handleUpdateProgAction(idx, aIdx, e.target.value)}
+                                      style={{ flex: 1, fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '6px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: '#0f172a', background: '#ffffff' }}
+                                    />
+                                  )}
+                                  {!isProgLocked && entry.actions.length > 1 && (
                                     <button
                                       type="button"
                                       onClick={() => handleDeleteProgAction(idx, aIdx)}
@@ -369,13 +449,15 @@ export default function ATRReportsNavHub() {
                                   )}
                                 </div>
                               ))}
-                              <button
-                                type="button"
-                                onClick={() => handleAddProgAction(idx)}
-                                style={{ alignSelf: 'flex-start', height: '28px', padding: '0 12px', fontSize: '11.5px', fontWeight: '700', background: '#f8fafc', color: '#4f46e5', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}
-                              >
-                                + Add Action
-                              </button>
+                              {!isProgLocked && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddProgAction(idx)}
+                                  style={{ alignSelf: 'flex-start', height: '28px', padding: '0 12px', fontSize: '11.5px', fontWeight: '700', background: '#f8fafc', color: '#4f46e5', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}
+                                >
+                                  + Add Action
+                                </button>
+                              )}
                             </div>
                           )}
                         </td>

@@ -34,9 +34,9 @@ export default function DirectorSetupWorkflow() {
   const [selectedDeptIdForProg, setSelectedDeptIdForProg] = useState(departments[0]?.id || 'dept-1');
   const [newProgName, setNewProgName] = useState('');
   const [newProgCode, setNewProgCode] = useState('');
-  const [selectedProgCoordinator, setSelectedProgCoordinator] = useState(MASTER_FACULTY_LIST[0] || 'Dr. Raj Shaikh');
 
   const [newProgDuration, setNewProgDuration] = useState(4);
+  // coordinator is intentionally NOT set here — HOD assigns it later
 
   const steps = [
     { number: 1, title: 'School Info', desc: 'Metadata & Dean', icon: Building2 },
@@ -81,7 +81,7 @@ export default function DirectorSetupWorkflow() {
       durationYears: parseInt(newProgDuration, 10) || 4,
       departmentId: selectedDeptIdForProg,
       department: deptObj?.name || 'Department of Computer Science',
-      coordinator: selectedProgCoordinator,
+      coordinator: '',
     };
     setProgList([...progList, newProg]);
     addProgramme(newProg);
@@ -284,13 +284,13 @@ export default function DirectorSetupWorkflow() {
           <div>
             <div style={{ marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>Degree Programmes</h3>
-              <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>Add degree programmes under a department and assign coordinators.</p>
+              <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>Add degree programmes under a department. Programme Coordinators are assigned by the HOD.</p>
             </div>
 
             {/* Add programme row */}
             <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
               <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '10px' }}>Add Programme</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 1.6fr 0.8fr 1.2fr auto', gap: '10px', alignItems: 'flex-end' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 1.6fr 0.8fr auto', gap: '10px', alignItems: 'flex-end' }}>
                 <div>
                   <label style={labelStyle}>Department *</label>
                   <select value={selectedDeptIdForProg} onChange={(e) => setSelectedDeptIdForProg(e.target.value)} style={selectStyle}>
@@ -312,12 +312,6 @@ export default function DirectorSetupWorkflow() {
                     <option value={2}>2 Years</option>
                     <option value={3}>3 Years</option>
                     <option value={1}>1 Year</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={labelStyle}>Coordinator</label>
-                  <select value={selectedProgCoordinator} onChange={(e) => setSelectedProgCoordinator(e.target.value)} style={selectStyle}>
-                    {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
                 <button
@@ -347,8 +341,16 @@ export default function DirectorSetupWorkflow() {
                       </div>
                       <div style={{ fontSize: '13.5px', fontWeight: '700', color: ink, marginBottom: '6px', lineHeight: '1.3' }}>{prog.name}</div>
                       <div style={{ fontSize: '11.5px', color: muted }}>{deptObj?.name || prog.department}</div>
-                      <div style={{ fontSize: '11.5px', color: muted, marginTop: '2px' }}>
-                        Coordinator: <span style={{ color: ink, fontWeight: '600' }}>{prog.coordinator}</span>
+                      <div style={{ fontSize: '11.5px', color: muted, marginTop: '4px' }}>
+                        Coordinator: {prog.coordinator && prog.coordinator !== 'No coordinator assigned yet' && prog.coordinator !== 'Pending HOD Assignment' ? (
+                          <span style={{ color: accent, fontWeight: '700', background: '#eef2ff', padding: '1px 6px', borderRadius: '4px' }}>
+                            {prog.coordinator}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#d97706', fontWeight: '700', background: '#fffbeb', padding: '1px 6px', borderRadius: '4px' }}>
+                            No coordinator assigned yet
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
@@ -388,7 +390,7 @@ export default function DirectorSetupWorkflow() {
                 <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Summary</div>
                 <div style={{ fontSize: '24px', fontWeight: '800', color: ink }}>{deptList.length} <span style={{ fontSize: '13px', fontWeight: '600', color: muted }}>Departments</span></div>
                 <div style={{ fontSize: '24px', fontWeight: '800', color: ink, marginTop: '4px' }}>{progList.length} <span style={{ fontSize: '13px', fontWeight: '600', color: muted }}>Programmes</span></div>
-                <div style={{ fontSize: '12px', color: '#16a34a', marginTop: '6px', fontWeight: '600' }}>All HODs & Coordinators assigned</div>
+                <div style={{ fontSize: '12px', color: '#16a34a', marginTop: '6px', fontWeight: '600' }}>All HODs assigned · Coordinators pending HOD</div>
               </div>
             </div>
           </div>

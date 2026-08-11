@@ -324,7 +324,30 @@ const YEAR_ATTAINMENT_METRICS = {
 
 export function AcademicProvider({ children }) {
   const { role, user } = useAuth();
-  
+
+  // Centralized Master Stores
+  const [departmentsStore, setDepartmentsStore] = useState(INITIAL_DEPARTMENTS);
+  const [masterProgrammesStore, setMasterProgrammesStore] = useState(INITIAL_MASTER_PROGRAMMES_LIST);
+
+  // Centralized Scoped Programmes according to Role
+  const currentHodDepartment = departmentsStore.find(
+    (d) => d.hod === user?.name || d.hodEmail === user?.email
+  ) || departmentsStore[0];
+
+  const masterProgrammes = masterProgrammesStore.filter((p) => {
+    if (role === 'DIRECTOR') return true;
+    if (role === 'HOD') {
+      return p.departmentId === currentHodDepartment.id || p.department === currentHodDepartment.name;
+    }
+    if (role === 'PROGRAMME_COORDINATOR') {
+      const pcProg = masterProgrammesStore.find(
+        (p) => p.coordinator === user?.name || p.coordinatorEmail === user?.email
+      ) || masterProgrammesStore[0];
+      return p.id === pcProg.id || p.coordinator === user?.name;
+    }
+    return true;
+  });
+
   // Step 1: Batch Initialization State
   const [batches, setBatches] = useState(MASTER_BATCHES);
   const [batchId, setBatchId] = useState('batch-2025-29');
@@ -357,13 +380,7 @@ export function AcademicProvider({ children }) {
   const [academicYear, setAcademicYear] = useState('2025-26');
   const availableYears = ['2024-25', '2025-26', '2026-27'];
 
-  // Single Programme Scope for Programme Coordinator (prog-1)
-  const availableProgrammes = MASTER_PROGRAMMES.filter((p) => {
-    if (role === 'PROGRAMME_COORDINATOR') {
-      return p.id === 'prog-1';
-    }
-    return true;
-  });
+  const availableProgrammes = masterProgrammes;
 
   const [programmeId, setProgrammeIdState] = useState('prog-1');
 
@@ -450,8 +467,12 @@ export function AcademicProvider({ children }) {
       courseName: 'Computer Network and Security',
       directWeight: 80,
       indirectWeight: 20,
+      directWeightage: 80.00,
+      indirectWeightage: 20.00,
       directThreshold: 60,
+      indirectThreshold: 60.00,
       thresholdPct: '60%',
+      calculationRunId: 'calc-run-202526-crs1',
       ...defaultLevels,
       status: 'VERIFIED',
       submittedBy: 'Dr. Raj Shaikh',
@@ -462,8 +483,12 @@ export function AcademicProvider({ children }) {
       courseName: 'Data Structures & Algorithms',
       directWeight: 85,
       indirectWeight: 15,
+      directWeightage: 85.00,
+      indirectWeightage: 15.00,
       directThreshold: 65,
+      indirectThreshold: 60.00,
       thresholdPct: '65%',
+      calculationRunId: 'calc-run-202526-crs2',
       ...defaultLevels,
       status: 'SUBMITTED',
       submittedBy: 'Prof. Ananya Roy',
@@ -474,8 +499,12 @@ export function AcademicProvider({ children }) {
       courseName: 'Machine Learning Fundamentals',
       directWeight: 80,
       indirectWeight: 20,
+      directWeightage: 80.00,
+      indirectWeightage: 20.00,
       directThreshold: 60,
+      indirectThreshold: 60.00,
       thresholdPct: '60%',
+      calculationRunId: 'calc-run-202526-crs3',
       ...defaultLevels,
       status: 'SUBMITTED',
       submittedBy: 'Dr. Vikram Joshi',
@@ -544,7 +573,8 @@ export function AcademicProvider({ children }) {
   const [courseId, setCourseId] = useState('crs-1');
 
   // Active Objects
-  const selectedProgramme = MASTER_PROGRAMMES.find((p) => p.id === programmeId) || MASTER_PROGRAMMES[0];
+  const selectedProgramme =
+    masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || MASTER_PROGRAMMES[0];
   const selectedCourse =
     coursesStore.find((c) => c.id === courseId) ||
     availableCourses.find((c) => c.id === courseId) ||
@@ -721,8 +751,6 @@ export function AcademicProvider({ children }) {
     );
   };
 
-  const [departmentsStore, setDepartmentsStore] = useState(INITIAL_DEPARTMENTS);
-
   const addDepartment = (newDept) => {
     setDepartmentsStore((prev) => [...prev, newDept]);
   };
@@ -737,10 +765,12 @@ export function AcademicProvider({ children }) {
     setDepartmentsStore((prev) => prev.filter((d) => d.id !== deptId));
   };
 
-  const [masterProgrammesStore, setMasterProgrammesStore] = useState(INITIAL_MASTER_PROGRAMMES_LIST);
-
   const addProgramme = (newProg) => {
-    setMasterProgrammesStore((prev) => [...prev, newProg]);
+    const formattedProg = {
+      ...newProg,
+      coordinator: newProg.coordinator && newProg.coordinator !== 'Pending HOD Assignment' ? newProg.coordinator : 'No coordinator assigned yet',
+    };
+    setMasterProgrammesStore((prev) => [...prev, formattedProg]);
   };
 
   const updateProgramme = (progId, updatedFields) => {
@@ -947,7 +977,8 @@ export function AcademicProvider({ children }) {
         addDepartment,
         updateDepartment,
         deleteDepartment,
-        masterProgrammes: masterProgrammesStore,
+        masterProgrammes,
+        allMasterProgrammes: masterProgrammesStore,
         addProgramme,
         updateProgramme,
         deleteProgramme,
