@@ -1,11 +1,30 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, CheckCircle2, Calendar, Archive, AlertCircle, ToggleLeft, ToggleRight, Check, Edit2, Trash2, Save, X, ChevronDown, Layers, Activity } from 'lucide-react';
+import {
+  Plus,
+  CheckCircle2,
+  Calendar,
+  Archive,
+  AlertCircle,
+  ToggleLeft,
+  ToggleRight,
+  Check,
+  Edit2,
+  Trash2,
+  Save,
+  X,
+  ChevronDown,
+  ArrowRight,
+  ArrowLeft,
+  Users,
+  Search,
+  Sparkles,
+  UserCheck,
+} from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
-import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
-// ── Style tokens (identical to HodSetupWorkflow) ─────────────────────────────
+// ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
 const ink        = '#0f172a';
 const muted      = '#64748b';
@@ -30,25 +49,16 @@ const labelStyle = {
   marginBottom: '5px',
 };
 
-const YEAR_LEVELS = [
-  'Year 1 (Freshmen)',
-  'Year 2 (Sophomores)',
-  'Year 3 (Juniors)',
-  'Year 4 (Seniors / Final Year)',
-  'Upcoming Batch',
-  'Graduated Alumni',
-];
-
 export default function HodBatchManagement() {
   const {
     masterProgrammes = [],
     batches = [],
-    batchId,
-    setBatchId,
-    addBatch              = () => {},
-    updateBatch           = () => {},
-    deleteBatch           = () => {},
     toggleBatchActiveStatus = () => {},
+    deleteBatch             = () => {},
+    getStudentsByBatch      = () => [],
+    addStudentToBatch       = () => {},
+    updateStudentInBatch    = () => {},
+    deleteStudentFromBatch  = () => {},
   } = useAcademic();
 
   const [selectedProgrammeId, setSelectedProgrammeId] = useState(masterProgrammes[0]?.id || 'prog-1');
@@ -65,19 +75,26 @@ export default function HodBatchManagement() {
   const [endYearInput,   setEndYearInput]   = useState(String(2025 + durationYears));
   const [batchError,     setBatchError]     = useState('');
 
-  // ── Edit modal state ─────────────────────────────────────────────────────
-  const [showEditModal,   setShowEditModal]   = useState(false);
-  const [editingBatch,    setEditingBatch]    = useState(null);
-  const [editingId,       setEditingId]       = useState(null);
-  const [editName,        setEditName]        = useState('');
-  const [editStartYear,   setEditStartYear]   = useState('');
-  const [editEndYear,     setEditEndYear]     = useState('');
-  const [editYearLevel,   setEditYearLevel]   = useState('');
-  const [editStatus,      setEditStatus]      = useState('ACTIVE');
-
-  // ── Delete confirm modal state ───────────────────────────────────────────
+  // ── Delete confirm modal state for batches ──────────────────────────────
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingBatch,   setDeletingBatch]   = useState(null);
+
+  // ── Student Roster Screen State ─────────────────────────────────────────
+  const [selectedBatchForRoster, setSelectedBatchForRoster] = useState(null);
+  const [studentSearch, setStudentSearch] = useState('');
+
+  // Student Edit / Add Modal States
+  const [showStudentModal, setShowStudentModal] = useState(false);
+  const [editingStudent, setEditingStudent] = useState(null); // null if adding
+  const [studentPrn, setStudentPrn] = useState('');
+  const [studentName, setStudentName] = useState('');
+  const [studentEmail, setStudentEmail] = useState('');
+
+  // Student Delete Modal States
+  const [showDeleteStudentModal, setShowDeleteStudentModal] = useState(false);
+  const [deletingStudent, setDeletingStudent] = useState(null);
+
+  const [toastMessage, setToastMessage] = useState(null);
 
   // Auto-recalc end year when programme or start year changes
   useEffect(() => {
@@ -88,7 +105,7 @@ export default function HodBatchManagement() {
   const programmeBatches   = batches.filter((b) => !b.programmeId || b.programmeId === selectedProgrammeId);
   const activeBatchesCount = programmeBatches.filter((b) => b.status === 'ACTIVE').length;
 
-  // ── Add-form handlers ─────────────────────────────────────────────────────
+  // ── Add batch handlers ───────────────────────────────────────────────────
   const handleStartYearChange = (val) => {
     const v = val.replace(/\D/g, '').slice(0, 4);
     setStartYearInput(v);
@@ -102,107 +119,473 @@ export default function HodBatchManagement() {
 
   const handleEndYearChange = (val) => setEndYearInput(val.replace(/\D/g, '').slice(0, 4));
 
-  const handleAddBatch = (e) => {
-    e.preventDefault();
-    const s = parseInt(startYearInput, 10), en = parseInt(endYearInput, 10);
-    if (!s || s <= 2020 || !en || en <= s) return;
-
-    const startAY = `${s}-${String(s + 1).slice(-2)}`;
-    const endAY   = `${en - 1}-${String(en).slice(-2)}`;
-
-    const nb = {
-      id:           `batch-${selectedProgramme.code.toLowerCase()}-${s}-${String(en).slice(-2)}`,
-      programmeId:  selectedProgrammeId,
-      programmeName: selectedProgramme.name,
-      programmeCode: selectedProgramme.code,
-      durationYears,
-      name:         `Batch ${s}-${String(en).slice(-2)} (${selectedProgramme.code}) — AY ${startAY} to ${endAY}`,
-      startYear:    startAY,
-      endYear:      endAY,
-      yearLevel:    'Year 1 (Freshmen)',
-      status:       'ACTIVE',
-    };
-    addBatch(nb);
-    setBatchId(nb.id);
-  };
-
-  // ── Edit modal handlers ───────────────────────────────────────────────────
-  const handleStartEdit = (batch) => {
-    setEditingBatch(batch);
-    setEditingId(batch.id);
-    setEditName(batch.name);
-    setEditStartYear(batch.startYear || '');
-    setEditEndYear(batch.endYear || '');
-    setEditYearLevel(batch.yearLevel || 'Year 1 (Freshmen)');
-    setEditStatus(batch.status || 'ACTIVE');
-    setShowEditModal(true);
-  };
-
-  const handleSaveEdit = () => {
-    if (!editingId) return;
-    updateBatch(editingId, {
-      name:      editName,
-      startYear: editStartYear,
-      endYear:   editEndYear,
-      yearLevel: editYearLevel,
-      status:    editStatus,
-    });
-    setShowEditModal(false);
-    setEditingBatch(null);
-    setEditingId(null);
-  };
-
-  const handleCancelEdit = () => {
-    setShowEditModal(false);
-    setEditingBatch(null);
-    setEditingId(null);
-  };
-
-  const handleDelete = (batch) => {
-    if (batch.status === 'ACTIVE') {
-      alert('Active batches cannot be deleted. Deactivate first.');
-      return;
-    }
+  const handleDeleteBatchClick = (batch) => {
     setDeletingBatch(batch);
     setShowDeleteModal(true);
   };
 
-  const handleConfirmDelete = () => {
-    if (deletingBatch) deleteBatch(deletingBatch.id);
-    setShowDeleteModal(false);
-    setDeletingBatch(null);
+  const handleConfirmDeleteBatch = () => {
+    if (deletingBatch) {
+      deleteBatch(deletingBatch.id);
+      setShowDeleteModal(false);
+      setDeletingBatch(null);
+      setToastMessage('🗑️ Batch deleted successfully.');
+      setTimeout(() => setToastMessage(null), 3000);
+    }
   };
 
-  const handleCancelDelete = () => {
-    setShowDeleteModal(false);
-    setDeletingBatch(null);
+  // ── Student Roster Handlers ─────────────────────────────────────────────
+  const currentBatchStudents = selectedBatchForRoster ? getStudentsByBatch(selectedBatchForRoster.id) : [];
+
+  const filteredStudents = currentBatchStudents.filter(
+    (s) =>
+      s.name?.toLowerCase().includes(studentSearch.toLowerCase()) ||
+      s.prn?.toLowerCase().includes(studentSearch.toLowerCase()) ||
+      s.email?.toLowerCase().includes(studentSearch.toLowerCase())
+  );
+
+  const handleOpenAddStudentModal = () => {
+    setEditingStudent(null);
+    setStudentPrn(`1032250${Math.floor(100 + Math.random() * 900)}`);
+    setStudentName('');
+    setStudentEmail('');
+    setShowStudentModal(true);
   };
 
-  return (
-    <div className="animated-page" style={{ paddingBottom: '48px' }}>
+  const handleOpenEditStudentModal = (student) => {
+    setEditingStudent(student);
+    setStudentPrn(student.prn || '');
+    setStudentName(student.name || '');
+    setStudentEmail(student.email || '');
+    setShowStudentModal(true);
+  };
 
-      {/* ── PAGE HEADER BANNER ────────────────────────────────────────────────── */}
-      <div className="banner-dark-gradient" style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
-          {/* Left: title block */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <span style={{
-                background: '#eef2ff', color: accent,
-                fontWeight: '800', fontSize: '10px', borderRadius: '5px',
-                padding: '2px 9px', letterSpacing: '0.07em', textTransform: 'uppercase',
-                border: '1px solid #c7d2fe',
-              }}>
-                HOD Portal · Batch Management
+  const handleSaveStudent = (e) => {
+    e.preventDefault();
+    if (!studentPrn.trim() || !studentName.trim()) {
+      alert('Please enter a valid PRN number and Student Name.');
+      return;
+    }
+
+    if (editingStudent) {
+      updateStudentInBatch(selectedBatchForRoster.id, editingStudent.id, {
+        prn: studentPrn.trim(),
+        name: studentName.trim(),
+        email: studentEmail.trim() || `${studentName.trim().toLowerCase().replace(/\s+/g, '.')}@dypiu.edu.in`,
+      });
+      setToastMessage(`🎉 Updated student record for ${studentName.trim()} (${studentPrn.trim()})`);
+    } else {
+      addStudentToBatch(selectedBatchForRoster.id, {
+        prn: studentPrn.trim(),
+        name: studentName.trim(),
+        email: studentEmail.trim() || `${studentName.trim().toLowerCase().replace(/\s+/g, '.')}@dypiu.edu.in`,
+      });
+      setToastMessage(`🎉 Student ${studentName.trim()} (${studentPrn.trim()}) added to batch roster!`);
+    }
+
+    setShowStudentModal(false);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleDeleteStudentClick = (student) => {
+    setDeletingStudent(student);
+    setShowDeleteStudentModal(true);
+  };
+
+  const handleConfirmDeleteStudent = () => {
+    if (deletingStudent && selectedBatchForRoster) {
+      deleteStudentFromBatch(selectedBatchForRoster.id, deletingStudent.id);
+      setShowDeleteStudentModal(false);
+      setDeletingStudent(null);
+      setToastMessage('🗑️ Student record removed from batch roster.');
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
+
+  // =========================================================================
+  // RENDER SCREEN 2: BATCH STUDENT ROSTER SCREEN
+  // =========================================================================
+  if (selectedBatchForRoster) {
+    return (
+      <div style={{ display: 'grid', gap: '20px' }}>
+
+        {/* Toast Alert */}
+        {toastMessage && (
+          <div
+            style={{
+              background: '#ecfdf5',
+              border: '1.5px solid #6ee7b7',
+              color: '#065f46',
+              padding: '12px 18px',
+              borderRadius: '10px',
+              fontWeight: '700',
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.12)',
+            }}
+          >
+            <CheckCircle2 size={18} style={{ color: '#059669' }} />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
+        {/* Top Header Card */}
+        <div style={{ background: 'linear-gradient(135deg, #eff6ff, #e0f2fe)', border: '1.5px solid #bfdbfe', borderRadius: '16px', padding: '24px 28px', color: '#0f172a', boxShadow: '0 4px 14px rgba(191, 219, 254, 0.35)' }}>
+          <button
+            type="button"
+            onClick={() => setSelectedBatchForRoster(null)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
+              color: '#1d4ed8',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: '800',
+              cursor: 'pointer',
+              marginBottom: '16px',
+              fontFamily: 'inherit',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+            }}
+          >
+            <ArrowLeft size={14} /> Back to Batch Management
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <span style={{ fontSize: '11px', fontWeight: '800', background: '#dbeafe', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '3px 10px', borderRadius: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Batch Enrolment Roster
+              </span>
+              <h2 style={{ margin: '8px 0 4px', fontSize: '22px', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.02em' }}>
+                {selectedBatchForRoster.programmeName || selectedProgramme.name} — {selectedBatchForRoster.name}
+              </h2>
+              <p style={{ margin: 0, fontSize: '13px', color: '#475569', fontWeight: '600' }}>
+                Student Permanent Registration Numbers (PRNs) & Academic Records
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleOpenAddStudentModal}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: '#4f46e5',
+                border: 'none',
+                color: '#ffffff',
+                padding: '10px 20px',
+                borderRadius: '10px',
+                fontSize: '13px',
+                fontWeight: '800',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(79, 70, 229, 0.4)',
+                fontFamily: 'inherit',
+              }}
+            >
+              <Plus size={16} /> Add Student to Batch
+            </button>
+          </div>
+        </div>
+
+        {/* Student Table Card */}
+        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          
+          {/* Controls Bar */}
+          <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Users size={18} style={{ color: '#4f46e5' }} />
+              <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                Total Students Enrolled: <strong style={{ color: '#4f46e5' }}>{currentBatchStudents.length}</strong>
               </span>
             </div>
-            <h2 style={{ margin: '0 0 4px', fontSize: '20px', color: '#0f172a', fontWeight: '800', letterSpacing: '-0.01em' }}>
+
+            <div style={{ position: 'relative', width: '280px' }}>
+              <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <input
+                type="text"
+                placeholder="Search PRN or Student Name..."
+                value={studentSearch}
+                onChange={(e) => setStudentSearch(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '7px 10px 7px 32px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '12.5px',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Student Table */}
+          <div style={{ overflowX: 'auto' }}>
+            <table className="audit-data-table" style={{ margin: 0 }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '60px', textAlign: 'center' }}>#</th>
+                  <th style={{ width: '160px', textAlign: 'center' }}>PRN No.</th>
+                  <th style={{ minWidth: '240px', textAlign: 'center' }}>Student Name</th>
+                  <th style={{ minWidth: '220px', textAlign: 'center' }}>Institutional Email</th>
+                  <th style={{ width: '110px', textAlign: 'center' }}>Status</th>
+                  <th style={{ width: '130px', textAlign: 'center' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredStudents.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#64748b', fontSize: '13px' }}>
+                      No students enrolled in this batch yet. Click <strong>+ Add Student</strong> to add records.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredStudents.map((std, idx) => (
+                    <tr key={std.id}>
+                      <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>{idx + 1}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span style={{ fontWeight: '900', color: '#1e293b', background: '#f1f5f9', padding: '3px 10px', borderRadius: '6px', fontSize: '12.5px', fontFamily: 'monospace' }}>
+                          {std.prn}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'center', fontWeight: '800', color: '#0f172a' }}>{std.name}</td>
+                      <td style={{ textAlign: 'center', fontSize: '12.5px', color: '#475569' }}>{std.email}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '800', background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: '5px', textTransform: 'uppercase' }}>
+                          {std.status || 'ENROLLED'}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          {/* EDIT STUDENT BUTTON */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditStudentModal(std)}
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '7px',
+                              border: '1px solid #c7d2fe',
+                              background: '#eef2ff',
+                              color: '#4f46e5',
+                              cursor: 'pointer',
+                              display: 'grid',
+                              placeItems: 'center',
+                            }}
+                            title="Edit student record"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+
+                          {/* DELETE STUDENT BUTTON */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteStudentClick(std)}
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '7px',
+                              border: '1px solid #fecaca',
+                              background: '#fef2f2',
+                              color: '#dc2626',
+                              cursor: 'pointer',
+                              display: 'grid',
+                              placeItems: 'center',
+                            }}
+                            title="Delete student record"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ── EDIT / ADD STUDENT MODAL ────────────────────────────────────────── */}
+        {showStudentModal && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(15, 23, 42, 0.55)',
+              backdropFilter: 'blur(4px)',
+              display: 'grid',
+              placeItems: 'center',
+              zIndex: 1000,
+              padding: '16px',
+            }}
+          >
+            <div
+              style={{
+                background: '#ffffff',
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '480px',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+                overflow: 'hidden',
+                border: '1px solid #e2e8f0',
+              }}
+            >
+              <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={16} style={{ color: '#4f46e5' }} />
+                  {editingStudent ? 'Edit Student Record' : 'Add Student to Batch'}
+                </h4>
+                <button type="button" onClick={() => setShowStudentModal(false)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveStudent}>
+                <div style={{ padding: '20px', display: 'grid', gap: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                      Permanent Registration Number (PRN) *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 1032250101"
+                      value={studentPrn}
+                      onChange={(e) => setStudentPrn(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '9px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '13px',
+                        fontWeight: '700',
+                        fontFamily: 'monospace',
+                        outline: 'none',
+                      }}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                      Student Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Aarav Sharma"
+                      value={studentName}
+                      onChange={(e) => setStudentName(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '9px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '13px',
+                        outline: 'none',
+                        fontFamily: 'inherit',
+                      }}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                      Institutional Email (Optional)
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="e.g. aarav.sharma@dypiu.edu.in"
+                      value={studentEmail}
+                      onChange={(e) => setStudentEmail(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '9px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '13px',
+                        outline: 'none',
+                        fontFamily: 'inherit',
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
+                  <button type="button" onClick={() => setShowStudentModal(false)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#475569', fontSize: '12.5px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Cancel
+                  </button>
+                  <button type="submit" style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#4f46e5', color: '#ffffff', fontSize: '12.5px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Save size={15} /> Save Student Record
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── DELETE STUDENT CONFIRMATION MODAL ───────────────────────── */}
+        {showDeleteStudentModal && deletingStudent && (
+          <DeleteConfirmModal
+            isOpen={showDeleteStudentModal}
+            onClose={() => { setShowDeleteStudentModal(false); setDeletingStudent(null); }}
+            onConfirm={handleConfirmDeleteStudent}
+            title="Delete Student Record"
+            itemName={`${deletingStudent.name} (PRN: ${deletingStudent.prn})`}
+            itemType="Student Record"
+          />
+        )}
+
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // RENDER SCREEN 1: MAIN BATCH MANAGEMENT LIST
+  // =========================================================================
+  return (
+    <div style={{ display: 'grid', gap: '20px' }}>
+
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div
+          style={{
+            background: '#ecfdf5',
+            border: '1.5px solid #6ee7b7',
+            color: '#065f46',
+            padding: '12px 18px',
+            borderRadius: '10px',
+            fontWeight: '700',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.12)',
+          }}
+        >
+          <CheckCircle2 size={18} style={{ color: '#059669' }} />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Top Banner Card */}
+      <div style={{ ...surface, padding: '20px', background: 'linear-gradient(135deg, #f8fafc, #eef2ff)', border: '1px solid #c7d2fe' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div>
+            <span style={{ fontSize: '11px', fontWeight: '800', background: '#e0e7ff', color: accent, padding: '3px 8px', borderRadius: '5px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Academic Structure
+            </span>
+            <h2 style={{ margin: '6px 0 2px', fontSize: '18px', fontWeight: '900', color: ink }}>
               Batch Setup
             </h2>
             <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: '#64748b' }}>
               Initialize a {durationYears}-year academic batch for <strong style={{ color: accent }}>{selectedProgramme.name}</strong>. Start year must be after 2020.
             </p>
-            {/* Inline stat chips */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {[
                 { label: 'Duration',       value: `${durationYears} Years`,                         bg: '#f1f5f9', color: '#475569' },
@@ -222,7 +605,6 @@ export default function HodBatchManagement() {
             </div>
           </div>
 
-          {/* Right: Programme selector */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '260px', maxWidth: '360px', flex: '1 1 260px' }}>
             <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
               Programme
@@ -251,10 +633,10 @@ export default function HodBatchManagement() {
         </div>
       </div>
 
-      {/* ── ADD BATCH FORM ────────────────────────────────────────────────────── */}
-      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', marginBottom: '20px' }}>
+      {/* Add Batch Form */}
+      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px' }}>
         <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '12px' }}>Add Batch Year</div>
-        <form onSubmit={handleAddBatch}>
+        <form onSubmit={(e) => e.preventDefault()}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', alignItems: 'flex-end' }}>
             <div>
               <label style={labelStyle}>Start Year *</label>
@@ -291,7 +673,7 @@ export default function HodBatchManagement() {
         </form>
       </div>
 
-      {/* ── BATCH CARDS ───────────────────────────────────────────────────────── */}
+      {/* Batch Cards */}
       {programmeBatches.length === 0 ? (
         <div style={{ ...surface, padding: '40px', textAlign: 'center' }}>
           <Calendar size={32} style={{ color: '#94a3b8', marginBottom: '10px' }} />
@@ -303,6 +685,7 @@ export default function HodBatchManagement() {
           {programmeBatches.map((batch) => {
             const isActive     = batch.status === 'ACTIVE';
             const isGraduated  = batch.status === 'GRADUATED';
+            const studentsCount = getStudentsByBatch(batch.id).length;
 
             return (
               <div
@@ -315,26 +698,23 @@ export default function HodBatchManagement() {
                   transition: 'box-shadow 0.15s',
                 }}
               >
-                {/* ── VIEW MODE ─────────────────────────────────────────────── */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: '240px' }}>
-                    {/* Title row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '15px', fontWeight: '800', color: ink, letterSpacing: '-0.01em' }}>{batch.name}</span>
                     </div>
-                    {/* Meta row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: muted, flexWrap: 'wrap' }}>
                       <span><Calendar size={11} style={{ verticalAlign: 'middle', marginRight: '3px' }} />AY <strong style={{ color: ink }}>{batch.startYear}</strong> → <strong style={{ color: ink }}>{batch.endYear}</strong></span>
                       <span style={{ color: '#cbd5e1' }}>·</span>
                       <span>{batch.yearLevel || '—'}</span>
                       <span style={{ color: '#cbd5e1' }}>·</span>
                       <span>{batch.programmeName || selectedProgramme.name}</span>
+                      <span style={{ color: '#cbd5e1' }}>·</span>
+                      <span style={{ color: '#4f46e5', fontWeight: '700' }}>{studentsCount} Enrolled Students</span>
                     </div>
                   </div>
 
-                  {/* Right side: status badge + action buttons */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>
-                    {/* Status badge */}
                     {isActive ? (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '700', color: '#15803d', background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '6px', padding: '3px 10px' }}>
                         <Check size={11} /> Active
@@ -349,7 +729,6 @@ export default function HodBatchManagement() {
                       </span>
                     )}
 
-                    {/* Toggle active */}
                     <button
                       type="button"
                       onClick={() => toggleBatchActiveStatus(batch.id)}
@@ -366,22 +745,33 @@ export default function HodBatchManagement() {
                       {isActive ? 'Deactivate' : 'Activate'}
                     </button>
 
-
-
-                    {/* Edit — opens modal */}
+                    {/* REPLACED EDIT WITH ARROW BUTTON TO OPEN BATCH STUDENT ROSTER */}
                     <button
                       type="button"
-                      onClick={() => handleStartEdit(batch)}
-                      style={{ width: '32px', height: '32px', borderRadius: '7px', border: '1px solid #c7d2fe', background: '#eef2ff', color: accent, cursor: 'pointer', display: 'grid', placeItems: 'center' }}
-                      title="Edit batch"
+                      onClick={() => setSelectedBatchForRoster(batch)}
+                      style={{
+                        height: '32px',
+                        padding: '0 14px',
+                        borderRadius: '7px',
+                        border: '1px solid #c7d2fe',
+                        background: '#eef2ff',
+                        color: accent,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontWeight: '800',
+                        fontSize: '12.5px',
+                        fontFamily: 'inherit',
+                      }}
+                      title="Open Batch Student Roster"
                     >
-                      <Edit2 size={13} />
+                      View <ArrowRight size={14} />
                     </button>
 
-                    {/* Delete — opens confirm modal */}
                     <button
                       type="button"
-                      onClick={() => handleDelete(batch)}
+                      onClick={() => handleDeleteBatchClick(batch)}
                       style={{ width: '32px', height: '32px', borderRadius: '7px', border: isActive ? '1px solid #e2e8f0' : '1px solid #fecaca', background: isActive ? '#f8fafc' : '#fef2f2', color: isActive ? '#94a3b8' : '#dc2626', cursor: isActive ? 'not-allowed' : 'pointer', display: 'grid', placeItems: 'center', opacity: isActive ? 0.45 : 1 }}
                       title={isActive ? 'Deactivate before deleting' : 'Delete batch'}
                     >
@@ -392,91 +782,21 @@ export default function HodBatchManagement() {
               </div>
             );
           })}
-
-          {/* Inline dashed add prompt */}
-          <button
-            type="button"
-            onClick={() => document.querySelector('input[placeholder="e.g. 2025"]')?.focus()}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', borderRadius: '10px', border: `1.5px dashed #c7d2fe`, background: '#fafafa', color: accent, fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'background .15s', fontFamily: 'inherit' }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = '#eef2ff'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = '#fafafa'; }}
-          >
-            <Plus size={15} /> Add Another Batch
-          </button>
         </div>
       )}
 
-      {/* ── EDIT BATCH MODAL ──────────────────────────────────────────────────── */}
-      {showEditModal && editingBatch && createPortal(
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px', boxSizing: 'border-box' }}
-          onClick={(e) => { if (e.target === e.currentTarget) handleCancelEdit(); }}
-        >
-          <div style={{ background: '#ffffff', borderRadius: '14px', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,0.3)', overflow: 'hidden', boxSizing: 'border-box' }}>
-            {/* Modal header */}
-            <div style={{ padding: '18px 22px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontSize: '10px', fontWeight: '800', color: muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '2px' }}>Edit Batch</div>
-                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: ink }}>Update Batch Details</h3>
-              </div>
-              <button type="button" onClick={handleCancelEdit} style={{ width: '30px', height: '30px', borderRadius: '7px', border: '1px solid #e2e8f0', background: '#f8fafc', color: muted, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
-                <X size={14} />
-              </button>
-            </div>
-            {/* Modal body */}
-            <div style={{ padding: '20px 22px', display: 'grid', gap: '14px' }}>
-              <div>
-                <label style={labelStyle}>Batch Display Name</label>
-                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} style={inputStyle} placeholder="Batch display name" />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={labelStyle}>Start AY</label>
-                  <input type="text" value={editStartYear} onChange={(e) => setEditStartYear(e.target.value)} style={{ ...inputStyle, fontWeight: '700' }} placeholder="e.g. 2025-26" />
-                </div>
-                <div>
-                  <label style={labelStyle}>End AY</label>
-                  <input type="text" value={editEndYear} onChange={(e) => setEditEndYear(e.target.value)} style={{ ...inputStyle, fontWeight: '700' }} placeholder="e.g. 2028-29" />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={labelStyle}>Year Level</label>
-                  <input type="text" value={editYearLevel} onChange={(e) => setEditYearLevel(e.target.value)} style={inputStyle} placeholder="e.g. Year 1 (Freshmen)" />
-                </div>
-                <div>
-                  <label style={labelStyle}>Status</label>
-                  <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)} style={{ ...inputStyle, fontWeight: '700' }}>
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="INITIALIZED">INITIALIZED</option>
-                    <option value="INACTIVE">INACTIVE</option>
-                    <option value="GRADUATED">GRADUATED</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            {/* Modal footer */}
-            <div style={{ padding: '14px 22px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button type="button" onClick={handleCancelEdit} style={{ height: '36px', padding: '0 16px', fontSize: '13px', fontWeight: '600', background: '#ffffff', color: muted, border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button type="button" onClick={handleSaveEdit} style={{ height: '36px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <Save size={13} /> Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Delete batch confirm modal */}
+      {showDeleteModal && deletingBatch && (
+        <DeleteConfirmModal
+          isOpen={showDeleteModal}
+          onClose={() => { setShowDeleteModal(false); setDeletingBatch(null); }}
+          onConfirm={handleConfirmDeleteBatch}
+          title="Delete Batch"
+          itemName={deletingBatch.name}
+          itemType="Batch Record"
+        />
       )}
 
-      {/* ── DELETE CONFIRM MODAL ──────────────────────────────────────────────── */}
-      <DeleteConfirmModal
-        isOpen={showDeleteModal && !!deletingBatch}
-        title="Delete Batch?"
-        itemName={deletingBatch?.name}
-        description="This action cannot be undone. All data associated with this batch will be permanently removed."
-        confirmText="Delete Batch"
-        onConfirm={handleConfirmDelete}
-        onClose={handleCancelDelete}
-      />
     </div>
   );
 }

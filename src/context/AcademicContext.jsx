@@ -925,6 +925,59 @@ export function AcademicProvider({ children }) {
       },
     }));
   };
+  // ── Centralized Batch Students Store & APIs ──────────────────────
+  const [batchStudentsStore, setBatchStudentsStore] = useState({
+    'batch-comp-2025-29': [
+      { id: 'std-1', prn: '1032250101', name: 'Aarav Sharma', email: 'aarav.sharma@dypiu.edu.in', status: 'ENROLLED' },
+      { id: 'std-2', prn: '1032250102', name: 'Ananya Deshmukh', email: 'ananya.d@dypiu.edu.in', status: 'ENROLLED' },
+      { id: 'std-3', prn: '1032250103', name: 'Rohan Patel', email: 'rohan.patel@dypiu.edu.in', status: 'ENROLLED' },
+      { id: 'std-4', prn: '1032250104', name: 'Sneha Kulkarni', email: 'sneha.k@dypiu.edu.in', status: 'ENROLLED' },
+      { id: 'std-5', prn: '1032250105', name: 'Aditya Verma', email: 'aditya.v@dypiu.edu.in', status: 'ENROLLED' },
+    ],
+    'batch-ai-2025-29': [
+      { id: 'std-10', prn: '1032250201', name: 'Priya Joshi', email: 'priya.j@dypiu.edu.in', status: 'ENROLLED' },
+      { id: 'std-11', prn: '1032250202', name: 'Vikram Singh', email: 'vikram.s@dypiu.edu.in', status: 'ENROLLED' },
+      { id: 'std-12', prn: '1032250203', name: 'Neha Kapoor', email: 'neha.k@dypiu.edu.in', status: 'ENROLLED' },
+    ],
+  });
+
+  const getStudentsByBatch = (targetBatchId) => {
+    return batchStudentsStore[targetBatchId] || [
+      { id: 'std-1', prn: '1032250101', name: 'Aarav Sharma', email: 'aarav.sharma@dypiu.edu.in', status: 'ENROLLED' },
+      { id: 'std-2', prn: '1032250102', name: 'Ananya Deshmukh', email: 'ananya.d@dypiu.edu.in', status: 'ENROLLED' },
+      { id: 'std-3', prn: '1032250103', name: 'Rohan Patel', email: 'rohan.patel@dypiu.edu.in', status: 'ENROLLED' },
+      { id: 'std-4', prn: '1032250104', name: 'Sneha Kulkarni', email: 'sneha.k@dypiu.edu.in', status: 'ENROLLED' },
+      { id: 'std-5', prn: '1032250105', name: 'Aditya Verma', email: 'aditya.v@dypiu.edu.in', status: 'ENROLLED' },
+    ];
+  };
+
+  const addStudentToBatch = (targetBatchId, studentData) => {
+    const newStudent = {
+      id: `std-${Date.now()}`,
+      prn: studentData.prn || `1032250${Math.floor(100 + Math.random() * 900)}`,
+      name: studentData.name || 'New Student',
+      email: studentData.email || `${(studentData.name || 'student').toLowerCase().replace(/\s+/g, '.')}@dypiu.edu.in`,
+      status: 'ENROLLED',
+    };
+    setBatchStudentsStore((prev) => ({
+      ...prev,
+      [targetBatchId]: [...(prev[targetBatchId] || []), newStudent],
+    }));
+  };
+
+  const updateStudentInBatch = (targetBatchId, studentId, updatedFields) => {
+    setBatchStudentsStore((prev) => ({
+      ...prev,
+      [targetBatchId]: (prev[targetBatchId] || []).map((s) => (s.id === studentId ? { ...s, ...updatedFields } : s)),
+    }));
+  };
+
+  const deleteStudentFromBatch = (targetBatchId, studentId) => {
+    setBatchStudentsStore((prev) => ({
+      ...prev,
+      [targetBatchId]: (prev[targetBatchId] || []).filter((s) => s.id !== studentId),
+    }));
+  };
 
   return (
     <AcademicContext.Provider
@@ -1000,6 +1053,12 @@ export function AcademicProvider({ children }) {
         updateProgrammeAtrObservations,
         workflowProgressStore,
         markWorkflowStepComplete,
+        // Batch Students Store & APIs
+        batchStudentsStore,
+        getStudentsByBatch,
+        addStudentToBatch,
+        updateStudentInBatch,
+        deleteStudentFromBatch,
       }}
     >
       {children}

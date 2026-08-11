@@ -51,7 +51,7 @@ export default function ProgrammeCoordinatorDashboard() {
     },
     {
       id:    'verification',
-      title: 'Verification Panel',
+      title: 'Approvals',
       desc:  'Review CO mapping, attainment, and Course ATR from coordinators.',
       path:  '/coordinator-review',
       icon:  ShieldCheck,

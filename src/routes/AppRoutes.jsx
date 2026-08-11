@@ -39,6 +39,7 @@ import HodApprovalsPage from '../pages/hod/HodApprovalsPage';
 import HodProgrammeATRPage from '../pages/hod/HodProgrammeATRPage';
 import HodReportsPage from '../pages/hod/HodReportsPage';
 import HodSetupWorkflowPage from '../pages/hod/HodSetupWorkflowPage';
+import HodProgrammeCoordinatorsPage from '../pages/hod/HodProgrammeCoordinatorsPage';
 import CourseCoordinatorWorkflowPage from '../pages/CourseCoordinatorWorkflowPage';
 
 export default function AppRoutes() {
@@ -65,6 +66,7 @@ export default function AppRoutes() {
       <Route path="/hod/setup-workflow" element={<HodSetupWorkflowPage />} />
       <Route path="/hod/batch-management" element={<HodBatchManagementPage />} />
       <Route path="/hod/programme-outcomes" element={<HodProgrammeOutcomesPage />} />
+      <Route path="/hod/programme-coordinators" element={<HodProgrammeCoordinatorsPage />} />
       <Route path="/hod/approvals" element={<HodApprovalsPage />} />
       <Route path="/hod/programme-atr" element={<HodProgrammeATRPage />} />
       <Route path="/hod/reports" element={<HodReportsPage />} />

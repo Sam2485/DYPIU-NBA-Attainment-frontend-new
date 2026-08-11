@@ -43,11 +43,12 @@ const DIRECTOR_NAV = [
 
 // ── HOD Nav Items ──────────────────────────────────────────────────────────────
 const HOD_NAV = [
-  { id: 'dashboard',          path: '/hod/dashboard',          icon: 'dashboard', label: 'Dashboard' },
-  { id: 'batch-management',   path: '/hod/batch-management',   icon: 'academic',  label: 'Batch Management' },
-  { id: 'programme-outcomes', path: '/hod/programme-outcomes', icon: 'outcomes',  label: 'Programme Outcomes' },
-  { id: 'approvals',          path: '/hod/approvals',          icon: 'config',    label: 'Approvals' },
-  { id: 'reports',            path: '/hod/reports',            icon: 'reports',   label: 'Reports' },
+  { id: 'dashboard',              path: '/hod/dashboard',              icon: 'dashboard', label: 'Dashboard' },
+  { id: 'batch-management',       path: '/hod/batch-management',       icon: 'academic',  label: 'Batch Management' },
+  { id: 'programme-outcomes',     path: '/hod/programme-outcomes',     icon: 'outcomes',  label: 'Programme Outcomes' },
+  { id: 'programme-coordinators', path: '/hod/programme-coordinators', icon: 'users',     label: 'Programme Coordinators' },
+  { id: 'approvals',              path: '/hod/approvals',              icon: 'config',    label: 'Approvals' },
+  { id: 'reports',                path: '/hod/reports',                icon: 'reports',   label: 'Reports' },
 ];
 
 // ── Programme Coordinator Nav Items ───────────────────────────────────────────────
@@ -55,8 +56,8 @@ const PROGRAMME_COORDINATOR_NAV = [
   { id: 'dashboard',          path: '/programme-coordinator/dashboard',          icon: 'dashboard', label: 'Dashboard' },
   { id: 'programme-setup',    path: '/academic',                                 icon: 'academic',  label: 'Programme Setup' },
   { id: 'target-settings',    path: '/programme-coordinator/target-settings',    icon: 'config',    label: 'Target Settings' },
-  { id: 'verification-panel', path: '/coordinator-review',                       icon: 'poa',       label: 'Verification Panel' },
-  { id: 'reports',            path: '/reports',                                  icon: 'reports',   label: 'Reports and Downloads' },
+  { id: 'verification-panel', path: '/coordinator-review',                       icon: 'poa',       label: 'Approvals' },
+  { id: 'reports',            path: '/reports',                                  icon: 'reports',   label: 'Reports' },
 ];
 
 // ── Dropdown 1: Programme Setup & Management ───────────────────────────────────
@@ -78,8 +79,7 @@ const COURSE_REVIEWS_NAV = [
 const FACULTY_NAV = [
   { id: 'dashboard',           path: '/dashboard',                icon: 'dashboard', label: 'Dashboard' },
   { id: 'outcomes',            path: '/outcomes?mode=standalone', icon: 'outcomes',  label: 'Outcomes' },
-  { id: 'configurations',      path: '/configurations',           icon: 'config',    label: 'Attainment Config' },
-  { id: 'attainment-overview', path: '/attainment-overview',      icon: 'coa',       label: 'Attainment' },
+  { id: 'configurations',      path: '/configurations',           icon: 'config',    label: 'Attainment Settings' },
   { id: 'course-atr',          path: '/atr-reports',              icon: 'survey',    label: 'ATR Reports' },
   { id: 'reports',             path: '/reports',                  icon: 'reports',   label: 'Reports' },
 ];

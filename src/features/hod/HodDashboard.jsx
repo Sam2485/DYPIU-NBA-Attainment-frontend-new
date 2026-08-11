@@ -35,6 +35,13 @@ export default function HodDashboard() {
       icon: Layers,
     },
     {
+      id: 'programme-coordinators',
+      title: 'Programme Coordinators',
+      desc: 'Assign and manage Programme Coordinators for degree programmes.',
+      path: '/hod/programme-coordinators',
+      icon: Users,
+    },
+    {
       id: 'approvals',
       title: 'Approvals & Verification',
       desc: 'Review Programme Coordinator submissions.',
