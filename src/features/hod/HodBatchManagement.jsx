@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, CheckCircle2, Calendar, Archive, AlertCircle, ToggleLeft, ToggleRight, Check, Edit2, Trash2, Save, X, ChevronDown, Layers, Activity } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import { useAuth } from '../../context/AuthContext';
+import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
 // ── Style tokens (identical to HodSetupWorkflow) ─────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -466,30 +468,15 @@ export default function HodBatchManagement() {
       )}
 
       {/* ── DELETE CONFIRM MODAL ──────────────────────────────────────────────── */}
-      {showDeleteModal && deletingBatch && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}
-          onClick={(e) => { if (e.target === e.currentTarget) handleCancelDelete(); }}
-        >
-          <div style={{ background: '#ffffff', borderRadius: '14px', width: '100%', maxWidth: '420px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
-            <div style={{ padding: '22px 24px' }}>
-              <div style={{ width: '44px', height: '44px', borderRadius: '11px', background: '#fef2f2', border: '1.5px solid #fecaca', display: 'grid', placeItems: 'center', marginBottom: '14px' }}>
-                <Trash2 size={20} style={{ color: '#dc2626' }} />
-              </div>
-              <h3 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: '800', color: ink }}>Delete Batch?</h3>
-              <p style={{ margin: '0 0 4px', fontSize: '13px', color: ink, fontWeight: '600' }}>{deletingBatch.name}</p>
-              <p style={{ margin: 0, fontSize: '12.5px', color: muted }}>This action cannot be undone. All data associated with this batch will be permanently removed.</p>
-            </div>
-            <div style={{ padding: '14px 24px 20px', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button type="button" onClick={handleCancelDelete} style={{ height: '36px', padding: '0 16px', fontSize: '13px', fontWeight: '600', background: '#f8fafc', color: muted, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', fontFamily: 'inherit' }}>
-                Cancel
-              </button>
-              <button type="button" onClick={handleConfirmDelete} style={{ height: '36px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <Trash2 size={13} /> Delete Batch
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmModal
+        isOpen={showDeleteModal && !!deletingBatch}
+        title="Delete Batch?"
+        itemName={deletingBatch?.name}
+        description="This action cannot be undone. All data associated with this batch will be permanently removed."
+        confirmText="Delete Batch"
+        onConfirm={handleConfirmDelete}
+        onClose={handleCancelDelete}
+      />
     </div>
   );
 }

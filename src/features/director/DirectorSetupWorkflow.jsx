@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, X, Trash2 } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
+import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
 export default function DirectorSetupWorkflow() {
   const navigate = useNavigate();
@@ -18,6 +19,26 @@ export default function DirectorSetupWorkflow() {
   } = useAcademic();
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [deleteModalConfig, setDeleteModalConfig] = useState({
+    isOpen: false,
+    title: '',
+    itemName: '',
+    description: '',
+    onConfirm: () => {},
+  });
+
+  const triggerDeleteConfirm = ({ title, itemName, description, onConfirm }) => {
+    setDeleteModalConfig({
+      isOpen: true,
+      title,
+      itemName,
+      description,
+      onConfirm: () => {
+        onConfirm();
+        setDeleteModalConfig((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
 
   // Step 1
   const [schoolName, setSchoolName] = useState(selectedSchool.name);
@@ -38,7 +59,6 @@ export default function DirectorSetupWorkflow() {
   const [newProgCode, setNewProgCode] = useState('');
 
   const [newProgDuration, setNewProgDuration] = useState(4);
-  // coordinator is intentionally NOT set here — HOD assigns it later
 
   const steps = [
     { number: 1, title: 'School Info', desc: 'Metadata & Dean', icon: Building2 },
@@ -74,19 +94,31 @@ export default function DirectorSetupWorkflow() {
   };
 
   const handleDeleteDeptInline = (deptId) => {
-    if (window.confirm('Are you sure you want to delete this department?')) {
-      const updated = deptList.filter((d) => d.id !== deptId);
-      setDeptList(updated);
-      deleteDepartment(deptId);
-    }
+    const d = deptList.find((item) => item.id === deptId);
+    triggerDeleteConfirm({
+      title: 'Delete Department?',
+      itemName: d ? `${d.name} (${d.code})` : '',
+      description: 'This action cannot be undone. All data associated with this department will be removed.',
+      onConfirm: () => {
+        const updated = deptList.filter((item) => item.id !== deptId);
+        setDeptList(updated);
+        deleteDepartment(deptId);
+      },
+    });
   };
 
   const handleDeleteProgInline = (progId) => {
-    if (window.confirm('Are you sure you want to delete this programme?')) {
-      const updated = progList.filter((p) => p.id !== progId);
-      setProgList(updated);
-      deleteProgramme(progId);
-    }
+    const p = progList.find((item) => item.id === progId);
+    triggerDeleteConfirm({
+      title: 'Delete Programme?',
+      itemName: p ? `${p.name} (${p.code})` : '',
+      description: 'This action cannot be undone. All data associated with this programme will be removed.',
+      onConfirm: () => {
+        const updated = progList.filter((item) => item.id !== progId);
+        setProgList(updated);
+        deleteProgramme(progId);
+      },
+    });
   };
 
   const handleAddProgrammeInline = () => {
@@ -480,6 +512,16 @@ export default function DirectorSetupWorkflow() {
         </div>
       </div>
 
+      {/* ── DELETE CONFIRM MODAL ──────────────────────────────────────────────── */}
+      <DeleteConfirmModal
+        isOpen={deleteModalConfig.isOpen}
+        title={deleteModalConfig.title}
+        itemName={deleteModalConfig.itemName}
+        description={deleteModalConfig.description}
+        confirmText="Delete"
+        onConfirm={deleteModalConfig.onConfirm}
+        onClose={() => setDeleteModalConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

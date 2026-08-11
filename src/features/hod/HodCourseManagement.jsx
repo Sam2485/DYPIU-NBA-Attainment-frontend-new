@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BookOpen, Users, UserCheck, CheckCircle2, Search, Plus, Edit2, Trash2, Save, X, GraduationCap } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
+import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
 const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
@@ -91,9 +92,19 @@ export default function HodCourseManagement() {
     setEditingCourseId(null);
   };
 
-  const handleDeleteCourse = (course) => {
-    if (window.confirm(`Are you sure you want to delete course "${course.code} - ${course.name}"?`)) {
-      deleteCourse(course.id);
+  const [deletingCourse, setDeletingCourse] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const handleOpenDelete = (course) => {
+    setDeletingCourse(course);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deletingCourse) {
+      deleteCourse(deletingCourse.id);
+      setShowDeleteModal(false);
+      setDeletingCourse(null);
     }
   };
 
@@ -443,7 +454,7 @@ export default function HodCourseManagement() {
                           <Edit2 size={12} />
                         </button>
                         <button
-                          onClick={() => handleDeleteCourse(c)}
+                          onClick={() => handleOpenDelete(c)}
                           style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
                           title="Delete course"
                         >
@@ -458,6 +469,17 @@ export default function HodCourseManagement() {
           </tbody>
         </table>
       </div>
+
+      {/* ── DELETE CONFIRM MODAL ──────────────────────────────────────────────── */}
+      <DeleteConfirmModal
+        isOpen={showDeleteModal && !!deletingCourse}
+        title="Delete Course?"
+        itemName={deletingCourse ? `${deletingCourse.code} - ${deletingCourse.name}` : ''}
+        description="This action cannot be undone. All data associated with this course will be permanently removed."
+        confirmText="Delete Course"
+        onConfirm={handleConfirmDelete}
+        onClose={() => setShowDeleteModal(false)}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { UserCheck, Calendar, Layers, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, Trash2, Edit3, X, AlertCircle, ChevronDown, GraduationCap } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
 export default function HodSetupWorkflow() {
   const navigate = useNavigate();
@@ -28,6 +29,27 @@ export default function HodSetupWorkflow() {
   } = useAcademic();
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [deleteModalConfig, setDeleteModalConfig] = useState({
+    isOpen: false,
+    title: '',
+    itemName: '',
+    description: '',
+    onConfirm: () => {},
+  });
+
+  const triggerDeleteConfirm = ({ title, itemName, description, onConfirm }) => {
+    setDeleteModalConfig({
+      isOpen: true,
+      title,
+      itemName,
+      description,
+      onConfirm: () => {
+        onConfirm();
+        setDeleteModalConfig((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
+
   const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || { id: 'prog-1', name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
 
   const currentDept = departments.find((d) => d.id === selectedProgramme.departmentId || d.name === selectedProgramme.department) || departments[0];
@@ -67,9 +89,12 @@ export default function HodSetupWorkflow() {
   };
 
   const handleDeleteBatchItem = (b) => {
-    if (window.confirm(`Are you sure you want to delete batch "${b.name}"?`)) {
-      deleteBatch(b.id);
-    }
+    triggerDeleteConfirm({
+      title: 'Delete Batch?',
+      itemName: b.name,
+      description: 'This action cannot be undone. All data associated with this batch will be permanently removed.',
+      onConfirm: () => deleteBatch(b.id),
+    });
   };
 
   const programmeBatches = batches.filter(
@@ -134,8 +159,13 @@ export default function HodSetupWorkflow() {
     updateProgrammePOs(programmeId, activePOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
   };
   const handleDeletePO = (i) => {
-    if (window.confirm(`Delete ${activePOs[i].code}?`))
-      updateProgrammePOs(programmeId, activePOs.filter((_, idx) => idx !== i));
+    const item = activePOs[i];
+    triggerDeleteConfirm({
+      title: 'Delete Programme Outcome?',
+      itemName: item?.code,
+      description: 'This action cannot be undone. This PO mapping will be permanently removed.',
+      onConfirm: () => updateProgrammePOs(programmeId, activePOs.filter((_, idx) => idx !== i)),
+    });
   };
   const handleAddPOCompetency = (pi) => {
     updateProgrammePOs(
@@ -194,8 +224,13 @@ export default function HodSetupWorkflow() {
     updateProgrammePSOs(programmeId, normalisedPSOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
   };
   const handleDeletePSO = (i) => {
-    if (window.confirm(`Delete ${normalisedPSOs[i].code}?`))
-      updateProgrammePSOs(programmeId, normalisedPSOs.filter((_, idx) => idx !== i));
+    const item = normalisedPSOs[i];
+    triggerDeleteConfirm({
+      title: 'Delete Programme Specific Outcome?',
+      itemName: item?.code,
+      description: 'This action cannot be undone. This PSO mapping will be permanently removed.',
+      onConfirm: () => updateProgrammePSOs(programmeId, normalisedPSOs.filter((_, idx) => idx !== i)),
+    });
   };
   const handleAddPSOCompetency = (pi) => {
     updateProgrammePSOs(
@@ -239,8 +274,13 @@ export default function HodSetupWorkflow() {
     updateProgrammePEOs(programmeId, activePEOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
   };
   const handleDeletePEO = (i) => {
-    if (window.confirm(`Delete ${activePEOs[i].code}?`))
-      updateProgrammePEOs(programmeId, activePEOs.filter((_, idx) => idx !== i));
+    const item = activePEOs[i];
+    triggerDeleteConfirm({
+      title: 'Delete Programme Educational Objective?',
+      itemName: item?.code,
+      description: 'This action cannot be undone. This PEO mapping will be permanently removed.',
+      onConfirm: () => updateProgrammePEOs(programmeId, activePEOs.filter((_, idx) => idx !== i)),
+    });
   };
 
   const handleNext = () => { if (currentStep < 4) { setCurrentStep((p) => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
@@ -871,6 +911,17 @@ export default function HodSetupWorkflow() {
           </button>
         )}
       </div>
+
+      {/* ── DELETE CONFIRM MODAL ──────────────────────────────────────────────── */}
+      <DeleteConfirmModal
+        isOpen={deleteModalConfig.isOpen}
+        title={deleteModalConfig.title}
+        itemName={deleteModalConfig.itemName}
+        description={deleteModalConfig.description}
+        confirmText="Delete"
+        onConfirm={deleteModalConfig.onConfirm}
+        onClose={() => setDeleteModalConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

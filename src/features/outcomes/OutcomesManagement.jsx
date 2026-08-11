@@ -5,6 +5,7 @@ import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import RowButtons from '../../components/common/RowButtons';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
+import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
 export default function OutcomesManagement({ hideFooter = false }) {
   const navigate = useNavigate();
@@ -431,10 +432,22 @@ export default function OutcomesManagement({ hideFooter = false }) {
     alert(`CO ${coList[index].code} rejected and sent back to Faculty for revision.`);
   };
 
-  const handleDeleteCO = (index) => {
-    const updated = coList.filter((_, i) => i !== index);
-    setCoList(updated);
-    updateCourseCOs(targetCourseId, updated);
+  const [deletingCOIndex, setDeletingCOIndex] = useState(null);
+  const [showCODeleteModal, setShowCODeleteModal] = useState(false);
+
+  const handleOpenDeleteCO = (index) => {
+    setDeletingCOIndex(index);
+    setShowCODeleteModal(true);
+  };
+
+  const handleConfirmDeleteCO = () => {
+    if (deletingCOIndex !== null) {
+      const updated = coList.filter((_, i) => i !== deletingCOIndex);
+      setCoList(updated);
+      updateCourseCOs(targetCourseId, updated);
+      setShowCODeleteModal(false);
+      setDeletingCOIndex(null);
+    }
   };
 
   const handleSaveChanges = (entityName) => {
@@ -981,37 +994,12 @@ export default function OutcomesManagement({ hideFooter = false }) {
 
             if (isRejected) {
               return (
-                <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', padding: '16px 20px', marginBottom: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                    <XCircle size={22} style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <strong style={{ fontSize: '14px', color: '#b91c1c', fontWeight: '800' }}>
-                            Programme Coordinator Verification Status:
-                          </strong>
-                          <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 9px', borderRadius: '20px', background: '#fee2e2', color: '#b91c1c', letterSpacing: '0.04em' }}>
-                            REVISION REQUESTED
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#b91c1c', opacity: 0.9 }}>
-                          Forwarded by: <strong>{verifier}</strong>
-                        </div>
-                      </div>
-                      
-                      {remarks ? (
-                        <div style={{ background: '#ffffff', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', marginTop: '6px' }}>
-                          <div style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '3px' }}>
-                            Forwarded Rejection / Revision Remarks
-                          </div>
-                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', lineHeight: 1.5 }}>
-                            "{remarks}"
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
+                <RequestRevisionCard
+                  title="Course Outcomes Revision Requested"
+                  requestedBy={verifier}
+                  remarks={remarks || 'Please review and update Course Outcome statements as per coordinator notes.'}
+                  actionText="Modify the statements below and click 'Save COs' to re-submit for Programme Coordinator approval."
+                />
               );
             }
 
@@ -1028,7 +1016,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                     <th style={{ width: '100%' }}>Course Outcome Statement</th>
                     <th style={{ width: '150px' }}>Proposed By</th>
                     <th style={{ width: '180px', textAlign: 'center' }}>Approval Status</th>
-                    <th style={{ width: '180px', textAlign: 'center' }}>Programme Coordinator Actions</th>
+                    <th style={{ width: '150px', textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1088,35 +1076,40 @@ export default function OutcomesManagement({ hideFooter = false }) {
                             )}
                           </td>
                           <td style={{ textAlign: 'center' }}>
-                            {(role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC') ? (
-                              <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                                {!isApproved && (
-                                  <button
-                                    className="btn btn-success"
-                                    style={{ padding: '4px 8px', fontSize: '11px' }}
-                                    onClick={() => handleApproveCO(index)}
-                                  >
-                                    <CheckCircle2 size={13} /> Approve
-                                  </button>
-                                )}
-                                {isPending && (
-                                  <button
-                                    className="btn btn-danger"
-                                    style={{ padding: '4px 8px', fontSize: '11px' }}
-                                    onClick={() => handleRejectCO(index)}
-                                  >
-                                    <XCircle size={13} /> Reject
-                                  </button>
-                                )}
-                                <button className="btn btn-danger" style={{ padding: '4px 6px' }} onClick={() => handleDeleteCO(index)}>
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
-                            ) : (
-                              <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                                {isApproved ? 'Approved by Coordinator' : 'Pending Coordinator Review'}
-                              </span>
-                            )}
+                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
+                              {(role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC') && (
+                                <>
+                                  {!isApproved && (
+                                    <button
+                                      className="btn btn-success"
+                                      style={{ padding: '4px 8px', fontSize: '11px' }}
+                                      onClick={() => handleApproveCO(index)}
+                                      title="Approve CO"
+                                    >
+                                      <CheckCircle2 size={13} /> Approve
+                                    </button>
+                                  )}
+                                  {isPending && (
+                                    <button
+                                      className="btn btn-danger"
+                                      style={{ padding: '4px 8px', fontSize: '11px' }}
+                                      onClick={() => handleRejectCO(index)}
+                                      title="Reject CO"
+                                    >
+                                      <XCircle size={13} /> Reject
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                              <button
+                                type="button"
+                                style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                                onClick={() => handleOpenDeleteCO(index)}
+                                title="Delete Course Outcome"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1126,10 +1119,8 @@ export default function OutcomesManagement({ hideFooter = false }) {
               </table>
               <RowButtons
                 onAdd={handleAddCO}
-                onDel={() => handleDeleteCO(coList.length - 1)}
-                canDel={coList.length > 1}
+                canDel={false}
                 addLabel="+ Add CO Row"
-                deleteLabel="- Delete Last CO Row"
               />
             </div>
           </div>
@@ -1146,6 +1137,16 @@ export default function OutcomesManagement({ hideFooter = false }) {
           onSave={() => handleSaveChanges('Course Outcomes')}
         />
       )}
+      {/* Delete Confirmation Modal for Course Outcomes */}
+      <DeleteConfirmModal
+        isOpen={showCODeleteModal && deletingCOIndex !== null}
+        title="Delete Course Outcome?"
+        itemName={deletingCOIndex !== null ? `${coList[deletingCOIndex]?.code}: ${coList[deletingCOIndex]?.statement?.slice(0, 50)}...` : ''}
+        description="This action cannot be undone. All mapping and attainment calculations linked to this Course Outcome will be permanently removed."
+        confirmText="Delete CO"
+        onConfirm={handleConfirmDeleteCO}
+        onClose={() => setShowCODeleteModal(false)}
+      />
     </div>
   );
 }

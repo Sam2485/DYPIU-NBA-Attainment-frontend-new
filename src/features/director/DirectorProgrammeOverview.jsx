@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { GraduationCap, Building2, Check, ChevronDown, Edit2, Trash2, X, Plus } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
 export default function DirectorProgrammeOverview() {
   const {
@@ -13,6 +14,8 @@ export default function DirectorProgrammeOverview() {
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProg, setEditingProg] = useState(null);
+  const [deletingProg, setDeletingProg] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const [editName, setEditName] = useState('');
   const [editCode, setEditCode] = useState('');
@@ -54,9 +57,16 @@ export default function DirectorProgrammeOverview() {
     setShowEditModal(false);
   };
 
-  const handleDeleteProg = (prog) => {
-    if (window.confirm(`Are you sure you want to delete programme "${prog.name}" (${prog.code})?`)) {
-      deleteProgramme(prog.id);
+  const handleOpenDelete = (prog) => {
+    setDeletingProg(prog);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deletingProg) {
+      deleteProgramme(deletingProg.id);
+      setShowDeleteModal(false);
+      setDeletingProg(null);
     }
   };
 
@@ -165,7 +175,7 @@ export default function DirectorProgrammeOverview() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDeleteProg(prog)}
+                      onClick={() => handleOpenDelete(prog)}
                       style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
                       title="Delete Programme"
                     >
@@ -234,6 +244,16 @@ export default function DirectorProgrammeOverview() {
         </div>
       )}
 
+      {/* ── DELETE CONFIRM MODAL ──────────────────────────────────────────────── */}
+      <DeleteConfirmModal
+        isOpen={showDeleteModal && !!deletingProg}
+        title="Delete Programme?"
+        itemName={deletingProg ? `${deletingProg.name} (${deletingProg.code})` : ''}
+        description="This action cannot be undone. All data, courses, and batches under this programme will be permanently removed."
+        confirmText="Delete Programme"
+        onConfirm={handleConfirmDelete}
+        onClose={() => setShowDeleteModal(false)}
+      />
     </div>
   );
 }

@@ -6,6 +6,8 @@ import {
   ChevronDown, AlertCircle, Save, Clock,
 } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
+import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
+import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 
 // ── Style tokens (identical to HodSetupWorkflow) ─────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -40,6 +42,22 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     assignCourseCoordinator = () => {},
     courseVerificationStore = {},
   } = useAcademic();
+
+  const [deletingCourse, setDeletingCourse] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const handleOpenDelete = (c) => {
+    setDeletingCourse(c);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deletingCourse) {
+      deleteCourse(deletingCourse.id);
+      setShowDeleteModal(false);
+      setDeletingCourse(null);
+    }
+  };
 
   const selectedProgramme =
     masterProgrammes.find((p) => p.id === programmeId) ||
@@ -173,14 +191,12 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
 
       {/* ── HOD REVISION ALERT BANNER ────────────────────────────────────────── */}
       {allocationStatus === 'REVISION_REQUESTED' && (
-        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '14px 18px', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626', fontWeight: '800', fontSize: '13.5px' }}>
-            <AlertCircle size={17} /> HOD Revision Requested
-          </div>
-          <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#991b1b' }}>
-            <strong>Remarks from HOD:</strong> {allocationRemarks || 'Please review and re-assign Course Coordinators as per HOD notes.'}
-          </p>
-        </div>
+        <RequestRevisionCard
+          title="HOD Revision Requested"
+          requestedBy="Head of Department (HOD)"
+          remarks={allocationRemarks || 'Please review and re-assign Course Coordinators as per HOD notes.'}
+          actionText="Please update the Course Coordinator allocations below and resubmit for HOD approval."
+        />
       )}
 
       {/* ── STEPPER ───────────────────────────────────────────────────────── */}
@@ -286,7 +302,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                           </select>
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <button onClick={() => deleteCourse(c.id)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+                          <button onClick={() => handleOpenDelete(c)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Delete Course">
                             <Trash2 size={13} />
                           </button>
                         </td>
@@ -524,6 +540,16 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
         </div>
       </div>
 
+      {/* ── DELETE CONFIRM MODAL ──────────────────────────────────────────────── */}
+      <DeleteConfirmModal
+        isOpen={showDeleteModal && !!deletingCourse}
+        title="Delete Course?"
+        itemName={deletingCourse ? `${deletingCourse.code} - ${deletingCourse.name}` : ''}
+        description="This action cannot be undone. All data associated with this course will be permanently removed."
+        confirmText="Delete Course"
+        onConfirm={handleConfirmDelete}
+        onClose={() => setShowDeleteModal(false)}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, UserCheck, Search, Check, X, AlertCircle, Trash2, Edit2 } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
+import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
 export default function DirectorDepartmentManagement() {
   const {
@@ -13,6 +14,8 @@ export default function DirectorDepartmentManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingDept, setEditingDept] = useState(null);
+  const [deletingDept, setDeletingDept] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const [deptName, setDeptName] = useState('');
   const [deptCode, setDeptCode] = useState('');
@@ -42,9 +45,16 @@ export default function DirectorDepartmentManagement() {
     setShowModal(true);
   };
 
-  const handleDeleteDepartment = (dept) => {
-    if (window.confirm(`Are you sure you want to delete department "${dept.name}" (${dept.code})?`)) {
-      deleteDepartment(dept.id);
+  const handleOpenDelete = (dept) => {
+    setDeletingDept(dept);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deletingDept) {
+      deleteDepartment(deletingDept.id);
+      setShowDeleteModal(false);
+      setDeletingDept(null);
     }
   };
 
@@ -164,7 +174,7 @@ export default function DirectorDepartmentManagement() {
                           <UserCheck size={13} /> Edit
                         </button>
                         <button
-                          onClick={() => handleDeleteDepartment(dept)}
+                          onClick={() => handleOpenDelete(dept)}
                           style={{ width: '32px', height: '32px', borderRadius: '7px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
                           title="Delete Department"
                         >
@@ -180,7 +190,7 @@ export default function DirectorDepartmentManagement() {
         </table>
       </div>
 
-      {/* ── MODAL ───────────────────────────────────────────────────────────── */}
+      {/* ── EDIT / ADD MODAL ─────────────────────────────────────────────────── */}
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(3px)', display: 'grid', placeItems: 'center', padding: '20px' }}>
           <div style={{ background: '#ffffff', borderRadius: '14px', width: '480px', maxWidth: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
@@ -231,6 +241,16 @@ export default function DirectorDepartmentManagement() {
         </div>
       )}
 
+      {/* ── DELETE CONFIRM MODAL ──────────────────────────────────────────────── */}
+      <DeleteConfirmModal
+        isOpen={showDeleteModal && !!deletingDept}
+        title="Delete Department?"
+        itemName={deletingDept ? `${deletingDept.name} (${deletingDept.code})` : ''}
+        description="This action cannot be undone. All data and programmes under this department will be permanently removed."
+        confirmText="Delete Department"
+        onConfirm={handleConfirmDelete}
+        onClose={() => setShowDeleteModal(false)}
+      />
     </div>
   );
 }
