@@ -59,17 +59,10 @@ export default function ProgrammeCoordinatorDashboard() {
       badgeWarn: pendingVerifications > 0,
     },
     {
-      id:   'attainment',
-      title: 'Attainment Summary',
-      desc:  'View overall PO/PSO attainment and target vs actual comparison.',
-      path:  '/attainment-overview',
-      icon:  BarChart2,
-    },
-    {
-      id:   'atr',
-      title: 'Programme ATR',
-      desc:  'Prepare final Programme ATR and submit for HOD approval.',
-      path:  '/programme-atr',
+      id:   'reports',
+      title: 'Reports & Downloads',
+      desc:  'Access consolidated Course & Programme Attainment and ATR Reports.',
+      path:  '/reports',
       icon:  FileText,
     },
   ];

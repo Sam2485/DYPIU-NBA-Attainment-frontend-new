@@ -47,7 +47,6 @@ const HOD_NAV = [
   { id: 'batch-management',   path: '/hod/batch-management',   icon: 'academic',  label: 'Batch Management' },
   { id: 'programme-outcomes', path: '/hod/programme-outcomes', icon: 'outcomes',  label: 'Programme Outcomes' },
   { id: 'approvals',          path: '/hod/approvals',          icon: 'config',    label: 'Approvals' },
-  { id: 'programme-atr',      path: '/hod/programme-atr',      icon: 'survey',    label: 'Programme ATR' },
   { id: 'reports',            path: '/hod/reports',            icon: 'reports',   label: 'Reports' },
 ];
 
@@ -57,8 +56,6 @@ const PROGRAMME_COORDINATOR_NAV = [
   { id: 'programme-setup',    path: '/academic',                                 icon: 'academic',  label: 'Programme Setup' },
   { id: 'target-settings',    path: '/programme-coordinator/target-settings',    icon: 'config',    label: 'Target Settings' },
   { id: 'verification-panel', path: '/coordinator-review',                       icon: 'poa',       label: 'Verification Panel' },
-  { id: 'attainment-summary', path: '/attainment-overview',                      icon: 'coa',       label: 'Attainment Summary' },
-  { id: 'programme-atr',      path: '/programme-atr',                            icon: 'survey',    label: 'Programme ATR' },
   { id: 'reports',            path: '/reports',                                  icon: 'reports',   label: 'Reports and Downloads' },
 ];
 
@@ -67,7 +64,6 @@ const PROGRAMME_SETUP_NAV = [
   { id: 'dashboard',     path: '/programme-coordinator/dashboard', icon: 'dashboard', label: 'Dashboard' },
   { id: 'academic',      path: '/academic',      icon: 'academic',  label: 'Academic Setup' },
   { id: 'outcomes',      path: '/programme-coordinator/target-settings', icon: 'outcomes',  label: 'Target Settings' },
-  { id: 'programme-atr', path: '/programme-atr', icon: 'poa',       label: 'Programme ATR' },
   { id: 'reports',       path: '/reports',       icon: 'reports',   label: 'Reports' },
 ];
 
@@ -76,7 +72,6 @@ const COURSE_REVIEWS_NAV = [
   { id: 'review-config',        path: '/coordinator-review?tab=config',        icon: 'config',   label: 'Attainment Config' },
   { id: 'review-cos',           path: '/coordinator-review?tab=cos',           icon: 'outcomes', label: 'CO Verification' },
   { id: 'review-atr',           path: '/coordinator-review?tab=atr',           icon: 'survey',   label: 'Course ATR Review' },
-  { id: 'review-programme-atr', path: '/coordinator-review?tab=programme-atr', icon: 'poa',      label: 'Programme ATR' },
 ];
 
 // ── Course Coordinator Nav Items ───────────────────────────────────────────────

@@ -44,10 +44,10 @@ export default function HodDashboard() {
       badgeWarn: pendingApprovalsCount > 0,
     },
     {
-      id: 'atr',
-      title: 'Programme ATR',
-      desc: 'Review and approve final Programme ATR reports.',
-      path: '/hod/programme-atr',
+      id: 'reports',
+      title: 'Reports Hub',
+      desc: 'Access consolidated Attainment and ATR reports.',
+      path: '/hod/reports',
       icon: FileText,
     },
   ];
