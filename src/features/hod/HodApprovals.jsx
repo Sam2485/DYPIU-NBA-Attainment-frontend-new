@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import {
-  CheckCircle2, Check, X, Users, MessageSquare,
-  ChevronDown, Clock, AlertTriangle, BookOpen,
-  BarChart3, Filter, RefreshCw,
+  CheckCircle2, Clock, XCircle, AlertCircle, RefreshCw, Filter, Check, X, BookOpen, Users,
+  ChevronDown, AlertTriangle, BarChart3, MessageSquare,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 import { useAuth } from '../../context/AuthContext';
 
 /* ─── tiny style helpers ─────────────────────────────────────────── */
@@ -111,18 +111,20 @@ export default function HodApprovals() {
   /* ── actions ───────────────────────────────────────────────────── */
   const handleApprove = () => {
     updateCourseVerificationStatus(allocationKey, 'allocationStatus', 'APPROVED', '', verifierName);
+    alert(`🎉 Course Coordinator allocations for ${activeProg?.code || 'programme'} approved by HOD!`);
   };
 
   const handleConfirmReject = () => {
+    const finalRemarks = rejectRemarks.trim() || 'Please review and re-assign Course Coordinators as per HOD notes.';
     updateCourseVerificationStatus(
       allocationKey,
       'allocationStatus',
       'REVISION_REQUESTED',
-      rejectRemarks || 'Please review and re-assign Course Coordinators as per HOD notes.',
+      finalRemarks,
       verifierName
     );
     setShowRejectModal(false);
-    setRejectRemarks('');
+    alert(`⚠️ Revision request sent to Programme Coordinator for ${activeProg?.code || 'programme'}!`);
   };
 
   /* ═══════════════════════════════════════════════════════════════
@@ -219,28 +221,7 @@ export default function HodApprovals() {
         </div>
       )}
 
-      {isNeedsRevision && (
-        <div style={{
-          background: '#fef2f2', border: '1.5px solid #fca5a5',
-          borderRadius: '12px', padding: '14px 18px',
-          display: 'flex', alignItems: 'flex-start', gap: '12px',
-          marginBottom: '20px',
-        }}>
-          <div style={{ width: '36px', height: '36px', borderRadius: '9px', background: '#fee2e2', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-            <AlertTriangle size={20} style={{ color: '#dc2626' }} />
-          </div>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: '800', color: '#991b1b' }}>
-              Revision Requested — {activeProg?.code} Allocations
-            </div>
-            {allocationRemarks && (
-              <div style={{ fontSize: '12.5px', color: '#7f1d1d', marginTop: '3px', fontStyle: 'italic' }}>
-                "{allocationRemarks}"
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+
 
       {/* ── MAIN TABLE CARD ─────────────────────────────────────────── */}
       <div style={{ ...surface, overflow: 'hidden' }}>
@@ -314,7 +295,7 @@ export default function HodApprovals() {
             {/* Reject / Revision button */}
             <button
               type="button"
-              onClick={() => { setRejectRemarks(''); setShowRejectModal(true); }}
+              onClick={() => { setRejectRemarks(allocationRemarks || 'Please review and re-assign Course Coordinators as per HOD notes.'); setShowRejectModal(true); }}
               style={{
                 height: '36px', padding: '0 14px', fontSize: '12.5px',
                 fontWeight: '700', display: 'inline-flex', alignItems: 'center',
@@ -330,6 +311,18 @@ export default function HodApprovals() {
             </button>
           </div>
         </div>
+
+        {/* Revision Alert Card */}
+        {isNeedsRevision && (
+          <div style={{ padding: '0 20px', paddingTop: '16px' }}>
+            <RequestRevisionCard
+              title="Revision Requested for Programme Allocations"
+              requestedBy="Head of Department (HOD)"
+              remarks={allocationRemarks || 'Course Coordinator allocations sent back to Programme Coordinator for revision.'}
+              actionText="The Programme Coordinator has been notified to revise the Course Coordinator assignments."
+            />
+          </div>
+        )}
 
         {/* Table */}
         <div style={{ overflowX: 'auto' }}>

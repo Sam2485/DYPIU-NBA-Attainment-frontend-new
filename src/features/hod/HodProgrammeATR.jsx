@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { FileText, CheckCircle2, ShieldCheck, Download, Printer, Check, TrendingUp, AlertTriangle } from 'lucide-react';
+import { FileText, CheckCircle2, ShieldCheck, Download, Printer, Check, TrendingUp, AlertTriangle, RefreshCw, X, BookOpen } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 
 export default function HodProgrammeATR() {
   const {
@@ -10,6 +11,10 @@ export default function HodProgrammeATR() {
     programmeAtrStore = {},
     approveProgrammeAtr = () => {},
   } = useAcademic();
+
+  const [isNeedsRevision, setIsNeedsRevision] = useState(false);
+  const [rejectRemarks, setRejectRemarks] = useState('');
+  const [showRejectModal, setShowRejectModal] = useState(false);
 
   const currentAtr = programmeAtrStore[programmeId] || {
     status: 'SUBMITTED_FOR_APPROVAL',
@@ -34,11 +39,20 @@ export default function HodProgrammeATR() {
     ],
   };
 
-  const isApproved = currentAtr.status === 'APPROVED';
+  const isApproved = currentAtr.status === 'APPROVED' && !isNeedsRevision;
 
   const handleApproveAtr = () => {
+    setIsNeedsRevision(false);
     approveProgrammeAtr(programmeId, 'Dr. Raj Shaikh (HOD)');
     alert('🎉 Final Programme ATR approved by HOD!');
+  };
+
+  const handleConfirmAtrRevision = () => {
+    const finalRemarks = rejectRemarks.trim() || 'Action Taken Report (ATR) sent back to Programme Coordinator for continuous improvement revisions.';
+    setRejectRemarks(finalRemarks);
+    setIsNeedsRevision(true);
+    setShowRejectModal(false);
+    alert('⚠️ Revision request for Programme ATR sent to Programme Coordinator!');
   };
 
   return (
@@ -62,13 +76,22 @@ export default function HodProgrammeATR() {
 
           <div style={{ display: 'flex', gap: '10px' }}>
             {!isApproved ? (
-              <button
-                className="btn btn-primary"
-                onClick={handleApproveAtr}
-                style={{ height: '40px', padding: '0 20px', fontSize: '12.5px', fontWeight: '800', gap: '6px', background: '#059669' }}
-              >
-                <Check size={16} /> Approve Programme ATR
-              </button>
+              <>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleApproveAtr}
+                  style={{ height: '40px', padding: '0 20px', fontSize: '12.5px', fontWeight: '800', gap: '6px', background: '#059669' }}
+                >
+                  <Check size={16} /> Approve Programme ATR
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRejectModal(true)}
+                  style={{ height: '40px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', gap: '6px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+                >
+                  <RefreshCw size={14} /> Request Revision
+                </button>
+              </>
             ) : (
               <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', fontWeight: '800', padding: '8px 14px', fontSize: '12px' }}>
                 ✓ Programme ATR Approved
@@ -77,6 +100,16 @@ export default function HodProgrammeATR() {
           </div>
         </div>
       </div>
+
+      {/* ── REVISION ALERT CARD ─────────────────────────────────────────── */}
+      {isNeedsRevision && (
+        <RequestRevisionCard
+          title="Revision Requested for Programme Action Taken Report (ATR)"
+          requestedBy="Head of Department (HOD)"
+          remarks={rejectRemarks || 'Action Taken Report (ATR) sent back to Programme Coordinator for continuous improvement revisions.'}
+          actionText="The Programme Coordinator has been notified to revise the Action Taken Report observation notes and action plans."
+        />
+      )}
 
       {/* ── PROGRAMME & BATCH METADATA CARD ────────────────────────────────────────── */}
       <div className="card" style={{ marginBottom: '20px', padding: '20px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '14px' }}>
@@ -228,6 +261,43 @@ export default function HodProgrammeATR() {
           </div>
         ))}
       </div>
+
+      {/* ── REJECT / REVISION MODAL ─────────────────────────────────────── */}
+      {showRejectModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(3px)', display: 'grid', placeItems: 'center', padding: '20px' }}>
+          <div style={{ background: '#ffffff', borderRadius: '14px', width: '480px', maxWidth: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Request Revision for Programme ATR</div>
+              <button onClick={() => setShowRejectModal(false)} style={{ width: '28px', height: '28px', borderRadius: '7px', border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', display: 'grid', placeItems: 'center', color: '#64748b' }}>
+                <X size={14} />
+              </button>
+            </div>
+            <div style={{ padding: '20px', display: 'grid', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>Revision Remarks for Programme Coordinator *</label>
+                <textarea
+                  rows={4}
+                  value={rejectRemarks}
+                  onChange={(e) => setRejectRemarks(e.target.value)}
+                  placeholder="Describe what needs to be updated in the action plans or observation notes..."
+                  style={{ width: '100%', fontSize: '13px', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px 12px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button onClick={() => setShowRejectModal(false)} style={{ height: '38px', padding: '0 16px', fontSize: '13px', fontWeight: '600', background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmAtrRevision}
+                  style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                >
+                  Send Revision Request
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
