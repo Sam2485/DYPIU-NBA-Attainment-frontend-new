@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, CheckCircle2, Calendar, Archive, AlertCircle, ToggleLeft, ToggleRight, Check, Edit2, Trash2, Save, X, ChevronDown, Layers, Activity } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -406,11 +407,11 @@ export default function HodBatchManagement() {
       )}
 
       {/* ── EDIT BATCH MODAL ──────────────────────────────────────────────────── */}
-      {showEditModal && editingBatch && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}
+      {showEditModal && editingBatch && createPortal(
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px', boxSizing: 'border-box' }}
           onClick={(e) => { if (e.target === e.currentTarget) handleCancelEdit(); }}
         >
-          <div style={{ background: '#ffffff', borderRadius: '14px', width: '100%', maxWidth: '520px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+          <div style={{ background: '#ffffff', borderRadius: '14px', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,0.3)', overflow: 'hidden', boxSizing: 'border-box' }}>
             {/* Modal header */}
             <div style={{ padding: '18px 22px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
@@ -440,26 +441,25 @@ export default function HodBatchManagement() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={labelStyle}>Year Level</label>
-                  <select value={editYearLevel} onChange={(e) => setEditYearLevel(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-                    {YEAR_LEVELS.map((y) => <option key={y}>{y}</option>)}
-                  </select>
+                  <input type="text" value={editYearLevel} onChange={(e) => setEditYearLevel(e.target.value)} style={inputStyle} placeholder="e.g. Year 1 (Freshmen)" />
                 </div>
                 <div>
                   <label style={labelStyle}>Status</label>
-                  <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                  <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)} style={{ ...inputStyle, fontWeight: '700' }}>
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="INITIALIZED">INITIALIZED</option>
+                    <option value="INACTIVE">INACTIVE</option>
                     <option value="GRADUATED">GRADUATED</option>
                   </select>
                 </div>
               </div>
             </div>
             {/* Modal footer */}
-            <div style={{ padding: '14px 22px', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button type="button" onClick={handleCancelEdit} style={{ height: '36px', padding: '0 16px', fontSize: '13px', fontWeight: '600', background: '#f8fafc', color: muted, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <X size={13} /> Cancel
+            <div style={{ padding: '14px 22px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button type="button" onClick={handleCancelEdit} style={{ height: '36px', padding: '0 16px', fontSize: '13px', fontWeight: '600', background: '#ffffff', color: muted, border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer' }}>
+                Cancel
               </button>
-              <button type="button" onClick={handleSaveEdit} style={{ height: '36px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <button type="button" onClick={handleSaveEdit} style={{ height: '36px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <Save size={13} /> Save Changes
               </button>
             </div>

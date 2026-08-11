@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { FileText, CheckCircle2, ShieldCheck, Download, Printer, Check, TrendingUp, AlertTriangle, RefreshCw, X, BookOpen } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
@@ -263,9 +264,18 @@ export default function HodProgrammeATR() {
       </div>
 
       {/* ── REJECT / REVISION MODAL ─────────────────────────────────────── */}
-      {showRejectModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(3px)', display: 'grid', placeItems: 'center', padding: '20px' }}>
-          <div style={{ background: '#ffffff', borderRadius: '14px', width: '480px', maxWidth: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
+      {showRejectModal && createPortal(
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          width: '100vw', height: '100vh',
+          background: 'rgba(15,23,42,0.65)',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 99999, padding: '20px',
+          boxSizing: 'border-box',
+        }}>
+          <div style={{ background: '#ffffff', borderRadius: '14px', width: '480px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,0.3)', boxSizing: 'border-box', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Request Revision for Programme ATR</div>
               <button onClick={() => setShowRejectModal(false)} style={{ width: '28px', height: '28px', borderRadius: '7px', border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', display: 'grid', placeItems: 'center', color: '#64748b' }}>
@@ -296,7 +306,8 @@ export default function HodProgrammeATR() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

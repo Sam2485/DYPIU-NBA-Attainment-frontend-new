@@ -299,25 +299,59 @@ export default function HodSetupWorkflow() {
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <div className="banner-dark-gradient" style={{ padding: '22px 28px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', borderRadius: '14px' }}>
+      <div
+        style={{
+          background: '#ffffff',
+          padding: '22px 28px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '16px',
+          borderRadius: '14px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 4px 20px rgba(15, 23, 42, 0.05)',
+        }}
+      >
         <div>
-          <div style={{ fontSize: '10.5px', fontWeight: '700', color: 'rgba(255,255,255,0.55)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>HOD Portal &nbsp;·&nbsp; Setup Wizard</div>
-          <h2 style={{ margin: 0, fontSize: '22px', color: '#ffffff', fontWeight: '800', letterSpacing: '-0.01em' }}>Programme Setup</h2>
-          <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>
+          <div style={{ fontSize: '10.5px', fontWeight: '800', color: '#4f46e5', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>
+            HOD Portal &nbsp;·&nbsp; Setup Wizard
+          </div>
+          <h2 style={{ margin: 0, fontSize: '22px', color: '#0f172a', fontWeight: '800', letterSpacing: '-0.01em' }}>
+            Programme Setup
+          </h2>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
             {selectedProgramme.code} &nbsp;—&nbsp; {selectedProgramme.name}
           </p>
         </div>
 
         {/* Target Programme Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <GraduationCap size={18} style={{ color: 'rgba(255,255,255,0.75)' }} />
+          <GraduationCap size={18} style={{ color: '#64748b' }} />
           <select
             value={programmeId}
             onChange={(e) => setProgrammeId(e.target.value)}
-            style={{ ...inputStyle, width: 'auto', minWidth: '280px', fontWeight: '800', color: accent, cursor: 'pointer' }}
+            style={{
+              height: '38px',
+              fontSize: '13px',
+              borderRadius: '8px',
+              padding: '0 12px',
+              background: '#ffffff',
+              color: '#0f172a',
+              border: '1px solid #cbd5e1',
+              width: 'auto',
+              minWidth: '280px',
+              fontWeight: '800',
+              cursor: 'pointer',
+              outline: 'none',
+              fontFamily: 'inherit',
+            }}
           >
             {masterProgrammes.map((p) => (
-              <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+              <option key={p.id} value={p.id} style={{ color: '#0f172a', background: '#ffffff' }}>
+                {p.code} — {p.name}
+              </option>
             ))}
           </select>
         </div>

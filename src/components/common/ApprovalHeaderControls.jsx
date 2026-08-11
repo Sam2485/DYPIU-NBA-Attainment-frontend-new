@@ -41,7 +41,9 @@ export default function ApprovalHeaderControls({
           {/* Approve Button */}
           <button
             type="button"
-            onClick={onApprove}
+            disabled={isApproved}
+            onClick={isApproved ? (e) => e.preventDefault() : onApprove}
+            title={isApproved ? 'Submission is already approved' : 'Click to approve'}
             style={{
               height: '38px',
               padding: '0 18px',
@@ -52,11 +54,13 @@ export default function ApprovalHeaderControls({
               gap: '6px',
               borderRadius: '8px',
               border: 'none',
-              cursor: 'pointer',
+              cursor: isApproved ? 'not-allowed' : 'pointer',
               fontFamily: 'inherit',
               background: isApproved ? '#16a34a' : '#059669',
               color: '#ffffff',
-              boxShadow: isApproved ? '0 0 0 3px rgba(187,247,208,0.6)' : 'none',
+              opacity: isApproved ? 0.85 : 1,
+              boxShadow: isApproved ? 'none' : '0 2px 6px rgba(5,150,105,0.25)',
+              transition: 'all 0.15s ease',
             }}
           >
             <Check size={15} />

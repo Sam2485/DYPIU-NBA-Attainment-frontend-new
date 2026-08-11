@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Trash2 } from 'lucide-react';
 
 export default function DeleteConfirmModal({
@@ -15,18 +16,25 @@ export default function DeleteConfirmModal({
   const ink = '#0f172a';
   const muted = '#64748b';
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
-        inset: 0,
-        background: 'rgba(15,23,42,0.55)',
-        backdropFilter: 'blur(3px)',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        background: 'rgba(15,23,42,0.65)',
+        backdropFilter: 'blur(4px)',
+        WebkitBackdropFilter: 'blur(4px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 10000,
+        zIndex: 99999,
         padding: '20px',
+        boxSizing: 'border-box',
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -73,8 +81,9 @@ export default function DeleteConfirmModal({
           style={{
             padding: '14px 24px 20px',
             display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
             gap: '8px',
-            justify: 'flex-end',
             background: '#fafafa',
             borderTop: '1px solid #f1f5f9',
           }}
@@ -121,6 +130,7 @@ export default function DeleteConfirmModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

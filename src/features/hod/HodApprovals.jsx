@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CheckCircle2, Clock, XCircle, AlertCircle, RefreshCw, Filter, Check, X, BookOpen, Users,
   ChevronDown, AlertTriangle, BarChart3, MessageSquare,
@@ -431,19 +432,22 @@ export default function HodApprovals() {
 
 
       {/* ── REJECTION / REVISION MODAL ─────────────────────────────── */}
-      {showRejectModal && (
+      {showRejectModal && createPortal(
         <div style={{
-          position: 'fixed', inset: 0,
-          background: 'rgba(15,23,42,0.55)',
-          display: 'grid', placeItems: 'center',
-          zIndex: 200, padding: '20px',
-          backdropFilter: 'blur(3px)',
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          width: '100vw', height: '100vh',
+          background: 'rgba(15,23,42,0.65)',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 99999, padding: '20px',
+          boxSizing: 'border-box',
         }}>
           <div style={{
             background: '#ffffff', borderRadius: '16px',
-            width: '100%', maxWidth: '520px',
-            boxShadow: '0 24px 60px rgba(0,0,0,0.22)',
-            overflow: 'hidden',
+            width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto',
+            boxShadow: '0 24px 60px rgba(0,0,0,0.3)',
+            boxSizing: 'border-box',
           }}>
             {/* Modal header */}
             <div style={{
@@ -555,7 +559,8 @@ export default function HodApprovals() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
