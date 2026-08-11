@@ -16,6 +16,7 @@ const surface = {
 };
 const ink   = '#0f172a';
 const muted = '#64748b';
+const accent = '#4f46e5';
 
 function Badge({ children, color = 'blue' }) {
   const map = {
@@ -140,15 +141,15 @@ export default function HodApprovals() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               <span style={{
-                background: 'rgba(255,255,255,0.12)', color: '#fef08a',
+                background: '#eef2ff', color: accent,
                 fontWeight: '800', fontSize: '10px', borderRadius: '5px',
                 padding: '2px 9px', letterSpacing: '0.07em', textTransform: 'uppercase',
-                border: '1px solid rgba(254,240,138,0.25)',
+                border: '1px solid #c7d2fe',
               }}>
                 HOD Portal · Approvals
               </span>
             </div>
-            <h2 style={{ margin: 0, fontSize: '20px', color: '#ffffff', fontWeight: '800', letterSpacing: '-0.01em' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', color: '#000000', fontWeight: '800', letterSpacing: '-0.01em' }}>
               Approvals
             </h2>
           </div>
@@ -157,7 +158,7 @@ export default function HodApprovals() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '280px', maxWidth: '380px', flex: '1 1 280px' }}>
             <label style={{
               display: 'block', fontSize: '10px', fontWeight: '800',
-              color: '#fef08a', textTransform: 'uppercase',
+              color: '#475569', textTransform: 'uppercase',
               letterSpacing: '0.07em',
             }}>
               Programme under review

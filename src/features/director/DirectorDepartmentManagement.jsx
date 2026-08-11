@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, UserCheck, Search, Check, X, AlertCircle } from 'lucide-react';
+import { Plus, UserCheck, Search, Check, X, AlertCircle, Trash2, Edit2 } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 
 export default function DirectorDepartmentManagement() {
@@ -7,6 +7,7 @@ export default function DirectorDepartmentManagement() {
     departments = [],
     addDepartment = () => {},
     updateDepartment = () => {},
+    deleteDepartment = () => {},
   } = useAcademic();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,6 +40,12 @@ export default function DirectorDepartmentManagement() {
     setSelectedHod(dept.hod || MASTER_FACULTY_LIST[0]);
     setHodEmail(dept.hodEmail || '');
     setShowModal(true);
+  };
+
+  const handleDeleteDepartment = (dept) => {
+    if (window.confirm(`Are you sure you want to delete department "${dept.name}" (${dept.code})?`)) {
+      deleteDepartment(dept.id);
+    }
   };
 
   const handleSave = (e) => {
@@ -149,12 +156,21 @@ export default function DirectorDepartmentManagement() {
                       )}
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <button
-                        onClick={() => handleOpenEdit(dept)}
-                        style={{ height: '32px', padding: '0 12px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                      >
-                        <UserCheck size={13} /> Edit
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                        <button
+                          onClick={() => handleOpenEdit(dept)}
+                          style={{ height: '32px', padding: '0 10px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #cbd5e1', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <UserCheck size={13} /> Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDepartment(dept)}
+                          style={{ width: '32px', height: '32px', borderRadius: '7px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                          title="Delete Department"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

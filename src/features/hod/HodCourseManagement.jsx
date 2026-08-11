@@ -113,78 +113,121 @@ export default function HodCourseManagement() {
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
 
-      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>HOD View</div>
-          <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>Programme &amp; Course Allocation</h2>
-          <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            Assign Programme Coordinator and manage courses for {selectedProgramme.name} ({durationYears} Years → {totalSemesters} Semesters).
-          </p>
-        </div>
+      {/* ── HEADER BANNER ────────────────────────────────────────────────────── */}
+      <div className="banner-dark-gradient" style={{ marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+          {/* Left: title block */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span style={{
+                background: '#eef2ff', color: accent,
+                fontWeight: '800', fontSize: '10px', borderRadius: '5px',
+                padding: '2px 9px', letterSpacing: '0.07em', textTransform: 'uppercase',
+                border: '1px solid #c7d2fe',
+              }}>
+                HOD Portal · Programme Coordinators
+              </span>
+            </div>
+            <h2 style={{ margin: '0 0 4px', fontSize: '20px', color: '#0f172a', fontWeight: '800', letterSpacing: '-0.01em' }}>
+              Programme &amp; Course Allocation
+            </h2>
+            <p style={{ margin: 0, fontSize: '12.5px', color: '#64748b' }}>
+              Assign Programme Coordinator and manage courses for{' '}
+              <strong style={{ color: accent }}>{selectedProgramme.name}</strong>{' '}
+              <span style={{ opacity: 0.8 }}>({durationYears} Years → {totalSemesters} Semesters)</span>
+            </p>
+          </div>
 
-        {/* Programme Selector Dropdown */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <GraduationCap size={18} style={{ color: accent }} />
-          <select
-            value={programmeId}
-            onChange={(e) => setProgrammeId(e.target.value)}
-            style={{ ...inputStyle, width: 'auto', minWidth: '280px', fontWeight: '800', color: accent, cursor: 'pointer' }}
-          >
-            {masterProgrammes.map((p) => (
-              <option key={p.id} value={p.id}>{p.code} — {p.name} ({p.durationYears || 4} Yrs / {(p.durationYears || 4) * 2} Sems)</option>
-            ))}
-          </select>
+          {/* Right: Programme Selector */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '280px', maxWidth: '420px', flex: '1 1 280px' }}>
+            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+              Programme
+            </label>
+            <div style={{ position: 'relative' }}>
+              <GraduationCap size={15} style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none', zIndex: 1 }} />
+              <select
+                value={programmeId}
+                onChange={(e) => setProgrammeId(e.target.value)}
+                style={{
+                  width: '100%', height: '40px', fontSize: '13px',
+                  fontWeight: '700', color: '#1e293b',
+                  background: '#ffffff', border: '1.5px solid rgba(255,255,255,0.8)',
+                  borderRadius: '9px', padding: '0 34px 0 32px',
+                  outline: 'none', appearance: 'none', cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
+                }}
+              >
+                {masterProgrammes.map((p) => (
+                  <option key={p.id} value={p.id}>{p.code} — {p.name} ({p.durationYears || 4} Yrs / {(p.durationYears || 4) * 2} Sems)</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* ── PROGRAMME COORDINATOR ALLOCATION CONTROL (BY HOD) ───────────────── */}
-      <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px', background: '#f8fafc', borderColor: '#cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eef2ff', color: accent, display: 'grid', placeItems: 'center' }}>
+      <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          {/* Icon tile */}
+          <div style={{ width: '42px', height: '42px', borderRadius: '11px', background: '#eef2ff', color: accent, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
             <UserCheck size={20} />
           </div>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: '800', color: muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Programme Coordinator Allocation (Assigned by HOD)
+            <div style={{ fontSize: '10.5px', fontWeight: '800', color: muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>
+              Programme Coordinator — Assigned by HOD
             </div>
-            <div style={{ fontSize: '14.5px', fontWeight: '800', color: ink, marginTop: '2px' }}>
-              {selectedProgramme.name} ({selectedProgramme.code})
+            <div style={{ fontSize: '14.5px', fontWeight: '800', color: ink }}>
+              {selectedProgramme.name}
+              <span style={{ marginLeft: '8px', fontSize: '12px', fontWeight: '600', color: accent, background: '#eef2ff', padding: '1px 8px', borderRadius: '5px', border: '1px solid #c7d2fe' }}>
+                {selectedProgramme.code}
+              </span>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <label style={{ fontSize: '12.5px', fontWeight: '700', color: ink }}>Assigned Programme Coordinator:</label>
-          <select
-            value={selectedProgramme.coordinator || 'Dr. A. K. Sharma'}
-            onChange={(e) => {
-              updateProgramme(selectedProgramme.id, { coordinator: e.target.value });
-              alert(`✓ Assigned ${e.target.value} as Programme Coordinator for ${selectedProgramme.code}!`);
-            }}
-            style={{
-              height: '38px',
-              padding: '0 12px',
-              fontSize: '13px',
-              fontWeight: '800',
-              color: accent,
-              background: '#ffffff',
-              border: '1.5px solid #4f46e5',
-              borderRadius: '8px',
-              outline: 'none',
-              cursor: 'pointer',
-              boxShadow: '0 2px 6px rgba(79,70,229,0.1)',
-            }}
-          >
-            {MASTER_FACULTY_LIST.map((fac) => {
-              const isHod = assignedHods.includes(fac);
-              return (
-                <option key={fac} value={fac} disabled={isHod} style={{ color: isHod ? '#94a3b8' : '#0f172a' }}>
-                  {fac} {isHod ? '(Disabled — Is HOD)' : ''}
-                </option>
-              );
-            })}
-          </select>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+          {/* Avatar initial of currently assigned coordinator */}
+          {selectedProgramme.coordinator && (
+            <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: accent, color: '#ffffff', display: 'grid', placeItems: 'center', fontSize: '13px', fontWeight: '800', flexShrink: 0, boxShadow: '0 2px 8px rgba(79,70,229,0.3)' }}>
+              {(selectedProgramme.coordinator || '').charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div>
+            <label style={{ display: 'block', fontSize: '10.5px', fontWeight: '700', color: muted, marginBottom: '4px' }}>
+              Assigned Programme Coordinator
+            </label>
+            <select
+              value={selectedProgramme.coordinator || 'Dr. A. K. Sharma'}
+              onChange={(e) => {
+                updateProgramme(selectedProgramme.id, { coordinator: e.target.value });
+              }}
+              style={{
+                height: '36px',
+                padding: '0 12px',
+                fontSize: '13px',
+                fontWeight: '700',
+                color: accent,
+                background: '#ffffff',
+                border: '1.5px solid #c7d2fe',
+                borderRadius: '8px',
+                outline: 'none',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                minWidth: '220px',
+              }}
+            >
+              {MASTER_FACULTY_LIST.map((fac) => {
+                const isHod = assignedHods.includes(fac);
+                return (
+                  <option key={fac} value={fac} disabled={isHod} style={{ color: isHod ? '#94a3b8' : '#0f172a' }}>
+                    {fac} {isHod ? '(Disabled — Is HOD)' : ''}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -266,8 +309,8 @@ export default function HodCourseManagement() {
       </div>
 
       {/* ── COURSES TABLE ─────────────────────────────────────────────────────── */}
-      <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
-        <table className="audit-data-table">
+      <div style={{ ...surface, overflow: 'hidden', padding: 0, boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
+        <table className="audit-data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
               <th style={{ width: '90px' }}>Code</th>
@@ -292,7 +335,12 @@ export default function HodCourseManagement() {
               const coord = c.coordinator || (c.faculty || '').split('/')[0].trim();
 
               return (
-                <tr key={c.id}>
+                <tr
+                  key={c.id}
+                  style={{ transition: 'background 0.12s' }}
+                  onMouseEnter={(e) => { if (!isEditing) e.currentTarget.style.background = '#f8faff'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = ''; }}
+                >
                   {/* Code */}
                   <td>
                     {isEditing ? (

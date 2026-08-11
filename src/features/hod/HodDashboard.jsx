@@ -35,13 +35,6 @@ export default function HodDashboard() {
       icon: Layers,
     },
     {
-      id: 'courses',
-      title: 'Course Management',
-      desc: 'Verify courses and assign Course Coordinators.',
-      path: '/hod/course-management',
-      icon: Users,
-    },
-    {
       id: 'approvals',
       title: 'Approvals & Verification',
       desc: 'Review Programme Coordinator submissions.',
@@ -62,8 +55,7 @@ export default function HodDashboard() {
   const setupSteps = [
     { title: 'Batch Initialized', done: batches.length > 0, desc: batches.length > 0 ? `${batches.length} batch(es) active` : 'No batch created yet' },
     { title: 'PO, PSO & PEO Defined', done: totalProgrammes > 0, desc: `${totalProgrammes} programme(s) configured` },
-    { title: 'Courses Verified', done: totalCourses > 0, desc: `${totalCourses} course(s) under department` },
-    { title: 'Coordinators Assigned', done: totalCourses > 0, desc: 'Faculty allocation complete' },
+    { title: 'Programme Coordinators Assigned', done: totalProgrammes > 0, desc: 'Coordinator allocation complete' },
     { title: 'Approvals Cleared', done: pendingApprovalsCount === 0, desc: pendingApprovalsCount > 0 ? `${pendingApprovalsCount} item(s) pending` : 'All submissions reviewed' },
   ];
 

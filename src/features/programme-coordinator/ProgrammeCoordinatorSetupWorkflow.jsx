@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import {
   BookOpen, Target, CheckCircle2,
   ArrowRight, ArrowLeft, Check, Plus, Trash2, X,
-  ChevronDown, AlertCircle, Save,
+  ChevronDown, AlertCircle, Save, Clock,
 } from 'lucide-react';
-import { useAcademic } from '../../context/AcademicContext';
+import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 
 // ── Style tokens (identical to HodSetupWorkflow) ─────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -37,12 +37,19 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     updatePoPsoTargets = () => {},
     addCourse    = () => {},
     deleteCourse = () => {},
+    assignCourseCoordinator = () => {},
+    courseVerificationStore = {},
   } = useAcademic();
 
   const selectedProgramme =
     masterProgrammes.find((p) => p.id === programmeId) ||
     masterProgrammes[0] ||
     { id: 'prog-1', name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP', durationYears: 4 };
+
+  const allocationKey = `allocation-${programmeId}`;
+  const allocationRecord = courseVerificationStore[allocationKey] || {};
+  const allocationStatus = allocationRecord.allocationStatus || 'PENDING';
+  const allocationRemarks = allocationRecord.allocationRemarks || '';
 
   const durationYears = selectedProgramme?.durationYears || 4;
   const totalSemesters = durationYears * 2;
@@ -52,9 +59,10 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const [currentStep, setCurrentStep] = useState(1);
 
   // ── Step 1 – Add Courses / Programme Setup ─────────────────────────────────
-  const [newCourseCode, setNewCourseCode] = useState('');
-  const [newCourseName, setNewCourseName] = useState('');
-  const [newCourseSem,  setNewCourseSem]  = useState(programmeSemesters[0] || 'Sem I');
+  const [newCourseCode,  setNewCourseCode]  = useState('');
+  const [newCourseName,  setNewCourseName]  = useState('');
+  const [newCourseSem,   setNewCourseSem]   = useState(programmeSemesters[0] || 'Sem I');
+  const [newCourseCoord, setNewCourseCoord] = useState(MASTER_FACULTY_LIST[0] || '');
   const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === programmeId);
 
   // ── Step 2 – PO/PSO Targets ──────────────────────────────────────────────
@@ -85,6 +93,8 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
       code: newCourseCode.toUpperCase().trim(),
       name: newCourseName.trim(),
       semester: newCourseSem,
+      coordinator: newCourseCoord,
+      faculty: newCourseCoord,
     });
     setNewCourseCode('');
     setNewCourseName('');
@@ -122,7 +132,24 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
           <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
             Programme Setup
           </h2>
-          <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>{selectedProgramme.name} ({selectedProgramme.code})</p>
+          <p style={{ margin: '3px 0 6px', fontSize: '12.5px', color: muted }}>{selectedProgramme.name} ({selectedProgramme.code})</p>
+
+          {/* HOD Verification Status Badge */}
+          <div>
+            {allocationStatus === 'APPROVED' ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '3px 10px', fontSize: '11.5px', fontWeight: '800' }}>
+                <CheckCircle2 size={13} /> HOD Verification Status: Verified &amp; Approved
+              </span>
+            ) : allocationStatus === 'REVISION_REQUESTED' ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '3px 10px', fontSize: '11.5px', fontWeight: '800' }}>
+                <AlertCircle size={13} /> HOD Verification Status: Requested Revision
+              </span>
+            ) : (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', borderRadius: '6px', padding: '3px 10px', fontSize: '11.5px', fontWeight: '800' }}>
+                <Clock size={13} /> HOD Verification Status: Pending Review
+              </span>
+            )}
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ position: 'relative' }}>
@@ -143,6 +170,18 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
           </button>
         </div>
       </div>
+
+      {/* ── HOD REVISION ALERT BANNER ────────────────────────────────────────── */}
+      {allocationStatus === 'REVISION_REQUESTED' && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '14px 18px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626', fontWeight: '800', fontSize: '13.5px' }}>
+            <AlertCircle size={17} /> HOD Revision Requested
+          </div>
+          <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#991b1b' }}>
+            <strong>Remarks from HOD:</strong> {allocationRemarks || 'Please review and re-assign Course Coordinators as per HOD notes.'}
+          </p>
+        </div>
+      )}
 
       {/* ── STEPPER ───────────────────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px' }}>
@@ -185,7 +224,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
             {/* Inline add form */}
             <form onSubmit={handleAddCourse} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
               <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '10px' }}>Add Course to Roster</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 130px auto', gap: '10px', alignItems: 'flex-end' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 120px 200px auto', gap: '10px', alignItems: 'flex-end' }}>
                 <div>
                   <label style={labelStyle}>Code *</label>
                   <input type="text" required placeholder="CS305" value={newCourseCode} onChange={(e) => setNewCourseCode(e.target.value)} style={{ ...inputStyle, fontWeight: '700', color: accent }} />
@@ -198,6 +237,12 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                   <label style={labelStyle}>Semester</label>
                   <select value={newCourseSem} onChange={(e) => setNewCourseSem(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
                     {programmeSemesters.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Course Coordinator</label>
+                  <select value={newCourseCoord} onChange={(e) => setNewCourseCoord(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', fontWeight: '600', color: accent }}>
+                    {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
                 <button type="submit" style={{ height: '40px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
@@ -214,25 +259,40 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                     <th style={{ width: '90px' }}>Code</th>
                     <th>Course Name</th>
                     <th style={{ width: '110px', textAlign: 'center' }}>Semester</th>
+                    <th style={{ width: '230px' }}>Course Coordinator</th>
                     <th style={{ width: '60px', textAlign: 'center' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {progCourses.length === 0 && (
-                    <tr><td colSpan={4} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>No courses yet — add one above.</td></tr>
+                    <tr><td colSpan={5} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>No courses yet — add one above.</td></tr>
                   )}
-                  {progCourses.map((c) => (
-                    <tr key={c.id}>
-                      <td style={{ fontWeight: '700', color: accent }}>{c.code}</td>
-                      <td style={{ fontWeight: '600', color: ink }}>{c.name}</td>
-                      <td style={{ textAlign: 'center', color: muted, fontSize: '12px' }}>{c.semester || 'Sem I'}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button onClick={() => deleteCourse(c.id)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
-                          <Trash2 size={13} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {progCourses.map((c) => {
+                    const coord = c.coordinator || (c.faculty || '').split('/')[0].trim() || MASTER_FACULTY_LIST[0];
+                    return (
+                      <tr key={c.id}>
+                        <td style={{ fontWeight: '700', color: accent }}>{c.code}</td>
+                        <td style={{ fontWeight: '600', color: ink }}>{c.name}</td>
+                        <td style={{ textAlign: 'center', color: muted, fontSize: '12px' }}>{c.semester || 'Sem I'}</td>
+                        <td>
+                          <select
+                            value={coord}
+                            onChange={(e) => assignCourseCoordinator(c.id, e.target.value)}
+                            style={{ ...inputStyle, height: '34px', fontSize: '12px', cursor: 'pointer', color: accent, fontWeight: '600' }}
+                          >
+                            {MASTER_FACULTY_LIST.map((f) => (
+                              <option key={f} value={f}>{f}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button onClick={() => deleteCourse(c.id)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

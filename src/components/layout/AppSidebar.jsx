@@ -38,7 +38,6 @@ const DIRECTOR_NAV = [
   { id: 'school-structure',      path: '/director/school-structure',      icon: 'academic',  label: 'School Structure' },
   { id: 'department-management', path: '/director/department-management', icon: 'users',     label: 'Departments & HODs' },
   { id: 'programme-overview',    path: '/director/programme-overview',    icon: 'outcomes',  label: 'Programmes' },
-  { id: 'approvals',             path: '/director/approvals',             icon: 'config',    label: 'Approvals' },
   { id: 'reports',               path: '/director/reports',               icon: 'reports',   label: 'Reports' },
 ];
 
@@ -47,7 +46,6 @@ const HOD_NAV = [
   { id: 'dashboard',          path: '/hod/dashboard',          icon: 'dashboard', label: 'Dashboard' },
   { id: 'batch-management',   path: '/hod/batch-management',   icon: 'academic',  label: 'Batch Management' },
   { id: 'programme-outcomes', path: '/hod/programme-outcomes', icon: 'outcomes',  label: 'Programme Outcomes' },
-  { id: 'course-management',  path: '/hod/course-management',  icon: 'users',     label: 'Course Management' },
   { id: 'approvals',          path: '/hod/approvals',          icon: 'config',    label: 'Approvals' },
   { id: 'programme-atr',      path: '/hod/programme-atr',      icon: 'survey',    label: 'Programme ATR' },
   { id: 'reports',            path: '/hod/reports',            icon: 'reports',   label: 'Reports' },

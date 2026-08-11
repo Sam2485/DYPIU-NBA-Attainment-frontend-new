@@ -53,7 +53,6 @@ export default function AppRoutes() {
       <Route path="/director/school-structure" element={<DirectorSchoolStructurePage />} />
       <Route path="/director/department-management" element={<DirectorDepartmentPage />} />
       <Route path="/director/programme-overview" element={<DirectorProgrammeOverviewPage />} />
-      <Route path="/director/approvals" element={<DirectorApprovalsPage />} />
       <Route path="/director/reports" element={<DirectorReportsPage />} />
 
       {/* Programme Coordinator Routes */}
@@ -66,7 +65,6 @@ export default function AppRoutes() {
       <Route path="/hod/setup-workflow" element={<HodSetupWorkflowPage />} />
       <Route path="/hod/batch-management" element={<HodBatchManagementPage />} />
       <Route path="/hod/programme-outcomes" element={<HodProgrammeOutcomesPage />} />
-      <Route path="/hod/course-management" element={<HodCourseManagementPage />} />
       <Route path="/hod/approvals" element={<HodApprovalsPage />} />
       <Route path="/hod/programme-atr" element={<HodProgrammeATRPage />} />
       <Route path="/hod/reports" element={<HodReportsPage />} />

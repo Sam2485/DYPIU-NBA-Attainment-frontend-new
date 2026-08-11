@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { GraduationCap, Building2, Check, ChevronDown } from 'lucide-react';
+import { GraduationCap, Building2, Check, ChevronDown, Edit2, Trash2, X, Plus } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 
 export default function DirectorProgrammeOverview() {
@@ -7,21 +7,58 @@ export default function DirectorProgrammeOverview() {
     masterProgrammes = [],
     departments = [],
     updateProgramme = () => {},
+    deleteProgramme = () => {},
   } = useAcademic();
 
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingProg, setEditingProg] = useState(null);
+
+  const [editName, setEditName] = useState('');
+  const [editCode, setEditCode] = useState('');
+  const [editDeptId, setEditDeptId] = useState('');
+  const [editDuration, setEditDuration] = useState(4);
 
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
   const ink = '#0f172a';
   const muted = '#64748b';
   const accent = '#4f46e5';
-
-  const assignedHods = departments.map((d) => d.hod).filter(Boolean);
+  const inputStyle = { height: '38px', fontSize: '13px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 12px', background: '#ffffff', color: ink, width: '100%', outline: 'none', fontFamily: 'inherit' };
+  const labelStyle = { display: 'block', fontSize: '11.5px', fontWeight: '600', color: muted, marginBottom: '5px' };
 
   const filteredProgrammes = masterProgrammes.filter((prog) => {
     if (selectedDeptFilter === 'ALL') return true;
     return prog.departmentId === selectedDeptFilter || prog.department === selectedDeptFilter;
   });
+
+  const handleOpenEdit = (prog) => {
+    setEditingProg(prog);
+    setEditName(prog.name);
+    setEditCode(prog.code);
+    setEditDeptId(prog.departmentId || departments[0]?.id || 'dept-1');
+    setEditDuration(prog.durationYears || 4);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = (e) => {
+    e.preventDefault();
+    if (!editingProg || !editName || !editCode) return;
+    const deptObj = departments.find((d) => d.id === editDeptId) || departments[0];
+    updateProgramme(editingProg.id, {
+      name: editName,
+      code: editCode,
+      departmentId: deptObj?.id,
+      department: deptObj?.name,
+      durationYears: parseInt(editDuration, 10) || 4,
+    });
+    setShowEditModal(false);
+  };
+
+  const handleDeleteProg = (prog) => {
+    if (window.confirm(`Are you sure you want to delete programme "${prog.name}" (${prog.code})?`)) {
+      deleteProgramme(prog.id);
+    }
+  };
 
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
@@ -30,8 +67,8 @@ export default function DirectorProgrammeOverview() {
       <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Director View</div>
-          <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>Programme Overview</h2>
-          <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>Degree programmes, coordinators, and batch status across all departments.</p>
+          <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>Programme Overview &amp; Governance</h2>
+          <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>Manage degree programmes, coordinators, and duration settings across all departments.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Building2 size={14} style={{ color: muted }} />
@@ -60,7 +97,7 @@ export default function DirectorProgrammeOverview() {
           No programmes found.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '14px' }}>
           {filteredProgrammes.map((prog) => {
             const deptObj = departments.find((d) => d.id === prog.departmentId || d.name === prog.department) || departments[0];
 
@@ -106,20 +143,94 @@ export default function DirectorProgrammeOverview() {
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                    <span style={{ color: muted }}>Active Batch</span>
-                    <span style={{ fontWeight: '600', color: ink }}>2025–29 (AY 2025-26)</span>
+                    <span style={{ color: muted }}>Duration</span>
+                    <span style={{ fontWeight: '600', color: ink }}>{prog.durationYears || 4} Years</span>
                   </div>
                 </div>
 
-                {/* Footer */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingTop: '4px', borderTop: '1px solid #f1f5f9' }}>
-                  <GraduationCap size={13} style={{ color: '#16a34a' }} />
-                  <span style={{ fontSize: '11.5px', color: muted }}>PO & PSO framework configured</span>
+                {/* Footer with Edit & Delete */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <GraduationCap size={13} style={{ color: '#16a34a' }} />
+                    <span style={{ fontSize: '11.5px', color: muted }}>Framework Configured</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(prog)}
+                      style={{ height: '28px', padding: '0 10px', fontSize: '11.5px', fontWeight: '700', background: '#eef2ff', color: accent, border: '1px solid #c7d2fe', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      title="Edit Programme"
+                    >
+                      <Edit2 size={12} /> Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteProg(prog)}
+                      style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                      title="Delete Programme"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                 </div>
 
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── EDIT PROGRAMME MODAL ────────────────────────────────────────────── */}
+      {showEditModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(3px)', display: 'grid', placeItems: 'center', padding: '20px' }}>
+          <div style={{ background: '#ffffff', borderRadius: '14px', width: '480px', maxWidth: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>Edit Programme</div>
+                <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>{editingProg?.code} · {editingProg?.name}</div>
+              </div>
+              <button onClick={() => setShowEditModal(false)} style={{ width: '28px', height: '28px', borderRadius: '7px', border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', display: 'grid', placeItems: 'center', color: muted }}>
+                <X size={14} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEdit} style={{ padding: '20px' }}>
+              <div style={{ display: 'grid', gap: '14px', marginBottom: '20px' }}>
+                <div>
+                  <label style={labelStyle}>Department *</label>
+                  <select value={editDeptId} onChange={(e) => setEditDeptId(e.target.value)} style={inputStyle}>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Programme Code *</label>
+                  <input type="text" required value={editCode} onChange={(e) => setEditCode(e.target.value.toUpperCase())} style={{ ...inputStyle, fontWeight: '700', color: accent }} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Programme Name *</label>
+                  <input type="text" required value={editName} onChange={(e) => setEditName(e.target.value)} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Duration (Years) *</label>
+                  <select value={editDuration} onChange={(e) => setEditDuration(e.target.value)} style={inputStyle}>
+                    <option value={2}>2 Years (Master Degree)</option>
+                    <option value={3}>3 Years (Diploma / Bachelor)</option>
+                    <option value={4}>4 Years (B.Tech / B.E.)</option>
+                    <option value={5}>5 Years (Dual Degree)</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button type="button" onClick={() => setShowEditModal(false)} style={{ height: '38px', padding: '0 16px', fontSize: '13px', fontWeight: '600', background: '#f8fafc', color: muted, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ height: '38px', padding: '0 20px', fontSize: '13px', fontWeight: '800' }}>
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

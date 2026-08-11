@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, CheckCircle2, ShieldCheck, Download, Printer, Check } from 'lucide-react';
+import { FileText, CheckCircle2, ShieldCheck, Download, Printer, Check, TrendingUp, AlertTriangle } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 
 export default function HodProgrammeATR() {
@@ -48,14 +48,14 @@ export default function HodProgrammeATR() {
         <div className="banner-content-row">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <span className="badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fef08a', fontWeight: '800', fontSize: '11px' }}>
+              <span className="badge" style={{ background: '#eef2ff', color: '#4f46e5', fontWeight: '800', fontSize: '11px', border: '1px solid #c7d2fe' }}>
                 HOD PORTAL • PROGRAMME ATR
               </span>
             </div>
-            <h2 style={{ margin: 0, fontSize: '20px', color: '#ffffff', fontWeight: '800' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
               Programme Action Taken Report (ATR) Approval
             </h2>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#cbd5e1' }}>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
               Review programme-level observations, continuous improvement action plans, and grant HOD final approval.
             </p>
           </div>
@@ -79,45 +79,151 @@ export default function HodProgrammeATR() {
       </div>
 
       {/* ── PROGRAMME & BATCH METADATA CARD ────────────────────────────────────────── */}
-      <div className="card" style={{ marginBottom: '20px', padding: '20px', background: '#f8fafc', border: '1px solid #cbd5e1' }}>
+      <div className="card" style={{ marginBottom: '20px', padding: '20px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '14px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>
-              {selectedProgramme.name} ({selectedProgramme.code})
-            </h3>
-            <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#64748b' }}>
-              Cycle: <strong>{selectedBatch.name}</strong> • Department of Computer Science & Engineering
-            </p>
+          {/* Left: code pill + name + dept */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <span style={{
+              background: '#e0e7ff',
+              color: '#4f46e5',
+              fontWeight: '900',
+              fontSize: '13px',
+              padding: '4px 12px',
+              borderRadius: '999px',
+              whiteSpace: 'nowrap',
+              marginTop: '2px',
+            }}>
+              {selectedProgramme.code}
+            </span>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a', fontWeight: '800' }}>
+                {selectedProgramme.name}
+              </h3>
+              <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: '#64748b' }}>
+                Cycle: <strong>{selectedBatch.name}</strong> &nbsp;•&nbsp; Department of Computer Science &amp; Engineering
+              </p>
+            </div>
           </div>
 
-          <div style={{ textAlign: 'right' }}>
-            <span style={{ fontSize: '12px', color: '#64748b' }}>Submitted by Programme Coordinator:</span>
-            <div style={{ fontSize: '13px', fontWeight: '800', color: '#4f46e5' }}>{currentAtr.submittedBy}</div>
+          {/* Right: submitted by + avatar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '2px' }}>Submitted by</span>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: '#4f46e5' }}>{currentAtr.submittedBy}</div>
+            </div>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              minWidth: '40px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              fontWeight: '800',
+              fontSize: '16px',
+            }}>
+              {currentAtr.submittedBy.charAt(0)}
+            </div>
           </div>
         </div>
       </div>
 
       {/* ── OBSERVATIONS & CONTINUOUS IMPROVEMENT TABLE ───────────────────────────── */}
-      <h3 style={{ margin: '0 0 14px 0', fontSize: '16px', color: '#0f172a', fontWeight: '800' }}>
-        Programme Observations & Action Taken Plans
-      </h3>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '0 0 14px 0' }}>
+        <div style={{
+          width: '34px',
+          height: '34px',
+          borderRadius: '8px',
+          background: '#e0e7ff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <TrendingUp size={18} style={{ color: '#4f46e5' }} />
+        </div>
+        <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a', fontWeight: '800' }}>
+          Programme Observations &amp; Action Taken Plans
+        </h3>
+      </div>
 
       <div style={{ display: 'grid', gap: '14px', marginBottom: '24px' }}>
         {(currentAtr.observations || []).map((obs, idx) => (
-          <div key={idx} style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <span className="badge badge-active" style={{ background: '#e0e7ff', color: '#4f46e5', fontWeight: '800' }}>
-                OBSERVATION {idx + 1}
-              </span>
-              <strong style={{ fontSize: '14px', color: '#0f172a' }}>{obs.target}</strong>
+          <div key={idx} style={{
+            background: '#ffffff',
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+            display: 'flex',
+            gap: '0',
+            overflow: 'hidden',
+          }}>
+            {/* Numbered step circle column */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              padding: '20px 16px 20px 16px',
+              borderRight: '1px solid #f1f5f9',
+              background: '#f8fafc',
+              minWidth: '56px',
+            }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                color: '#ffffff',
+                fontWeight: '900',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                {idx + 1}
+              </div>
             </div>
 
-            <div style={{ fontSize: '12.5px', color: '#475569', marginBottom: '8px', lineHeight: 1.5 }}>
-              <strong>Gap Analysis:</strong> {obs.gap}
-            </div>
+            {/* Card body */}
+            <div style={{ flex: 1, padding: '18px 20px' }}>
+              {/* Target heading */}
+              <strong style={{ fontSize: '14px', color: '#0f172a', display: 'block', marginBottom: '12px' }}>
+                {obs.target}
+              </strong>
 
-            <div style={{ background: '#f0fdf4', padding: '10px 14px', borderRadius: '8px', border: '1px solid #a7f3d0', fontSize: '12.5px', color: '#15803d', fontWeight: '600' }}>
-              <strong>Corrective Action Plan:</strong> {obs.actionPlan}
+              {/* Gap Analysis */}
+              <div style={{
+                borderLeft: '3px solid #f59e0b',
+                background: '#fffbeb',
+                borderRadius: '0 8px 8px 0',
+                padding: '10px 14px',
+                marginBottom: '8px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '8px',
+              }}>
+                <AlertTriangle size={15} style={{ color: '#d97706', marginTop: '1px', flexShrink: 0 }} />
+                <div style={{ fontSize: '12.5px', color: '#78350f', lineHeight: 1.5 }}>
+                  <strong style={{ color: '#92400e' }}>Gap Analysis:&nbsp;</strong>{obs.gap}
+                </div>
+              </div>
+
+              {/* Action Plan */}
+              <div style={{
+                borderLeft: '3px solid #22c55e',
+                background: '#f0fdf4',
+                borderRadius: '0 8px 8px 0',
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '8px',
+              }}>
+                <CheckCircle2 size={15} style={{ color: '#16a34a', marginTop: '1px', flexShrink: 0 }} />
+                <div style={{ fontSize: '12.5px', color: '#14532d', lineHeight: 1.5 }}>
+                  <strong style={{ color: '#166534' }}>Action Plan:&nbsp;</strong>{obs.actionPlan}
+                </div>
+              </div>
             </div>
           </div>
         ))}

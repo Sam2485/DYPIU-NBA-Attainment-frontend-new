@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, X } from 'lucide-react';
+import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, X, Trash2 } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 
 export default function DirectorSetupWorkflow() {
@@ -10,8 +10,10 @@ export default function DirectorSetupWorkflow() {
     departments = [],
     addDepartment = () => {},
     updateDepartment = () => {},
+    deleteDepartment = () => {},
     masterProgrammes = [],
     addProgramme = () => {},
+    deleteProgramme = () => {},
     updateSchoolInfo = () => {},
   } = useAcademic();
 
@@ -69,6 +71,22 @@ export default function DirectorSetupWorkflow() {
     );
     setDeptList(updated);
     updateDepartment(deptId, { hod: hodName });
+  };
+
+  const handleDeleteDeptInline = (deptId) => {
+    if (window.confirm('Are you sure you want to delete this department?')) {
+      const updated = deptList.filter((d) => d.id !== deptId);
+      setDeptList(updated);
+      deleteDepartment(deptId);
+    }
+  };
+
+  const handleDeleteProgInline = (progId) => {
+    if (window.confirm('Are you sure you want to delete this programme?')) {
+      const updated = progList.filter((p) => p.id !== progId);
+      setProgList(updated);
+      deleteProgramme(progId);
+    }
   };
 
   const handleAddProgrammeInline = () => {
@@ -251,11 +269,12 @@ export default function DirectorSetupWorkflow() {
                   <th>Department Name</th>
                   <th style={{ width: '260px' }}>Head of Department</th>
                   <th style={{ width: '120px', textAlign: 'center' }}>Status</th>
+                  <th style={{ width: '60px', textAlign: 'center' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {deptList.length === 0 && (
-                  <tr><td colSpan={4} style={{ textAlign: 'center', color: muted, padding: '24px', fontSize: '12.5px' }}>No departments yet — add one above.</td></tr>
+                  <tr><td colSpan={5} style={{ textAlign: 'center', color: muted, padding: '24px', fontSize: '12.5px' }}>No departments yet — add one above.</td></tr>
                 )}
                 {deptList.map((dept) => (
                   <tr key={dept.id}>
@@ -270,6 +289,16 @@ export default function DirectorSetupWorkflow() {
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '2px 8px' }}>
                         <Check size={11} /> Assigned
                       </span>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteDeptInline(dept.id)}
+                        style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                        title="Delete Department"
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -337,7 +366,17 @@ export default function DirectorSetupWorkflow() {
                         <span style={{ fontSize: '11px', fontWeight: '700', color: accent, background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '5px', padding: '2px 8px' }}>
                           {prog.code}
                         </span>
-                        <span style={{ fontSize: '10.5px', color: muted }}>{deptObj?.code || '—'}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '10.5px', color: muted }}>{deptObj?.code || '—'}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProgInline(prog.id)}
+                            style={{ width: '24px', height: '24px', borderRadius: '5px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                            title="Delete Programme"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        </div>
                       </div>
                       <div style={{ fontSize: '13.5px', fontWeight: '700', color: ink, marginBottom: '6px', lineHeight: '1.3' }}>{prog.name}</div>
                       <div style={{ fontSize: '11.5px', color: muted }}>{deptObj?.name || prog.department}</div>

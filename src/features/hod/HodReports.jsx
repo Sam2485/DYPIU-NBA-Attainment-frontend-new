@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, Printer, ShieldCheck, FileText } from 'lucide-react';
+import { Download, Printer, ShieldCheck, FileText, BarChart3, Users, Layers } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 
 export default function HodReports() {
@@ -19,6 +19,10 @@ export default function HodReports() {
       desc: 'Complete PO/PSO attainment summary for selected batch cycle across all direct & indirect assessments.',
       type: 'PDF Audit Report',
       category: 'Programme Attainment',
+      Icon: BarChart3,
+      iconBg: '#e0e7ff',
+      iconColor: '#4f46e5',
+      borderColor: '#818cf8',
     },
     {
       id: 'hod-rep-2',
@@ -26,6 +30,10 @@ export default function HodReports() {
       desc: 'Full roster of department courses, assigned faculty coordinators, and verification status.',
       type: 'Excel Sheet (.xlsx)',
       category: 'Course Allocation',
+      Icon: Users,
+      iconBg: '#ccfbf1',
+      iconColor: '#0d9488',
+      borderColor: '#2dd4bf',
     },
     {
       id: 'hod-rep-3',
@@ -33,6 +41,10 @@ export default function HodReports() {
       desc: 'Final HOD approved continuous improvement observations and gap action plans.',
       type: 'PDF Summary',
       category: 'Programme ATR',
+      Icon: FileText,
+      iconBg: '#dcfce7',
+      iconColor: '#16a34a',
+      borderColor: '#4ade80',
     },
     {
       id: 'hod-rep-4',
@@ -40,6 +52,10 @@ export default function HodReports() {
       desc: 'Consolidated list of active Program Outcomes, PSOs, and Program Educational Objectives.',
       type: 'PDF Summary',
       category: 'Outcomes Framework',
+      Icon: Layers,
+      iconBg: '#f3e8ff',
+      iconColor: '#7c3aed',
+      borderColor: '#a78bfa',
     },
   ];
 
@@ -50,14 +66,14 @@ export default function HodReports() {
         <div className="banner-content-row">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <span className="badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fef08a', fontWeight: '800', fontSize: '11px' }}>
-                HOD PORTAL • REPORTS & DOWNLOADS
+              <span className="badge" style={{ background: '#eef2ff', color: '#4f46e5', fontWeight: '800', fontSize: '11px', border: '1px solid #c7d2fe' }}>
+                HOD PORTAL • REPORTS &amp; DOWNLOADS
               </span>
             </div>
-            <h2 style={{ margin: 0, fontSize: '20px', color: '#ffffff', fontWeight: '800' }}>
-              Batch & Programme Reports Export
+            <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
+              Batch &amp; Programme Reports Export
             </h2>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#cbd5e1' }}>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
               Download batch-wise programme reports, outcome frameworks, approval summaries, and ATR reports.
             </p>
           </div>
@@ -70,54 +86,79 @@ export default function HodReports() {
 
       {/* ── REPORTS GRID ───────────────────────────────────────────────────────────── */}
       <div className="grid-cards-2" style={{ gap: '16px' }}>
-        {reportCards.map((card) => (
-          <div
-            key={card.id}
-            style={{
-              background: '#ffffff',
-              borderRadius: '14px',
-              border: '1.5px solid #e2e8f0',
-              padding: '20px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
-              display: 'flex',
-              flexDirection: 'column',
-              justify: 'space-between',
-            }}
-          >
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <span className="badge badge-active" style={{ background: '#e0e7ff', color: '#4f46e5', fontWeight: '800', fontSize: '11px' }}>
-                  {card.category}
-                </span>
-                <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '700' }}>
-                  Format: {card.type}
-                </span>
+        {reportCards.map((card) => {
+          const { Icon } = card;
+          return (
+            <div
+              key={card.id}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.10)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.03)'; }}
+              style={{
+                background: '#ffffff',
+                borderRadius: '14px',
+                border: '1.5px solid #e2e8f0',
+                borderLeft: `4px solid ${card.borderColor}`,
+                padding: '20px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                transition: 'box-shadow 0.2s ease',
+              }}
+            >
+              <div>
+                {/* Icon + category row */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '12px' }}>
+                  <div style={{
+                    width: '48px',
+                    height: '48px',
+                    minWidth: '48px',
+                    borderRadius: '10px',
+                    background: card.iconBg,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <Icon size={24} style={{ color: card.iconColor }} />
+                  </div>
+
+                  <div style={{ flex: 1 }}>
+                    <span className="badge badge-active" style={{
+                      background: card.iconBg,
+                      color: card.iconColor,
+                      fontWeight: '800',
+                      fontSize: '10.5px',
+                      marginBottom: '6px',
+                      display: 'inline-block',
+                    }}>
+                      {card.category}
+                    </span>
+                    <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', color: '#0f172a', fontWeight: '800', lineHeight: 1.3 }}>
+                      {card.title}
+                    </h4>
+                    <p style={{ fontSize: '12.5px', color: '#475569', margin: 0, lineHeight: 1.5 }}>
+                      {card.desc}
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <h4 style={{ margin: '0 0 6px 0', fontSize: '15.5px', color: '#0f172a', fontWeight: '800' }}>
-                {card.title}
-              </h4>
+              <div style={{ paddingTop: '16px', marginTop: '16px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: '11.5px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ShieldCheck size={14} style={{ color: '#10b981' }} /> Official HOD Record
+                </div>
 
-              <p style={{ fontSize: '12.5px', color: '#475569', margin: 0, lineHeight: 1.5 }}>
-                {card.desc}
-              </p>
-            </div>
-
-            <div style={{ paddingTop: '16px', marginTop: '16px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: '11.5px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <ShieldCheck size={14} style={{ color: '#10b981' }} /> Official HOD Record
+                <button
+                  className="btn btn-primary"
+                  onClick={() => handleDownload(card.type, card.title)}
+                  style={{ padding: '8px 16px', fontSize: '12px', fontWeight: '800', gap: '6px' }}
+                >
+                  <Download size={14} /> Download Report
+                </button>
               </div>
-
-              <button
-                className="btn btn-primary"
-                onClick={() => handleDownload(card.type, card.title)}
-                style={{ padding: '8px 16px', fontSize: '12px', fontWeight: '800', gap: '6px' }}
-              >
-                <Download size={14} /> Download Report
-              </button>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

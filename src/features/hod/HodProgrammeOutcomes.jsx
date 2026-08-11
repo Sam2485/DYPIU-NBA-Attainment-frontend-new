@@ -179,16 +179,16 @@ export default function HodProgrammeOutcomes() {
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
 
       {/* ── PAGE HEADER ───────────────────────────────────────────────────────── */}
-      <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+      <div className="banner-dark-gradient" style={{ padding: '22px 28px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', borderRadius: '14px' }}>
         <div>
-          <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
+          <div style={{ fontSize: '10.5px', fontWeight: '800', color: accent, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>
             HOD Portal &nbsp;·&nbsp; Programme Outcomes
           </div>
-          <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
-            PO / PSO / PEO & Competencies
+          <h2 style={{ margin: 0, fontSize: '22px', color: '#0f172a', fontWeight: '800', letterSpacing: '-0.01em' }}>
+            Programme Outcomes
           </h2>
-          <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            Define outcomes and competency statements for <strong>{selectedProgramme.name}</strong>.
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
+            {selectedProgramme.code} &nbsp;—&nbsp; {selectedProgramme.name}
           </p>
         </div>
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserCheck, Calendar, Layers, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, Trash2, X, AlertCircle, ChevronDown, GraduationCap } from 'lucide-react';
+import { UserCheck, Calendar, Layers, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, Trash2, Edit3, X, AlertCircle, ChevronDown, GraduationCap } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -17,6 +17,8 @@ export default function HodSetupWorkflow() {
     batchId,
     setBatchId,
     addBatch = () => {},
+    updateBatch = () => {},
+    deleteBatch = () => {},
     activePOs = [],
     activePSOs = [],
     activePEOs = [],
@@ -38,6 +40,45 @@ export default function HodSetupWorkflow() {
   const [startYearInput, setStartYearInput] = useState('2025');
   const [endYearInput, setEndYearInput] = useState('2029');
   const [batchValidationError, setBatchValidationError] = useState('');
+
+  // Step 2: Batch Edit State
+  const [editingBatchId, setEditingBatchId] = useState(null);
+  const [editBatchName, setEditBatchName] = useState('');
+  const [editStartYear, setEditStartYear] = useState('');
+  const [editEndYear, setEditEndYear] = useState('');
+  const [editStatus, setEditStatus] = useState('ACTIVE');
+
+  const handleStartEditBatch = (b) => {
+    setEditingBatchId(b.id);
+    setEditBatchName(b.name);
+    setEditStartYear(b.startYear || '');
+    setEditEndYear(b.endYear || '');
+    setEditStatus(b.status || 'ACTIVE');
+  };
+
+  const handleSaveEditBatch = (bId) => {
+    updateBatch(bId, {
+      name: editBatchName,
+      startYear: editStartYear,
+      endYear: editEndYear,
+      status: editStatus,
+    });
+    setEditingBatchId(null);
+  };
+
+  const handleDeleteBatchItem = (b) => {
+    if (window.confirm(`Are you sure you want to delete batch "${b.name}"?`)) {
+      deleteBatch(b.id);
+    }
+  };
+
+  const programmeBatches = batches.filter(
+    (b) =>
+      b.programmeId === programmeId ||
+      b.programmeCode === selectedProgramme.code ||
+      b.name.includes(selectedProgramme.code) ||
+      b.programmeName === selectedProgramme.name
+  );
 
   // Step 3: Outcomes State
   const [outcomeTab, setOutcomeTab] = useState('PO');
@@ -218,18 +259,18 @@ export default function HodSetupWorkflow() {
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+      <div className="banner-dark-gradient" style={{ padding: '22px 28px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', borderRadius: '14px' }}>
         <div>
-          <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>HOD Setup Wizard &nbsp;·&nbsp; Step {currentStep} of 4</div>
-          <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>Programme Setup &amp; Governance</h2>
-          <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            Set Programme Coordinator, initialize student batch years, and verify outcome frameworks for {selectedProgramme.name}.
+          <div style={{ fontSize: '10.5px', fontWeight: '700', color: 'rgba(255,255,255,0.55)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>HOD Portal &nbsp;·&nbsp; Setup Wizard</div>
+          <h2 style={{ margin: 0, fontSize: '22px', color: '#ffffff', fontWeight: '800', letterSpacing: '-0.01em' }}>Programme Setup</h2>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>
+            {selectedProgramme.code} &nbsp;—&nbsp; {selectedProgramme.name}
           </p>
         </div>
 
         {/* Target Programme Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <GraduationCap size={18} style={{ color: accent }} />
+          <GraduationCap size={18} style={{ color: 'rgba(255,255,255,0.75)' }} />
           <select
             value={programmeId}
             onChange={(e) => setProgrammeId(e.target.value)}
@@ -242,28 +283,29 @@ export default function HodSetupWorkflow() {
         </div>
       </div>
 
-      {/* ── STEPPER NAV ──────────────────────────────────────────────────────── */}
-      <div style={{ ...surface, padding: '14px 20px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-        {steps.map((st, idx) => {
-          const Icon = st.icon;
-          const isActive = currentStep === st.number;
-          const isDone = currentStep > st.number;
-          return (
-            <div key={st.number} style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '150px' }}>
+      {/* ── STEPPER PROGRESS BAR ─────────────────────────────────────────────── */}
+      <div style={{ ...surface, padding: '16px 20px', marginBottom: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', position: 'relative' }}>
+          <div style={{ position: 'absolute', top: '18px', left: '12.5%', right: '12.5%', height: '1px', background: '#e2e8f0', zIndex: 0 }} />
+          {steps.map((s) => {
+            const done   = currentStep > s.number;
+            const active = currentStep === s.number;
+            const Icon   = s.icon;
+            return (
               <div
-                onClick={() => setCurrentStep(st.number)}
-                style={{ width: '36px', height: '36px', borderRadius: '10px', display: 'grid', placeItems: 'center', background: isDone ? '#f0fdf4' : isActive ? accent : '#f8fafc', color: isDone ? '#16a34a' : isActive ? '#ffffff' : muted, border: `1px solid ${isDone ? '#bbf7d0' : isActive ? accent : '#e2e8f0'}`, fontWeight: '800', fontSize: '13px', cursor: 'pointer', flexShrink: 0 }}
+                key={s.number}
+                onClick={() => setCurrentStep(s.number)}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', position: 'relative', zIndex: 1, opacity: currentStep >= s.number ? 1 : 0.45, transition: 'opacity .2s' }}
               >
-                {isDone ? <Check size={16} /> : <Icon size={16} />}
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: done ? '#f0fdf4' : active ? '#eef2ff' : '#f8fafc', border: `1.5px solid ${done ? '#86efac' : active ? '#a5b4fc' : '#e2e8f0'}`, color: done ? '#16a34a' : active ? accent : muted, display: 'grid', placeItems: 'center', marginBottom: '8px', transition: 'all .2s' }}>
+                  {done ? <Check size={15} /> : <Icon size={15} />}
+                </div>
+                <div style={{ fontSize: '12px', fontWeight: active ? '700' : '600', color: active ? ink : muted, textAlign: 'center' }}>{s.title}</div>
+                <div style={{ fontSize: '10.5px', color: '#94a3b8', textAlign: 'center', marginTop: '1px' }}>{s.desc}</div>
               </div>
-              <div style={{ cursor: 'pointer' }} onClick={() => setCurrentStep(st.number)}>
-                <div style={{ fontSize: '11px', fontWeight: '700', color: isActive ? accent : isDone ? '#16a34a' : muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Step {st.number}</div>
-                <div style={{ fontSize: '13px', fontWeight: '700', color: ink }}>{st.title}</div>
-              </div>
-              {idx < steps.length - 1 && <div style={{ flex: 1, height: '2px', background: isDone ? '#bbf7d0' : '#e2e8f0', minWidth: '20px' }} />}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* ── STEP 1: PROGRAMME COORDINATOR SETUP ─────────────────────────────── */}
@@ -376,21 +418,118 @@ export default function HodSetupWorkflow() {
                 <th style={{ width: '140px' }}>Start AY</th>
                 <th style={{ width: '140px' }}>End AY</th>
                 <th style={{ width: '130px', textAlign: 'center' }}>Status</th>
+                <th style={{ width: '110px', textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {batches.map((b) => (
-                <tr key={b.id}>
-                  <td style={{ fontWeight: '700', color: ink }}>{b.name}</td>
-                  <td style={{ color: muted }}>{b.startYear}</td>
-                  <td style={{ color: muted }}>{b.endYear}</td>
-                  <td style={{ textAlign: 'center' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '800', background: b.status === 'ACTIVE' ? '#dcfce7' : '#f1f5f9', color: b.status === 'ACTIVE' ? '#15803d' : '#475569', borderRadius: '5px', padding: '2px 8px' }}>
-                      {b.status}
-                    </span>
+              {programmeBatches.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: muted, fontSize: '12.5px' }}>
+                    No active batches found for {selectedProgramme.name}. Create one above to get started.
                   </td>
                 </tr>
-              ))}
+              )}
+              {programmeBatches.map((b) => {
+                const isEditing = editingBatchId === b.id;
+                return (
+                  <tr key={b.id}>
+                    <td>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editBatchName}
+                          onChange={(e) => setEditBatchName(e.target.value)}
+                          style={{ ...inputStyle, height: '34px', fontSize: '12px' }}
+                        />
+                      ) : (
+                        <span style={{ fontWeight: '700', color: ink }}>{b.name}</span>
+                      )}
+                    </td>
+                    <td>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editStartYear}
+                          onChange={(e) => setEditStartYear(e.target.value)}
+                          style={{ ...inputStyle, height: '34px', fontSize: '12px' }}
+                        />
+                      ) : (
+                        <span style={{ color: muted }}>{b.startYear}</span>
+                      )}
+                    </td>
+                    <td>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editEndYear}
+                          onChange={(e) => setEditEndYear(e.target.value)}
+                          style={{ ...inputStyle, height: '34px', fontSize: '12px' }}
+                        />
+                      ) : (
+                        <span style={{ color: muted }}>{b.endYear}</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      {isEditing ? (
+                        <select
+                          value={editStatus}
+                          onChange={(e) => setEditStatus(e.target.value)}
+                          style={{ ...inputStyle, height: '34px', fontSize: '11.5px', padding: '0 6px' }}
+                        >
+                          <option value="ACTIVE">ACTIVE</option>
+                          <option value="INACTIVE">INACTIVE</option>
+                          <option value="COMPLETED">COMPLETED</option>
+                        </select>
+                      ) : (
+                        <span style={{ fontSize: '11px', fontWeight: '800', background: b.status === 'ACTIVE' ? '#dcfce7' : '#f1f5f9', color: b.status === 'ACTIVE' ? '#15803d' : '#475569', borderRadius: '5px', padding: '2px 8px' }}>
+                          {b.status}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      {isEditing ? (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEditBatch(b.id)}
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                            title="Save Batch"
+                          >
+                            <Check size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingBatchId(null)}
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#f8fafc', color: muted, cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                            title="Cancel"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditBatch(b)}
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #c7d2fe', background: '#eef2ff', color: accent, cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                            title="Edit Batch"
+                          >
+                            <Edit3 size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBatchItem(b)}
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                            title="Delete Batch"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -699,22 +838,6 @@ export default function HodSetupWorkflow() {
               </div>
             </div>
           </div>
-
-          <div style={{ textAlign: 'center', background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '12px', padding: '24px' }}>
-            <CheckCircle2 size={36} style={{ color: '#16a34a', margin: '0 auto 10px' }} />
-            <h4 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#15803d' }}>Setup Summary Verified!</h4>
-            <p style={{ margin: '4px 0 16px', fontSize: '13px', color: '#166534' }}>
-              Programme Coordinator allocation, batch lifecycle, and outcome frameworks are fully configured.
-            </p>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleFinish}
-              style={{ background: '#16a34a', height: '42px', padding: '0 24px', fontSize: '14px', fontWeight: '800', gap: '8px', display: 'inline-flex', alignItems: 'center' }}
-            >
-              <Check size={18} /> Finish HOD Workflow &amp; Return to Dashboard
-            </button>
-          </div>
         </div>
       )}
 
@@ -729,7 +852,7 @@ export default function HodSetupWorkflow() {
           <ArrowLeft size={15} /> Previous Step
         </button>
 
-        {currentStep < 4 && (
+        {currentStep < 4 ? (
           <button
             type="button"
             className="btn btn-primary"
@@ -737,6 +860,14 @@ export default function HodSetupWorkflow() {
             style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '800', gap: '8px', display: 'inline-flex', alignItems: 'center' }}
           >
             Next Step <ArrowRight size={15} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleFinish}
+            style={{ background: '#22c55e', color: '#ffffff', border: 'none', height: '40px', padding: '0 22px', fontSize: '13.5px', fontWeight: '800', gap: '8px', display: 'inline-flex', alignItems: 'center', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 6px rgba(34,197,94,0.3)' }}
+          >
+            <Check size={16} /> Finish Setup &amp; Go to Dashboard
           </button>
         )}
       </div>
