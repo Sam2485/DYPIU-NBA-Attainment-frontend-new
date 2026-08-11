@@ -3,6 +3,7 @@ import { Target, Save, CheckCircle2, Sliders } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
+import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 
 export default function COTargetSettingHub({ hideFooter = false }) {
   const { role } = useAuth();
@@ -11,6 +12,7 @@ export default function COTargetSettingHub({ hideFooter = false }) {
     activeCOs,
     coTargets,
     updateCourseCoTargets,
+    courseVerificationStore = {},
   } = useAcademic();
 
   const [localCoTargets, setLocalCoTargets] = useState({});
@@ -42,9 +44,13 @@ export default function COTargetSettingHub({ hideFooter = false }) {
     }
   };
 
+  const targetCourseId = selectedCourse?.id || 'crs-1';
+  const targetData = courseVerificationStore[targetCourseId] || {};
+  const isApproved = targetData.coStatus === 'APPROVED' || targetData.coStatus === 'VERIFIED';
+  const isNeedsRevision = targetData.coStatus === 'REJECTED' || targetData.coStatus === 'REVISION_REQUESTED';
+
   return (
     <div className="animated-page">
-
       {/* Top Banner Header */}
       <div className="banner-dark-gradient" style={{ marginBottom: '20px' }}>
         <div className="banner-content-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
@@ -62,18 +68,28 @@ export default function COTargetSettingHub({ hideFooter = false }) {
         </div>
       </div>
 
-      {/* Programme Coordinator Status Banner */}
-      <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', padding: '12px 18px', marginBottom: '20px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <CheckCircle2 size={20} style={{ color: '#10b981' }} />
-        <div>
-          <strong style={{ fontSize: '13.5px', color: '#15803d' }}>
-            ✓ ALL CO TARGET LEVELS VERIFIED &amp; APPROVED BY PROGRAMME COORDINATOR
-          </strong>
-          <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#166534' }}>
-            Target attainment levels (1.00 to 3.00 scale) for {selectedCourse?.code || 'CS301'} - {selectedCourse?.name || 'Data Structures & Algorithms'} have been set and verified.
-          </p>
+      {isNeedsRevision && (
+        <RequestRevisionCard
+          title={`CO Targets Revision Requested (${selectedCourse?.code || 'CS301'})`}
+          requestedBy={targetData.verifiedBy || 'Programme Coordinator'}
+          remarks={targetData.coRemarks || 'Please review and adjust CO target attainment benchmarks.'}
+          actionText="Modify the target levels below and click 'Save Changes' to resubmit for Programme Coordinator approval."
+        />
+      )}
+
+      {isApproved && (
+        <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', padding: '12px 18px', marginBottom: '20px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <CheckCircle2 size={20} style={{ color: '#10b981' }} />
+          <div>
+            <strong style={{ fontSize: '13.5px', color: '#15803d' }}>
+              ✓ ALL CO TARGET LEVELS VERIFIED &amp; APPROVED BY PROGRAMME COORDINATOR
+            </strong>
+            <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#166534' }}>
+              Target attainment levels (1.00 to 3.00 scale) for {selectedCourse?.code || 'CS301'} - {selectedCourse?.name || 'Data Structures & Algorithms'} have been set and verified.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Target Setting Card */}
       <div className="card" style={{ marginBottom: '24px', background: '#ffffff', border: '1.5px solid #4f46e5' }}>

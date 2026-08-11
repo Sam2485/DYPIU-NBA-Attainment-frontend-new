@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Save, CheckCircle2, Clock, ShieldCheck, History, Printer, ChevronDown, AlertCircle } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -156,18 +157,13 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
         </div>
       )}
 
-      {atrStatus === 'REJECTED' && (
-        <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '20px' }}>
-          <AlertCircle size={20} style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
-          <div>
-            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#991b1b' }}>
-              ⚠️ Action Required — Course ATR Sent Back for Revisions by Programme Coordinator
-            </span>
-            <span style={{ fontSize: '12.5px', color: '#b91c1c', display: 'block', marginTop: '3px', fontWeight: '600' }}>
-              <strong>Remarks Forwarded:</strong> "{atrRemarks || 'Please review corrective actions and revise ATR details before resubmission.'}"
-            </span>
-          </div>
-        </div>
+      {!hideHeader && (atrStatus === 'REJECTED' || atrStatus === 'REVISION_REQUESTED') && (
+        <RequestRevisionCard
+          title="Course Action Taken Report (ATR) Revision Requested"
+          requestedBy={courseVerificationStore[activeCourseId]?.verifiedBy || 'Programme Coordinator'}
+          remarks={atrRemarks || 'Please review corrective actions and revise ATR details before resubmission.'}
+          actionText="Please update observation notes or action plans below and resubmit for approval."
+        />
       )}
 
       {/* ── STATUS BAR ────────────────────────────────────────────────────── */}

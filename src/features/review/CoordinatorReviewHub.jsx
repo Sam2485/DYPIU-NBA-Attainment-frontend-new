@@ -8,6 +8,8 @@ import {
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import CourseATR from '../atr/CourseATR';
+import ApprovalHeaderControls from '../../components/common/ApprovalHeaderControls';
+import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const ink    = '#0f172a';
@@ -39,48 +41,54 @@ function StatusBadge({ status, size = 'md' }) {
   );
 }
 
-function SectionHeader({ title, subtitle, status, onApprove, onReject }) {
-  const isVerified = status === 'VERIFIED' || status === 'APPROVED';
-  const isRejected = status === 'REJECTED';
+function SectionHeader({
+  title,
+  subtitle,
+  status,
+  onApprove,
+  onReject,
+  revisionCardTitle = 'Revision Requested',
+  revisionCardRemarks = 'Please review and revise details as per coordinator notes.',
+  revisionCardActionText = 'The Course Coordinator has been notified to revise the submission.',
+}) {
+  const isNeedsRevision = status === 'REJECTED' || status === 'REVISION_REQUESTED';
 
   return (
-    <div style={{ ...surface, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-      <div>
-        <div style={{ fontSize: '14px', fontWeight: '800', color: ink }}>{title}</div>
-        {subtitle && <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>{subtitle}</div>}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ ...surface, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <div style={{ fontSize: '14px', fontWeight: '800', color: ink }}>{title}</div>
+          {subtitle && <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>{subtitle}</div>}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <ApprovalHeaderControls
+            status={status}
+            onApprove={onApprove}
+            onRequestRevision={onReject}
+            approveText="Approve & Verify"
+            approvedText="Verified & Approved"
+            requestRevisionText="Request Revision"
+            editRevisionText="Edit Revision Request"
+            showButtonsOnly={true}
+          />
+        </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <StatusBadge status={status} />
-
-        {/* If NOT verified (i.e. Pending, Draft, OR Rejected), show Verify button */}
-        {!isVerified && (
-          <button
-            type="button"
-            onClick={onApprove}
-            style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '800', background: '#10b981', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
-          >
-            <Check size={14} /> Verify &amp; Approve
-          </button>
-        )}
-
-        {/* If NOT rejected (i.e. Pending, Draft, OR Verified), show Reject button */}
-        {!isRejected && (
-          <button
-            type="button"
-            onClick={onReject}
-            style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '800', background: '#ef4444', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
-          >
-            <XCircle size={14} /> Send Back / Reject
-          </button>
-        )}
-      </div>
+      {isNeedsRevision && (
+        <RequestRevisionCard
+          title={revisionCardTitle}
+          requestedBy="Programme Coordinator"
+          remarks={revisionCardRemarks}
+          actionText={revisionCardActionText}
+        />
+      )}
     </div>
   );
 }
 
 // ── PROGRAMME ATR TAB ────────────────────────────────────────────────────────
-function ProgATRTab({ selectedProgramme, activePOs, normPSOs, progAtrRows, onApprove, onReject, status }) {
+function ProgATRTab({ selectedProgramme, activePOs, normPSOs, progAtrRows, onApprove, onReject, status, remarks }) {
   const [entries, setEntries] = useState([]);
 
   useEffect(() => {
@@ -152,6 +160,9 @@ function ProgATRTab({ selectedProgramme, activePOs, normPSOs, progAtrRows, onApp
         status={status}
         onApprove={onApprove}
         onReject={onReject}
+        revisionCardTitle={`Revision Requested for Programme ATR (${selectedProgramme?.code})`}
+        revisionCardRemarks={remarks || 'Please review PO/PSO target vs actual attainment calculations.'}
+        revisionCardActionText="The Programme Coordinator has been notified to revise programme-level ATR entries."
       />
 
       {poEntries.length > 0 && (
@@ -364,22 +375,7 @@ export default function CoordinatorReviewHub() {
         </div>
       </div>
 
-      {/* ── TOP REJECTION REMARKS ALERT BANNER ────────────────────────────── */}
-      {activeTabStatus === 'REJECTED' && activeTabRemarks && (
-        <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '12px', padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'flex-start', gap: '14px', boxShadow: '0 4px 12px rgba(220,38,38,0.08)' }}>
-          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#fee2e2', color: '#dc2626', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '2px' }}>
-            <AlertCircle size={20} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '14px', fontWeight: '800', color: '#991b1b', marginBottom: '4px' }}>
-              ⚠️ Action Required — Submission Sent Back for Revisions
-            </div>
-            <div style={{ fontSize: '13px', color: '#b91c1c', fontWeight: '600', lineHeight: 1.5, background: '#ffffff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #fca5a5' }}>
-              <strong>Remarks Forwarded:</strong> "{activeTabRemarks}"
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* ── TAB 1: ATTAINMENT CONFIG ──────────────────────────────────────── */}
       {activeTab === 'config' && (
@@ -390,6 +386,9 @@ export default function CoordinatorReviewHub() {
             status={courseReview.configStatus}
             onApprove={() => handleApproveSubmission('configStatus')}
             onReject={() => openRejectModal('configStatus', `Attainment Config — ${selectedCourse?.code}`)}
+            revisionCardTitle={`Revision Requested for Attainment Configuration (${selectedCourse?.code})`}
+            revisionCardRemarks={courseReview.configRemarks || 'Please review direct/indirect weightages and percentage level bands.'}
+            revisionCardActionText="The Course Coordinator has been notified to revise threshold levels and assessment weightages."
           />
 
           {/* Weight + threshold cards */}
@@ -491,6 +490,9 @@ export default function CoordinatorReviewHub() {
             status={courseReview.coStatus}
             onApprove={() => handleApproveSubmission('coStatus')}
             onReject={() => openRejectModal('coStatus', `Course Outcomes — ${selectedCourse?.code}`)}
+            revisionCardTitle={`Revision Requested for Course Outcomes (${selectedCourse?.code})`}
+            revisionCardRemarks={courseReview.coRemarks || 'Please review and update Course Outcome statements.'}
+            revisionCardActionText="The Course Coordinator has been notified to revise Course Outcome statements."
           />
 
           <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
@@ -527,6 +529,9 @@ export default function CoordinatorReviewHub() {
             status={courseReview.atrStatus}
             onApprove={() => handleApproveSubmission('atrStatus')}
             onReject={() => openRejectModal('atrStatus', `Course ATR — ${selectedCourse?.code}`)}
+            revisionCardTitle={`Revision Requested for Course ATR (${selectedCourse?.code})`}
+            revisionCardRemarks={courseReview.atrRemarks || 'Please review gap analysis observations and action plans.'}
+            revisionCardActionText="The Course Coordinator has been notified to revise the Action Taken Report."
           />
 
           <CourseATR courseId={reviewCourseId} hideHeader={true} hideFooter={true} readOnly={true} />
@@ -543,6 +548,7 @@ export default function CoordinatorReviewHub() {
           onApprove={() => handleApproveSubmission('programmeAtrStatus')}
           onReject={() => openRejectModal('programmeAtrStatus', `Programme ATR — ${selectedProgramme.code}`)}
           status={courseReview.programmeAtrStatus}
+          remarks={courseReview.programmeAtrRemarks}
         />
       )}
 
