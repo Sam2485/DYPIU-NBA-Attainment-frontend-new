@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   FileSpreadsheet,
   Download,
@@ -27,6 +27,66 @@ const DEFAULT_BATCHES = [
   { id: 'batch-2023-27', name: 'Batch 2023–27 (Final Year / Sem 7 & 8)', isCompleted: true, endYear: 2027 },
   { id: 'batch-2024-28', name: 'Batch 2024–28 (3rd Year / Sem 5 & 6)', isCompleted: false, endYear: 2028 },
   { id: 'batch-2025-29', name: 'Batch 2025–29 (2nd Year / Sem 3 & 4)', isCompleted: false, endYear: 2029 },
+];
+
+// ── Semester Groups for Programme Attainment (Average Mapping & Direct) ─────
+const SEMESTER_GROUPS = [
+  {
+    semLabel: 'FE Sem - I',
+    courses: [
+      { code: '310241', name: 'Engineering Mathematics - I' },
+      { code: '310242', name: 'Physics for Computing' },
+    ],
+  },
+  {
+    semLabel: 'FE Sem - II',
+    courses: [
+      { code: '310243', name: 'Engineering Mathematics - II' },
+      { code: '310244', name: 'Programming & Problem Solving' },
+    ],
+  },
+  {
+    semLabel: 'SE Sem - III',
+    courses: [
+      { code: '310245', name: 'Data Structures & Algorithms' },
+      { code: '310246', name: 'Object Oriented Programming' },
+    ],
+  },
+  {
+    semLabel: 'SE Sem - IV',
+    courses: [
+      { code: '310247', name: 'Computer Graphics' },
+      { code: '310248', name: 'Microprocessor Architecture' },
+    ],
+  },
+  {
+    semLabel: 'TE Sem - V',
+    courses: [
+      { code: '310249', name: 'Database Management Systems' },
+      { code: '310250', name: 'Computer Networks & Security' },
+    ],
+  },
+  {
+    semLabel: 'TE Sem - VI',
+    courses: [
+      { code: '310251', name: 'Theory of Computation' },
+      { code: '310252', name: 'Software Engineering & Project' },
+    ],
+  },
+  {
+    semLabel: 'BE Sem - VII',
+    courses: [
+      { code: '310253', name: 'Design & Analysis of Algorithms' },
+      { code: '310254', name: 'Cloud Computing & DevOps' },
+    ],
+  },
+  {
+    semLabel: 'BE Sem - VIII',
+    courses: [
+      { code: '310255', name: 'Machine Learning & AI' },
+      { code: '310256', name: 'Capstone Project Phase II' },
+    ],
+  },
 ];
 
 export default function ReportsHub() {
@@ -144,15 +204,20 @@ export default function ReportsHub() {
           [`Programme: ${currentProgramme.code} - ${currentProgramme.name}`],
           [`Report Type: ${batchReportType.toUpperCase().replace(/-/g, ' ')}`],
           [],
-          ['Course Code', 'Course Name', 'Semester', ...poList, ...psoList],
-          ...allProgrammeCourses.map((c, idx) => [
-            c.code,
-            c.name,
-            `Sem ${(idx % 8) + 1}`,
-            ...poList.map((_, pIdx) => (1.8 + (pIdx % 3) * 0.2).toFixed(2)),
-            ...psoList.map((_, pIdx) => (1.9 + (pIdx % 2) * 0.1).toFixed(2)),
-          ]),
+          ['Sem', 'Course Code', 'Course Name', ...poList, ...psoList],
         ];
+
+        SEMESTER_GROUPS.forEach((group, gIdx) => {
+          group.courses.forEach((c, cIdx) => {
+            sheetData.push([
+              cIdx === 0 ? group.semLabel : '',
+              c.code,
+              c.name,
+              ...poList.map((_, pIdx) => (batchReportType === 'average-mapping' ? (2.0 + ((pIdx + cIdx + gIdx) % 3) * 0.33).toFixed(2) : (1.75 + ((pIdx + cIdx + gIdx) % 4) * 0.15).toFixed(2))),
+              ...psoList.map((_, pIdx) => (batchReportType === 'average-mapping' ? (2.0 + ((pIdx + cIdx + gIdx) % 2) * 0.50).toFixed(2) : (1.80 + ((pIdx + cIdx + gIdx) % 2) * 0.20).toFixed(2))),
+            ]);
+          });
+        });
       }
     } else {
       const typeLabel = atrSubTab === 'course-atr' ? 'Course_ATR' : 'Programme_ATR';
@@ -760,30 +825,39 @@ export default function ReportsHub() {
                     <table className="audit-data-table" style={{ margin: 0 }}>
                       <thead>
                         <tr>
+                          <th style={{ width: '130px' }}>Sem</th>
                           <th style={{ width: '120px' }}>Course Code</th>
                           <th>Course Name</th>
-                          <th style={{ width: '100px', textAlign: 'center' }}>Semester</th>
                           {poList.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
-                          {psoList.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5' }}>{pso}</th>)}
+                          {psoList.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5', color: '#065f46' }}>{pso}</th>)}
                         </tr>
                       </thead>
                       <tbody>
-                        {allProgrammeCourses.map((c, idx) => (
-                          <tr key={c.id}>
-                            <td style={{ fontWeight: '800', color: '#4f46e5' }}>{c.code}</td>
-                            <td style={{ fontSize: '12.5px', color: '#0f172a' }}>{c.name}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>Sem {(idx % 8) + 1}</td>
-                            {poList.map((po, pIdx) => (
-                              <td key={po} style={{ textAlign: 'center', fontWeight: '700' }}>
-                                {(2.0 + ((pIdx + idx) % 3) * 0.33).toFixed(2)}
+                        {SEMESTER_GROUPS.map((group, gIdx) => (
+                          <React.Fragment key={group.semLabel}>
+                            <tr style={{ background: '#f1f5f9', borderTop: gIdx > 0 ? '2px solid #cbd5e1' : 'none' }}>
+                              <td colSpan={3 + poList.length + psoList.length} style={{ fontWeight: '800', color: '#1e293b', fontSize: '13px', padding: '10px 14px' }}>
+                                📌 {group.semLabel}
                               </td>
+                            </tr>
+                            {group.courses.map((c, cIdx) => (
+                              <tr key={c.code}>
+                                <td style={{ fontWeight: '700', color: '#64748b', fontSize: '12px' }}>{group.semLabel}</td>
+                                <td style={{ fontWeight: '800', color: '#4f46e5' }}>{c.code}</td>
+                                <td style={{ fontSize: '12.5px', color: '#0f172a' }}>{c.name}</td>
+                                {poList.map((po, pIdx) => (
+                                  <td key={po} style={{ textAlign: 'center', fontWeight: '700' }}>
+                                    {(2.0 + ((pIdx + cIdx + gIdx) % 3) * 0.33).toFixed(2)}
+                                  </td>
+                                ))}
+                                {psoList.map((pso, pIdx) => (
+                                  <td key={pso} style={{ textAlign: 'center', fontWeight: '700', color: '#047857', background: '#f0fdf4' }}>
+                                    {(2.0 + ((pIdx + cIdx + gIdx) % 2) * 0.50).toFixed(2)}
+                                  </td>
+                                ))}
+                              </tr>
                             ))}
-                            {psoList.map((pso, pIdx) => (
-                              <td key={pso} style={{ textAlign: 'center', fontWeight: '700', background: '#f0fdf4' }}>
-                                {(2.0 + ((pIdx + idx) % 2) * 0.50).toFixed(2)}
-                              </td>
-                            ))}
-                          </tr>
+                          </React.Fragment>
                         ))}
                       </tbody>
                     </table>
@@ -803,36 +877,45 @@ export default function ReportsHub() {
                     <table className="audit-data-table" style={{ margin: 0 }}>
                       <thead>
                         <tr>
+                          <th style={{ width: '130px' }}>Sem</th>
                           <th style={{ width: '120px' }}>Course Code</th>
                           <th>Course Name</th>
-                          <th style={{ width: '100px', textAlign: 'center' }}>Semester</th>
                           {poList.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
-                          {psoList.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5' }}>{pso}</th>)}
+                          {psoList.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5', color: '#065f46' }}>{pso}</th>)}
                         </tr>
                       </thead>
                       <tbody>
-                        {allProgrammeCourses.map((c, idx) => (
-                          <tr key={c.id}>
-                            <td style={{ fontWeight: '800', color: '#4f46e5' }}>{c.code}</td>
-                            <td style={{ fontSize: '12.5px', color: '#0f172a' }}>{c.name}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>Sem {(idx % 8) + 1}</td>
-                            {poList.map((po, pIdx) => {
-                              const val = Number((1.75 + ((pIdx + idx) % 4) * 0.15).toFixed(2));
-                              return (
-                                <td key={po} style={{ textAlign: 'center', fontWeight: '800', color: val >= 2.0 ? '#16a34a' : '#d97706' }}>
-                                  {val}
-                                </td>
-                              );
-                            })}
-                            {psoList.map((pso, pIdx) => {
-                              const val = Number((1.80 + ((pIdx + idx) % 2) * 0.20).toFixed(2));
-                              return (
-                                <td key={pso} style={{ textAlign: 'center', fontWeight: '800', color: val >= 2.0 ? '#16a34a' : '#d97706', background: '#f0fdf4' }}>
-                                  {val}
-                                </td>
-                              );
-                            })}
-                          </tr>
+                        {SEMESTER_GROUPS.map((group, gIdx) => (
+                          <React.Fragment key={group.semLabel}>
+                            <tr style={{ background: '#f1f5f9', borderTop: gIdx > 0 ? '2px solid #cbd5e1' : 'none' }}>
+                              <td colSpan={3 + poList.length + psoList.length} style={{ fontWeight: '800', color: '#1e293b', fontSize: '13px', padding: '10px 14px' }}>
+                                📌 {group.semLabel}
+                              </td>
+                            </tr>
+                            {group.courses.map((c, cIdx) => (
+                              <tr key={c.code}>
+                                <td style={{ fontWeight: '700', color: '#64748b', fontSize: '12px' }}>{group.semLabel}</td>
+                                <td style={{ fontWeight: '800', color: '#4f46e5' }}>{c.code}</td>
+                                <td style={{ fontSize: '12.5px', color: '#0f172a' }}>{c.name}</td>
+                                {poList.map((po, pIdx) => {
+                                  const val = Number((1.75 + ((pIdx + cIdx + gIdx) % 4) * 0.15).toFixed(2));
+                                  return (
+                                    <td key={po} style={{ textAlign: 'center', fontWeight: '800', color: val >= 2.0 ? '#16a34a' : '#d97706' }}>
+                                      {val}
+                                    </td>
+                                  );
+                                })}
+                                {psoList.map((pso, pIdx) => {
+                                  const val = Number((1.80 + ((pIdx + cIdx + gIdx) % 2) * 0.20).toFixed(2));
+                                  return (
+                                    <td key={pso} style={{ textAlign: 'center', fontWeight: '800', color: val >= 2.0 ? '#16a34a' : '#d97706', background: '#f0fdf4' }}>
+                                      {val}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </React.Fragment>
                         ))}
                       </tbody>
                     </table>
