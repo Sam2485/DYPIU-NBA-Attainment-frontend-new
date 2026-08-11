@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
+import ApprovalHeaderControls from '../../components/common/ApprovalHeaderControls';
 import { useAuth } from '../../context/AuthContext';
 
 /* ─── tiny style helpers ─────────────────────────────────────────── */
@@ -274,52 +275,31 @@ export default function HodApprovals() {
               </select>
             </div>
 
-            {/* Approve button */}
-            <button
-              type="button"
-              onClick={handleApprove}
-              style={{
-                height: '36px', padding: '0 16px', fontSize: '12.5px',
-                fontWeight: '800', display: 'inline-flex', alignItems: 'center',
-                gap: '6px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                fontFamily: 'inherit',
-                background: isApproved ? '#16a34a' : '#059669',
-                color: '#ffffff',
-                boxShadow: isApproved ? '0 0 0 3px rgba(187,247,208,0.6)' : 'none',
-              }}
-            >
-              <Check size={14} />
-              {isApproved ? `Approved (${activeProg?.code})` : `Approve Allocations`}
-            </button>
-
-            {/* Reject / Revision button */}
-            <button
-              type="button"
-              onClick={() => { setRejectRemarks(allocationRemarks || 'Please review and re-assign Course Coordinators as per HOD notes.'); setShowRejectModal(true); }}
-              style={{
-                height: '36px', padding: '0 14px', fontSize: '12.5px',
-                fontWeight: '700', display: 'inline-flex', alignItems: 'center',
-                gap: '6px', borderRadius: '8px', cursor: 'pointer',
-                fontFamily: 'inherit',
-                background: isNeedsRevision ? '#fee2e2' : '#fef2f2',
-                color: '#dc2626',
-                border: `1px solid ${isNeedsRevision ? '#fca5a5' : '#fecaca'}`,
-              }}
-            >
-              <RefreshCw size={13} />
-              {isNeedsRevision ? 'Edit Revision Request' : 'Request Revision'}
-            </button>
+            <ApprovalHeaderControls
+              status={allocationStatus}
+              onApprove={handleApprove}
+              onRequestRevision={() => { setRejectRemarks(allocationRemarks || 'Please review and re-assign Course Coordinators as per HOD notes.'); setShowRejectModal(true); }}
+              approveText="Approve Allocations"
+              approvedText={`Approved (${activeProg?.code})`}
+              revisionCardTitle="Revision Requested for Programme Allocations"
+              revisionCardRequestedBy="Head of Department (HOD)"
+              revisionCardRemarks={allocationRemarks || 'Please review and re-assign Course Coordinators as per HOD notes.'}
+              revisionCardActionText="The Programme Coordinator has been notified to revise the Course Coordinator assignments."
+              showButtonsOnly={true}
+            />
           </div>
         </div>
 
         {/* Revision Alert Card */}
         {isNeedsRevision && (
           <div style={{ padding: '0 20px', paddingTop: '16px' }}>
-            <RequestRevisionCard
-              title="Revision Requested for Programme Allocations"
-              requestedBy="Head of Department (HOD)"
-              remarks={allocationRemarks || 'Course Coordinator allocations sent back to Programme Coordinator for revision.'}
-              actionText="The Programme Coordinator has been notified to revise the Course Coordinator assignments."
+            <ApprovalHeaderControls
+              status={allocationStatus}
+              revisionCardTitle="Revision Requested for Programme Allocations"
+              revisionCardRequestedBy="Head of Department (HOD)"
+              revisionCardRemarks={allocationRemarks || 'Please review and re-assign Course Coordinators as per HOD notes.'}
+              revisionCardActionText="The Programme Coordinator has been notified to revise the Course Coordinator assignments."
+              showCardOnly={true}
             />
           </div>
         )}
