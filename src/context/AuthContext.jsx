@@ -30,7 +30,8 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     sessionStorage.clear();
-    window.location.href = '/login';
+    const loginUrl = window.location.pathname.startsWith('/obe') ? '/obe/login' : '/login';
+    window.location.href = loginUrl;
   };
 
   return (
