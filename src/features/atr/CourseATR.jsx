@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, CheckCircle2, Clock, ShieldCheck, History, Printer, ChevronDown, AlertCircle } from 'lucide-react';
+import { Save, CheckCircle2, Clock, ShieldCheck, History, Printer, ChevronDown, AlertCircle, Lock } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
@@ -25,7 +25,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
     selectedCourse,
     academicYear    = '2025-26',
     selectedBatch,
-    availableYears  = ['2025-26', '2024-25'],
+    availableYears  = ['2025-26', '2024-25', '2023-24'],
     courseAtrStore  = {},
     updateCourseAtrData          = () => {},
     courseVerificationStore      = {},
@@ -37,6 +37,8 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
 
   const [selectedYear, setSelectedYear] = useState(academicYear || '2025-26');
   const [showHistory,  setShowHistory]  = useState(showHistoryProp ?? false);
+
+  const isPreviousYear = selectedYear !== (academicYear || '2025-26');
 
   useEffect(() => {
     if (showHistoryProp !== undefined) setShowHistory(showHistoryProp);
@@ -79,7 +81,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   useEffect(() => { setCoList(buildList()); }, [activeCourseId, currentCourse, activeCOs, courseAtrStore]);
 
   const reportStatus = courseVerificationStore[activeCourseId]?.atrStatus || 'DRAFT';
-  const locked       = readOnly || reportStatus === 'VERIFIED' || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+  const locked       = readOnly || isPreviousYear || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED' || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleSaveSubmit = () => {
@@ -134,16 +136,37 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
               <Printer size={13} /> Print
             </button>
 
-            <button onClick={handleSaveSubmit}
-              style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-              <Save size={13} /> Save Changes
-            </button>
+            {!locked ? (
+              <button onClick={handleSaveSubmit}
+                style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                <Save size={13} /> Save Changes
+              </button>
+            ) : (
+              <span style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Lock size={13} /> {isPreviousYear ? `AY ${selectedYear} Archived (Read-Only)` : 'Report Locked'}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Archived Year Lock Banner */}
+      {isPreviousYear && (
+        <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+          <Lock size={20} style={{ color: '#1d4ed8', flexShrink: 0 }} />
+          <div>
+            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#1e40af', display: 'block' }}>
+              🔒 Archived Academic Year ({selectedYear}) — Read Only
+            </span>
+            <span style={{ fontSize: '12px', color: '#1e3a8a', display: 'block', marginTop: '2px' }}>
+              This Course Action Taken Report is an archived historical record from AY {selectedYear}. Previous year ATR reports are locked and cannot be edited.
+            </span>
           </div>
         </div>
       )}
 
       {/* Verification / Rejection Status Banner */}
-      {atrStatus === 'VERIFIED' && (
+      {(atrStatus === 'VERIFIED' || atrStatus === 'APPROVED') && (
         <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
           <CheckCircle2 size={20} style={{ color: '#16a34a', flexShrink: 0 }} />
           <div>
@@ -157,7 +180,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
         </div>
       )}
 
-      {!hideHeader && (atrStatus === 'REJECTED' || atrStatus === 'REVISION_REQUESTED') && (
+      {!hideHeader && (atrStatus === 'REJECTED' || atrStatus === 'REVISION_REQUESTED' || atrStatus === 'NEEDS_REVISION') && (
         <RequestRevisionCard
           title="Course Action Taken Report (ATR) Revision Requested"
           requestedBy={courseVerificationStore[activeCourseId]?.verifiedBy || 'Programme Coordinator'}

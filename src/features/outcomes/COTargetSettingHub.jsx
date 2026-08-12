@@ -44,10 +44,10 @@ export default function COTargetSettingHub({ hideFooter = false }) {
     }
   };
 
-  const targetCourseId = selectedCourse?.id || 'crs-1';
+  const targetCourseId = selectedCourse?.id || courseId || 'crs-1';
   const targetData = courseVerificationStore[targetCourseId] || {};
   const isApproved = targetData.coStatus === 'APPROVED' || targetData.coStatus === 'VERIFIED';
-  const isNeedsRevision = targetData.coStatus === 'REJECTED' || targetData.coStatus === 'REVISION_REQUESTED';
+  const isNeedsRevision = targetData.coStatus === 'REJECTED' || targetData.coStatus === 'REVISION_REQUESTED' || targetData.coStatus === 'NEEDS_REVISION';
 
   return (
     <div className="animated-page">

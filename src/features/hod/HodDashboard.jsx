@@ -16,7 +16,9 @@ export default function HodDashboard() {
 
   const totalProgrammes = masterProgrammes.length || 3;
   const totalCourses = courses.length || 6;
-  const pendingApprovalsCount = hodApprovals.filter((a) => a.status === 'PENDING').length || 2;
+  const pendingApprovalsCount = hodApprovals.filter(
+    (a) => a.status === 'PENDING' || a.status === 'SUBMITTED'
+  ).length;
   const activeBatch = selectedBatch?.name?.split(' ')[1] || '2025–29';
 
   const quickActions = [

@@ -22,6 +22,7 @@ export default function ProgrammeCoordinatorDashboard() {
     selectedBatch    = { name: 'Batch 2025-29' },
     activePOs        = [],
     activePSOs       = [],
+    courseVerificationStore = {},
   } = useAcademic();
 
   const selectedProgramme =
@@ -29,9 +30,19 @@ export default function ProgrammeCoordinatorDashboard() {
     masterProgrammes[0] ||
     { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
 
-  const progCourses          = courses.filter((c) => !c.programmeId || c.programmeId === programmeId);
-  const pendingVerifications = 2; // mock — replace with real count when API is ready
-  const activeBatchLabel     = selectedBatch?.name?.split(' ')[1] || '2025–29';
+  const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === programmeId);
+
+  const pendingVerifications = Object.values(courseVerificationStore).filter((rec) => {
+    return (
+      rec.configStatus === 'SUBMITTED' ||
+      rec.coStatus === 'PENDING_APPROVAL' ||
+      rec.coStatus === 'SUBMITTED' ||
+      rec.atrStatus === 'SUBMITTED' ||
+      rec.programmeAtrStatus === 'SUBMITTED'
+    );
+  }).length;
+
+  const activeBatchLabel = selectedBatch?.name?.split(' ')[1] || '2025–29';
 
   // ── Quick actions ─────────────────────────────────────────────────────────
   const quickActions = [

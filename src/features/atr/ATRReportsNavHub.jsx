@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, History, Printer, CheckCircle2, ChevronDown, Layers, FileText, AlertCircle, Clock } from 'lucide-react';
+import { Save, History, Printer, CheckCircle2, ChevronDown, Layers, FileText, AlertCircle, Clock, Lock } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import CourseATR from './CourseATR';
 
@@ -39,14 +39,15 @@ const COURSE_PROG_SEEDS = {
   },
 };
 
-export default function ATRReportsNavHub() {
+export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
   const {
     availableCourses = [],
     courses = [],
     selectedCourse,
     selectedProgramme,
     setCourseId = () => {},
-    academicYear,
+    academicYear = '2025-26',
+    availableYears = ['2025-26', '2024-25', '2023-24'],
     activePOs = [],
     activePSOs = [],
     poPsoTargets = {},
@@ -55,16 +56,19 @@ export default function ATRReportsNavHub() {
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
 
-  const [activeAtrTab, setActiveAtrTab] = useState('course-atr');
+  const [activeAtrTab, setActiveAtrTab] = useState(initialTab);
+  const [selectedYear, setSelectedYear] = useState(academicYear || '2025-26');
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+
+  const isPreviousYear = selectedYear !== (academicYear || '2025-26');
 
   const courseId = selectedCourse?.id || 'crs-1';
   const vRecord = courseVerificationStore[courseId] || {};
   const progStatus = vRecord.programmeAtrStatus || 'DRAFT';
   const progRemarks = vRecord.programmeAtrRemarks || '';
   const verifierName = vRecord.verifiedBy || 'Programme Coordinator';
-  const isProgLocked = progStatus === 'VERIFIED' || progStatus === 'APPROVED';
+  const isProgLocked = isPreviousYear || progStatus === 'VERIFIED' || progStatus === 'APPROVED';
 
   // Derive Programme ATR Rows dynamically per selected course
   const buildProgEntries = () => {
@@ -180,10 +184,41 @@ export default function ATRReportsNavHub() {
             </button>
           </div>
 
-          {/* COURSE SELECTOR & SAVE OPTION (EXTREME RIGHT) */}
+          {/* ACADEMIC YEAR & COURSE SELECTOR & SAVE OPTION (EXTREME RIGHT) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {/* Academic Year Selector Dropdown */}
+            <div style={{ position: 'relative', width: '150px' }}>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                style={{
+                  height: '38px',
+                  fontSize: '12.5px',
+                  fontWeight: '800',
+                  color: selectedYear === academicYear ? '#4f46e5' : '#1e40af',
+                  border: selectedYear === academicYear ? '1.5px solid #cbd5e1' : '1.5px solid #93c5fd',
+                  borderRadius: '8px',
+                  padding: '0 28px 0 10px',
+                  background: selectedYear === academicYear ? '#ffffff' : '#eff6ff',
+                  width: '100%',
+                  outline: 'none',
+                  appearance: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                }}
+              >
+                {availableYears.map((yr) => (
+                  <option key={yr} value={yr}>
+                    AY {yr} {yr === academicYear ? '(Active)' : '(Archived)'}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
+            </div>
+
             {/* Course Selector Dropdown */}
-            <div style={{ position: 'relative', width: '260px' }}>
+            <div style={{ position: 'relative', width: '240px' }}>
               <select
                 value={selectedCourse?.id || ''}
                 onChange={(e) => setCourseId(e.target.value)}
@@ -213,23 +248,23 @@ export default function ATRReportsNavHub() {
               <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
             </div>
 
-            {(isProgLocked || progStatus === 'VERIFIED' || progStatus === 'APPROVED') && (
+            {isPreviousYear ? (
+              <span className="badge" style={{ height: '38px', boxSizing: 'border-box', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '0 14px', fontSize: '12px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Lock size={14} /> AY {selectedYear} ARCHIVED (READ-ONLY)
+              </span>
+            ) : (progStatus === 'VERIFIED' || progStatus === 'APPROVED') ? (
               <span className="badge badge-active" style={{ height: '38px', boxSizing: 'border-box', background: '#dcfce7', color: '#15803d', padding: '0 14px', fontSize: '12px', fontWeight: '800', display: 'inline-flex', alignItems: 'center' }}>
                 ✓ VERIFIED BY {verifierName.toUpperCase()}
               </span>
-            )}
-
-            {progStatus === 'REVISION_REQUESTED' && (
+            ) : progStatus === 'REVISION_REQUESTED' ? (
               <span className="badge badge-rejected" style={{ height: '38px', boxSizing: 'border-box', background: '#fee2e2', color: '#dc2626', padding: '0 14px', fontSize: '12px', fontWeight: '800', display: 'inline-flex', alignItems: 'center' }}>
                 ⚠ REVISION REQUESTED
               </span>
-            )}
-
-            {(progStatus === 'SUBMITTED' || isSubmitted) && !isProgLocked && progStatus !== 'REVISION_REQUESTED' && (
+            ) : (progStatus === 'SUBMITTED' || isSubmitted) ? (
               <span className="badge badge-active" style={{ height: '38px', boxSizing: 'border-box', background: '#fef3c7', color: '#b45309', padding: '0 14px', fontSize: '12px', fontWeight: '800', display: 'inline-flex', alignItems: 'center' }}>
                 ✓ SUBMITTED TO PROGRAMME COORDINATOR
               </span>
-            )}
+            ) : null}
 
             {!isProgLocked && (
               <button
@@ -243,6 +278,21 @@ export default function ATRReportsNavHub() {
           </div>
         </div>
       </div>
+
+      {/* Archived Year Lock Banner */}
+      {isPreviousYear && (
+        <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+          <Lock size={20} style={{ color: '#1d4ed8', flexShrink: 0 }} />
+          <div>
+            <strong style={{ fontSize: '13.5px', color: '#1e40af', display: 'block' }}>
+              🔒 Archived Academic Year ({selectedYear}) — Read Only
+            </strong>
+            <span style={{ fontSize: '12px', color: '#1e3a8a', display: 'block', marginTop: '2px' }}>
+              This Action Taken Report is an archived historical record from AY {selectedYear}. Previous year ATR reports are locked for audit reference and cannot be edited.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* TABS STRIP */}
       <div style={{ display: 'flex', gap: '8px', background: '#f1f5f9', padding: '6px', borderRadius: '10px', marginBottom: '20px', width: 'fit-content' }}>

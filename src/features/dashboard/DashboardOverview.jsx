@@ -96,15 +96,6 @@ export default function DashboardOverview() {
       iconBg: '#f0fdf4',
     },
     {
-      id: 'atr',
-      title: 'ATR Reports',
-      desc: 'View and download Course ATR and reports.',
-      path: '/atr-reports',
-      icon: FileText,
-      iconColor: '#dc2626',
-      iconBg: '#fef2f2',
-    },
-    {
       id: 'mapping',
       title: 'CO–PO Mapping',
       desc: 'Map course outcomes to programme outcomes.',

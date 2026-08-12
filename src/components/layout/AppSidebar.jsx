@@ -80,7 +80,6 @@ const FACULTY_NAV = [
   { id: 'dashboard',           path: '/dashboard',                icon: 'dashboard', label: 'Dashboard' },
   { id: 'outcomes',            path: '/outcomes?mode=standalone', icon: 'outcomes',  label: 'Outcomes' },
   { id: 'configurations',      path: '/configurations',           icon: 'config',    label: 'Attainment Settings' },
-  { id: 'course-atr',          path: '/atr-reports',              icon: 'survey',    label: 'ATR Reports' },
   { id: 'reports',             path: '/reports',                  icon: 'reports',   label: 'Reports' },
 ];
 

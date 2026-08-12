@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Save, CheckCircle2, Clock, ShieldCheck, Printer,
-  ChevronDown, AlertCircle, Plus,
+  ChevronDown, AlertCircle, Plus, Lock,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -24,7 +24,7 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
     selectedProgramme,
     selectedBatch,
     academicYear    = '2025-26',
-    availableYears  = ['2025-26', '2024-25'],
+    availableYears  = ['2025-26', '2024-25', '2023-24'],
     activePOs       = [],
     activePSOs      = [],
     poPsoTargets    = {},
@@ -43,7 +43,8 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
   const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
   const [selectedYear, setSelectedYear] = useState(academicYear || '2025-26');
-  const locked = readOnly || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
+  const isPreviousYear = selectedYear !== (academicYear || '2025-26');
+  const locked = readOnly || isPreviousYear || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
 
   // ── Build PO/PSO ATR list ──────────────────────────────────────────
   const progTargets = poPsoTargets[programmeId] || { poTargets: {}, psoTargets: {} };
@@ -236,12 +237,31 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
               <Printer size={13} /> Print
             </button>
 
-            {!locked && (
+            {!locked ? (
               <button onClick={handleSaveSubmit}
                 style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
                 <Save size={13} /> Save &amp; Submit Programme ATR
               </button>
+            ) : (
+              <span style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Lock size={13} /> {isPreviousYear ? `AY ${selectedYear} Archived (Read-Only)` : 'Report Locked'}
+              </span>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Archived Year Lock Banner */}
+      {isPreviousYear && (
+        <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+          <Lock size={20} style={{ color: '#1d4ed8', flexShrink: 0 }} />
+          <div>
+            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#1e40af', display: 'block' }}>
+              🔒 Archived Academic Year ({selectedYear}) — Read Only
+            </span>
+            <span style={{ fontSize: '12px', color: '#1e3a8a', display: 'block', marginTop: '2px' }}>
+              This Programme Action Taken Report is an archived historical record from AY {selectedYear}. Previous year ATR reports are locked and cannot be edited.
+            </span>
           </div>
         </div>
       )}

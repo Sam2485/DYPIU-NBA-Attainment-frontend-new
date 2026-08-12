@@ -184,7 +184,7 @@ export default function AttainmentConfig() {
       </div>
 
       {/* Verification / Rejection Status Banner */}
-      {currentVerificationStatus === 'VERIFIED' && (
+      {(currentVerificationStatus === 'VERIFIED' || currentVerificationStatus === 'APPROVED') && (
         <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
           <CheckCircle2 size={20} style={{ color: '#16a34a', flexShrink: 0 }} />
           <div>
@@ -198,7 +198,7 @@ export default function AttainmentConfig() {
         </div>
       )}
 
-      {currentVerificationStatus === 'REJECTED' && (
+      {(currentVerificationStatus === 'REJECTED' || currentVerificationStatus === 'REVISION_REQUESTED' || currentVerificationStatus === 'NEEDS_REVISION') && (
         <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '20px' }}>
           <AlertCircle size={20} style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
           <div>

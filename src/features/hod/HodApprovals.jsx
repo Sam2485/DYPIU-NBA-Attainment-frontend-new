@@ -61,6 +61,9 @@ export default function HodApprovals() {
     departments = [],
     masterProgrammes = [],
     courses = [],
+    hodApprovals = [],
+    approveHodSubmission = () => {},
+    rejectHodSubmission = () => {},
     academicYear = '2025-26',
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
@@ -98,7 +101,7 @@ export default function HodApprovals() {
   const allocationRecord = courseVerificationStore[allocationKey] || {};
   const allocationStatus = allocationRecord.allocationStatus || 'PENDING';
   const allocationRemarks = allocationRecord.allocationRemarks || '';
-  const isApproved       = allocationStatus === 'APPROVED';
+  const isApproved       = allocationStatus === 'APPROVED' || hodApprovals.every((a) => a.status === 'APPROVED');
   const isNeedsRevision  = allocationStatus === 'REVISION_REQUESTED';
 
 
@@ -113,6 +116,8 @@ export default function HodApprovals() {
   /* ── actions ───────────────────────────────────────────────────── */
   const handleApprove = () => {
     updateCourseVerificationStatus(allocationKey, 'allocationStatus', 'APPROVED', '', verifierName);
+    approveHodSubmission(selectedProgId, verifierName);
+    approveHodSubmission('ALL', verifierName);
     alert(`🎉 Course Coordinator allocations for ${activeProg?.code || 'programme'} approved by HOD!`);
   };
 
@@ -276,18 +281,20 @@ export default function HodApprovals() {
               </select>
             </div>
 
-            <ApprovalHeaderControls
-              status={allocationStatus}
-              onApprove={handleApprove}
-              onRequestRevision={() => { setRejectRemarks(allocationRemarks || 'Please review and re-assign Course Coordinators as per HOD notes.'); setShowRejectModal(true); }}
-              approveText="Approve Allocations"
-              approvedText={`Approved (${activeProg?.code})`}
-              revisionCardTitle="Revision Requested for Programme Allocations"
-              revisionCardRequestedBy="Head of Department (HOD)"
-              revisionCardRemarks={allocationRemarks || 'Please review and re-assign Course Coordinators as per HOD notes.'}
-              revisionCardActionText="The Programme Coordinator has been notified to revise the Course Coordinator assignments."
-              showButtonsOnly={true}
-            />
+            {progCourses.length > 0 && (
+              <ApprovalHeaderControls
+                status={allocationStatus}
+                onApprove={handleApprove}
+                onRequestRevision={() => { setRejectRemarks(allocationRemarks || 'Please review and re-assign Course Coordinators as per HOD notes.'); setShowRejectModal(true); }}
+                approveText="Approve Allocations"
+                approvedText={`Approved (${activeProg?.code})`}
+                revisionCardTitle="Revision Requested for Programme Allocations"
+                revisionCardRequestedBy="Head of Department (HOD)"
+                revisionCardRemarks={allocationRemarks || 'Please review and re-assign Course Coordinators as per HOD notes.'}
+                revisionCardActionText="The Programme Coordinator has been notified to revise the Course Coordinator assignments."
+                showButtonsOnly={true}
+              />
+            )}
           </div>
         </div>
 
