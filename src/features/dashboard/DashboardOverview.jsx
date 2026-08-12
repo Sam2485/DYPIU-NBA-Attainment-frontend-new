@@ -153,7 +153,7 @@ export default function DashboardOverview() {
         </div>
         <div style={{ marginLeft: 'auto' }}>
           <button
-            onClick={() => navigate(`/course-coordinator/workflow?step=${targetStepNum}`)}
+            onClick={() => navigate('/course-coordinator/workflow?step=1')}
             style={{
               height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '800',
               background: accent, color: '#fff', border: 'none', borderRadius: '8px',
@@ -163,7 +163,7 @@ export default function DashboardOverview() {
             }}
           >
             <PlayCircle size={15} />
-            {completedCount > 0 ? 'Continue Attainment' : 'Start Attainment'}
+            Start Course Attainment Workflow (Step 1)
             <ArrowRight size={14} />
           </button>
         </div>
@@ -243,10 +243,10 @@ export default function DashboardOverview() {
             </div>
           </div>
           <button
-            onClick={() => navigate(`/course-coordinator/workflow?step=${nextStep.step}`)}
+            onClick={() => navigate('/course-coordinator/workflow?step=1')}
             style={{ height: '34px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#d97706', color: '#fff', border: 'none', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit', flexShrink: 0 }}
           >
-            Go to Step {nextStep.step} <ChevronRight size={14} />
+            Start Workflow (Step 1) <ChevronRight size={14} />
           </button>
         </div>
       )}

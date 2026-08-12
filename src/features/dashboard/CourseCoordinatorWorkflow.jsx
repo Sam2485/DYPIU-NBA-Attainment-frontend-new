@@ -64,8 +64,13 @@ export default function CourseCoordinatorWorkflow() {
 
   useEffect(() => {
     const s = parseInt(searchParams.get('step'), 10);
-    if (s >= 1 && s <= 8 && s !== currentStep) setCurrentStep(s);
-  }, [searchParams, currentStep]);
+    if (!s || isNaN(s) || s < 1 || s > 8) {
+      setSearchParams({ step: 1 }, { replace: true });
+      setCurrentStep(1);
+    } else if (s !== currentStep) {
+      setCurrentStep(s);
+    }
+  }, [searchParams]);
 
   const goToStep = (n) => {
     setCurrentStep(n);
@@ -142,7 +147,10 @@ export default function CourseCoordinatorWorkflow() {
           <div style={{ position: 'relative' }}>
             <select
               value={course?.id || ''}
-              onChange={(e) => setCourseId(e.target.value)}
+              onChange={(e) => {
+                setCourseId(e.target.value);
+                goToStep(1);
+              }}
               style={{
                 height: '38px', fontSize: '13px', fontWeight: '700', color: accent,
                 border: '1.5px solid #c7d2fe', borderRadius: '8px',

@@ -702,53 +702,119 @@ export default function AppSidebar() {
             </nav>
           </>
         ) : (
-          /* COURSE COORDINATOR: DIRECT NAVIGATION ITEMS */
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {FACULTY_NAV.map((item) => {
-              const isActive = fullPath === item.path || item.path.split('?')[0] === location.pathname;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => navigate(item.path)}
-                  className="nba-nav-item"
-                  style={{
-                    minHeight: 40,
-                    border: isActive ? '1px solid rgba(165,180,252,0.28)' : '1px solid transparent',
-                    borderRadius: 10,
-                    background: isActive ? 'rgba(99,102,241,0.22)' : 'transparent',
-                    color: '#f8fafc',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '8px 12px',
-                    textAlign: 'left',
-                    boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: 7,
-                      flexShrink: 0,
-                      background: isActive ? 'rgba(99,102,241,0.28)' : 'rgba(148,163,184,0.08)',
-                      display: 'grid',
-                      placeItems: 'center',
-                    }}
-                  >
-                    <Icon name={item.icon} active={isActive} size={14} />
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, lineHeight: 1.1, color: isActive ? '#ffffff' : '#cbd5e1' }}>
-                      {item.label}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+          /* COURSE COORDINATOR: SINGLE DROPDOWN MENU (MATCHING ORIGINAL DESIGN EXACTLY) */
+          <nav style={{ position: 'relative' }}>
+            <button
+              type="button"
+              aria-expanded={navOpenFaculty}
+              onClick={() => setNavOpenFaculty((prev) => !prev)}
+              style={{
+                width: '100%',
+                minHeight: 44,
+                border: navOpenFaculty ? '1px solid rgba(165,180,252,0.45)' : '1px solid rgba(148,163,184,0.20)',
+                borderRadius: 13,
+                background: 'rgba(30,41,59,0.72)',
+                color: '#f8fafc',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 9,
+                padding: '8px 12px',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <span
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 8,
+                  background: 'rgba(99,102,241,0.18)',
+                  border: '1px solid rgba(165,180,252,0.22)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <Icon name={activeFacultyItem?.icon || 'nav'} active size={14} />
+              </span>
+              <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {activeFacultyItem ? activeFacultyItem.label : 'Select Navigation Page'}
+              </span>
+              <span style={{ display: 'grid', placeItems: 'center', transition: 'transform 0.2s', transform: navOpenFaculty ? 'rotate(180deg)' : 'rotate(0deg)', color: '#64748b' }}>
+                <Icon name="chevron" size={15} />
+              </span>
+            </button>
+
+            {navOpenFaculty && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  marginTop: 6,
+                  padding: 5,
+                  background: '#1f2937',
+                  border: '1px solid rgba(148,163,184,0.22)',
+                  borderRadius: 12,
+                  boxShadow: '0 18px 34px rgba(2,6,23,0.32)',
+                  display: 'grid',
+                  gap: 2,
+                  maxHeight: '340px',
+                  overflowY: 'auto',
+                  zIndex: 50,
+                }}
+              >
+                {FACULTY_NAV.map((item) => {
+                  const isActive = fullPath === item.path || item.path.split('?')[0] === location.pathname;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        navigate(item.path);
+                        setNavOpenFaculty(false);
+                      }}
+                      className="nba-nav-item"
+                      style={{
+                        minHeight: 42,
+                        border: isActive ? '1px solid rgba(165,180,252,0.24)' : '1px solid transparent',
+                        borderRadius: 10,
+                        background: isActive ? 'rgba(99,102,241,0.18)' : 'transparent',
+                        color: '#f8fafc',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '8px 10px',
+                        textAlign: 'left',
+                        boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 8,
+                          flexShrink: 0,
+                          background: isActive ? 'rgba(99,102,241,0.16)' : 'rgba(148,163,184,0.08)',
+                          display: 'grid',
+                          placeItems: 'center',
+                        }}
+                      >
+                        <Icon name={item.icon} active={isActive} size={14} />
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 12.5, lineHeight: 1.1, color: '#f8fafc' }}>
+                          {item.label}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </nav>
         )}
       </div>
