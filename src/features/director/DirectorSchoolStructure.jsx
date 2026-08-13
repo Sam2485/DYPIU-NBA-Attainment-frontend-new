@@ -68,7 +68,7 @@ export default function DirectorSchoolStructure() {
           <div>
             <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{summaryStats?.schoolName || selectedSchool.name}</div>
             <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>
-              Dean: <strong style={{ color: ink }}>{summaryStats?.deanName || selectedSchool.dean}</strong>
+              Director: <strong style={{ color: ink }}>{summaryStats?.directorName || selectedSchool.director || selectedSchool.dean}</strong>
               &nbsp;·&nbsp; Est. {summaryStats?.estYear || selectedSchool.estYear}
             </div>
           </div>

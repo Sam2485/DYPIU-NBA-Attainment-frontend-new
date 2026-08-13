@@ -4,7 +4,7 @@ import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, ArrowLeft, S
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
-import { getSchools, saveSchoolInfo, getDirectorSetupProgress, updateDirectorSetupProgress } from '../../api/academic';
+import { getSchools, saveSchoolInfo, getDirectorSchoolSummary, getDirectorSetupProgress, updateDirectorSetupProgress } from '../../api/academic';
 
 export default function DirectorSetupWorkflow() {
   const navigate = useNavigate();
@@ -52,30 +52,31 @@ export default function DirectorSetupWorkflow() {
   const [schoolId, setSchoolId] = useState(selectedSchool?.id || '');
   const [schoolName, setSchoolName] = useState(selectedSchool?.name || '');
   const [schoolCode, setSchoolCode] = useState(selectedSchool?.code || '');
-  const [deanName, setDeanName] = useState(selectedSchool?.dean || user?.name || '');
+  const [directorName, setDirectorName] = useState(selectedSchool?.director || selectedSchool?.dean || user?.name || '');
+  const [directorEmail, setDirectorEmail] = useState(selectedSchool?.directorEmail || user?.email || '');
   const [estYear, setEstYear] = useState(selectedSchool?.estYear || '2024');
 
   // Fetch school info & setup progress from backend on mount
   useEffect(() => {
     let isMounted = true;
-    getSchools()
+    getDirectorSchoolSummary('', user?.email || '', user?.name || '')
       .then((res) => {
-        const schools = res?.data?.data || res?.data || res || [];
-        if (Array.isArray(schools) && schools.length > 0 && isMounted) {
-          const sch = schools[0];
-          if (sch.id) setSchoolId(sch.id);
-          if (sch.name) setSchoolName(sch.name);
-          if (sch.code) setSchoolCode(sch.code);
-          if (sch.dean) setDeanName(sch.dean);
+        const sch = res?.data?.data || res?.data || res;
+        if (sch && isMounted) {
+          if (sch.schoolId) setSchoolId(sch.schoolId);
+          if (sch.schoolName) setSchoolName(sch.schoolName);
+          if (sch.schoolCode) setSchoolCode(sch.schoolCode);
+          if (sch.directorName) setDirectorName(sch.directorName);
+          if (sch.directorEmail) setDirectorEmail(sch.directorEmail);
           if (sch.estYear) setEstYear(sch.estYear);
-          updateSchoolInfo(sch.id || 'sch-1', sch);
+          updateSchoolInfo(sch.schoolId || 'sch-1', sch);
         }
       })
       .catch((err) => {
-        console.warn('Could not fetch schools from backend:', err);
+        console.warn('Could not fetch director school summary from backend:', err);
       });
 
-    getDirectorSetupProgress(selectedSchool?.id || 'sch-1')
+    getDirectorSetupProgress(schoolId || selectedSchool?.id || 'sch-1')
       .then((res) => {
         const progressData = res?.data?.data || res?.data || res;
         if (progressData && isMounted) {
@@ -92,7 +93,7 @@ export default function DirectorSetupWorkflow() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user?.email]);
 
   const syncProgress = async (newStep) => {
     try {
@@ -127,7 +128,7 @@ export default function DirectorSetupWorkflow() {
   const [newProgDuration, setNewProgDuration] = useState(4);
 
   const steps = [
-    { number: 1, key: 'school', title: 'School Info', desc: 'Metadata & Dean', icon: Building2 },
+    { number: 1, key: 'school', title: 'School Info', desc: 'Metadata & Director', icon: Building2 },
     { number: 2, key: 'department', title: 'Departments', desc: 'Depts & HODs', icon: Users },
     { number: 3, key: 'programme', title: 'Programmes', desc: 'Degree mapping', icon: GraduationCap },
     { number: 4, key: 'review', title: 'Review', desc: 'Verify & finish', icon: CheckCircle2 },
@@ -208,12 +209,13 @@ export default function DirectorSetupWorkflow() {
   const handleSaveSchoolStep = async () => {
     try {
       setIsSaving(true);
-      const targetId = schoolId || selectedSchool?.id || 'sch-1';
+      const targetId = schoolId || selectedSchool?.id || `sch-${Date.now()}`;
       const payload = {
         id: targetId,
         name: schoolName,
         code: schoolCode,
-        dean: deanName,
+        director: directorName,
+        directorEmail: directorEmail,
         estYear: estYear,
       };
       const response = await saveSchoolInfo(payload);
@@ -233,7 +235,7 @@ export default function DirectorSetupWorkflow() {
       changeStep(2);
     } catch (err) {
       console.error('Failed to save school info to backend:', err);
-      updateSchoolInfo(schoolId || 'sch-1', { name: schoolName, code: schoolCode, dean: deanName, estYear });
+      updateSchoolInfo(schoolId || 'sch-1', { name: schoolName, code: schoolCode, director: directorName, directorEmail, estYear });
       changeStep(2);
     } finally {
       setIsSaving(false);
@@ -362,8 +364,12 @@ export default function DirectorSetupWorkflow() {
                 <input type="text" value={schoolCode} onChange={(e) => setSchoolCode(e.target.value)} style={{ ...inputStyle, fontWeight: '700', color: accent }} />
               </div>
               <div>
-                <label style={labelStyle}>Dean / School Director *</label>
-                <input type="text" value={deanName} onChange={(e) => setDeanName(e.target.value)} style={inputStyle} />
+                <label style={labelStyle}>School Director Name *</label>
+                <input type="text" value={directorName} onChange={(e) => setDirectorName(e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Director Email Address *</label>
+                <input type="email" value={directorEmail} onChange={(e) => setDirectorEmail(e.target.value)} style={inputStyle} />
               </div>
               <div>
                 <label style={labelStyle}>Establishment Year</label>
@@ -569,7 +575,8 @@ export default function DirectorSetupWorkflow() {
                 <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>School</div>
                 <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{schoolName}</div>
                 <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>Code: <strong style={{ color: ink }}>{schoolCode}</strong></div>
-                <div style={{ fontSize: '12px', color: muted, marginTop: '1px' }}>Dean: <strong style={{ color: ink }}>{deanName}</strong></div>
+                <div style={{ fontSize: '12px', color: muted, marginTop: '1px' }}>Director: <strong style={{ color: ink }}>{directorName}</strong></div>
+                <div style={{ fontSize: '12px', color: muted, marginTop: '1px' }}>Email: <strong style={{ color: ink }}>{directorEmail}</strong></div>
                 <div style={{ fontSize: '12px', color: muted, marginTop: '1px' }}>Est. {estYear}</div>
               </div>
               <div style={{ ...surface, padding: '16px' }}>

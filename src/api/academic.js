@@ -51,7 +51,7 @@ export const saveSchoolInfo = async (schoolData) => {
 export const getDirectorSetupProgress = async (schoolId = 'sch-1') => {
   try {
     const response = await apiClient.get('/academic/director/setup-progress', {
-      params: { schoolId },
+      params: {schoolId},
     });
     return response;
   } catch (error) {
@@ -72,10 +72,10 @@ export const updateDirectorSetupProgress = async (schoolId = 'sch-1', currentSte
   }
 };
 
-export const getDirectorSchoolSummary = async (schoolId = '', deanEmail = '', deanName = '') => {
+export const getDirectorSchoolSummary = async (schoolId = '', directorEmail = '', directorName = '') => {
   try {
     const response = await apiClient.get('/academic/director/school-summary', {
-      params: { schoolId, deanEmail, deanName },
+      params: {directorEmail},
     });
     return response;
   } catch (error) {

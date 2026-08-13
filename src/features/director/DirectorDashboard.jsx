@@ -152,7 +152,7 @@ export default function DirectorDashboard() {
           </h1>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
             {hasSchoolInDb ? (
-              `${schoolSummary?.schoolName || selectedSchool?.name} · ${schoolSummary?.schoolCode || selectedSchool?.code} ${schoolSummary?.deanName ? `· Dean: ${schoolSummary.deanName}` : ''}`
+              `${schoolSummary?.schoolName || selectedSchool?.name} · ${schoolSummary?.schoolCode || selectedSchool?.code} ${schoolSummary?.directorName ? `· Director: ${schoolSummary.directorName}` : ''}`
             ) : (
               'No school metadata found in database. Please click Start Setup to configure your school.'
             )}
