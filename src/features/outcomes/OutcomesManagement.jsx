@@ -166,7 +166,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
     const newPo = {
       code: `PO${newPoNum}`,
       statement: `New proposed Programme Outcome ${newPoNum} Statement...`,
-      status: role === 'DIRECTOR' || role === 'IQAC' ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION',
+      status: role === 'DIRECTOR' ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION',
       submittedBy: user?.name || 'Programme Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
       competencies: [
@@ -275,7 +275,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
     const newPso = {
       code: `PSO${newPsoNum}`,
       statement: `New proposed Programme Specific Outcome ${newPsoNum} Statement...`,
-      status: role === 'DIRECTOR' || role === 'IQAC' ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION',
+      status: role === 'DIRECTOR' ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION',
       submittedBy: user?.name || 'Programme Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
       competencies: [
@@ -384,7 +384,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
     const newCo = {
       code: `C321.${newCoNum}`,
       statement: `New proposed Course Outcome statement ${newCoNum}...`,
-      status: role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' ? 'APPROVED' : 'WAITING_FOR_APPROVAL',
+      status: role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' ? 'APPROVED' : 'WAITING_FOR_APPROVAL',
       submittedBy: user?.name || 'Course Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
     };
@@ -484,7 +484,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
       </div>
 
       {/* Director Pending Verifications Banner */}
-      {(role === 'DIRECTOR' || role === 'IQAC') && (pendingPoCount > 0 || pendingPsoCount > 0) && (
+      {role === 'DIRECTOR' && (pendingPoCount > 0 || pendingPsoCount > 0) && (
         <div
           className="card"
           style={{
@@ -698,7 +698,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                       </span>
                     )}
 
-                    {(role === 'DIRECTOR' || role === 'IQAC') && !isVerified && (
+                    {role === 'DIRECTOR' && !isVerified && (
                       <button
                         className="btn btn-success"
                         style={{ padding: '5px 10px', fontSize: '11.5px' }}
@@ -708,7 +708,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                       </button>
                     )}
 
-                    {(role === 'DIRECTOR' || role === 'IQAC') && isPendingVerification && (
+                    {role === 'DIRECTOR' && isPendingVerification && (
                       <button
                         className="btn btn-danger"
                         style={{ padding: '5px 10px', fontSize: '11.5px' }}
@@ -871,7 +871,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                       </span>
                     )}
 
-                    {(role === 'DIRECTOR' || role === 'IQAC') && !isVerified && (
+                    {role === 'DIRECTOR' && !isVerified && (
                       <button
                         className="btn btn-success"
                         style={{ padding: '5px 10px', fontSize: '11.5px' }}
@@ -881,7 +881,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                       </button>
                     )}
 
-                    {(role === 'DIRECTOR' || role === 'IQAC') && isPendingVerification && (
+                    {role === 'DIRECTOR' && isPendingVerification && (
                       <button
                         className="btn btn-danger"
                         style={{ padding: '5px 10px', fontSize: '11.5px' }}
@@ -1078,7 +1078,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
-                              {(role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC') && (
+                              {(role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR') && (
                                 <>
                                   {!isApproved && (
                                     <button

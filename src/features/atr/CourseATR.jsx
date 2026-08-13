@@ -33,7 +33,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   } = useAcademic();
 
   const isFaculty      = role === 'FACULTY';
-  const isCoordinator  = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+  const isCoordinator  = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR';
 
   const [selectedYear, setSelectedYear] = useState(academicYear || '2025-26');
   const [showHistory,  setShowHistory]  = useState(showHistoryProp ?? false);
@@ -81,7 +81,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   useEffect(() => { setCoList(buildList()); }, [activeCourseId, currentCourse, activeCOs, courseAtrStore]);
 
   const reportStatus = courseVerificationStore[activeCourseId]?.atrStatus || 'DRAFT';
-  const locked       = readOnly || isPreviousYear || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED' || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+  const locked       = readOnly || isPreviousYear || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED' || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR';
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleSaveSubmit = () => {

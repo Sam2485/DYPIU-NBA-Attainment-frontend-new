@@ -97,7 +97,7 @@ export default function AppSidebar() {
   const [navOpenReview, setNavOpenReview] = useState(false);
   const [navOpenFaculty, setNavOpenFaculty] = useState(false);
 
-  const isCoordinatorRole = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+  const isCoordinatorRole = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR';
 
   const fullPath = location.pathname + location.search;
 
@@ -117,7 +117,6 @@ export default function AppSidebar() {
   });
 
   const roleText = {
-    IQAC: 'IQAC Admin',
     DIRECTOR: 'School Director',
     HOD: 'Head of Department (HOD)',
     PROGRAMME_COORDINATOR: 'Programme Coordinator',
@@ -214,9 +213,9 @@ export default function AppSidebar() {
           <option value="PROGRAMME_COORDINATOR" style={{ color: '#0f172a', background: '#ffffff' }}>Programme Coordinator</option>
           <option value="HOD" style={{ color: '#0f172a', background: '#ffffff' }}>Head of Department (HOD)</option>
           <option value="DIRECTOR" style={{ color: '#0f172a', background: '#ffffff' }}>School Director</option>
-          <option value="IQAC" style={{ color: '#0f172a', background: '#ffffff' }}>IQAC Admin</option>
         </select>
       </div>
+
 
       {/* ── Academic Year Selector with Status Tags ────────────────── */}
       <div

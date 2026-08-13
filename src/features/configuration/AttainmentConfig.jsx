@@ -22,7 +22,7 @@ export default function AttainmentConfig() {
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
 
-  const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+  const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR';
 
   const courseList = availableCourses.length > 0 ? availableCourses : [
     { id: 'crs-1', code: '310244', name: 'Computer Network and Security' },

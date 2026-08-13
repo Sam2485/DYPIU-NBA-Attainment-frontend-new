@@ -40,7 +40,7 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
   const verifierName = vRecord.verifiedBy || 'Programme Coordinator';
 
   const isFaculty     = role === 'FACULTY';
-  const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+  const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR';
 
   const [selectedYear, setSelectedYear] = useState(academicYear || '2025-26');
   const isPreviousYear = selectedYear !== (academicYear || '2025-26');
