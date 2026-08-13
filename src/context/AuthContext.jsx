@@ -6,7 +6,7 @@ const DEFAULT_USER = {
   id: 1,
   name: 'Dr. Raj Shaikh',
   email: 'raj.shaikh@dypiu.ac.in',
-  role: 'FACULTY', // Options: 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY'
+  role: 'FACULTY',
   department: 'Computer Science & Engineering',
   programme: 'B.Tech CSE',
 };
@@ -14,26 +14,27 @@ const DEFAULT_USER = {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const saved = sessionStorage.getItem('nba_user');
-    return saved ? JSON.parse(saved) : DEFAULT_USER;
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return DEFAULT_USER;
+      }
+    }
+    return DEFAULT_USER;
   });
 
-  const [role, setRole] = useState(() => user?.role || 'FACULTY');
+  const [role, setRole] = useState(() => user?.role || sessionStorage.getItem('role') || 'FACULTY');
 
   useEffect(() => {
     if (user) {
-      sessionStorage.setItem('nba_user', JSON.stringify({ ...user, role }));
+      const updatedUser = { ...user, role };
+      sessionStorage.setItem('nba_user', JSON.stringify(updatedUser));
       sessionStorage.setItem('role', role);
     }
   }, [user, role]);
 
-  const switchRole = (newRole) => {
-    setRole(newRole);
-    if (user) {
-      setUser((prev) => ({ ...prev, role: newRole }));
-    }
-  };
-
-  const loginUser = (profileData, token = 'mock-jwt-token') => {
+  const loginUser = (profileData, token = '', refreshToken = '') => {
     const updatedUser = {
       id: profileData.id || Date.now(),
       name: profileData.name || profileData.username || 'User',
@@ -43,16 +44,40 @@ export function AuthProvider({ children }) {
       department: profileData.department || 'Computer Science & Engineering',
       programme: profileData.programme || 'B.Tech CSE',
     };
-    sessionStorage.setItem('authToken', token);
-    sessionStorage.setItem('token', token);
+
+    if (token) {
+      sessionStorage.setItem('authToken', token);
+      sessionStorage.setItem('token', token);
+      sessionStorage.setItem('accessToken', token);
+    }
+
+    if (refreshToken) {
+      sessionStorage.setItem('refreshToken', refreshToken);
+    }
+
     sessionStorage.setItem('nba_user', JSON.stringify(updatedUser));
     sessionStorage.setItem('role', updatedUser.role);
+
     setUser(updatedUser);
     setRole(updatedUser.role);
     return updatedUser;
   };
 
+  const getAccessToken = () => {
+    return sessionStorage.getItem('accessToken') || sessionStorage.getItem('authToken') || sessionStorage.getItem('token') || '';
+  };
+
+  const getRefreshToken = () => {
+    return sessionStorage.getItem('refreshToken') || '';
+  };
+
   const logout = () => {
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('nba_user');
+    sessionStorage.removeItem('role');
     sessionStorage.clear();
     setUser(null);
     const loginUrl = window.location.pathname.startsWith('/obe') ? '/obe/login' : '/login';
@@ -60,7 +85,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, switchRole, loginUser, logout }}>
+    <AuthContext.Provider value={{ user, role, loginUser, logout, getAccessToken, getRefreshToken }}>
       {children}
     </AuthContext.Provider>
   );

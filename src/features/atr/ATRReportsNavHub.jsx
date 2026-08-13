@@ -40,6 +40,9 @@ const COURSE_PROG_SEEDS = {
 };
 
 export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
+  const { role } = useAuth();
+  const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
+
   const {
     availableCourses = [],
     courses = [],
@@ -295,54 +298,56 @@ export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
       )}
 
       {/* TABS STRIP */}
-      <div style={{ display: 'flex', gap: '8px', background: '#f1f5f9', padding: '6px', borderRadius: '10px', marginBottom: '20px', width: 'fit-content' }}>
-        <button
-          type="button"
-          onClick={() => setActiveAtrTab('course-atr')}
-          style={{
-            padding: '8px 18px',
-            borderRadius: '8px',
-            border: 'none',
-            fontSize: '13px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            background: activeAtrTab === 'course-atr' ? '#ffffff' : 'transparent',
-            color: activeAtrTab === 'course-atr' ? '#4f46e5' : '#64748b',
-            boxShadow: activeAtrTab === 'course-atr' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-            fontFamily: 'inherit',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <FileText size={15} /> 1. Course ATR
-        </button>
+      {!isCourseCoordinator ? (
+        <div style={{ display: 'flex', gap: '8px', background: '#f1f5f9', padding: '6px', borderRadius: '10px', marginBottom: '20px', width: 'fit-content' }}>
+          <button
+            type="button"
+            onClick={() => setActiveAtrTab('course-atr')}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '8px',
+              border: 'none',
+              fontSize: '13px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              background: activeAtrTab === 'course-atr' ? '#ffffff' : 'transparent',
+              color: activeAtrTab === 'course-atr' ? '#4f46e5' : '#64748b',
+              boxShadow: activeAtrTab === 'course-atr' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+              fontFamily: 'inherit',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <FileText size={15} /> 1. Course ATR
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveAtrTab('programme-atr')}
-          style={{
-            padding: '8px 18px',
-            borderRadius: '8px',
-            border: 'none',
-            fontSize: '13px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            background: activeAtrTab === 'programme-atr' ? '#ffffff' : 'transparent',
-            color: activeAtrTab === 'programme-atr' ? '#4f46e5' : '#64748b',
-            boxShadow: activeAtrTab === 'programme-atr' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-            fontFamily: 'inherit',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <Layers size={15} /> 2. Programme ATR
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => setActiveAtrTab('programme-atr')}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '8px',
+              border: 'none',
+              fontSize: '13px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              background: activeAtrTab === 'programme-atr' ? '#ffffff' : 'transparent',
+              color: activeAtrTab === 'programme-atr' ? '#4f46e5' : '#64748b',
+              boxShadow: activeAtrTab === 'programme-atr' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+              fontFamily: 'inherit',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <Layers size={15} /> 2. Programme ATR
+          </button>
+        </div>
+      ) : null}
 
       {/* TAB 1: COURSE ATR */}
-      {activeAtrTab === 'course-atr' && (
+      {(isCourseCoordinator || activeAtrTab === 'course-atr') && (
         <div>
           <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px 20px', marginBottom: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -360,8 +365,8 @@ export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
         </div>
       )}
 
-      {/* TAB 2: PROGRAMME ATR */}
-      {activeAtrTab === 'programme-atr' && (
+      {/* TAB 2: PROGRAMME ATR (HOD / Programme Coordinator / Director only) */}
+      {!isCourseCoordinator && activeAtrTab === 'programme-atr' && (
         <div>
           <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px 20px', marginBottom: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

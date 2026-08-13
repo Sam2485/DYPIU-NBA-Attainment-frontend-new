@@ -15,7 +15,6 @@ import EndSemMarksHub from '../marks/EndSemMarksHub';
 import CourseEndSurveyHub from '../survey/CourseEndSurveyHub';
 import COAttainmentEngine from '../coAttainment/COAttainmentEngine';
 import CourseATR from '../atr/CourseATR';
-import ProgrammeATR from '../atr/ProgrammeATR';
 
 // ── Style tokens ───────────────────────────────────────────────────────────────
 const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -32,7 +31,6 @@ const STEPS = [
   { number: 5, title: 'Indirect Assessment',desc: 'Upload course-end survey',        path: '/survey-upload', icon: ClipboardList,color: '#059669', bg: '#f0fdf4' },
   { number: 6, title: 'CO Attainment',      desc: 'Compute & review attainment',     path: '/co-attainment', icon: BarChart2,    color: '#d97706', bg: '#fffbeb' },
   { number: 7, title: 'Course ATR',         desc: 'Fill Course Action Taken Report', path: '/course-atr',    icon: FileText,     color: '#dc2626', bg: '#fef2f2' },
-  { number: 8, title: 'Programme ATR',      desc: 'Fill PO/PSO Action Taken Report', path: '/programme-atr', icon: Layers,       color: '#059669', bg: '#f0fdf4' },
 ];
 
 export default function CourseCoordinatorWorkflow() {
@@ -59,12 +57,12 @@ export default function CourseCoordinatorWorkflow() {
   // ── URL ↔ state sync ────────────────────────────────────────────────────────
   const initialStep = parseInt(searchParams.get('step'), 10);
   const [currentStep, setCurrentStep] = useState(
-    initialStep >= 1 && initialStep <= 8 ? initialStep : 1
+    initialStep >= 1 && initialStep <= 7 ? initialStep : 1
   );
 
   useEffect(() => {
     const s = parseInt(searchParams.get('step'), 10);
-    if (!s || isNaN(s) || s < 1 || s > 8) {
+    if (!s || isNaN(s) || s < 1 || s > 7) {
       setSearchParams({ step: 1 }, { replace: true });
       setCurrentStep(1);
     } else if (s !== currentStep) {
@@ -88,7 +86,6 @@ export default function CourseCoordinatorWorkflow() {
     if (idx === 4) return !!config.indirectUploaded;
     if (idx === 5) return !!config.attainmentRun;
     if (idx === 6) return !!config.atrSubmitted;
-    if (idx === 7) return !!config.progAtrSubmitted;
     return false;
   });
 
@@ -255,18 +252,6 @@ export default function CourseCoordinatorWorkflow() {
             </div>
             <div style={{ padding: '20px' }}>
               <CourseATR hideFooter hideHeader />
-            </div>
-          </div>
-        )}
-        {currentStep === 8 && (
-          <div>
-            <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 24px' }}>
-              <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>
-                Programme ATR
-              </h3>
-            </div>
-            <div style={{ padding: '20px' }}>
-              <ProgrammeATR hideFooter hideHeader />
             </div>
           </div>
         )}

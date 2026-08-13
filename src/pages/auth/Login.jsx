@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getApiErrorMessage, login, requestPasswordReset, verifyOtp, resendOtp } from "../../api/auth";
+import { getApiErrorMessage, login, register, requestPasswordReset, verifyOtp, resendOtp } from "../../api/auth";
 import { useAuth } from "../../context/AuthContext";
 import { InlineSpinner } from "../../components/common/InlineSpinner";
 import backgroundImage from "../../assets/images/dyp.jpeg";
@@ -30,6 +30,10 @@ export default function Login() {
   const location = useLocation();
   const { loginUser } = useAuth();
 
+  // Mode state
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  // Login state
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -37,6 +41,14 @@ export default function Login() {
   const [message, setMessage] = useState(location.state?.message || "");
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+
+  // Register state
+  const [regName, setRegName] = useState("");
+  const [regUsername, setRegUsername] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regRole, setRegRole] = useState("FACULTY");
+  const [regLoading, setRegLoading] = useState(false);
 
   // MFA state
   const [mfaRequired, setMfaRequired] = useState(false);
@@ -65,8 +77,8 @@ export default function Login() {
     return `${m}:${s < 10 ? "0" : ""}${s}`;
   };
 
-  const storeSessionAndNavigate = (userData, token) => {
-    const loggedUser = loginUser(userData, token);
+  const storeSessionAndNavigate = (userData, token, refreshToken = '') => {
+    const loggedUser = loginUser(userData, token, refreshToken);
     const targetDashboard = dashboardForRole(loggedUser.role);
     navigate(targetDashboard, { replace: true });
   };
@@ -90,7 +102,12 @@ export default function Login() {
 
     try {
       const res = await login(identifier, pw);
-      const data = res?.data;
+
+      if (!res || res.success === false) {
+        throw new Error(res?.message || "Invalid email/username or password.");
+      }
+
+      const data = res?.data || res;
 
       if (data?.mfaRequired) {
         setMfaRequired(true);
@@ -104,21 +121,78 @@ export default function Login() {
         return;
       }
 
-      // Backend returns user details, token, and role in response
-      const userRole = data?.user?.role || data?.role || 'FACULTY';
-      const token = data?.token || data?.accessToken || 'jwt-token';
-      const userProfile = data?.user || {
-        name: identifier.includes("@") ? identifier.split("@")[0] : identifier,
-        email: identifier.includes("@") ? identifier : `${identifier}@dypiu.ac.in`,
-        username: identifier,
-        role: userRole,
-      };
+      // Backend returns user details, token, refreshToken and role in response
+      const userRole = data?.user?.role || data?.role;
+      const token = data?.token || data?.accessToken;
+      const userProfile = data?.user;
 
-      storeSessionAndNavigate({ ...userProfile, role: userRole }, token);
+      if (!token || !userProfile) {
+        throw new Error("Invalid email/username or password.");
+      }
+
+      const refreshToken = data?.refreshToken || '';
+      storeSessionAndNavigate({ ...userProfile, role: userRole }, token, refreshToken);
     } catch (loginError) {
       setError(getApiErrorMessage(loginError, "Invalid email/username or password."));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    const name = regName.trim();
+    const username = regUsername.trim();
+    const email = regEmail.trim();
+    const pw = regPassword.trim();
+    const role = regRole;
+
+    if (!name) {
+      setError("Please enter your full name.");
+      return;
+    }
+    if (!username) {
+      setError("Please enter a username.");
+      return;
+    }
+    if (!email || !isValidEmail(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (!pw || pw.length < 4) {
+      setError("Please enter a password (at least 4 characters).");
+      return;
+    }
+
+    setRegLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const res = await register({ name, username, email, password: pw, role });
+
+      if (!res || res.success === false) {
+        throw new Error(res?.message || "Registration failed. Please check your details.");
+      }
+
+      const data = res?.data || res;
+      const userRole = data?.user?.role || role;
+      const token = data?.token || data?.accessToken;
+      const userProfile = data?.user || { name, username, email, role: userRole };
+
+      if (!token) {
+        setIsRegistering(false);
+        setUsernameOrEmail(email);
+        setPassword(pw);
+        setMessage("Account registered successfully! Please log in with your credentials.");
+        return;
+      }
+
+      const refreshToken = data?.refreshToken || '';
+      storeSessionAndNavigate({ ...userProfile, role: userRole }, token, refreshToken);
+    } catch (regError) {
+      setError(getApiErrorMessage(regError, "Registration failed. Please try again."));
+    } finally {
+      setRegLoading(false);
     }
   };
 
@@ -138,18 +212,18 @@ export default function Login() {
     try {
       const email = identifier.includes("@") ? identifier : `${identifier}@dypiu.ac.in`;
       const res = await requestPasswordReset(email);
-      setMessage(res?.data?.message || "Password reset link sent. Please check your email.");
+      setMessage(res?.data?.message || `Password reset link sent to ${email}`);
     } catch (resetError) {
-      setError(getApiErrorMessage(resetError, "Could not send password reset link."));
+      setError(getApiErrorMessage(resetError, "Could not process password reset."));
     } finally {
       setResetLoading(false);
     }
   };
 
-  const handleVerifyOtp = async (codeToVerify) => {
-    const code = codeToVerify || otpDigits.join("");
+  const handleVerifyOtp = async (codeToSubmit = null) => {
+    const code = codeToSubmit || otpDigits.join("");
     if (code.length !== 6) {
-      setError("Please enter the complete 6-digit verification code.");
+      setError("Please enter all 6 digits of the verification code.");
       return;
     }
 
@@ -160,17 +234,20 @@ export default function Login() {
     try {
       const res = await verifyOtp(loginSessionId, code);
       const data = res?.data;
-      const userRole = data?.user?.role || data?.role || 'FACULTY';
-      const token = data?.token || 'mfa-verified-token';
+
+      const userRole = data?.user?.role || 'FACULTY';
+      const token = data?.token || 'jwt-token-mfa';
       const userProfile = data?.user || {
-        name: usernameOrEmail,
-        email: usernameOrEmail,
+        name: usernameOrEmail.includes("@") ? usernameOrEmail.split("@")[0] : usernameOrEmail,
+        email: usernameOrEmail.includes("@") ? usernameOrEmail : `${usernameOrEmail}@dypiu.ac.in`,
+        username: usernameOrEmail,
         role: userRole,
       };
 
-      storeSessionAndNavigate({ ...userProfile, role: userRole }, token);
-    } catch (verifyError) {
-      setError(getApiErrorMessage(verifyError, "Invalid verification code."));
+      const refreshToken = data?.refreshToken || '';
+      storeSessionAndNavigate({ ...userProfile, role: userRole }, token, refreshToken);
+    } catch (otpError) {
+      setError(getApiErrorMessage(otpError, "Invalid or expired verification code."));
     } finally {
       setOtpLoading(false);
     }
@@ -249,7 +326,19 @@ export default function Login() {
   };
 
   const handleKeyDown = (event) => {
-    if (event.key === "Enter") handleLogin();
+    if (event.key === "Enter") {
+      if (isRegistering) {
+        handleRegister();
+      } else {
+        handleLogin();
+      }
+    }
+  };
+
+  const toggleMode = (registering) => {
+    setIsRegistering(registering);
+    setError("");
+    setMessage("");
   };
 
   return (
@@ -275,6 +364,10 @@ export default function Login() {
         .dyp-input:focus {
           border-color: white;
           box-shadow: 0 0 0 2px rgba(255,255,255,0.15);
+        }
+        .dyp-select option {
+          background-color: #1e293b;
+          color: white;
         }
         .dyp-btn {
           width: 100%;
@@ -313,6 +406,20 @@ export default function Login() {
         }
         .dyp-forgot:hover:not(:disabled) { color: white; text-decoration: underline; }
         .dyp-forgot:disabled { opacity: 0.65; }
+
+        .dyp-toggle-link {
+          background: none;
+          border: none;
+          color: #60a5fa;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: inherit;
+          font-size: 13px;
+          padding: 0;
+          margin-left: 4px;
+          text-decoration: underline;
+        }
+        .dyp-toggle-link:hover { color: #93c5fd; }
 
         @media (max-width: 900px) {
           .school-login-card {
@@ -366,64 +473,168 @@ export default function Login() {
 
           <div className="school-login-right" style={s.right}>
             {!mfaRequired ? (
-              <>
-                <h2 style={s.panelTitle}>Welcome! Please login to continue.</h2>
+              !isRegistering ? (
+                /* LOGIN FORM */
+                <>
+                  <h2 style={s.panelTitle}>Welcome! Please login to continue.</h2>
 
-                {error && <div style={s.error}>{error}</div>}
-                {message && <div style={s.success}>{message}</div>}
+                  {error && <div style={s.error}>{error}</div>}
+                  {message && <div style={s.success}>{message}</div>}
 
-                <input
-                  className="dyp-input"
-                  type="text"
-                  placeholder="Enter email address or username"
-                  value={usernameOrEmail}
-                  onChange={(event) => setUsernameOrEmail(event.target.value)}
-                  onKeyDown={handleKeyDown}
-                  autoComplete="username"
-                  maxLength={254}
-                />
-
-                <div style={{ position: "relative", marginBottom: 2 }}>
                   <input
                     className="dyp-input"
-                    style={{ marginBottom: 0, paddingRight: 52 }}
-                    type={showPw ? "text" : "password"}
-                    placeholder="Enter password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
+                    type="text"
+                    placeholder="Enter email address or username"
+                    value={usernameOrEmail}
+                    onChange={(event) => setUsernameOrEmail(event.target.value)}
                     onKeyDown={handleKeyDown}
-                    autoComplete="current-password"
+                    autoComplete="username"
+                    maxLength={254}
                   />
-                  <button
-                    type="button"
-                    style={s.eyeBtn}
-                    onClick={() => setShowPw((value) => !value)}
-                    tabIndex={-1}
-                    aria-label={showPw ? "Hide password" : "Show password"}
-                  >
-                    {showPw ? "Hide" : "Show"}
+
+                  <div style={{ position: "relative", marginBottom: 2 }}>
+                    <input
+                      className="dyp-input"
+                      style={{ marginBottom: 0, paddingRight: 52 }}
+                      type={showPw ? "text" : "password"}
+                      placeholder="Enter password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      onKeyDown={handleKeyDown}
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      style={s.eyeBtn}
+                      onClick={() => setShowPw((value) => !value)}
+                      tabIndex={-1}
+                      aria-label={showPw ? "Hide password" : "Show password"}
+                    >
+                      {showPw ? "Hide" : "Show"}
+                    </button>
+                  </div>
+
+                  <div style={{ marginBottom: 16 }} />
+
+                  <button className="dyp-btn" type="button" onClick={handleLogin} disabled={loading} aria-busy={loading}>
+                    {loading && <InlineSpinner label="Signing in" />}
+                    {loading ? "Signing in..." : "Login"}
                   </button>
-                </div>
 
-                <div style={{ marginBottom: 16 }} />
+                  <button
+                    className="dyp-forgot"
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={resetLoading}
+                    aria-busy={resetLoading}
+                    style={{ marginBottom: 12 }}
+                  >
+                    {resetLoading && <InlineSpinner label="Sending reset link" />}
+                    {resetLoading ? "Sending reset link..." : "Forgot password?"}
+                  </button>
 
-                <button className="dyp-btn" type="button" onClick={handleLogin} disabled={loading} aria-busy={loading}>
-                  {loading && <InlineSpinner label="Signing in" />}
-                  {loading ? "Signing in..." : "Login"}
-                </button>
+                  <div style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 8 }}>
+                    Don't have an account?
+                    <button
+                      type="button"
+                      className="dyp-toggle-link"
+                      onClick={() => toggleMode(true)}
+                    >
+                      Register Account
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* REGISTER FORM */
+                <>
+                  <h2 style={s.panelTitle}>Create a New Account</h2>
 
-                <button
-                  className="dyp-forgot"
-                  type="button"
-                  onClick={handleForgotPassword}
-                  disabled={resetLoading}
-                  aria-busy={resetLoading}
-                >
-                  {resetLoading && <InlineSpinner label="Sending reset link" />}
-                  {resetLoading ? "Sending reset link..." : "Forgot password?"}
-                </button>
-              </>
+                  {error && <div style={s.error}>{error}</div>}
+                  {message && <div style={s.success}>{message}</div>}
+
+                  <input
+                    className="dyp-input"
+                    type="text"
+                    placeholder="Full Name (e.g. Dr. Raj Shaikh)"
+                    value={regName}
+                    onChange={(event) => setRegName(event.target.value)}
+                    onKeyDown={handleKeyDown}
+                    autoComplete="name"
+                  />
+
+                  <input
+                    className="dyp-input"
+                    type="text"
+                    placeholder="Username (e.g. raj_shaikh)"
+                    value={regUsername}
+                    onChange={(event) => setRegUsername(event.target.value)}
+                    onKeyDown={handleKeyDown}
+                    autoComplete="username"
+                  />
+
+                  <input
+                    className="dyp-input"
+                    type="email"
+                    placeholder="Email Address (e.g. raj.shaikh@dypiu.ac.in)"
+                    value={regEmail}
+                    onChange={(event) => setRegEmail(event.target.value)}
+                    onKeyDown={handleKeyDown}
+                    autoComplete="email"
+                  />
+
+                  <div style={{ position: "relative", marginBottom: 14 }}>
+                    <input
+                      className="dyp-input"
+                      style={{ marginBottom: 0, paddingRight: 52 }}
+                      type={showPw ? "text" : "password"}
+                      placeholder="Password (min 4 characters)"
+                      value={regPassword}
+                      onChange={(event) => setRegPassword(event.target.value)}
+                      onKeyDown={handleKeyDown}
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      style={s.eyeBtn}
+                      onClick={() => setShowPw((value) => !value)}
+                      tabIndex={-1}
+                      aria-label={showPw ? "Hide password" : "Show password"}
+                    >
+                      {showPw ? "Hide" : "Show"}
+                    </button>
+                  </div>
+
+                  <select
+                    className="dyp-input dyp-select"
+                    value={regRole}
+                    onChange={(event) => setRegRole(event.target.value)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <option value="FACULTY">Faculty / Course Coordinator</option>
+                    <option value="PROGRAMME_COORDINATOR">Programme Coordinator</option>
+                    <option value="HOD">Head of Department (HOD)</option>
+                    <option value="DIRECTOR">Director / Dean</option>
+                  </select>
+
+                  <button className="dyp-btn" type="button" onClick={handleRegister} disabled={regLoading} aria-busy={regLoading}>
+                    {regLoading && <InlineSpinner label="Registering" />}
+                    {regLoading ? "Registering Account..." : "Register Account"}
+                  </button>
+
+                  <div style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 8 }}>
+                    Already have an account?
+                    <button
+                      type="button"
+                      className="dyp-toggle-link"
+                      onClick={() => toggleMode(false)}
+                    >
+                      Log In
+                    </button>
+                  </div>
+                </>
+              )
             ) : (
+              /* MFA OTP VERIFICATION FORM */
               <>
                 <h2 style={s.panelTitle}>Verify your identity</h2>
                 <p style={{ fontSize: 13, color: "rgba(255,255,255,0.72)", marginTop: -14, marginBottom: 18, lineHeight: 1.4 }}>
@@ -446,60 +657,58 @@ export default function Login() {
                     <input
                       key={idx}
                       ref={(el) => (otpRefs.current[idx] = el)}
-                      className="dyp-input"
-                      style={{
-                        width: 38,
-                        height: 44,
-                        textAlign: "center",
-                        fontSize: 18,
-                        fontWeight: "bold",
-                        marginBottom: 0,
-                        padding: 0
-                      }}
                       type="text"
                       inputMode="numeric"
                       maxLength={1}
                       value={digit}
                       onChange={(e) => handleOtpDigitChange(idx, e.target.value)}
                       onKeyDown={(e) => handleOtpDigitKeyDown(idx, e)}
-                      disabled={otpLoading || timer === 0}
+                      style={{
+                        width: 40,
+                        height: 46,
+                        textAlign: "center",
+                        fontSize: 20,
+                        fontWeight: 700,
+                        color: "white",
+                        background: "rgba(255,255,255,0.12)",
+                        border: "1.5px solid rgba(255,255,255,0.5)",
+                        borderRadius: 4,
+                        outline: "none",
+                      }}
                       autoFocus={idx === 0}
                     />
                   ))}
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, fontSize: 12, color: "rgba(255,255,255,0.72)" }}>
-                  <span>{timer > 0 ? `Expires in ${formatTime(timer)}` : "Code expired"}</span>
-                  <button
-                    type="button"
-                    className="dyp-forgot"
-                    style={{ width: "auto", fontSize: 12, color: resendCooldown > 0 ? "rgba(255,255,255,0.4)" : "#60a5fa" }}
-                    onClick={handleResendOtp}
-                    disabled={resendCooldown > 0 || resendLoading}
-                  >
-                    {resendLoading ? "Resending..." : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend Code"}
-                  </button>
                 </div>
 
                 <button
                   className="dyp-btn"
                   type="button"
                   onClick={() => handleVerifyOtp()}
-                  disabled={otpLoading || otpDigits.join("").length !== 6 || timer === 0}
+                  disabled={otpLoading || otpDigits.join("").length !== 6}
                   aria-busy={otpLoading}
                 >
-                  {otpLoading && <InlineSpinner label="Verifying code" />}
-                  {otpLoading ? "Verifying..." : "Verify Code"}
+                  {otpLoading && <InlineSpinner label="Verifying" />}
+                  {otpLoading ? "Verifying..." : "Verify & Continue"}
                 </button>
 
-                <button
-                  className="dyp-forgot"
-                  type="button"
-                  onClick={handleBackToLogin}
-                  disabled={otpLoading}
-                >
-                  Back to Login
-                </button>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                  <button
+                    type="button"
+                    onClick={handleBackToLogin}
+                    style={{ background: "none", border: "none", color: "rgba(255,255,255,0.75)", cursor: "pointer", fontSize: 13 }}
+                  >
+                    &larr; Back to login
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={resendCooldown > 0 || resendLoading}
+                    style={{ background: "none", border: "none", color: resendCooldown > 0 ? "rgba(255,255,255,0.4)" : "#60a5fa", cursor: resendCooldown > 0 ? "default" : "pointer", fontSize: 13 }}
+                  >
+                    {resendLoading ? "Resending..." : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -510,138 +719,121 @@ export default function Login() {
 }
 
 const s = {
-  topLeftLogo: {
-    position: "absolute",
-    top: 20,
-    left: 20,
-    height: 100,
-    zIndex: 2,
-  },
-
-  topRightLogo: {
-    position: "absolute",
-    top: 20,
-    right: 20,
-    height: 100,
-    zIndex: 2,
-  },
-
   wrap: {
     minHeight: "100vh",
     width: "100%",
-    backgroundImage: `url(${backgroundImage})`,
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
+    position: "relative",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "24px 16px",
-    position: "relative",
+    backgroundImage: `url(${backgroundImage})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    padding: 24,
   },
-
+  topLeftLogo: {
+    position: "absolute",
+    top: 18,
+    left: 24,
+    height: 90,
+    width: "auto",
+    zIndex: 2,
+    objectFit: "contain",
+  },
+  topRightLogo: {
+    position: "absolute",
+    top: 18,
+    right: 24,
+    height: 90,
+    width: "auto",
+    zIndex: 2,
+    objectFit: "contain",
+  },
   overlay: {
     position: "absolute",
     inset: 0,
-    background: "rgba(8, 16, 38, 0.30)",
-    pointerEvents: "none",
+    backgroundColor: "rgba(0,0,0,0.55)",
+    zIndex: 1,
   },
-
   card: {
     position: "relative",
-    zIndex: 1,
-    width: "65%",
-    maxWidth: 1280,
+    zIndex: 2,
+    width: "min(100%, 960px)",
     display: "flex",
-    alignItems: "stretch",
     borderRadius: 8,
-    background: "rgba(15, 25, 50, 0.72)",
-    backdropFilter: "blur(8px)",
-    WebkitBackdropFilter: "blur(8px)",
-    boxShadow: "0 20px 60px rgba(0,0,0,0.55)",
     overflow: "hidden",
-    minHeight: 260,
+    boxShadow: "0 20px 40px rgba(0,0,0,0.45)",
+    border: "1px solid rgba(255,255,255,0.18)",
+    backdropFilter: "blur(4px)",
   },
-
   left: {
-    flex: 1,
-    color: "white",
-    padding: "24px 32px",
+    flex: 1.25,
+    background: "rgba(10, 20, 35, 0.72)",
+    padding: "40px 36px",
     display: "flex",
     flexDirection: "column",
-    gap: 14,
     justifyContent: "center",
   },
-
-  uniName: {
-    fontSize: 28,
-    fontWeight: 700,
-    margin: 0,
-    lineHeight: 1.3,
-    color: "white",
-  },
-
-  desc: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.72)",
-    lineHeight: 1.8,
-    margin: 0,
-    maxWidth: 500,
-  },
-
   right: {
-    width: 320,
-    flexShrink: 0,
-    background: "transparent",
-    borderLeft: "1px solid rgba(255,255,255,0.15)",
-    padding: "20px 18px",
+    width: 380,
+    background: "rgba(15, 23, 42, 0.85)",
+    padding: "36px 30px",
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
+    borderLeft: "1px solid rgba(255,255,255,0.12)",
   },
-
-  panelTitle: {
-    fontSize: 15.5,
+  uniName: {
+    margin: "0 0 12px 0",
+    color: "#ffffff",
+    fontSize: 22,
     fontWeight: 700,
+    lineHeight: 1.3,
+  },
+  desc: {
+    margin: "12px 0 0 0",
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 14,
+    lineHeight: 1.6,
+  },
+  panelTitle: {
+    margin: "0 0 18px 0",
     color: "white",
-    marginBottom: 22,
-    marginTop: 0,
-    lineHeight: 1.45,
+    fontSize: 18,
+    fontWeight: 600,
+    lineHeight: 1.3,
   },
-
-  eyeBtn: {
-    position: "absolute",
-    right: 10,
-    top: "50%",
-    transform: "translateY(-50%)",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    fontSize: 13,
-    padding: 4,
-    color: "rgba(255,255,255,0.6)",
-    lineHeight: 1,
-  },
-
   error: {
-    background: "rgba(185,28,28,0.25)",
-    border: "1px solid rgba(252,165,165,0.5)",
+    background: "rgba(239, 68, 68, 0.25)",
+    border: "1px solid rgba(239, 68, 68, 0.5)",
     color: "#fca5a5",
     padding: "9px 12px",
     borderRadius: 4,
-    fontSize: 12,
+    fontSize: 13,
     marginBottom: 14,
-    lineHeight: 1.5,
+    lineHeight: 1.4,
   },
-
   success: {
-    background: "rgba(21,128,61,0.25)",
-    border: "1px solid rgba(134,239,172,0.5)",
+    background: "rgba(34, 197, 94, 0.25)",
+    border: "1px solid rgba(34, 197, 94, 0.5)",
     color: "#86efac",
     padding: "9px 12px",
     borderRadius: 4,
-    fontSize: 12,
+    fontSize: 13,
     marginBottom: 14,
-    lineHeight: 1.5,
+    lineHeight: 1.4,
+  },
+  eyeBtn: {
+    position: "absolute",
+    right: 10,
+    top: 10,
+    background: "none",
+    border: "none",
+    color: "rgba(255,255,255,0.75)",
+    cursor: "pointer",
+    fontSize: 12,
+    fontWeight: 600,
+    fontFamily: "inherit",
+    padding: "2px 6px",
   },
 };
