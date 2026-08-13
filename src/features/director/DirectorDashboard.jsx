@@ -1,29 +1,105 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, ShieldCheck, Layers, Check, Clock, ChevronRight } from 'lucide-react';
+import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, ShieldCheck, Layers, Check, Clock, ChevronRight, Settings } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import { getDirectorSchoolSummary, getDirectorSetupProgress, getDepartmentSummary, updateDirectorSetupProgress } from '../../api/academic';
 
 export default function DirectorDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const {
     departments = [],
-    selectedSchool = { name: 'School of Engineering & Technology', code: 'SET', dean: 'Dr. R. K. Deshmukh' },
+    selectedSchool = null,
     masterProgrammes = [],
     directorApprovals = [],
   } = useAcademic();
 
-  const totalDepts = departments.length || 4;
-  const assignedHODs = departments.filter((d) => d.hod && d.hod !== 'Unassigned').length || 3;
-  const pendingHODs = totalDepts - assignedHODs;
-  const totalProgrammes = masterProgrammes.length || 8;
-  const pendingApprovalsCount = directorApprovals.filter((a) => a.status === 'PENDING').length || 2;
+  const [schoolSummary, setSchoolSummary] = useState(null);
+  const [setupProgress, setSetupProgress] = useState(null);
+  const [deptSummaryList, setDeptSummaryList] = useState([]);
 
+  useEffect(() => {
+    let isMounted = true;
+    const targetSchoolId = selectedSchool?.id || 'sch-1';
+    console.log('[DirectorDashboard] Mounting & fetching backend summary APIs for school:', targetSchoolId);
+
+    // 1. Fetch School Summary on Dashboard load right after login for current Director
+    getDirectorSchoolSummary(selectedSchool?.id || '', user?.email || '', user?.name || '')
+      .then((res) => {
+        const data = res?.data?.data || res?.data || res;
+        console.log('[DirectorDashboard] getDirectorSchoolSummary loaded:', data);
+        if (data && isMounted) setSchoolSummary(data);
+      })
+      .catch((err) => console.warn('[DirectorDashboard] Could not fetch director school summary:', err));
+
+    // 2. Fetch Setup Progress from backend
+    getDirectorSetupProgress(targetSchoolId)
+      .then((res) => {
+        const data = res?.data?.data || res?.data || res;
+        console.log('[DirectorDashboard] getDirectorSetupProgress loaded:', data);
+        if (data && isMounted) setSetupProgress(data);
+      })
+      .catch((err) => console.warn('[DirectorDashboard] Could not fetch director setup progress:', err));
+
+    // 3. Fetch Department Summary
+    getDepartmentSummary(targetSchoolId)
+      .then((res) => {
+        const data = res?.data?.data || res?.data || res;
+        console.log('[DirectorDashboard] getDepartmentSummary loaded:', data);
+        if (Array.isArray(data) && isMounted) setDeptSummaryList(data);
+      })
+      .catch((err) => console.warn('[DirectorDashboard] Could not fetch department summary:', err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const hasSchoolInDb = Boolean(schoolSummary?.schoolName || selectedSchool?.name);
+
+  const totalDepts = schoolSummary?.totalDepartments ?? departments.length ?? 0;
+  const assignedHODs = schoolSummary?.assignedHODsCount ?? departments.filter((d) => d.hod && d.hod !== 'Unassigned').length ?? 0;
+  const pendingHODs = schoolSummary?.unassignedHODsCount ?? (totalDepts - assignedHODs);
+  const totalProgrammes = schoolSummary?.totalProgrammes ?? masterProgrammes.length ?? 0;
+  const pendingApprovalsCount = directorApprovals.filter((a) => a.status === 'PENDING').length || 0;
+
+  const currentStepNum = setupProgress?.currentStep || 1;
+  const overallStatus = setupProgress?.overallStatus || 'NOT_STARTED';
+  const backendCompletedSteps = setupProgress?.completedSteps || [];
+
+  const isCompleted = overallStatus === 'COMPLETED' || currentStepNum === 4;
+  const isNotStarted = !hasSchoolInDb || overallStatus === 'NOT_STARTED' || (currentStepNum === 1 && backendCompletedSteps.length === 0);
+
+  // Determine button text based on current step and completion status
+  let buttonText = 'Continue Setup';
+  if (isCompleted) {
+    buttonText = 'Manage Setup';
+  } else if (isNotStarted) {
+    buttonText = 'Start Setup';
+  } else {
+    buttonText = `Continue Setup (Step ${currentStepNum})`;
+  }
+
+  const handleSetupButtonClick = async () => {
+    const targetSchoolId = selectedSchool?.id || 'sch-1';
+    if (isCompleted) {
+      // If all steps finished, manage setup starts from Step 1
+      try {
+        await updateDirectorSetupProgress(targetSchoolId, 1);
+      } catch (err) {
+        console.warn('Failed to reset progress for manage setup:', err);
+      }
+    }
+    navigate('/director/setup-workflow');
+  };
+
+  // Setup steps completion state strictly based on backend response completedSteps
   const setupSteps = [
-    { title: 'School Information', done: true, desc: 'Metadata & Dean allocation verified' },
-    { title: 'Department Hierarchy', done: totalDepts > 0, desc: `${totalDepts} departments established` },
-    { title: 'HOD Assignments', done: pendingHODs === 0, desc: `${assignedHODs} of ${totalDepts} HODs assigned` },
-    { title: 'Programme Allocation', done: totalProgrammes > 0, desc: `${totalProgrammes} programmes mapped` },
+    { title: 'School Information', done: backendCompletedSteps.includes('school'), desc: hasSchoolInDb ? 'Metadata & Dean allocation saved' : 'Not added yet' },
+    { title: 'Department Hierarchy', done: backendCompletedSteps.includes('department'), desc: `${totalDepts} departments established` },
+    { title: 'HOD Assignments', done: backendCompletedSteps.includes('department') && pendingHODs === 0, desc: `${assignedHODs} of ${totalDepts} HODs assigned` },
+    { title: 'Programme Allocation', done: backendCompletedSteps.includes('programme') || isCompleted, desc: `${totalProgrammes} programmes mapped` },
   ];
 
   const completedCount = setupSteps.filter((s) => s.done).length;
@@ -72,17 +148,21 @@ export default function DirectorDashboard() {
             Director Dashboard
           </div>
           <h1 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
-            Welcome, {user?.name || 'School Director'}
+            {hasSchoolInDb ? `Welcome, ${user?.name || 'School Director'}` : 'School Not Added Yet'}
           </h1>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            {selectedSchool.name} &nbsp;·&nbsp; {selectedSchool.code}
+            {hasSchoolInDb ? (
+              `${schoolSummary?.schoolName || selectedSchool?.name} · ${schoolSummary?.schoolCode || selectedSchool?.code} ${schoolSummary?.deanName ? `· Dean: ${schoolSummary.deanName}` : ''}`
+            ) : (
+              'No school metadata found in database. Please click Start Setup to configure your school.'
+            )}
           </p>
         </div>
         <button
-          onClick={() => navigate('/director/setup-workflow')}
+          onClick={handleSetupButtonClick}
           style={{ height: '40px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px' }}
         >
-          {pendingHODs > 0 ? 'Setup School Structure' : 'Manage Structure'} <ArrowRight size={14} />
+          {buttonText} <ArrowRight size={14} />
         </button>
       </div>
 

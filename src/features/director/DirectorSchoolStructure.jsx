@@ -1,13 +1,36 @@
-import { useState } from 'react';
-import { Building2, Users, GraduationCap, ChevronRight, Layers, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Building2, Users, GraduationCap, ChevronRight, Layers, Check, UserCheck } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import { getSchools, getDirectorSchoolSummary } from '../../api/academic';
 
 export default function DirectorSchoolStructure() {
   const {
-    selectedSchool = { name: 'School of Engineering & Technology', code: 'SET', dean: 'Dr. R. K. Deshmukh', estYear: '2019' },
+    selectedSchool = { id: 'sch-1', name: 'School of Engineering & Technology', code: 'SET', dean: 'Dr. R. K. Deshmukh', estYear: '2019' },
     departments = [],
     masterProgrammes = [],
+    updateSchoolInfo = () => {},
   } = useAcademic();
+
+  const [summaryStats, setSummaryStats] = useState(null);
+
+  useEffect(() => {
+    getSchools()
+      .then((res) => {
+        const schools = res?.data || res || [];
+        if (Array.isArray(schools) && schools.length > 0) {
+          const sch = schools[0];
+          updateSchoolInfo(sch.id || 'sch-1', sch);
+        }
+      })
+      .catch((err) => console.warn('Backend schools API offline fallback:', err));
+
+    getDirectorSchoolSummary(selectedSchool.id || 'sch-1')
+      .then((res) => {
+        const summary = res?.data || res;
+        if (summary) setSummaryStats(summary);
+      })
+      .catch((err) => console.warn('Backend school summary API offline fallback:', err));
+  }, []);
 
   const [expandedDeptId, setExpandedDeptId] = useState(departments[0]?.id || 'dept-1');
 
@@ -15,6 +38,10 @@ export default function DirectorSchoolStructure() {
   const ink = '#0f172a';
   const muted = '#64748b';
   const accent = '#4f46e5';
+
+  const totalDeptCount = summaryStats?.totalDepartments ?? departments.length;
+  const assignedHodCount = summaryStats?.assignedHODsCount ?? departments.filter((d) => d.hod && d.hod !== 'Unassigned').length;
+  const totalProgCount = summaryStats?.totalProgrammes ?? masterProgrammes.length;
 
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
@@ -28,7 +55,7 @@ export default function DirectorSchoolStructure() {
           School Structure & Hierarchy
         </h2>
         <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-          {selectedSchool.name} ({selectedSchool.code})
+          {summaryStats?.schoolName || selectedSchool.name} ({summaryStats?.schoolCode || selectedSchool.code})
         </p>
       </div>
 
@@ -39,21 +66,25 @@ export default function DirectorSchoolStructure() {
             <Building2 size={20} />
           </div>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{selectedSchool.name}</div>
+            <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{summaryStats?.schoolName || selectedSchool.name}</div>
             <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>
-              Dean: <strong style={{ color: ink }}>{selectedSchool.dean}</strong>
-              &nbsp;·&nbsp; Est. {selectedSchool.estYear}
+              Dean: <strong style={{ color: ink }}>{summaryStats?.deanName || selectedSchool.dean}</strong>
+              &nbsp;·&nbsp; Est. {summaryStats?.estYear || selectedSchool.estYear}
             </div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <div style={{ ...surface, padding: '10px 18px', textAlign: 'center', minWidth: '80px' }}>
             <div style={{ fontSize: '11px', color: muted, fontWeight: '600', marginBottom: '2px' }}>Departments</div>
-            <div style={{ fontSize: '20px', fontWeight: '800', color: ink }}>{departments.length || 4}</div>
+            <div style={{ fontSize: '20px', fontWeight: '800', color: ink }}>{totalDeptCount}</div>
+          </div>
+          <div style={{ ...surface, padding: '10px 18px', textAlign: 'center', minWidth: '80px' }}>
+            <div style={{ fontSize: '11px', color: muted, fontWeight: '600', marginBottom: '2px' }}>HODs Assigned</div>
+            <div style={{ fontSize: '20px', fontWeight: '800', color: '#16a34a' }}>{assignedHodCount}</div>
           </div>
           <div style={{ ...surface, padding: '10px 18px', textAlign: 'center', minWidth: '80px' }}>
             <div style={{ fontSize: '11px', color: muted, fontWeight: '600', marginBottom: '2px' }}>Programmes</div>
-            <div style={{ fontSize: '20px', fontWeight: '800', color: accent }}>{masterProgrammes.length || 8}</div>
+            <div style={{ fontSize: '20px', fontWeight: '800', color: accent }}>{totalProgCount}</div>
           </div>
         </div>
       </div>

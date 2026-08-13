@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, X, Trash2 } from 'lucide-react';
+import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, X, Trash2, Loader2 } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
+import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
+import { getSchools, saveSchoolInfo, getDirectorSetupProgress, updateDirectorSetupProgress } from '../../api/academic';
 
 export default function DirectorSetupWorkflow() {
   const navigate = useNavigate();
   const {
-    selectedSchool = { name: 'School of Engineering & Technology', code: 'SET', dean: 'Dr. R. K. Deshmukh', estYear: '2019' },
+    selectedSchool = { id: 'sch-1', name: 'School of Engineering & Technology', code: 'SET', dean: 'Dr. R. K. Deshmukh', estYear: '2019' },
     departments = [],
     addDepartment = () => {},
     updateDepartment = () => {},
@@ -19,6 +21,10 @@ export default function DirectorSetupWorkflow() {
   } = useAcademic();
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [completedSteps, setCompletedSteps] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+
   const [deleteModalConfig, setDeleteModalConfig] = useState({
     isOpen: false,
     title: '',
@@ -40,11 +46,71 @@ export default function DirectorSetupWorkflow() {
     });
   };
 
+  const { user } = useAuth();
+
   // Step 1
-  const [schoolName, setSchoolName] = useState(selectedSchool.name);
-  const [schoolCode, setSchoolCode] = useState(selectedSchool.code);
-  const [deanName, setDeanName] = useState(selectedSchool.dean);
-  const [estYear, setEstYear] = useState(selectedSchool.estYear || '2019');
+  const [schoolId, setSchoolId] = useState(selectedSchool?.id || '');
+  const [schoolName, setSchoolName] = useState(selectedSchool?.name || '');
+  const [schoolCode, setSchoolCode] = useState(selectedSchool?.code || '');
+  const [deanName, setDeanName] = useState(selectedSchool?.dean || user?.name || '');
+  const [estYear, setEstYear] = useState(selectedSchool?.estYear || '2024');
+
+  // Fetch school info & setup progress from backend on mount
+  useEffect(() => {
+    let isMounted = true;
+    getSchools()
+      .then((res) => {
+        const schools = res?.data?.data || res?.data || res || [];
+        if (Array.isArray(schools) && schools.length > 0 && isMounted) {
+          const sch = schools[0];
+          if (sch.id) setSchoolId(sch.id);
+          if (sch.name) setSchoolName(sch.name);
+          if (sch.code) setSchoolCode(sch.code);
+          if (sch.dean) setDeanName(sch.dean);
+          if (sch.estYear) setEstYear(sch.estYear);
+          updateSchoolInfo(sch.id || 'sch-1', sch);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not fetch schools from backend:', err);
+      });
+
+    getDirectorSetupProgress(selectedSchool?.id || 'sch-1')
+      .then((res) => {
+        const progressData = res?.data?.data || res?.data || res;
+        if (progressData && isMounted) {
+          if (progressData.currentStep) setCurrentStep(progressData.currentStep);
+          if (Array.isArray(progressData.completedSteps)) {
+            setCompletedSteps(progressData.completedSteps);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not fetch setup progress from backend:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const syncProgress = async (newStep) => {
+    try {
+      const res = await updateDirectorSetupProgress(schoolId || 'sch-1', newStep);
+      const data = res?.data?.data || res?.data || res;
+      if (Array.isArray(data?.completedSteps)) {
+        setCompletedSteps(data.completedSteps);
+      }
+    } catch (err) {
+      console.warn('Failed to sync setup progress to backend:', err);
+    }
+  };
+
+  const changeStep = (targetStep) => {
+    setCurrentStep(targetStep);
+    syncProgress(targetStep);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Step 2
   const [deptList, setDeptList] = useState(departments);
@@ -61,10 +127,10 @@ export default function DirectorSetupWorkflow() {
   const [newProgDuration, setNewProgDuration] = useState(4);
 
   const steps = [
-    { number: 1, title: 'School Info', desc: 'Metadata & Dean', icon: Building2 },
-    { number: 2, title: 'Departments', desc: 'Depts & HODs', icon: Users },
-    { number: 3, title: 'Programmes', desc: 'Degree mapping', icon: GraduationCap },
-    { number: 4, title: 'Review', desc: 'Verify & finish', icon: CheckCircle2 },
+    { number: 1, key: 'school', title: 'School Info', desc: 'Metadata & Dean', icon: Building2 },
+    { number: 2, key: 'department', title: 'Departments', desc: 'Depts & HODs', icon: Users },
+    { number: 3, key: 'programme', title: 'Programmes', desc: 'Degree mapping', icon: GraduationCap },
+    { number: 4, key: 'review', title: 'Review', desc: 'Verify & finish', icon: CheckCircle2 },
   ];
 
   const handleAddDeptInline = () => {
@@ -139,13 +205,55 @@ export default function DirectorSetupWorkflow() {
     setNewProgCode('');
   };
 
-  const handleNextStep = () => {
-    if (currentStep < 4) { setCurrentStep((p) => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  const handleSaveSchoolStep = async () => {
+    try {
+      setIsSaving(true);
+      const targetId = schoolId || selectedSchool?.id || 'sch-1';
+      const payload = {
+        id: targetId,
+        name: schoolName,
+        code: schoolCode,
+        dean: deanName,
+        estYear: estYear,
+      };
+      const response = await saveSchoolInfo(payload);
+      const savedSchool = response?.data?.data || response?.data || payload;
+      updateSchoolInfo(savedSchool.id || targetId, savedSchool);
+      setSuccessMsg('School information saved successfully to backend database!');
+
+      const progressRes = await updateDirectorSetupProgress(targetId, 2);
+      const progressData = progressRes?.data?.data || progressRes?.data || progressRes;
+      if (Array.isArray(progressData?.completedSteps)) {
+        setCompletedSteps(progressData.completedSteps);
+      } else {
+        setCompletedSteps((prev) => [...new Set([...prev, 'school'])]);
+      }
+
+      setTimeout(() => setSuccessMsg(''), 4000);
+      changeStep(2);
+    } catch (err) {
+      console.error('Failed to save school info to backend:', err);
+      updateSchoolInfo(schoolId || 'sch-1', { name: schoolName, code: schoolCode, dean: deanName, estYear });
+      changeStep(2);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleNextStep = async () => {
+    if (currentStep === 1) {
+      await handleSaveSchoolStep();
+    } else if (currentStep < 4) {
+      changeStep(currentStep + 1);
+    }
   };
   const handlePrevStep = () => {
-    if (currentStep > 1) { setCurrentStep((p) => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    if (currentStep > 1) { changeStep(currentStep - 1); }
   };
-  const handleFinishWorkflow = () => navigate('/director/dashboard');
+  const handleFinishWorkflow = () => {
+    syncProgress(4);
+    navigate('/director/dashboard');
+  };
 
   // ─── Shared style tokens ──────────────────────────────────────────────────
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -194,13 +302,13 @@ export default function DirectorSetupWorkflow() {
           <div style={{ position: 'absolute', top: '18px', left: '12.5%', right: '12.5%', height: '1px', background: '#e2e8f0', zIndex: 0 }} />
 
           {steps.map((s) => {
-            const done = currentStep > s.number;
+            const done = completedSteps.includes(s.key);
             const active = currentStep === s.number;
             const Icon = s.icon;
             return (
               <div
                 key={s.number}
-                onClick={() => setCurrentStep(s.number)}
+                onClick={() => changeStep(s.number)}
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', position: 'relative', zIndex: 1, opacity: currentStep >= s.number ? 1 : 0.45, transition: 'opacity .2s' }}
               >
                 <div style={{
@@ -236,6 +344,13 @@ export default function DirectorSetupWorkflow() {
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>School Information</h3>
               <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>Set the school name, code, and Dean/Director details.</p>
             </div>
+
+            {successMsg && (
+              <div style={{ marginBottom: '16px', padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', color: '#16a34a', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle2 size={16} />
+                {successMsg}
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxWidth: '700px' }}>
               <div>
@@ -496,9 +611,18 @@ export default function DirectorSetupWorkflow() {
             <button
               type="button"
               onClick={handleNextStep}
-              style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px' }}
+              disabled={isSaving}
+              style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: isSaving ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', opacity: isSaving ? 0.7 : 1 }}
             >
-              <Save size={14} /> Save & Continue <ArrowRight size={14} />
+              {isSaving ? (
+                <>
+                  <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> Saving...
+                </>
+              ) : (
+                <>
+                  <Save size={14} /> Save & Continue <ArrowRight size={14} />
+                </>
+              )}
             </button>
           ) : (
             <button
