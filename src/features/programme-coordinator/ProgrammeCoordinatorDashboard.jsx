@@ -198,21 +198,21 @@ export default function ProgrammeCoordinatorDashboard() {
 
       {/* ── PENDING ALERT ─────────────────────────────────────────────────────── */}
       {pendingVerifications > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '14px 18px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: '10px', padding: '14px 18px', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AlertCircle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
+            <AlertCircle size={18} style={{ color: '#b45309', flexShrink: 0 }} />
             <div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#92400e' }}>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: '#78350f' }}>
                 {pendingVerifications} course submission{pendingVerifications > 1 ? 's' : ''} awaiting your verification
               </div>
-              <div style={{ fontSize: '12px', color: '#b45309', marginTop: '1px' }}>
+              <div style={{ fontSize: '12px', color: '#78350f', marginTop: '1px', fontWeight: '600' }}>
                 CO mapping, attainment data, and Course ATRs submitted by Course Coordinators.
               </div>
             </div>
           </div>
           <button
             onClick={() => navigate('/coordinator-review')}
-            style={{ height: '34px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#d97706', color: '#fff', border: 'none', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
+            style={{ height: '34px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#b45309', color: '#ffffff', border: 'none', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
           >
             Go to Verification <ChevronRight size={14} />
           </button>
@@ -280,16 +280,16 @@ export default function ProgrammeCoordinatorDashboard() {
           {setupSteps.map((step, idx) => (
             <div
               key={idx}
-              style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '8px', background: step.done ? '#fafafa' : '#ffffff', border: `1px solid ${step.done ? '#e2e8f0' : '#f1f5f9'}` }}
+              style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '8px', background: step.done ? '#fafafa' : '#ffffff', border: `1px solid ${step.done ? '#e2e8f0' : '#cbd5e1'}` }}
             >
-              <div style={{ width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', background: step.done ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${step.done ? '#86efac' : '#e2e8f0'}`, color: step.done ? '#16a34a' : '#94a3b8' }}>
+              <div style={{ width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', background: step.done ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${step.done ? '#4ade80' : '#cbd5e1'}`, color: step.done ? '#15803d' : '#475569' }}>
                 {step.done ? <Check size={12} /> : <Clock size={11} />}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '13px', fontWeight: '600', color: step.done ? ink : muted }}>{step.title}</div>
-                <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '1px' }}>{step.desc}</div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: step.done ? ink : '#334155' }}>{step.title}</div>
+                <div style={{ fontSize: '11.5px', color: '#475569', marginTop: '1px' }}>{step.desc}</div>
               </div>
-              <span style={{ fontSize: '11px', fontWeight: '600', borderRadius: '5px', padding: '2px 8px', flexShrink: 0, background: step.done ? '#f0fdf4' : '#f8fafc', color: step.done ? '#16a34a' : '#94a3b8', border: `1px solid ${step.done ? '#bbf7d0' : '#e2e8f0'}` }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', borderRadius: '5px', padding: '2px 8px', flexShrink: 0, background: step.done ? '#f0fdf4' : '#f8fafc', color: step.done ? '#15803d' : '#475569', border: `1px solid ${step.done ? '#86efac' : '#cbd5e1'}` }}>
                 {step.done ? 'Done' : 'Pending'}
               </span>
             </div>

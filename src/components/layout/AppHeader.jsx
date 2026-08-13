@@ -58,6 +58,8 @@ export default function AppHeader() {
           <img
             src="/image.png"
             alt="DYPIU"
+            width="74"
+            height="78"
             style={{
               height: '78px',
               width: 'auto',

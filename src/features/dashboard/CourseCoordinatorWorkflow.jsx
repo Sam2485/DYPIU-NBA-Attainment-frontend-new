@@ -146,6 +146,7 @@ export default function CourseCoordinatorWorkflow() {
           {/* Course Selector */}
           <div style={{ position: 'relative' }}>
             <select
+              aria-label="Select Course"
               value={course?.id || ''}
               onChange={(e) => {
                 setCourseId(e.target.value);
@@ -190,7 +191,7 @@ export default function CourseCoordinatorWorkflow() {
             position: 'absolute', top: '18px',
             left: `${100 / (STEPS.length * 2)}%`,
             right: `${100 / (STEPS.length * 2)}%`,
-            height: '1px', background: '#e2e8f0', zIndex: 0,
+            height: '1px', background: '#cbd5e1', zIndex: 0,
           }} />
           <div style={{
             display: 'grid',
@@ -209,24 +210,24 @@ export default function CourseCoordinatorWorkflow() {
                   style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
                     background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px',
-                    opacity: active || done ? 1 : 0.55, transition: 'opacity .2s',
+                    opacity: 1, transition: 'opacity .2s',
                     fontFamily: 'inherit',
                   }}
                 >
                   <div style={{
                     width: '36px', height: '36px', borderRadius: '50%',
                     background: done ? '#f0fdf4' : active ? s.bg : '#f8fafc',
-                    border: `2px solid ${done ? '#86efac' : active ? s.color : '#e2e8f0'}`,
-                    color: done ? '#16a34a' : active ? s.color : muted,
+                    border: `2px solid ${done ? '#4ade80' : active ? s.color : '#cbd5e1'}`,
+                    color: done ? '#15803d' : active ? s.color : '#475569',
                     display: 'grid', placeItems: 'center', transition: 'all .2s',
                     boxShadow: active ? `0 4px 12px ${s.color}33` : 'none',
                   }}>
-                    {done ? <Check size={14} style={{ color: '#16a34a' }} /> : <Icon size={14} />}
+                    {done ? <Check size={14} style={{ color: '#15803d' }} /> : <Icon size={14} />}
                   </div>
                   <div style={{
-                    fontSize: '10px', fontWeight: active ? '800' : done ? '700' : '600',
-                    color: done ? '#16a34a' : active ? ink : muted,
-                    textAlign: 'center', lineHeight: 1.3, maxWidth: '64px',
+                    fontSize: '10.5px', fontWeight: active ? '800' : done ? '700' : '600',
+                    color: done ? '#15803d' : active ? ink : '#334155',
+                    textAlign: 'center', lineHeight: 1.3, maxWidth: '68px',
                   }}>
                     {s.title}
                   </div>

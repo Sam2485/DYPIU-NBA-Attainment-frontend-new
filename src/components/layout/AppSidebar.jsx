@@ -193,6 +193,7 @@ export default function AppSidebar() {
           Active User Role
         </div>
         <select
+          aria-label="Active User Role"
           value={role}
           onChange={(e) => switchRole(e.target.value)}
           style={{
@@ -249,6 +250,7 @@ export default function AppSidebar() {
           </span>
         </div>
         <select
+          aria-label="Academic Year"
           value={academicYear}
           onChange={(e) => setAcademicYear(e.target.value)}
           style={{

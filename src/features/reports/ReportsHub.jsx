@@ -19,7 +19,6 @@ import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import CourseATR from '../atr/CourseATR';
 import ProgrammeATR from '../atr/ProgrammeATR';
-import * as XLSX from 'xlsx';
 
 // ── Default Batches Option List ──────────────────────────────────────────────
 const DEFAULT_BATCHES = [
@@ -160,7 +159,8 @@ export default function ReportsHub() {
   // ───────────────────────────────────────────────────────────────────────────
   // DOWNLOAD HANDLER (EXCEL)
   // ───────────────────────────────────────────────────────────────────────────
-  const handleDownloadExcel = () => {
+  const handleDownloadExcel = async () => {
+    const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
     let filename = 'Report.xlsx';
     let sheetData = [];
@@ -332,11 +332,13 @@ export default function ReportsHub() {
           {/* 1. PROGRAMME SELECTOR (Only for HOD & Director) */}
           {isHodOrDirector && (
             <div style={{ minWidth: '240px', flex: '1 1 240px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+              <label htmlFor="reports-programme-select" style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
                 Select Programme
               </label>
               <div style={{ position: 'relative' }}>
                 <select
+                  id="reports-programme-select"
+                  aria-label="Select Programme"
                   value={programmeId}
                   onChange={(e) => setProgrammeId(e.target.value)}
                   style={{
@@ -366,11 +368,13 @@ export default function ReportsHub() {
 
           {/* 2. COURSE SELECTOR (For All Roles) */}
           <div style={{ minWidth: '260px', flex: '1 1 260px' }}>
-            <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+            <label htmlFor="reports-course-select" style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
               {isHodOrDirector ? 'Select Course (of Programme)' : 'Select Course'}
             </label>
             <div style={{ position: 'relative' }}>
               <select
+                id="reports-course-select"
+                aria-label="Select Course"
                 value={courseId || ''}
                 onChange={(e) => setCourseId(e.target.value)}
                 style={{
@@ -400,11 +404,13 @@ export default function ReportsHub() {
           {/* 3. ACADEMIC YEAR SELECTOR (Visible for AY Attainment mode or ATR Reports) */}
           {(activeMainTab === 'atr-reports' || effectiveAttainmentViewMode === 'course-attainment') && (
             <div style={{ width: '160px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+              <label htmlFor="reports-ay-select" style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
                 Academic Year
               </label>
               <div style={{ position: 'relative' }}>
                 <select
+                  id="reports-ay-select"
+                  aria-label="Academic Year"
                   value={selectedAyFilter}
                   onChange={(e) => setSelectedAyFilter(e.target.value)}
                   style={{
@@ -435,11 +441,13 @@ export default function ReportsHub() {
           {/* 4. BATCH SELECTOR (Visible when in Programme Attainment mode) */}
           {activeMainTab === 'attainment-reports' && effectiveAttainmentViewMode === 'programme-attainment' && (
             <div style={{ minWidth: '240px', flex: '1 1 240px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+              <label htmlFor="reports-batch-select" style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
                 Target Batch
               </label>
               <div style={{ position: 'relative' }}>
                 <select
+                  id="reports-batch-select"
+                  aria-label="Target Batch"
                   value={selectedBatchId}
                   onChange={(e) => setSelectedBatchId(e.target.value)}
                   style={{
