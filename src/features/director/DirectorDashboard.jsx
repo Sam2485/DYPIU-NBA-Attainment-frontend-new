@@ -33,15 +33,15 @@ export default function DirectorDashboard() {
       })
       .catch((err) => console.warn('[DirectorDashboard] Could not fetch director school summary:', err));
 
-    // 2. Fetch Setup Progress from backend
-    getDirectorSetupProgress(targetSchoolId)
+    // 2. Fetch Setup Progress from backend for current Director
+    getDirectorSetupProgress(selectedSchool.id , user.email )
       .then((res) => {
         const data = res?.data?.data || res?.data || res;
         console.log('[DirectorDashboard] getDirectorSetupProgress loaded:', data);
         if (data && isMounted) setSetupProgress(data);
       })
       .catch((err) => console.warn('[DirectorDashboard] Could not fetch director setup progress:', err));
-
+    
     // 3. Fetch Department Summary
     getDepartmentSummary(targetSchoolId)
       .then((res) => {
@@ -82,11 +82,11 @@ export default function DirectorDashboard() {
   }
 
   const handleSetupButtonClick = async () => {
-    const targetSchoolId = selectedSchool?.id || 'sch-1';
+    const targetSchoolId = selectedSchool?.id ;
     if (isCompleted) {
       // If all steps finished, manage setup starts from Step 1
       try {
-        await updateDirectorSetupProgress(targetSchoolId, 1);
+        await updateDirectorSetupProgress(targetSchoolId, currentStepNum);
       } catch (err) {
         console.warn('Failed to reset progress for manage setup:', err);
       }

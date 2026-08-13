@@ -48,10 +48,10 @@ export const saveSchoolInfo = async (schoolData) => {
   }
 };
 
-export const getDirectorSetupProgress = async (schoolId = 'sch-1') => {
+export const getDirectorSetupProgress = async (schoolId , directorEmail ) => {
   try {
     const response = await apiClient.get('/academic/director/setup-progress', {
-      params: {schoolId},
+      params: { schoolId, directorEmail },
     });
     return response;
   } catch (error) {
@@ -60,7 +60,7 @@ export const getDirectorSetupProgress = async (schoolId = 'sch-1') => {
   }
 };
 
-export const updateDirectorSetupProgress = async (schoolId = 'sch-1', currentStep = 1) => {
+export const updateDirectorSetupProgress = async (schoolId,currentStep) => {
   try {
     const response = await apiClient.post('/academic/director/setup-progress', null, {
       params: { schoolId, currentStep },
@@ -92,6 +92,70 @@ export const getDepartmentSummary = async (schoolId = 'sch-1') => {
     return response;
   } catch (error) {
     console.error('Failed to fetch department summary:', error);
+    throw error;
+  }
+};
+
+export const getDepartments = async (schoolId = '') => {
+  try {
+    const response = await apiClient.get('/academic/departments', {
+      params: schoolId ? { schoolId } : {},
+    });
+    return response;
+  } catch (error) {
+    console.error('Failed to fetch departments:', error);
+    throw error;
+  }
+};
+
+export const saveDepartment = async (deptData) => {
+  try {
+    const response = await apiClient.post('/academic/departments', deptData);
+    return response;
+  } catch (error) {
+    console.error('Failed to save department:', error);
+    throw error;
+  }
+};
+
+export const deleteDepartment = async (id) => {
+  try {
+    const response = await apiClient.delete(`/academic/departments/${id}`);
+    return response;
+  } catch (error) {
+    console.error(`Failed to delete department ${id}:`, error);
+    throw error;
+  }
+};
+
+export const getProgrammes = async (schoolId = '') => {
+  try {
+    const response = await apiClient.get('/academic/programmes', {
+      params: schoolId ? { schoolId } : {},
+    });
+    return response;
+  } catch (error) {
+    console.error('Failed to fetch programmes:', error);
+    throw error;
+  }
+};
+
+export const saveProgramme = async (progData) => {
+  try {
+    const response = await apiClient.post('/academic/programmes', progData);
+    return response;
+  } catch (error) {
+    console.error('Failed to save programme:', error);
+    throw error;
+  }
+};
+
+export const deleteProgramme = async (id) => {
+  try {
+    const response = await apiClient.delete(`/academic/programmes/${id}`);
+    return response;
+  } catch (error) {
+    console.error(`Failed to delete programme ${id}:`, error);
     throw error;
   }
 };

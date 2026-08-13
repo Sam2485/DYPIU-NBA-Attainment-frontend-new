@@ -4,7 +4,7 @@ import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, ArrowLeft, S
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
-import { getSchools, saveSchoolInfo, getDirectorSchoolSummary, getDirectorSetupProgress, updateDirectorSetupProgress } from '../../api/academic';
+import { getSchools, saveSchoolInfo, getDirectorSchoolSummary, getDirectorSetupProgress, updateDirectorSetupProgress, getDepartments, saveDepartment, deleteDepartment as deleteDepartmentApi, getProgrammes, saveProgramme, deleteProgramme as deleteProgrammeApi } from '../../api/academic';
 
 export default function DirectorSetupWorkflow() {
   const navigate = useNavigate();
@@ -76,7 +76,7 @@ export default function DirectorSetupWorkflow() {
         console.warn('Could not fetch director school summary from backend:', err);
       });
 
-    getDirectorSetupProgress(schoolId || selectedSchool?.id || 'sch-1')
+    getDirectorSetupProgress(schoolId || selectedSchool?.id || '', user?.email || '')
       .then((res) => {
         const progressData = res?.data?.data || res?.data || res;
         if (progressData && isMounted) {
@@ -95,9 +95,50 @@ export default function DirectorSetupWorkflow() {
     };
   }, [user?.email]);
 
+  // Load departments from backend whenever entering Step 2 or schoolId is updated
+  useEffect(() => {
+    let isMounted = true;
+    if (currentStep === 2 && schoolId) {
+      getDepartments(schoolId)
+        .then((res) => {
+          const list = res?.data?.data || res?.data || res;
+          if (Array.isArray(list) && isMounted) {
+            setDeptList(list);
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not fetch departments for schoolId:', schoolId, err);
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [currentStep, schoolId]);
+
+  // Load programmes from backend whenever entering Step 3 or schoolId is updated
+  useEffect(() => {
+    let isMounted = true;
+    if (currentStep === 3 && schoolId) {
+      getProgrammes(schoolId)
+        .then((res) => {
+          const list = res?.data?.data || res?.data || res;
+          if (Array.isArray(list) && isMounted) {
+            setProgList(list);
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not fetch programmes for schoolId:', schoolId, err);
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [currentStep, schoolId]);
+
   const syncProgress = async (newStep) => {
     try {
-      const res = await updateDirectorSetupProgress(schoolId || 'sch-1', newStep);
+      const targetId = schoolId || selectedSchool?.id || 'sch-1';
+      const res = await updateDirectorSetupProgress(targetId, newStep);
       const data = res?.data?.data || res?.data || res;
       if (Array.isArray(data?.completedSteps)) {
         setCompletedSteps(data.completedSteps);
@@ -109,7 +150,6 @@ export default function DirectorSetupWorkflow() {
 
   const changeStep = (targetStep) => {
     setCurrentStep(targetStep);
-    syncProgress(targetStep);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -134,20 +174,35 @@ export default function DirectorSetupWorkflow() {
     { number: 4, key: 'review', title: 'Review', desc: 'Verify & finish', icon: CheckCircle2 },
   ];
 
-  const handleAddDeptInline = () => {
+  const handleAddDeptInline = async () => {
     if (!newDeptName || !newDeptCode) return;
-    const newDept = {
-      id: `dept-${Date.now()}`,
+    const targetSchoolId = schoolId || selectedSchool?.id || 'sch-1';
+    const deptPayload = {
+      schoolId: targetSchoolId,
       name: newDeptName,
       code: newDeptCode,
       hod: selectedHod,
       hodEmail: `${selectedHod.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`,
+      status: 'ACTIVE',
     };
-    const updated = [...deptList, newDept];
-    setDeptList(updated);
-    addDepartment(newDept);
-    setNewDeptName('');
-    setNewDeptCode('');
+
+    try {
+      console.log('[DirectorSetupWorkflow] Saving department via POST endpoint:', deptPayload);
+      const res = await saveDepartment(deptPayload);
+      const savedDept = res?.data?.data || res?.data || deptPayload;
+      const updated = [...deptList, savedDept];
+      setDeptList(updated);
+      addDepartment(savedDept);
+      setNewDeptName('');
+      setNewDeptCode('');
+    } catch (err) {
+      console.error('Failed to save department to backend:', err);
+      const fallbackDept = { id: `dept-${Date.now()}`, ...deptPayload };
+      setDeptList([...deptList, fallbackDept]);
+      addDepartment(fallbackDept);
+      setNewDeptName('');
+      setNewDeptCode('');
+    }
   };
 
   const handleHodChange = (deptId, hodName) => {
@@ -166,7 +221,12 @@ export default function DirectorSetupWorkflow() {
       title: 'Delete Department?',
       itemName: d ? `${d.name} (${d.code})` : '',
       description: 'This action cannot be undone. All data associated with this department will be removed.',
-      onConfirm: () => {
+      onConfirm: async () => {
+        try {
+          await deleteDepartmentApi(deptId);
+        } catch (err) {
+          console.warn('Could not delete department from backend:', err);
+        }
         const updated = deptList.filter((item) => item.id !== deptId);
         setDeptList(updated);
         deleteDepartment(deptId);
@@ -180,7 +240,12 @@ export default function DirectorSetupWorkflow() {
       title: 'Delete Programme?',
       itemName: p ? `${p.name} (${p.code})` : '',
       description: 'This action cannot be undone. All data associated with this programme will be removed.',
-      onConfirm: () => {
+      onConfirm: async () => {
+        try {
+          await deleteProgrammeApi(progId);
+        } catch (err) {
+          console.warn('Could not delete programme from backend:', err);
+        }
         const updated = progList.filter((item) => item.id !== progId);
         setProgList(updated);
         deleteProgramme(progId);
@@ -188,55 +253,125 @@ export default function DirectorSetupWorkflow() {
     });
   };
 
-  const handleAddProgrammeInline = () => {
+  const handleAddProgrammeInline = async () => {
     if (!newProgName || !newProgCode) return;
     const deptObj = deptList.find((d) => d.id === selectedDeptIdForProg) || deptList[0];
-    const newProg = {
-      id: `prog-${Date.now()}`,
+    const progPayload = {
+      departmentId: selectedDeptIdForProg || deptList[0]?.id || 'dept-1',
+      departmentName: deptObj?.name || 'Department of Computer Science',
       code: newProgCode,
       name: newProgName,
       durationYears: parseInt(newProgDuration, 10) || 4,
-      departmentId: selectedDeptIdForProg,
-      department: deptObj?.name || 'Department of Computer Science',
       coordinator: '',
+      coordinatorEmail: '',
+      status: 'ACTIVE',
     };
-    setProgList([...progList, newProg]);
-    addProgramme(newProg);
-    setNewProgName('');
-    setNewProgCode('');
+
+    try {
+      console.log('[DirectorSetupWorkflow] Saving programme via POST endpoint:', progPayload);
+      const res = await saveProgramme(progPayload);
+      const savedProg = res?.data?.data || res?.data || progPayload;
+      const updated = [...progList, savedProg];
+      setProgList(updated);
+      addProgramme(savedProg);
+      setNewProgName('');
+      setNewProgCode('');
+    } catch (err) {
+      console.error('Failed to save programme to backend:', err);
+      const fallbackProg = { id: `prog-${Date.now()}`, ...progPayload };
+      setProgList([...progList, fallbackProg]);
+      addProgramme(fallbackProg);
+      setNewProgName('');
+      setNewProgCode('');
+    }
   };
 
   const handleSaveSchoolStep = async () => {
     try {
       setIsSaving(true);
-      const targetId = schoolId || selectedSchool?.id || `sch-${Date.now()}`;
       const payload = {
-        id: targetId,
+        ...(schoolId ? { id: schoolId } : {}),
         name: schoolName,
         code: schoolCode,
         director: directorName,
-        directorEmail: directorEmail,
+        directorEmail: directorEmail || user?.email || '',
         estYear: estYear,
       };
+      console.log('[DirectorSetupWorkflow] Saving school info payload:', payload);
       const response = await saveSchoolInfo(payload);
       const savedSchool = response?.data?.data || response?.data || payload;
-      updateSchoolInfo(savedSchool.id || targetId, savedSchool);
-      setSuccessMsg('School information saved successfully to backend database!');
+      const finalSchoolId = savedSchool.id || schoolId || 'sch-1';
+      setSchoolId(finalSchoolId);
+      updateSchoolInfo(finalSchoolId, savedSchool);
 
-      const progressRes = await updateDirectorSetupProgress(targetId, 2);
+      // Save step & advance progress in backend database
+      console.log('[DirectorSetupWorkflow] Advancing setup progress to step 2 for schoolId:', finalSchoolId);
+      const progressRes = await updateDirectorSetupProgress(finalSchoolId, 2);
+      const progressData = progressRes?.data?.data || progressRes?.data || progressRes;
+      console.log('[DirectorSetupWorkflow] Progress res:', progressData);
+      if (Array.isArray(progressData?.completedSteps)) {
+        setCompletedSteps(progressData.completedSteps);
+      } else {
+        setCompletedSteps(['school']);
+      }
+
+      setSuccessMsg('School information saved successfully!');
+      setTimeout(() => setSuccessMsg(''), 4000);
+      setCurrentStep(2);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      console.error('Failed to save school info to backend:', err);
+      setCompletedSteps((prev) => [...new Set([...prev, 'school'])]);
+      setCurrentStep(2);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveDepartmentStep = async () => {
+    try {
+      setIsSaving(true);
+      const targetId = schoolId || selectedSchool?.id || 'sch-1';
+      console.log('[DirectorSetupWorkflow] Advancing setup progress to step 3 (Department completed) for schoolId:', targetId);
+      const progressRes = await updateDirectorSetupProgress(targetId, 3);
       const progressData = progressRes?.data?.data || progressRes?.data || progressRes;
       if (Array.isArray(progressData?.completedSteps)) {
         setCompletedSteps(progressData.completedSteps);
       } else {
-        setCompletedSteps((prev) => [...new Set([...prev, 'school'])]);
+        setCompletedSteps((prev) => [...new Set([...prev, 'school', 'department'])]);
       }
-
-      setTimeout(() => setSuccessMsg(''), 4000);
-      changeStep(2);
+      setCurrentStep(3);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      console.error('Failed to save school info to backend:', err);
-      updateSchoolInfo(schoolId || 'sch-1', { name: schoolName, code: schoolCode, director: directorName, directorEmail, estYear });
-      changeStep(2);
+      console.error('Failed to update setup progress for department step:', err);
+      setCompletedSteps((prev) => [...new Set([...prev, 'school', 'department'])]);
+      setCurrentStep(3);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveProgrammeStep = async () => {
+    try {
+      setIsSaving(true);
+      const targetId = schoolId || selectedSchool?.id || 'sch-1';
+      console.log('[DirectorSetupWorkflow] Advancing setup progress to step 4 (Programme completed) for schoolId:', targetId);
+      const progressRes = await updateDirectorSetupProgress(targetId, 4);
+      const progressData = progressRes?.data?.data || progressRes?.data || progressRes;
+      if (Array.isArray(progressData?.completedSteps)) {
+        setCompletedSteps(progressData.completedSteps);
+      } else {
+        setCompletedSteps((prev) => [...new Set([...prev, 'school', 'department', 'programme'])]);
+      }
+      setCurrentStep(4);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      console.error('Failed to update setup progress for programme step:', err);
+      setCompletedSteps((prev) => [...new Set([...prev, 'school', 'department', 'programme'])]);
+      setCurrentStep(4);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsSaving(false);
     }
@@ -245,6 +380,10 @@ export default function DirectorSetupWorkflow() {
   const handleNextStep = async () => {
     if (currentStep === 1) {
       await handleSaveSchoolStep();
+    } else if (currentStep === 2) {
+      await handleSaveDepartmentStep();
+    } else if (currentStep === 3) {
+      await handleSaveProgrammeStep();
     } else if (currentStep < 4) {
       changeStep(currentStep + 1);
     }
@@ -252,8 +391,9 @@ export default function DirectorSetupWorkflow() {
   const handlePrevStep = () => {
     if (currentStep > 1) { changeStep(currentStep - 1); }
   };
-  const handleFinishWorkflow = () => {
-    syncProgress(4);
+  const handleFinishWorkflow = async () => {
+    const targetId = schoolId || selectedSchool?.id || 'sch-1';
+    await syncProgress(4);
     navigate('/director/dashboard');
   };
 
