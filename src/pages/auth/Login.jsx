@@ -28,7 +28,16 @@ const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { loginUser } = useAuth();
+  const { user, loginUser, getAccessToken } = useAuth();
+
+  // Auto-redirect if already logged in (persistent session)
+  useEffect(() => {
+    const token = getAccessToken();
+    if (user && token) {
+      const targetDashboard = dashboardForRole(user.role);
+      navigate(targetDashboard, { replace: true });
+    }
+  }, [user, getAccessToken, navigate]);
 
   // Mode state
   const [isRegistering, setIsRegistering] = useState(false);

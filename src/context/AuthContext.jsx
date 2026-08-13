@@ -2,35 +2,56 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
 
-const DEFAULT_USER = {
-  id: 1,
-  name: 'Dr. Raj Shaikh',
-  email: 'raj.shaikh@dypiu.ac.in',
-  role: 'FACULTY',
-  department: 'Computer Science & Engineering',
-  programme: 'B.Tech CSE',
+const saveSessionData = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+    sessionStorage.setItem(key, value);
+  } catch (e) {}
+};
+
+const getSessionData = (key) => {
+  try {
+    return localStorage.getItem(key) || sessionStorage.getItem(key) || null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const removeSessionData = (key) => {
+  try {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  } catch (e) {}
+};
+
+const clearSessionData = () => {
+  try {
+    localStorage.clear();
+    sessionStorage.clear();
+  } catch (e) {}
 };
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const saved = sessionStorage.getItem('nba_user');
-    if (saved) {
+    const token = getSessionData('accessToken') || getSessionData('authToken') || getSessionData('token');
+    const savedUser = getSessionData('nba_user');
+    if (token && savedUser) {
       try {
-        return JSON.parse(saved);
+        return JSON.parse(savedUser);
       } catch (e) {
-        return DEFAULT_USER;
+        return null;
       }
     }
-    return DEFAULT_USER;
+    return null;
   });
 
-  const [role, setRole] = useState(() => user?.role || sessionStorage.getItem('role') || 'FACULTY');
+  const [role, setRole] = useState(() => user?.role || getSessionData('role') || 'FACULTY');
 
   useEffect(() => {
     if (user) {
       const updatedUser = { ...user, role };
-      sessionStorage.setItem('nba_user', JSON.stringify(updatedUser));
-      sessionStorage.setItem('role', role);
+      saveSessionData('nba_user', JSON.stringify(updatedUser));
+      saveSessionData('role', role);
     }
   }, [user, role]);
 
@@ -46,17 +67,17 @@ export function AuthProvider({ children }) {
     };
 
     if (token) {
-      sessionStorage.setItem('authToken', token);
-      sessionStorage.setItem('token', token);
-      sessionStorage.setItem('accessToken', token);
+      saveSessionData('authToken', token);
+      saveSessionData('token', token);
+      saveSessionData('accessToken', token);
     }
 
     if (refreshToken) {
-      sessionStorage.setItem('refreshToken', refreshToken);
+      saveSessionData('refreshToken', refreshToken);
     }
 
-    sessionStorage.setItem('nba_user', JSON.stringify(updatedUser));
-    sessionStorage.setItem('role', updatedUser.role);
+    saveSessionData('nba_user', JSON.stringify(updatedUser));
+    saveSessionData('role', updatedUser.role);
 
     setUser(updatedUser);
     setRole(updatedUser.role);
@@ -64,24 +85,17 @@ export function AuthProvider({ children }) {
   };
 
   const getAccessToken = () => {
-    return sessionStorage.getItem('accessToken') || sessionStorage.getItem('authToken') || sessionStorage.getItem('token') || '';
+    return getSessionData('accessToken') || getSessionData('authToken') || getSessionData('token') || '';
   };
 
   const getRefreshToken = () => {
-    return sessionStorage.getItem('refreshToken') || '';
+    return getSessionData('refreshToken') || '';
   };
 
   const logout = () => {
-    sessionStorage.removeItem('authToken');
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('accessToken');
-    sessionStorage.removeItem('refreshToken');
-    sessionStorage.removeItem('nba_user');
-    sessionStorage.removeItem('role');
-    sessionStorage.clear();
+    clearSessionData();
     setUser(null);
-    const loginUrl = window.location.pathname.startsWith('/obe') ? '/obe/login' : '/login';
-    window.location.href = loginUrl;
+    window.location.href = '/login';
   };
 
   return (

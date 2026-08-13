@@ -1,5 +1,27 @@
 import axios from 'axios';
 
+const getSessionData = (key) => {
+  try {
+    return localStorage.getItem(key) || sessionStorage.getItem(key) || null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const saveSessionData = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+    sessionStorage.setItem(key, value);
+  } catch (e) {}
+};
+
+const clearSessionData = () => {
+  try {
+    localStorage.clear();
+    sessionStorage.clear();
+  } catch (e) {}
+};
+
 // Base API Client configured for Spring Boot backend integration on localhost:8080 via Vite Proxy /api/v1
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
@@ -8,10 +30,10 @@ const apiClient = axios.create({
   },
 });
 
-// Request Interceptor: Attach JWT Access Token if present in sessionStorage
+// Request Interceptor: Attach JWT Access Token if present
 apiClient.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem('accessToken') || sessionStorage.getItem('authToken') || sessionStorage.getItem('token');
+    const token = getSessionData('accessToken') || getSessionData('authToken') || getSessionData('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -36,7 +58,7 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
-// Response Interceptor: Handle global errors and automatic Token Refresh via sessionStorage
+// Response Interceptor: Handle global errors and automatic Token Refresh
 apiClient.interceptors.response.use(
   (response) => {
     console.log(`[API Response Success]`, response.status, response.data);
@@ -48,11 +70,11 @@ apiClient.interceptors.response.use(
 
     // Handle 401 Unauthorized errors with Automatic Refresh Token Session Management
     if (error.response?.status === 401 && !originalRequest._retry) {
-      const refreshToken = sessionStorage.getItem('refreshToken');
+      const refreshToken = getSessionData('refreshToken');
 
       // Do not attempt refresh on auth endpoints to prevent loops
       if (!refreshToken || originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/refresh-token')) {
-        sessionStorage.clear();
+        clearSessionData();
         return Promise.reject(error);
       }
 
@@ -78,11 +100,11 @@ apiClient.interceptors.response.use(
         const newRefreshToken = resData?.refreshToken || refreshToken;
 
         if (newAccessToken) {
-          sessionStorage.setItem('accessToken', newAccessToken);
-          sessionStorage.setItem('authToken', newAccessToken);
-          sessionStorage.setItem('token', newAccessToken);
+          saveSessionData('accessToken', newAccessToken);
+          saveSessionData('authToken', newAccessToken);
+          saveSessionData('token', newAccessToken);
           if (newRefreshToken) {
-            sessionStorage.setItem('refreshToken', newRefreshToken);
+            saveSessionData('refreshToken', newRefreshToken);
           }
 
           apiClient.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
@@ -93,7 +115,7 @@ apiClient.interceptors.response.use(
         }
       } catch (refreshErr) {
         processQueue(refreshErr, null);
-        sessionStorage.clear();
+        clearSessionData();
         window.location.href = '/login';
         return Promise.reject(refreshErr);
       } finally {
