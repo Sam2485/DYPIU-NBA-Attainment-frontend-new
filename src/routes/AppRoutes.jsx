@@ -142,6 +142,11 @@ const HodProgrammeCoordinatorsPage = lazy(() =>
   import('../pages/hod/HodProgrammeCoordinatorsPage')
 );
 
+// Auth pages
+const LoginPage = lazy(() => import('../pages/auth/Login'));
+const RegisterPage = lazy(() => import('../pages/auth/Register'));
+const ForgotPasswordPage = lazy(() => import('../pages/auth/ForgotPassword'));
+
 // Course Coordinator
 const CourseCoordinatorWorkflowPage = lazy(() =>
   import('../pages/CourseCoordinatorWorkflowPage')
@@ -152,6 +157,14 @@ export default function AppRoutes() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <Routes>
+
+        {/* =====================================================
+            AUTHENTICATION
+        ===================================================== */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ForgotPasswordPage />} />
 
         {/* =====================================================
             DEFAULT
