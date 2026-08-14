@@ -1,19 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, ShieldCheck, Layers, Check, Clock, ChevronRight, Settings } from 'lucide-react';
-import { useAcademic } from '../../context/AcademicContext';
+import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, Layers, Check, Clock, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getDirectorSchoolSummary, getDirectorSetupProgress, getDepartmentSummary, updateDirectorSetupProgress } from '../../api/academic';
 
 export default function DirectorDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const {
-    departments = [],
-    selectedSchool = null,
-    masterProgrammes = [],
-    directorApprovals = [],
-  } = useAcademic();
 
   const [schoolSummary, setSchoolSummary] = useState(null);
   const [setupProgress, setSetupProgress] = useState(null);
@@ -21,30 +14,31 @@ export default function DirectorDashboard() {
 
   useEffect(() => {
     let isMounted = true;
-    const targetSchoolId = selectedSchool?.id || 'sch-1';
     const directorEmail = user?.email || '';
-    console.log('[DirectorDashboard] Fetching backend summary APIs for school:', targetSchoolId, 'director:', directorEmail);
+    console.log('[DirectorDashboard] Fetching backend summary APIs for director:', directorEmail);
 
-    // 1. Fetch School Summary on Dashboard load right after login for current Director
-    getDirectorSchoolSummary(targetSchoolId, directorEmail, user?.name || '')
+    // 1. Fetch School Summary (also gives us the schoolId for subsequent calls)
+    getDirectorSchoolSummary('', directorEmail, user?.name || '')
       .then((res) => {
         const data = res?.data?.data || res?.data || res;
         console.log('[DirectorDashboard] getDirectorSchoolSummary loaded:', data);
-        if (data && isMounted) setSchoolSummary(data);
-      })
-      .catch((err) => console.warn('[DirectorDashboard] Could not fetch director school summary:', err));
+        if (!data || !isMounted) return;
+        setSchoolSummary(data);
 
-    // 2. Fetch Setup Progress from backend for current Director (safe: optional chaining on selectedSchool)
-    getDirectorSetupProgress(targetSchoolId, directorEmail)
+        // 2. Fetch Setup Progress using the real schoolId from summary
+        const resolvedSchoolId = data?.schoolId || '';
+        return getDirectorSetupProgress(resolvedSchoolId, directorEmail);
+      })
       .then((res) => {
+        if (!res || !isMounted) return;
         const data = res?.data?.data || res?.data || res;
         console.log('[DirectorDashboard] getDirectorSetupProgress loaded:', data);
-        if (data && isMounted) setSetupProgress(data);
+        if (data) setSetupProgress(data);
       })
-      .catch((err) => console.warn('[DirectorDashboard] Could not fetch director setup progress:', err));
+      .catch((err) => console.warn('[DirectorDashboard] Could not fetch school summary / progress:', err));
 
-    // 3. Fetch Department Summary
-    getDepartmentSummary(targetSchoolId)
+    // 3. Fetch Department Summary (runs in parallel)
+    getDepartmentSummary('')
       .then((res) => {
         const data = res?.data?.data || res?.data || res;
         console.log('[DirectorDashboard] getDepartmentSummary loaded:', data);
@@ -55,15 +49,15 @@ export default function DirectorDashboard() {
     return () => {
       isMounted = false;
     };
-  }, [selectedSchool?.id, user?.email]);
+  }, [user?.email]);
 
-  const hasSchoolInDb = Boolean(schoolSummary?.schoolName || selectedSchool?.name);
+  const hasSchoolInDb = Boolean(schoolSummary?.schoolName);
 
-  const totalDepts = schoolSummary?.totalDepartments ?? departments.length ?? 0;
-  const assignedHODs = schoolSummary?.assignedHODsCount ?? departments.filter((d) => d.hod && d.hod !== 'Unassigned').length ?? 0;
+  const totalDepts = schoolSummary?.totalDepartments ?? 0;
+  const assignedHODs = schoolSummary?.assignedHODsCount ?? 0;
   const pendingHODs = schoolSummary?.unassignedHODsCount ?? (totalDepts - assignedHODs);
-  const totalProgrammes = schoolSummary?.totalProgrammes ?? masterProgrammes.length ?? 0;
-  const pendingApprovalsCount = directorApprovals.filter((a) => a.status === 'PENDING').length || 0;
+  const totalProgrammes = schoolSummary?.totalProgrammes ?? 0;
+  const pendingApprovalsCount = 0; // fetched separately if needed
 
   const currentStepNum = setupProgress?.currentStep || 1;
   const overallStatus = setupProgress?.overallStatus || 'NOT_STARTED';
@@ -83,9 +77,8 @@ export default function DirectorDashboard() {
   }
 
   const handleSetupButtonClick = async () => {
-    const targetSchoolId = selectedSchool?.id;
+    const targetSchoolId = schoolSummary?.schoolId || '';
     if (isCompleted) {
-      // If all steps finished, manage setup starts from Step 1
       try {
         await updateDirectorSetupProgress(targetSchoolId, currentStepNum, user?.email || '');
       } catch (err) {
@@ -153,7 +146,7 @@ export default function DirectorDashboard() {
           </h1>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
             {hasSchoolInDb ? (
-              `${schoolSummary?.schoolName || selectedSchool?.name} · ${schoolSummary?.schoolCode || selectedSchool?.code} ${schoolSummary?.directorName ? `· Director: ${schoolSummary.directorName}` : ''}`
+              `${schoolSummary?.schoolName} · ${schoolSummary?.schoolCode || ''} ${schoolSummary?.directorName ? `· Director: ${schoolSummary.directorName}` : ''}`
             ) : (
               'No school metadata found in database. Please click Start Setup to configure your school.'
             )}
@@ -179,7 +172,7 @@ export default function DirectorDashboard() {
             </div>
           </div>
           <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalDepts}</div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>In {selectedSchool?.code}</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>In {schoolSummary?.schoolCode || '—'}</div>
         </div>
 
         {/* HODs */}
@@ -259,7 +252,7 @@ export default function DirectorDashboard() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <div style={{ fontSize: '14px', fontWeight: '700', color: ink }}>Setup Progress</div>
-            <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>{selectedSchool?.name}</div>
+            <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>{schoolSummary?.schoolName || '—'}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '12.5px', fontWeight: '700', color: accent }}>{progressPct}%</span>
