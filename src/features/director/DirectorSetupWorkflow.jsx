@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, X, Trash2, Loader2 } from 'lucide-react';
+import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, X, Trash2, Loader2, AlertCircle, UserCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 import { saveSchoolInfo, getDirectorSchoolSummary, getDirectorSetupProgress, updateDirectorSetupProgress, getDepartments, saveDepartment, deleteDepartment as deleteDepartmentApi, getProgrammes, saveProgramme, deleteProgramme as deleteProgrammeApi, getUsersByRole } from '../../api/academic';
@@ -168,6 +169,57 @@ export default function DirectorSetupWorkflow() {
   const [newDeptName, setNewDeptName] = useState('');
   const [newDeptCode, setNewDeptCode] = useState('');
   const [selectedHod, setSelectedHod] = useState(MASTER_FACULTY_LIST[0] || 'Dr. Raj Shaikh');
+  // Step 2 Edit Modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingDept, setEditingDept] = useState(null);
+  const [editDeptName, setEditDeptName] = useState('');
+  const [editDeptCode, setEditDeptCode] = useState('');
+  const [editSelectedHod, setEditSelectedHod] = useState('');
+  const [editHodEmail, setEditHodEmail] = useState('');
+
+  const handleOpenEditDept = (dept) => {
+    setEditingDept(dept);
+    const hName = dept.hod || dept.deptHodName || (hodUsers[0]?.name || MASTER_FACULTY_LIST[0]);
+    setEditDeptName(dept.name || dept.deptName || '');
+    setEditDeptCode(dept.code || dept.deptCode || '');
+    setEditSelectedHod(hName);
+    const matched = hodUsers.find((u) => u.name === hName);
+    setEditHodEmail(dept.hodEmail || dept.deptHodEmail || matched?.email || `${(hName || '').toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEditDept = async (e) => {
+    e.preventDefault();
+    if (!editingDept || !editDeptName || !editDeptCode) return;
+    const targetSchoolId = schoolId || 'sch-1';
+    const targetDeptId = editingDept.id || editingDept.deptId;
+    const matchedUser = hodUsers.find((u) => u.name === editSelectedHod);
+    const hodEmailPayload = editHodEmail || (matchedUser ? matchedUser.email : `${(editSelectedHod || '').toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`);
+
+    const payload = {
+      id: targetDeptId,
+      schoolId: targetSchoolId,
+      name: editDeptName,
+      code: editDeptCode.toUpperCase(),
+      hod: editSelectedHod,
+      hodEmail: hodEmailPayload,
+      status: 'ACTIVE',
+    };
+
+    try {
+      console.log('[DirectorSetupWorkflow] Saving department edit via POST endpoint:', payload);
+      const res = await saveDepartment(payload);
+      const savedDept = res?.data?.data || res?.data || payload;
+      setDeptList((prev) =>
+        prev.map((d) => ((d.id || d.deptId) === targetDeptId ? savedDept : d))
+      );
+      setShowEditModal(false);
+      setEditingDept(null);
+    } catch (err) {
+      console.error('Failed to save department edit:', err);
+      alert('Failed to save department edit. Please verify backend connection.');
+    }
+  };
 
   // Step 3 — filled by getProgrammes API call when entering step 3
   const [progList, setProgList] = useState([]);
@@ -556,7 +608,7 @@ export default function DirectorSetupWorkflow() {
                   <label style={labelStyle}>Assign HOD</label>
                   <select value={selectedHod} onChange={(e) => setSelectedHod(e.target.value)} style={selectStyle}>
                     {hodUsers.length > 0
-                      ? hodUsers.map((u) => <option key={u.id} value={u.name}>{u.name} ({u.email})</option>)
+                      ? hodUsers.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)
                       : MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
@@ -573,45 +625,76 @@ export default function DirectorSetupWorkflow() {
             <table className="audit-data-table">
               <thead>
                 <tr>
-                  <th style={{ width: '80px' }}>Code</th>
+                  <th style={{ width: '72px' }}>Code</th>
                   <th>Department Name</th>
-                  <th style={{ width: '260px' }}>Head of Department</th>
+                  <th style={{ width: '220px' }}>Head of Department</th>
+                  <th style={{ width: '200px' }}>Email</th>
                   <th style={{ width: '120px', textAlign: 'center' }}>Status</th>
-                  <th style={{ width: '60px', textAlign: 'center' }}>Action</th>
+                  <th style={{ width: '130px', textAlign: 'center' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {deptList.length === 0 && (
-                  <tr><td colSpan={5} style={{ textAlign: 'center', color: muted, padding: '24px', fontSize: '12.5px' }}>No departments yet — add one above.</td></tr>
+                {deptList.length === 0 ? (
+                  <tr><td colSpan={6} style={{ textAlign: 'center', color: muted, padding: '24px', fontSize: '12.5px' }}>No departments yet — add one above.</td></tr>
+                ) : (
+                  deptList.map((dept) => {
+                    const deptId = dept.id || dept.deptId;
+                    const deptCode = dept.code || dept.deptCode;
+                    const deptName = dept.name || dept.deptName;
+                    const hodName = dept.hod || dept.deptHodName || 'Unassigned';
+                    const hodEmail = dept.hodEmail || dept.deptHodEmail || `${(hodName || '').toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`;
+                    const isAssigned = dept.hodAssignedStatus ?? (hodName && hodName !== 'Unassigned');
+                    const initials = (hodName || '').split(' ').map((n) => n[0]).join('').slice(0, 2);
+
+                    return (
+                      <tr key={deptId}>
+                        <td style={{ fontWeight: '700', color: accent }}>{deptCode}</td>
+                        <td style={{ fontWeight: '600', color: ink }}>{deptName}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#eef2ff', color: accent, display: 'grid', placeItems: 'center', fontSize: '10px', fontWeight: '800', flexShrink: 0 }}>
+                              {initials}
+                            </div>
+                            <span style={{ fontSize: '12.5px', fontWeight: '600', color: isAssigned ? ink : '#dc2626' }}>{hodName}</span>
+                          </div>
+                        </td>
+                        <td style={{ fontSize: '12px', color: muted }}>
+                          {hodEmail}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          {isAssigned ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '5px', padding: '2px 8px' }}>
+                              <Check size={11} /> Assigned
+                            </span>
+                          ) : (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '5px', padding: '2px 8px' }}>
+                              <AlertCircle size={11} /> Pending
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditDept(dept)}
+                              style={{ height: '32px', padding: '0 10px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #cbd5e1', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <UserCheck size={13} /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteDeptInline(deptId)}
+                              style={{ width: '32px', height: '32px', borderRadius: '7px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                              title="Delete Department"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
-                {deptList.map((dept) => (
-                  <tr key={dept.id}>
-                    <td style={{ fontWeight: '700', color: accent }}>{dept.code}</td>
-                    <td style={{ fontWeight: '600', color: ink }}>{dept.name}</td>
-                    <td>
-                      <select value={dept.hod} onChange={(e) => handleHodChange(dept.id, e.target.value)} style={{ ...selectStyle, height: '34px', fontSize: '12px' }}>
-                        {hodUsers.length > 0
-                          ? hodUsers.map((u) => <option key={u.id} value={u.name}>{u.name} ({u.email})</option>)
-                          : MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
-                      </select>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '2px 8px' }}>
-                        <Check size={11} /> Assigned
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteDeptInline(dept.id)}
-                        style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
-                        title="Delete Department"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
               </tbody>
             </table>
           </div>
@@ -799,6 +882,73 @@ export default function DirectorSetupWorkflow() {
           )}
         </div>
       </div>
+
+      {/* ── EDIT DEPARTMENT MODAL ────────────────────────────────────────────── */}
+      {showEditModal && createPortal(
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px', boxSizing: 'border-box' }}>
+          <div style={{ background: '#ffffff', borderRadius: '14px', width: '480px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,0.3)', overflow: 'hidden', boxSizing: 'border-box' }}>
+
+            {/* Modal header */}
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: '700', color: ink }}>
+                  Edit Department
+                </div>
+                {editingDept && <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>{(editingDept.code || editingDept.deptCode)} · {(editingDept.name || editingDept.deptName)}</div>}
+              </div>
+              <button onClick={() => setShowEditModal(false)} style={{ width: '28px', height: '28px', borderRadius: '7px', border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', display: 'grid', placeItems: 'center', color: muted }}>
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Modal form */}
+            <form onSubmit={handleSaveEditDept} style={{ padding: '20px', display: 'grid', gap: '14px' }}>
+              <div>
+                <label style={labelStyle}>Department Name *</label>
+                <input type="text" required placeholder="e.g. Dept of Computer Science" value={editDeptName} onChange={(e) => setEditDeptName(e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Department Code *</label>
+                <input type="text" required placeholder="e.g. CSE" value={editDeptCode} onChange={(e) => setEditDeptCode(e.target.value)} style={{ ...inputStyle, fontWeight: '700', color: accent }} />
+              </div>
+              <div>
+                <label style={labelStyle}>Assign HOD *</label>
+                <select
+                  value={editSelectedHod}
+                  onChange={(e) => {
+                    const selectedName = e.target.value;
+                    setEditSelectedHod(selectedName);
+                    const matchedUser = hodUsers.find((u) => u.name === selectedName);
+                    if (matchedUser) {
+                      setEditHodEmail(matchedUser.email);
+                    } else {
+                      setEditHodEmail(`${selectedName.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`);
+                    }
+                  }}
+                  style={{ ...inputStyle, cursor: 'pointer' }}
+                >
+                  {hodUsers.length > 0
+                    ? hodUsers.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)
+                    : MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>HOD Email</label>
+                <input type="email" placeholder="hod@dypiu.ac.in" value={editHodEmail} onChange={(e) => setEditHodEmail(e.target.value)} style={inputStyle} />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '4px' }}>
+                <button type="button" onClick={() => setShowEditModal(false)} style={{ height: '38px', padding: '0 16px', fontSize: '13px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button type="submit" style={{ height: '38px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* ── DELETE CONFIRM MODAL ──────────────────────────────────────────────── */}
       <DeleteConfirmModal

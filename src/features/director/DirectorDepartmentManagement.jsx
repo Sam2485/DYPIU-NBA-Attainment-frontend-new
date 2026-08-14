@@ -325,7 +325,7 @@ export default function DirectorDepartmentManagement() {
                   style={{ ...inputStyle, cursor: 'pointer' }}
                 >
                   {hodUsers.length > 0
-                    ? hodUsers.map((u) => <option key={u.id} value={u.name}>{u.name} ({u.email})</option>)
+                    ? hodUsers.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)
                     : MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
                 </select>
               </div>
