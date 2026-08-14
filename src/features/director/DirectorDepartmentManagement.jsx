@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, UserCheck, Search, Check, X, AlertCircle, Trash2, Edit2 } from 'lucide-react';
+import { Plus, UserCheck, Search, Check, X, AlertCircle, Trash2 } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
+import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
+import { getDirectorSchoolSummary, getDepartmentSummary, saveDepartment, deleteDepartment as deleteDepartmentApi } from '../../api/academic';
 
 export default function DirectorDepartmentManagement() {
+  const { user } = useAuth();
   const {
     departments = [],
     addDepartment = () => {},
@@ -12,6 +15,8 @@ export default function DirectorDepartmentManagement() {
     deleteDepartment = () => {},
   } = useAcademic();
 
+  const [schoolId, setSchoolId] = useState('');
+  const [deptList, setDeptList] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingDept, setEditingDept] = useState(null);
@@ -23,12 +28,42 @@ export default function DirectorDepartmentManagement() {
   const [selectedHod, setSelectedHod] = useState(MASTER_FACULTY_LIST[0] || '');
   const [hodEmail, setHodEmail] = useState('');
 
+  // Fetch schoolId and Department Summary on mount
+  useEffect(() => {
+    let isMounted = true;
+
+    getDirectorSchoolSummary('', user?.email || '', user?.name || '')
+      .then((res) => {
+        const data = res?.data?.data || res?.data || res;
+        if (data?.schoolId && isMounted) {
+          setSchoolId(data.schoolId);
+        }
+      })
+      .catch((err) => console.warn('Could not fetch director school summary:', err));
+
+    getDepartmentSummary('', user?.email || '')
+      .then((res) => {
+        const list = res?.data?.data || res?.data || res;
+        console.log('[DirectorDepartmentManagement] Loaded department summary:', list);
+        if (Array.isArray(list) && isMounted) {
+          setDeptList(list);
+        }
+      })
+      .catch((err) => console.warn('Could not fetch department summary:', err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.email]);
+
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
   const ink = '#0f172a';
   const muted = '#64748b';
   const accent = '#4f46e5';
   const inputStyle = { height: '40px', fontSize: '13px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 12px', background: '#ffffff', color: ink, width: '100%', outline: 'none', fontFamily: 'inherit' };
   const labelStyle = { display: 'block', fontSize: '11.5px', fontWeight: '600', color: muted, marginBottom: '5px' };
+
+  const activeDepts = deptList.length > 0 ? deptList : departments;
 
   const handleOpenAdd = () => {
     setEditingDept(null);
@@ -40,9 +75,10 @@ export default function DirectorDepartmentManagement() {
 
   const handleOpenEdit = (dept) => {
     setEditingDept(dept);
-    setDeptName(dept.name); setDeptCode(dept.code);
-    setSelectedHod(dept.hod || MASTER_FACULTY_LIST[0]);
-    setHodEmail(dept.hodEmail || '');
+    setDeptName(dept.deptName || dept.name);
+    setDeptCode(dept.deptCode || dept.code);
+    setSelectedHod(dept.deptHodName || dept.hod || MASTER_FACULTY_LIST[0]);
+    setHodEmail(dept.deptHodEmail || dept.hodEmail || '');
     setShowModal(true);
   };
 
@@ -51,34 +87,66 @@ export default function DirectorDepartmentManagement() {
     setShowDeleteModal(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (deletingDept) {
-      deleteDepartment(deletingDept.id);
+      const targetId = deletingDept.deptId || deletingDept.id;
+      try {
+        await deleteDepartmentApi(targetId);
+      } catch (err) {
+        console.warn('Could not delete department from backend:', err);
+      }
+      setDeptList((prev) => prev.filter((d) => (d.deptId || d.id) !== targetId));
+      deleteDepartment(targetId);
       setShowDeleteModal(false);
       setDeletingDept(null);
     }
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     if (!deptName || !deptCode) return;
+    const targetSchoolId = schoolId || 'sch-1';
     const payload = {
-      name: deptName, code: deptCode, hod: selectedHod,
+      ...(editingDept?.deptId || editingDept?.id ? { id: editingDept.deptId || editingDept.id } : {}),
+      schoolId: targetSchoolId,
+      name: deptName,
+      code: deptCode.toUpperCase(),
+      hod: selectedHod,
       hodEmail: hodEmail || `${selectedHod.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`,
+      status: 'ACTIVE',
     };
-    if (editingDept) {
-      updateDepartment(editingDept.id, payload);
-    } else {
-      addDepartment(payload);
+
+    try {
+      console.log('[DirectorDepartmentManagement] Saving department via POST endpoint:', payload);
+      const res = await saveDepartment(payload);
+      const savedDept = res?.data?.data || res?.data || payload;
+
+      setDeptList((prev) => {
+        const targetId = savedDept.id || savedDept.deptId || payload.id;
+        const exists = prev.some((d) => (d.deptId || d.id) === targetId);
+        if (exists) {
+          return prev.map((d) => ((d.deptId || d.id) === targetId ? savedDept : d));
+        }
+        return [...prev, savedDept];
+      });
+
+      if (editingDept) {
+        updateDepartment(editingDept.id || editingDept.deptId, payload);
+      } else {
+        addDepartment(savedDept);
+      }
+      setShowModal(false);
+    } catch (err) {
+      console.error('Failed to save department to backend:', err);
+      alert('Failed to save department to backend. Please verify backend connection.');
     }
-    setShowModal(false);
   };
 
-  const filteredDepts = departments.filter(
+  const filteredDepts = activeDepts.filter(
     (d) =>
-      d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (d.hod || '').toLowerCase().includes(searchQuery.toLowerCase())
+      (d.deptName || d.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.deptCode || d.code || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.deptHodName || d.hod || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -112,7 +180,7 @@ export default function DirectorDepartmentManagement() {
           />
         </div>
         <span style={{ fontSize: '12px', color: muted }}>
-          {filteredDepts.length} of {departments.length} departments
+          {filteredDepts.length} of {activeDepts.length} departments
         </span>
       </div>
 
@@ -133,27 +201,33 @@ export default function DirectorDepartmentManagement() {
             {filteredDepts.length === 0 ? (
               <tr>
                 <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#94a3b8', fontSize: '12.5px' }}>
-                  {departments.length === 0 ? 'No departments yet — add one above.' : 'No results for your search.'}
+                  {activeDepts.length === 0 ? 'No departments yet — add one above.' : 'No results for your search.'}
                 </td>
               </tr>
             ) : (
               filteredDepts.map((dept) => {
-                const isAssigned = dept.hod && dept.hod !== 'Unassigned';
-                const initials = (dept.hod || '').split(' ').map((n) => n[0]).join('').slice(0, 2);
+                const deptId = dept.deptId || dept.id;
+                const deptCode = dept.deptCode || dept.code;
+                const deptName = dept.deptName || dept.name;
+                const hodName = dept.deptHodName || dept.hod || 'Unassigned';
+                const hodEmail = dept.deptHodEmail || dept.hodEmail || `${(hodName || '').toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`;
+                const isAssigned = dept.hodAssignedStatus ?? (hodName && hodName !== 'Unassigned');
+                const initials = (hodName || '').split(' ').map((n) => n[0]).join('').slice(0, 2);
+
                 return (
-                  <tr key={dept.id}>
-                    <td style={{ fontWeight: '700', color: accent }}>{dept.code}</td>
-                    <td style={{ fontWeight: '600', color: ink }}>{dept.name}</td>
+                  <tr key={deptId}>
+                    <td style={{ fontWeight: '700', color: accent }}>{deptCode}</td>
+                    <td style={{ fontWeight: '600', color: ink }}>{deptName}</td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#eef2ff', color: accent, display: 'grid', placeItems: 'center', fontSize: '10px', fontWeight: '800', flexShrink: 0 }}>
                           {initials}
                         </div>
-                        <span style={{ fontSize: '12.5px', fontWeight: '600', color: isAssigned ? ink : '#dc2626' }}>{dept.hod}</span>
+                        <span style={{ fontSize: '12.5px', fontWeight: '600', color: isAssigned ? ink : '#dc2626' }}>{hodName}</span>
                       </div>
                     </td>
                     <td style={{ fontSize: '12px', color: muted }}>
-                      {dept.hodEmail || `${(dept.hod || '').toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`}
+                      {hodEmail}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       {isAssigned ? (
@@ -202,7 +276,7 @@ export default function DirectorDepartmentManagement() {
                 <div style={{ fontSize: '15px', fontWeight: '700', color: ink }}>
                   {editingDept ? `Edit Department` : 'Add Department'}
                 </div>
-                {editingDept && <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>{editingDept.code} · {editingDept.name}</div>}
+                {editingDept && <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>{(editingDept.deptCode || editingDept.code)} · {(editingDept.deptName || editingDept.name)}</div>}
               </div>
               <button onClick={() => setShowModal(false)} style={{ width: '28px', height: '28px', borderRadius: '7px', border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', display: 'grid', placeItems: 'center', color: muted }}>
                 <X size={14} />
@@ -247,7 +321,7 @@ export default function DirectorDepartmentManagement() {
       <DeleteConfirmModal
         isOpen={showDeleteModal && !!deletingDept}
         title="Delete Department?"
-        itemName={deletingDept ? `${deletingDept.name} (${deletingDept.code})` : ''}
+        itemName={deletingDept ? `${(deletingDept.deptName || deletingDept.name)} (${(deletingDept.deptCode || deletingDept.code)})` : ''}
         description="This action cannot be undone. All data and programmes under this department will be permanently removed."
         confirmText="Delete Department"
         onConfirm={handleConfirmDelete}

@@ -380,8 +380,17 @@ export default function DirectorSetupWorkflow() {
     if (currentStep > 1) { changeStep(currentStep - 1); }
   };
   const handleFinishWorkflow = async () => {
+    // Mark all steps complete optimistically
+    setCompletedSteps((prev) => [...new Set([...prev, 'school', 'department', 'programme', 'review'])]);
     const targetId = schoolId || 'sch-1';
-    await syncProgress(4);
+    try {
+      // Persist step 4 as completed
+      await updateDirectorSetupProgress(targetId, 4, user?.email || '');
+      // Reset the current step pointer back to 1 so next visit starts fresh
+      await updateDirectorSetupProgress(targetId, 1, user?.email || '');
+    } catch (err) {
+      console.warn('Failed to finalise workflow progress:', err);
+    }
     navigate('/director/dashboard');
   };
 

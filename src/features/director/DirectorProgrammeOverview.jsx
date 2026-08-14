@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { GraduationCap, Building2, Check, ChevronDown, Edit2, Trash2, X, Plus } from 'lucide-react';
+import { GraduationCap, Building2, Check, ChevronDown, Edit2, Trash2, X } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
+import { getDirectorSchoolSummary, getDepartments, getProgrammes, saveProgramme, deleteProgramme as deleteProgrammeApi } from '../../api/academic';
 
 export default function DirectorProgrammeOverview() {
+  const { user } = useAuth();
   const {
     masterProgrammes = [],
     departments = [],
@@ -12,6 +15,9 @@ export default function DirectorProgrammeOverview() {
     deleteProgramme = () => {},
   } = useAcademic();
 
+  const [schoolId, setSchoolId] = useState('');
+  const [deptList, setDeptList] = useState([]);
+  const [progList, setProgList] = useState([]);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProg, setEditingProg] = useState(null);
@@ -23,6 +29,44 @@ export default function DirectorProgrammeOverview() {
   const [editDeptId, setEditDeptId] = useState('');
   const [editDuration, setEditDuration] = useState(4);
 
+  // Fetch school summary, departments, and programmes on mount
+  useEffect(() => {
+    let isMounted = true;
+
+    getDirectorSchoolSummary('', user?.email || '', user?.name || '')
+      .then((res) => {
+        const sch = res?.data?.data || res?.data || res;
+        let resolvedSchoolId = schoolId || '';
+        if (sch && isMounted) {
+          if (sch.schoolId) { setSchoolId(sch.schoolId); resolvedSchoolId = sch.schoolId; }
+        }
+
+        getDepartments(resolvedSchoolId)
+          .then((dRes) => {
+            const list = dRes?.data?.data || dRes?.data || dRes;
+            if (Array.isArray(list) && isMounted) {
+              setDeptList(list);
+            }
+          })
+          .catch((err) => console.warn('Could not fetch departments for programme overview:', err));
+
+        getProgrammes(resolvedSchoolId)
+          .then((pRes) => {
+            const list = pRes?.data?.data || pRes?.data || pRes;
+            console.log('[DirectorProgrammeOverview] Loaded programmes:', list);
+            if (Array.isArray(list) && isMounted) {
+              setProgList(list);
+            }
+          })
+          .catch((err) => console.warn('Could not fetch programmes for programme overview:', err));
+      })
+      .catch((err) => console.warn('Could not fetch director school summary:', err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.email]);
+
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
   const ink = '#0f172a';
   const muted = '#64748b';
@@ -30,32 +74,65 @@ export default function DirectorProgrammeOverview() {
   const inputStyle = { height: '38px', fontSize: '13px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 12px', background: '#ffffff', color: ink, width: '100%', outline: 'none', fontFamily: 'inherit' };
   const labelStyle = { display: 'block', fontSize: '11.5px', fontWeight: '600', color: muted, marginBottom: '5px' };
 
-  const filteredProgrammes = masterProgrammes.filter((prog) => {
+  const activeDepts = deptList.length > 0 ? deptList : departments;
+  const activeProgs = progList.length > 0 ? progList : masterProgrammes;
+
+  const filteredProgrammes = activeProgs.filter((prog) => {
     if (selectedDeptFilter === 'ALL') return true;
-    return prog.departmentId === selectedDeptFilter || prog.department === selectedDeptFilter;
+    const pDeptId = prog.departmentId || prog.department;
+    return (
+      pDeptId === selectedDeptFilter ||
+      prog.departmentName === selectedDeptFilter ||
+      prog.department === selectedDeptFilter
+    );
   });
 
   const handleOpenEdit = (prog) => {
     setEditingProg(prog);
     setEditName(prog.name);
     setEditCode(prog.code);
-    setEditDeptId(prog.departmentId || departments[0]?.id || 'dept-1');
+    const initialDeptId = prog.departmentId || activeDepts[0]?.id || activeDepts[0]?.deptId || '';
+    setEditDeptId(initialDeptId);
     setEditDuration(prog.durationYears || 4);
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = (e) => {
+  const handleSaveEdit = async (e) => {
     e.preventDefault();
     if (!editingProg || !editName || !editCode) return;
-    const deptObj = departments.find((d) => d.id === editDeptId) || departments[0];
-    updateProgramme(editingProg.id, {
+    const targetDept = activeDepts.find((d) => (d.id || d.deptId) === editDeptId) || activeDepts[0];
+    const targetDeptId = targetDept?.id || targetDept?.deptId || editDeptId;
+    const targetDeptName = targetDept?.name || targetDept?.deptName || 'Department of Engineering';
+
+    const progPayload = {
+      ...(editingProg.id ? { id: editingProg.id } : {}),
+      departmentId: targetDeptId,
+      departmentName: targetDeptName,
+      code: editCode.toUpperCase(),
       name: editName,
-      code: editCode,
-      departmentId: deptObj?.id,
-      department: deptObj?.name,
       durationYears: parseInt(editDuration, 10) || 4,
-    });
-    setShowEditModal(false);
+      coordinator: editingProg.coordinator || '',
+      coordinatorEmail: editingProg.coordinatorEmail || '',
+      status: editingProg.status || 'ACTIVE',
+    };
+
+    try {
+      console.log('[DirectorProgrammeOverview] Saving programme edit:', progPayload);
+      const res = await saveProgramme(progPayload);
+      const savedProg = res?.data?.data || res?.data || progPayload;
+
+      setProgList((prev) => {
+        const exists = prev.some((p) => p.id === savedProg.id);
+        if (exists) return prev.map((p) => (p.id === savedProg.id ? savedProg : p));
+        return [...prev, savedProg];
+      });
+
+      updateProgramme(editingProg.id, progPayload);
+      setShowEditModal(false);
+    } catch (err) {
+      console.error('Failed to save programme edit:', err);
+      alert('Failed to save programme edit to backend.');
+    }
   };
 
   const handleOpenDelete = (prog) => {
@@ -63,9 +140,16 @@ export default function DirectorProgrammeOverview() {
     setShowDeleteModal(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (deletingProg) {
-      deleteProgramme(deletingProg.id);
+      const targetId = deletingProg.id;
+      try {
+        await deleteProgrammeApi(targetId);
+      } catch (err) {
+        console.warn('Could not delete programme from backend:', err);
+      }
+      setProgList((prev) => prev.filter((p) => p.id !== targetId));
+      deleteProgramme(targetId);
       setShowDeleteModal(false);
       setDeletingProg(null);
     }
@@ -81,22 +165,29 @@ export default function DirectorProgrammeOverview() {
           <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>Programme Overview &amp; Governance</h2>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>Manage degree programmes, coordinators, and duration settings across all departments.</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Building2 size={14} style={{ color: muted }} />
-          <div style={{ position: 'relative' }}>
-            <select
-              value={selectedDeptFilter}
-              onChange={(e) => setSelectedDeptFilter(e.target.value)}
-              style={{ height: '38px', paddingLeft: '12px', paddingRight: '32px', fontSize: '12.5px', fontWeight: '600', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ffffff', color: ink, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', appearance: 'none' }}
-            >
-              <option value="ALL">All Departments</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.code} – {d.name}</option>
-              ))}
-            </select>
-            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Building2 size={14} style={{ color: muted }} />
+            <div style={{ position: 'relative' }}>
+              <select
+                value={selectedDeptFilter}
+                onChange={(e) => setSelectedDeptFilter(e.target.value)}
+                style={{ height: '38px', paddingLeft: '12px', paddingRight: '32px', fontSize: '12.5px', fontWeight: '600', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ffffff', color: ink, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', appearance: 'none' }}
+              >
+                <option value="ALL">All Departments</option>
+                {activeDepts.map((d) => {
+                  const dId = d.id || d.deptId;
+                  const dCode = d.code || d.deptCode;
+                  const dName = d.name || d.deptName;
+                  return (
+                    <option key={dId} value={dId}>{dCode} – {dName}</option>
+                  );
+                })}
+              </select>
+              <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+            </div>
           </div>
-          <span style={{ fontSize: '12px', color: muted, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: '11.5px', color: muted, fontWeight: '500', paddingRight: '2px' }}>
             {filteredProgrammes.length} programme{filteredProgrammes.length !== 1 ? 's' : ''}
           </span>
         </div>
@@ -110,7 +201,12 @@ export default function DirectorProgrammeOverview() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '14px' }}>
           {filteredProgrammes.map((prog) => {
-            const deptObj = departments.find((d) => d.id === prog.departmentId || d.name === prog.department) || departments[0];
+            const deptObj = activeDepts.find(
+              (d) => (d.id || d.deptId) === prog.departmentId || (d.name || d.deptName) === prog.departmentName || (d.name || d.deptName) === prog.department
+            ) || activeDepts[0];
+
+            const deptDisplayName = deptObj?.deptName || deptObj?.name || prog.departmentName || prog.department || '—';
+            const hodDisplayName = deptObj?.deptHodName || deptObj?.hod || '—';
 
             return (
               <div key={prog.id} style={{ ...surface, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -121,14 +217,14 @@ export default function DirectorProgrammeOverview() {
                     {prog.code}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#16a34a', fontWeight: '600', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '5px', padding: '2px 8px' }}>
-                    <Check size={11} /> Active
+                    <Check size={11} /> {prog.status || 'Active'}
                   </span>
                 </div>
 
                 {/* Name */}
                 <div>
                   <div style={{ fontSize: '14px', fontWeight: '700', color: ink, lineHeight: '1.3', marginBottom: '3px' }}>{prog.name}</div>
-                  <div style={{ fontSize: '11.5px', color: muted }}>{deptObj?.name || prog.department}</div>
+                  <div style={{ fontSize: '11.5px', color: muted }}>{deptDisplayName}</div>
                 </div>
 
                 {/* Details */}
@@ -136,7 +232,7 @@ export default function DirectorProgrammeOverview() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
                     <span style={{ color: muted }}>Supervising HOD</span>
                     <span style={{ fontWeight: '700', color: ink, background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>
-                      {deptObj?.hod || '—'}
+                      {hodDisplayName}
                     </span>
                   </div>
 
@@ -209,9 +305,14 @@ export default function DirectorProgrammeOverview() {
                 <div>
                   <label style={labelStyle}>Department *</label>
                   <select value={editDeptId} onChange={(e) => setEditDeptId(e.target.value)} style={inputStyle}>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
-                    ))}
+                    {activeDepts.map((d) => {
+                      const dId = d.id || d.deptId;
+                      const dCode = d.code || d.deptCode;
+                      const dName = d.name || d.deptName;
+                      return (
+                        <option key={dId} value={dId}>{dName} ({dCode})</option>
+                      );
+                    })}
                   </select>
                 </div>
                 <div>
