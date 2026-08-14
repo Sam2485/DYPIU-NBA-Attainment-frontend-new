@@ -169,3 +169,39 @@ export const getUsersByRole = async (role = 'HOD') => {
     throw error;
   }
 };
+
+export const getHodDepartmentSummary = async (hodEmail = '') => {
+  try {
+    const response = await apiClient.get('/academic/hod/department-summary', {
+      params: { hodEmail },
+    });
+    return response;
+  } catch (error) {
+    console.error('Failed to fetch HOD department summary:', error);
+    throw error;
+  }
+};
+
+export const getHodSetupProgress = async (departmentId = '', hodEmail = '') => {
+  try {
+    const response = await apiClient.get('/academic/hod/setup-progress', {
+      params: { departmentId, hodEmail },
+    });
+    return response;
+  } catch (error) {
+    console.error('Failed to fetch HOD setup progress:', error);
+    throw error;
+  }
+};
+
+export const updateHodSetupProgress = async (departmentId = '', currentStep = 1, hodEmail = '') => {
+  try {
+    const response = await apiClient.post('/academic/hod/setup-progress', null, {
+      params: { departmentId, currentStep, hodEmail },
+    });
+    return response;
+  } catch (error) {
+    console.error('Failed to update HOD setup progress:', error);
+    throw error;
+  }
+};

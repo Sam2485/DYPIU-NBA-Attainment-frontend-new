@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { GraduationCap, CheckCircle2, ArrowRight, ShieldCheck, Layers, FileText, Calendar, Users, ChevronRight, Check, Clock } from 'lucide-react';
+import { GraduationCap, CheckCircle2, ArrowRight, ShieldCheck, Layers, FileText, Calendar, Users, ChevronRight, Check, Clock, UserCheck } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -16,10 +16,12 @@ export default function HodDashboard() {
 
   const totalProgrammes = masterProgrammes.length || 3;
   const totalCourses = courses.length || 6;
+  const assignedCoordinatorsCount = masterProgrammes.filter(
+    (p) => p.coordinator && p.coordinator !== 'Unassigned' && p.coordinator !== 'No coordinator assigned yet' && p.coordinator !== 'Pending HOD Assignment'
+  ).length || totalProgrammes;
   const pendingApprovalsCount = hodApprovals.filter(
     (a) => a.status === 'PENDING' || a.status === 'SUBMITTED'
   ).length;
-  const activeBatch = selectedBatch?.name?.split(' ')[1] || '2025–29';
 
   const quickActions = [
     {
@@ -105,21 +107,7 @@ export default function HodDashboard() {
       {/* ── STAT CARDS ──────────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '20px' }}>
 
-        {/* Active Batch */}
-        <div style={{ ...surface, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Active Batch</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#eef2ff', display: 'grid', placeItems: 'center', color: accent }}>
-              <Calendar size={16} />
-            </div>
-          </div>
-          <div style={{ fontSize: '20px', fontWeight: '800', color: ink, lineHeight: 1 }}>{activeBatch}</div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: '#16a34a', fontWeight: '600', marginTop: '6px' }}>
-            <Check size={11} /> Active cycle
-          </div>
-        </div>
-
-        {/* Programmes */}
+        {/* 1. Programmes */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Programmes</span>
@@ -131,7 +119,23 @@ export default function HodDashboard() {
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>Degree programmes</div>
         </div>
 
-        {/* Courses */}
+        {/* 2. Programme Coordinators */}
+        <div style={{ ...surface, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Programme Coordinators</span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#eef2ff', display: 'grid', placeItems: 'center', color: accent }}>
+              <UserCheck size={16} />
+            </div>
+          </div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>
+            {assignedCoordinatorsCount} <span style={{ fontSize: '15px', fontWeight: '600', color: muted }}>/ {totalProgrammes}</span>
+          </div>
+          <div style={{ fontSize: '11.5px', color: '#16a34a', fontWeight: '600', marginTop: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <Check size={11} /> {assignedCoordinatorsCount} assigned for programmes
+          </div>
+        </div>
+
+        {/* 3. Courses */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Courses</span>
@@ -143,7 +147,7 @@ export default function HodDashboard() {
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>Under department</div>
         </div>
 
-        {/* Approvals */}
+        {/* 4. Approvals */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Approvals</span>
