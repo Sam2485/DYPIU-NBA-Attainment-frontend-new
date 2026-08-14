@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, X, Trash2, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
-import { saveSchoolInfo, getDirectorSchoolSummary, getDirectorSetupProgress, updateDirectorSetupProgress, getDepartments, saveDepartment, deleteDepartment as deleteDepartmentApi, getProgrammes, saveProgramme, deleteProgramme as deleteProgrammeApi } from '../../api/academic';
+import { saveSchoolInfo, getDirectorSchoolSummary, getDirectorSetupProgress, updateDirectorSetupProgress, getDepartments, saveDepartment, deleteDepartment as deleteDepartmentApi, getProgrammes, saveProgramme, deleteProgramme as deleteProgrammeApi, getUsersByRole } from '../../api/academic';
 
 // Faculty list kept local — no longer pulled from AcademicContext
 const MASTER_FACULTY_LIST = [
@@ -86,6 +86,17 @@ export default function DirectorSetupWorkflow() {
         console.warn('Could not fetch school summary / setup progress from backend:', err);
       });
 
+    getUsersByRole('HOD')
+      .then((res) => {
+        const list = res?.data?.data || res?.data || res;
+        console.log('[DirectorSetupWorkflow] Loaded HOD users:', list);
+        if (Array.isArray(list) && list.length > 0 && isMounted) {
+          setHodUsers(list);
+          setSelectedHod(list[0].name);
+        }
+      })
+      .catch((err) => console.warn('Could not fetch HOD role users from backend:', err));
+
     return () => {
       isMounted = false;
     };
@@ -153,6 +164,7 @@ export default function DirectorSetupWorkflow() {
 
   // Step 2 — filled by getDepartments API call when entering step 2
   const [deptList, setDeptList] = useState([]);
+  const [hodUsers, setHodUsers] = useState([]);
   const [newDeptName, setNewDeptName] = useState('');
   const [newDeptCode, setNewDeptCode] = useState('');
   const [selectedHod, setSelectedHod] = useState(MASTER_FACULTY_LIST[0] || 'Dr. Raj Shaikh');
@@ -175,12 +187,14 @@ export default function DirectorSetupWorkflow() {
   const handleAddDeptInline = async () => {
     if (!newDeptName || !newDeptCode) return;
     const targetSchoolId = schoolId || 'sch-1';
+    const matchedUser = hodUsers.find((u) => u.name === selectedHod);
+    const hodEmailPayload = matchedUser ? matchedUser.email : `${selectedHod.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`;
     const deptPayload = {
       schoolId: targetSchoolId,
       name: newDeptName,
-      code: newDeptCode,
+      code: newDeptCode.toUpperCase(),
       hod: selectedHod,
-      hodEmail: `${selectedHod.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`,
+      hodEmail: hodEmailPayload,
       status: 'ACTIVE',
     };
 
@@ -201,9 +215,11 @@ export default function DirectorSetupWorkflow() {
   };
 
   const handleHodChange = (deptId, hodName) => {
+    const matchedUser = hodUsers.find((u) => u.name === hodName);
+    const matchedEmail = matchedUser ? matchedUser.email : `${hodName.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`;
     const updated = deptList.map((d) =>
       d.id === deptId
-        ? { ...d, hod: hodName, hodEmail: `${hodName.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in` }
+        ? { ...d, hod: hodName, hodEmail: matchedEmail }
         : d
     );
     setDeptList(updated);
@@ -539,7 +555,9 @@ export default function DirectorSetupWorkflow() {
                 <div style={{ width: '210px' }}>
                   <label style={labelStyle}>Assign HOD</label>
                   <select value={selectedHod} onChange={(e) => setSelectedHod(e.target.value)} style={selectStyle}>
-                    {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                    {hodUsers.length > 0
+                      ? hodUsers.map((u) => <option key={u.id} value={u.name}>{u.name} ({u.email})</option>)
+                      : MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
                 <button
@@ -572,7 +590,9 @@ export default function DirectorSetupWorkflow() {
                     <td style={{ fontWeight: '600', color: ink }}>{dept.name}</td>
                     <td>
                       <select value={dept.hod} onChange={(e) => handleHodChange(dept.id, e.target.value)} style={{ ...selectStyle, height: '34px', fontSize: '12px' }}>
-                        {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                        {hodUsers.length > 0
+                          ? hodUsers.map((u) => <option key={u.id} value={u.name}>{u.name} ({u.email})</option>)
+                          : MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
                       </select>
                     </td>
                     <td style={{ textAlign: 'center' }}>

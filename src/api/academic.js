@@ -159,3 +159,13 @@ export const deleteProgramme = async (id) => {
     throw error;
   }
 };
+
+export const getUsersByRole = async (role = 'HOD') => {
+  try {
+    const response = await apiClient.get('/academic/users', { params: { role } });
+    return response;
+  } catch (error) {
+    console.error(`Failed to fetch users by role ${role}:`, error);
+    throw error;
+  }
+};

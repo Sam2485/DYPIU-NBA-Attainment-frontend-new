@@ -4,7 +4,7 @@ import { Plus, UserCheck, Search, Check, X, AlertCircle, Trash2 } from 'lucide-r
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
-import { getDirectorSchoolSummary, getDepartmentSummary, saveDepartment, deleteDepartment as deleteDepartmentApi } from '../../api/academic';
+import { getDirectorSchoolSummary, getDepartmentSummary, saveDepartment, deleteDepartment as deleteDepartmentApi, getUsersByRole } from '../../api/academic';
 
 export default function DirectorDepartmentManagement() {
   const { user } = useAuth();
@@ -17,6 +17,7 @@ export default function DirectorDepartmentManagement() {
 
   const [schoolId, setSchoolId] = useState('');
   const [deptList, setDeptList] = useState([]);
+  const [hodUsers, setHodUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingDept, setEditingDept] = useState(null);
@@ -28,7 +29,7 @@ export default function DirectorDepartmentManagement() {
   const [selectedHod, setSelectedHod] = useState(MASTER_FACULTY_LIST[0] || '');
   const [hodEmail, setHodEmail] = useState('');
 
-  // Fetch schoolId and Department Summary on mount
+  // Fetch schoolId, Department Summary, and HOD Role Users on mount
   useEffect(() => {
     let isMounted = true;
 
@@ -50,6 +51,20 @@ export default function DirectorDepartmentManagement() {
         }
       })
       .catch((err) => console.warn('Could not fetch department summary:', err));
+
+    getUsersByRole('HOD')
+      .then((res) => {
+        const list = res?.data?.data || res?.data || res;
+        console.log('[DirectorDepartmentManagement] Loaded HOD users:', list);
+        if (Array.isArray(list) && list.length > 0 && isMounted) {
+          setHodUsers(list);
+          if (!selectedHod) {
+            setSelectedHod(list[0].name);
+            setHodEmail(list[0].email);
+          }
+        }
+      })
+      .catch((err) => console.warn('Could not fetch HOD role users from backend:', err));
 
     return () => {
       isMounted = false;
@@ -295,8 +310,23 @@ export default function DirectorDepartmentManagement() {
               </div>
               <div>
                 <label style={labelStyle}>Assign HOD *</label>
-                <select value={selectedHod} onChange={(e) => { setSelectedHod(e.target.value); setHodEmail(`${e.target.value.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`); }} style={{ ...inputStyle, cursor: 'pointer' }}>
-                  {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                <select
+                  value={selectedHod}
+                  onChange={(e) => {
+                    const selectedName = e.target.value;
+                    setSelectedHod(selectedName);
+                    const matchedUser = hodUsers.find((u) => u.name === selectedName);
+                    if (matchedUser) {
+                      setHodEmail(matchedUser.email);
+                    } else {
+                      setHodEmail(`${selectedName.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`);
+                    }
+                  }}
+                  style={{ ...inputStyle, cursor: 'pointer' }}
+                >
+                  {hodUsers.length > 0
+                    ? hodUsers.map((u) => <option key={u.id} value={u.name}>{u.name} ({u.email})</option>)
+                    : MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
                 </select>
               </div>
               <div>
