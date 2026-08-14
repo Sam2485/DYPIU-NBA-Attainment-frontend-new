@@ -17,7 +17,7 @@ import {
   GraduationCap,
   LogOut,
 } from 'lucide-react';
-// import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
+import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 import { useAuth } from '../../context/AuthContext';
 import {
   getHodSetupProgress,
@@ -30,6 +30,12 @@ import {
   getBatches,
   saveBatch,
   deleteBatch,
+  getProgrammePOs,
+  saveProgrammePOs,
+  getProgrammePSOs,
+  saveProgrammePSOs,
+  getProgrammePEOs,
+  saveProgrammePEOs,
 } from '../../api/academic';
 const surface = {
   background: '#ffffff',
@@ -324,10 +330,12 @@ const activeBatchObj =
       try {
         const res = await getBatches(selectedProgramme.id);
         const list = res?.data?.data || res?.data || [];
-        if (isMounted && Array.isArray(list)) {
-          setBatches(list);
+        if (isMounted) {
+          setBatches(Array.isArray(list) ? list : []);
           if (list.length > 0) {
-            setBatchId((prev) => prev || list[0].id);
+            setBatchId(list[0].id);
+          } else {
+            setBatchId('');
           }
         }
       } catch (err) {
@@ -338,7 +346,60 @@ const activeBatchObj =
     return () => {
       isMounted = false;
     };
-  }, [selectedProgramme?.id]);
+  }, [selectedProgramme?.id, programmeId]);
+
+  // Fetch POs, PSOs, PEOs for the selected programme
+  useEffect(() => {
+    let isMounted = true;
+    const fetchProgrammeOutcomes = async () => {
+      if (!selectedProgramme?.id) return;
+      try {
+        const [poRes, psoRes, peoRes] = await Promise.allSettled([
+          getProgrammePOs(selectedProgramme.id),
+          getProgrammePSOs(selectedProgramme.id),
+          getProgrammePEOs(selectedProgramme.id),
+        ]);
+
+        if (isMounted) {
+          const poList = poRes.status === 'fulfilled' ? (poRes.value?.data?.data || poRes.value?.data || []) : [];
+          setActivePOs(Array.isArray(poList) && poList.length > 0 ? poList : DUMMY_POS);
+
+          const psoList = psoRes.status === 'fulfilled' ? (psoRes.value?.data?.data || psoRes.value?.data || []) : [];
+          setActivePSOs(Array.isArray(psoList) && psoList.length > 0 ? psoList : DUMMY_PSOS);
+
+          const peoList = peoRes.status === 'fulfilled' ? (peoRes.value?.data?.data || peoRes.value?.data || []) : [];
+          setActivePEOs(Array.isArray(peoList) && peoList.length > 0 ? peoList : DUMMY_PEOS);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch outcome framework data:', err);
+      }
+    };
+
+    fetchProgrammeOutcomes();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedProgramme?.id, programmeId]);
+
+  const [isSavingOutcomes, setIsSavingOutcomes] = useState(false);
+
+  const handleSaveOutcomes = async () => {
+    if (!selectedProgramme?.id) return;
+    setIsSavingOutcomes(true);
+    try {
+      await Promise.all([
+        saveProgrammePOs(selectedProgramme.id, activePOs),
+        saveProgrammePSOs(selectedProgramme.id, activePSOs),
+        saveProgrammePEOs(selectedProgramme.id, activePEOs),
+      ]);
+      alert(`✅ Outcomes (POs, PSOs, PEOs) saved successfully for ${selectedProgramme.name}!`);
+    } catch (err) {
+      console.error('Failed to save outcomes:', err);
+      alert('Failed to save outcomes to server. Please try again.');
+    } finally {
+      setIsSavingOutcomes(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedProgramme) {
@@ -347,7 +408,7 @@ const activeBatchObj =
       const matchingBatch = batches.find((b) => b.programmeId === selectedProgramme.id);
       if (matchingBatch) setBatchId(matchingBatch.id);
     }
-  }, [selectedProgramme?.id]);
+  }, [selectedProgramme?.id, programmeId]);
 
   const triggerDeleteConfirm = ({ title, itemName, description, onConfirm }) => {
     setDeleteModalConfig({
@@ -794,6 +855,13 @@ const activeBatchObj =
         await updateHodSetupProgress(targetDeptId, 3, user?.email || '');
         setCurrentStep(3);
       } else if (currentStep === 3) {
+        if (selectedProgramme?.id) {
+          await Promise.all([
+            saveProgrammePOs(selectedProgramme.id, activePOs),
+            saveProgrammePSOs(selectedProgramme.id, activePSOs),
+            saveProgrammePEOs(selectedProgramme.id, activePEOs),
+          ]);
+        }
         await updateHodSetupProgress(targetDeptId, 4, user?.email || '');
         setCurrentStep(4);
       } else if (currentStep === 4) {
@@ -1200,33 +1268,46 @@ const activeBatchObj =
               </p>
             </div>
 
-            {/* Tab strip */}
-            <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px' }}>
-              {[
-                ['PO',  `POs (${activePOs.length})`],
-                ['PSO', `PSOs (${normalisedPSOs.length})`],
-                ['PEO', `PEOs (${activePEOs.length})`],
-              ].map(([tab, label]) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setOutcomeTab(tab)}
-                  style={{
-                    padding: '7px 18px',
-                    borderRadius: '7px',
-                    border: 'none',
-                    fontSize: '12.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    background: outcomeTab === tab ? '#ffffff' : 'transparent',
-                    color: outcomeTab === tab ? accent : muted,
-                    boxShadow: outcomeTab === tab ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
+            {/* Tab strip & Save Outcomes Button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px' }}>
+                {[
+                  ['PO',  `POs (${activePOs.length})`],
+                  ['PSO', `PSOs (${normalisedPSOs.length})`],
+                  ['PEO', `PEOs (${activePEOs.length})`],
+                ].map(([tab, label]) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setOutcomeTab(tab)}
+                    style={{
+                      padding: '7px 18px',
+                      borderRadius: '7px',
+                      border: 'none',
+                      fontSize: '12.5px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      background: outcomeTab === tab ? '#ffffff' : 'transparent',
+                      color: outcomeTab === tab ? accent : muted,
+                      boxShadow: outcomeTab === tab ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSaveOutcomes}
+                disabled={isSavingOutcomes}
+                className="btn btn-primary"
+                style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: isSavingOutcomes ? 0.7 : 1 }}
+              >
+                <Save size={14} />
+                {isSavingOutcomes ? 'Saving...' : 'Save Outcomes'}
+              </button>
             </div>
           </div>
 
@@ -1526,7 +1607,7 @@ const activeBatchObj =
       </div>
 
       {/* ── DELETE CONFIRM MODAL ──────────────────────────────────────────────── */}
-      {/* <DeleteConfirmModal
+      <DeleteConfirmModal
         isOpen={deleteModalConfig.isOpen}
         title={deleteModalConfig.title}
         itemName={deleteModalConfig.itemName}
@@ -1534,7 +1615,7 @@ const activeBatchObj =
         confirmText="Delete"
         onConfirm={deleteModalConfig.onConfirm}
         onClose={() => setDeleteModalConfig((prev) => ({ ...prev, isOpen: false }))}
-      /> */}
+      />
     </div>
   );
 }

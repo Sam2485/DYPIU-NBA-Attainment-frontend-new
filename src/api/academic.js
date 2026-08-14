@@ -249,3 +249,63 @@ export const deleteBatch = async (id) => {
     throw error;
   }
 };
+
+export const getProgrammePOs = async (programmeId) => {
+  try {
+    const response = await apiClient.get(`/outcomes/programmes/${programmeId}/pos`);
+    return response;
+  } catch (error) {
+    console.error(`Failed to fetch POs for programme ${programmeId}:`, error);
+    throw error;
+  }
+};
+
+export const saveProgrammePOs = async (programmeId, pos) => {
+  try {
+    const response = await apiClient.post(`/outcomes/programmes/${programmeId}/pos`, pos);
+    return response;
+  } catch (error) {
+    console.error(`Failed to save POs for programme ${programmeId}:`, error);
+    throw error;
+  }
+};
+
+export const getProgrammePSOs = async (programmeId) => {
+  try {
+    const response = await apiClient.get(`/outcomes/programmes/${programmeId}/psos`);
+    return response;
+  } catch (error) {
+    console.error(`Failed to fetch PSOs for programme ${programmeId}:`, error);
+    throw error;
+  }
+};
+
+export const saveProgrammePSOs = async (programmeId, psos) => {
+  try {
+    const response = await apiClient.post(`/outcomes/programmes/${programmeId}/psos`, psos);
+    return response;
+  } catch (error) {
+    console.error(`Failed to save PSOs for programme ${programmeId}:`, error);
+    throw error;
+  }
+};
+
+export const getProgrammePEOs = async (programmeId) => {
+  try {
+    const response = await apiClient.get(`/outcomes/programmes/${programmeId}/peos`);
+    return response;
+  } catch (error) {
+    console.error(`Failed to fetch PEOs for programme ${programmeId}:`, error);
+    throw error;
+  }
+};
+
+export const saveProgrammePEOs = async (programmeId, peos) => {
+  try {
+    const response = await apiClient.post(`/outcomes/programmes/${programmeId}/peos`, peos);
+    return response;
+  } catch (error) {
+    console.error(`Failed to save PEOs for programme ${programmeId}:`, error);
+    throw error;
+  }
+};
