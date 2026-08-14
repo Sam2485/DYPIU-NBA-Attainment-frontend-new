@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import {
   Plus,
   CheckCircle2,
@@ -19,10 +18,19 @@ import {
   Users,
   Search,
   Sparkles,
-  UserCheck,
 } from 'lucide-react';
-import { useAcademic } from '../../context/AcademicContext';
+import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
+import {
+  getHodDepartmentSummary,
+  getProgrammes,
+  getBatches,
+  saveBatch,
+  deleteBatch,
+  getStudentsByBatch,
+  saveStudent,
+  deleteStudent,
+} from '../../api/academic';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -50,22 +58,16 @@ const labelStyle = {
 };
 
 export default function HodBatchManagement() {
-  const {
-    masterProgrammes = [],
-    batches = [],
-    toggleBatchActiveStatus = () => {},
-    deleteBatch             = () => {},
-    getStudentsByBatch      = () => [],
-    addStudentToBatch       = () => {},
-    updateStudentInBatch    = () => {},
-    deleteStudentFromBatch  = () => {},
-  } = useAcademic();
+  const { user } = useAuth();
 
-  const [selectedProgrammeId, setSelectedProgrammeId] = useState(masterProgrammes[0]?.id || 'prog-1');
+  const [programmesList, setProgrammesList] = useState([]);
+  const [selectedProgrammeId, setSelectedProgrammeId] = useState('');
+  const [batches, setBatches] = useState([]);
+  const [studentsList, setStudentsList] = useState([]);
 
   const selectedProgramme =
-    masterProgrammes.find((p) => p.id === selectedProgrammeId) ||
-    masterProgrammes[0] ||
+    programmesList.find((p) => p.id === selectedProgrammeId) ||
+    programmesList[0] ||
     { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP', durationYears: 4 };
 
   const durationYears = selectedProgramme.durationYears || 4;
@@ -96,14 +98,87 @@ export default function HodBatchManagement() {
 
   const [toastMessage, setToastMessage] = useState(null);
 
+  // Load HOD department & programmes
+  useEffect(() => {
+    let isMounted = true;
+    const fetchInitialData = async () => {
+      try {
+        let deptId = '';
+        if (user?.email) {
+          const summaryRes = await getHodDepartmentSummary(user.email);
+          const summaryData = summaryRes?.data?.data || summaryRes?.data || summaryRes;
+          if (summaryData?.deptId) {
+            deptId = summaryData.deptId;
+          }
+        }
+        const progRes = await getProgrammes('', deptId);
+        const progList = progRes?.data?.data || progRes?.data || [];
+        if (isMounted && Array.isArray(progList) && progList.length > 0) {
+          setProgrammesList(progList);
+          setSelectedProgrammeId((prev) => prev || progList[0].id);
+        }
+      } catch (err) {
+        console.warn('Failed to load initial programmes for Batch Management:', err);
+      }
+    };
+
+    fetchInitialData();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.email]);
+
+  // Fetch batches for selected programme
+  useEffect(() => {
+    let isMounted = true;
+    const fetchProgrammeBatches = async () => {
+      if (!selectedProgrammeId) return;
+      try {
+        const res = await getBatches(selectedProgrammeId);
+        const list = res?.data?.data || res?.data || [];
+        if (isMounted) {
+          setBatches(Array.isArray(list) ? list : []);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch batches:', err);
+      }
+    };
+
+    fetchProgrammeBatches();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedProgrammeId]);
+
+  // Fetch students when a batch roster is opened
+  useEffect(() => {
+    let isMounted = true;
+    const fetchBatchStudents = async () => {
+      if (!selectedBatchForRoster?.id) return;
+      try {
+        const res = await getStudentsByBatch(selectedBatchForRoster.id);
+        const list = res?.data?.data || res?.data || [];
+        if (isMounted) {
+          setStudentsList(Array.isArray(list) ? list : []);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch students for batch roster:', err);
+      }
+    };
+
+    fetchBatchStudents();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedBatchForRoster?.id]);
+
   // Auto-recalc end year when programme or start year changes
   useEffect(() => {
     const n = parseInt(startYearInput, 10);
     if (!isNaN(n) && n > 2020) setEndYearInput(String(n + durationYears));
-  }, [selectedProgrammeId, durationYears]);
+  }, [selectedProgrammeId, durationYears, startYearInput]);
 
-  const programmeBatches   = batches.filter((b) => !b.programmeId || b.programmeId === selectedProgrammeId);
-  const activeBatchesCount = programmeBatches.filter((b) => b.status === 'ACTIVE').length;
+  const activeBatchesCount = batches.filter((b) => b.status === 'ACTIVE').length;
 
   // ── Add batch handlers ───────────────────────────────────────────────────
   const handleStartYearChange = (val) => {
@@ -119,25 +194,86 @@ export default function HodBatchManagement() {
 
   const handleEndYearChange = (val) => setEndYearInput(val.replace(/\D/g, '').slice(0, 4));
 
+  const handleAddBatchSubmit = async (e) => {
+    e.preventDefault();
+    const s = parseInt(startYearInput, 10);
+    const en = parseInt(endYearInput, 10);
+
+    if (!s || s <= 2020 || !en || en <= s) {
+      setBatchError('Please enter a valid start and graduation year (Start year > 2020).');
+      return;
+    }
+
+    const startAY = `${s}-${String(s + 1).slice(-2)}`;
+    const endAY = `${en - 1}-${String(en).slice(-2)}`;
+
+    const newBatchPayload = {
+      programmeId: selectedProgramme.id,
+      programmeCode: selectedProgramme.code,
+      programmeName: selectedProgramme.name,
+      durationYears,
+      name: `Batch ${s}-${String(en).slice(-2)} (${selectedProgramme.code}) — AY ${startAY} to ${endAY}`,
+      startYear: startAY,
+      endYear: endAY,
+      yearLevel: 'Year 1 (Freshmen)',
+      status: 'ACTIVE',
+    };
+
+    try {
+      const res = await saveBatch(newBatchPayload);
+      const savedBatch = res?.data?.data || res?.data || newBatchPayload;
+      setBatches((prev) => [...prev, savedBatch]);
+      setToastMessage(`🎉 Created new batch: ${savedBatch.name}`);
+      setBatchError('');
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (err) {
+      console.error('Failed to save batch:', err);
+      setBatchError('Failed to save batch to server. Please try again.');
+    }
+  };
+
+  const handleToggleBatchStatus = async (batch) => {
+    const nextStatus = batch.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    const updatedPayload = {
+      ...batch,
+      status: nextStatus,
+    };
+
+    try {
+      const res = await saveBatch(updatedPayload);
+      const savedBatch = res?.data?.data || res?.data || updatedPayload;
+      setBatches((prev) => prev.map((b) => (b.id === batch.id ? savedBatch : b)));
+      setToastMessage(`Status updated for ${batch.name} to ${nextStatus}`);
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (err) {
+      console.error('Failed to toggle batch status:', err);
+      alert('Failed to update batch status. Please try again.');
+    }
+  };
+
   const handleDeleteBatchClick = (batch) => {
     setDeletingBatch(batch);
     setShowDeleteModal(true);
   };
 
-  const handleConfirmDeleteBatch = () => {
+  const handleConfirmDeleteBatch = async () => {
     if (deletingBatch) {
-      deleteBatch(deletingBatch.id);
-      setShowDeleteModal(false);
-      setDeletingBatch(null);
-      setToastMessage('🗑️ Batch deleted successfully.');
-      setTimeout(() => setToastMessage(null), 3000);
+      try {
+        await deleteBatch(deletingBatch.id);
+        setBatches((prev) => prev.filter((b) => b.id !== deletingBatch.id));
+        setShowDeleteModal(false);
+        setDeletingBatch(null);
+        setToastMessage('🗑️ Batch deleted successfully.');
+        setTimeout(() => setToastMessage(null), 3000);
+      } catch (err) {
+        console.error('Failed to delete batch:', err);
+        alert('Failed to delete batch from server. Please try again.');
+      }
     }
   };
 
   // ── Student Roster Handlers ─────────────────────────────────────────────
-  const currentBatchStudents = selectedBatchForRoster ? getStudentsByBatch(selectedBatchForRoster.id) : [];
-
-  const filteredStudents = currentBatchStudents.filter(
+  const filteredStudents = studentsList.filter(
     (s) =>
       s.name?.toLowerCase().includes(studentSearch.toLowerCase()) ||
       s.prn?.toLowerCase().includes(studentSearch.toLowerCase()) ||
@@ -160,31 +296,40 @@ export default function HodBatchManagement() {
     setShowStudentModal(true);
   };
 
-  const handleSaveStudent = (e) => {
+  const handleSaveStudent = async (e) => {
     e.preventDefault();
-    if (!studentPrn.trim() || !studentName.trim()) {
+    if (!studentPrn.trim() || !studentName.trim() || !selectedBatchForRoster?.id) {
       alert('Please enter a valid PRN number and Student Name.');
       return;
     }
 
-    if (editingStudent) {
-      updateStudentInBatch(selectedBatchForRoster.id, editingStudent.id, {
-        prn: studentPrn.trim(),
-        name: studentName.trim(),
-        email: studentEmail.trim() || `${studentName.trim().toLowerCase().replace(/\s+/g, '.')}@dypiu.edu.in`,
-      });
-      setToastMessage(`🎉 Updated student record for ${studentName.trim()} (${studentPrn.trim()})`);
-    } else {
-      addStudentToBatch(selectedBatchForRoster.id, {
-        prn: studentPrn.trim(),
-        name: studentName.trim(),
-        email: studentEmail.trim() || `${studentName.trim().toLowerCase().replace(/\s+/g, '.')}@dypiu.edu.in`,
-      });
-      setToastMessage(`🎉 Student ${studentName.trim()} (${studentPrn.trim()}) added to batch roster!`);
-    }
+    const studentPayload = {
+      ...(editingStudent ? { id: editingStudent.id } : {}),
+      batchId: selectedBatchForRoster.id,
+      prn: studentPrn.trim(),
+      name: studentName.trim(),
+      email: studentEmail.trim() || `${studentName.trim().toLowerCase().replace(/\s+/g, '.')}@dypiu.edu.in`,
+      status: editingStudent?.status || 'ENROLLED',
+    };
 
-    setShowStudentModal(false);
-    setTimeout(() => setToastMessage(null), 3000);
+    try {
+      const res = await saveStudent(studentPayload);
+      const savedStd = res?.data?.data || res?.data || studentPayload;
+
+      if (editingStudent) {
+        setStudentsList((prev) => prev.map((s) => (s.id === editingStudent.id ? savedStd : s)));
+        setToastMessage(`🎉 Updated student record for ${savedStd.name} (${savedStd.prn})`);
+      } else {
+        setStudentsList((prev) => [...prev, savedStd]);
+        setToastMessage(`🎉 Student ${savedStd.name} (${savedStd.prn}) added to batch roster!`);
+      }
+
+      setShowStudentModal(false);
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (err) {
+      console.error('Failed to save student:', err);
+      alert('Failed to save student to database. Please check PRN uniqueness and try again.');
+    }
   };
 
   const handleDeleteStudentClick = (student) => {
@@ -192,13 +337,19 @@ export default function HodBatchManagement() {
     setShowDeleteStudentModal(true);
   };
 
-  const handleConfirmDeleteStudent = () => {
+  const handleConfirmDeleteStudent = async () => {
     if (deletingStudent && selectedBatchForRoster) {
-      deleteStudentFromBatch(selectedBatchForRoster.id, deletingStudent.id);
-      setShowDeleteStudentModal(false);
-      setDeletingStudent(null);
-      setToastMessage('🗑️ Student record removed from batch roster.');
-      setTimeout(() => setToastMessage(null), 3000);
+      try {
+        await deleteStudent(deletingStudent.id);
+        setStudentsList((prev) => prev.filter((s) => s.id !== deletingStudent.id));
+        setShowDeleteStudentModal(false);
+        setDeletingStudent(null);
+        setToastMessage('🗑️ Student record removed from batch roster.');
+        setTimeout(() => setToastMessage(null), 3000);
+      } catch (err) {
+        console.error('Failed to delete student:', err);
+        alert('Failed to delete student record. Please try again.');
+      }
     }
   };
 
@@ -301,7 +452,7 @@ export default function HodBatchManagement() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Users size={18} style={{ color: '#4f46e5' }} />
               <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                Total Students Enrolled: <strong style={{ color: '#4f46e5' }}>{currentBatchStudents.length}</strong>
+                Total Students Enrolled: <strong style={{ color: '#4f46e5' }}>{studentsList.length}</strong>
               </span>
             </div>
 
@@ -588,9 +739,9 @@ export default function HodBatchManagement() {
             </p>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {[
-                { label: 'Duration',       value: `${durationYears} Years`,                         bg: '#f1f5f9', color: '#475569' },
-                { label: 'Total Batches',  value: String(programmeBatches.length),                  bg: '#f1f5f9', color: '#475569' },
-                { label: 'Active Batches', value: `${activeBatchesCount} / ${programmeBatches.length}`, bg: '#dcfce7',  color: '#15803d' },
+                { label: 'Duration',       value: `${durationYears} Years`,                   bg: '#f1f5f9', color: '#475569' },
+                { label: 'Total Batches',  value: String(batches.length),                    bg: '#f1f5f9', color: '#475569' },
+                { label: 'Active Batches', value: `${activeBatchesCount} / ${batches.length}`, bg: '#dcfce7',  color: '#15803d' },
               ].map((chip) => (
                 <span key={chip.label} style={{
                   display: 'inline-flex', alignItems: 'center', gap: '5px',
@@ -623,7 +774,7 @@ export default function HodBatchManagement() {
                   boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
                 }}
               >
-                {masterProgrammes.map((p) => (
+                {programmesList.map((p) => (
                   <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
                 ))}
               </select>
@@ -636,7 +787,7 @@ export default function HodBatchManagement() {
       {/* Add Batch Form */}
       <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px' }}>
         <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '12px' }}>Add Batch Year</div>
-        <form onSubmit={(e) => e.preventDefault()}>
+        <form onSubmit={handleAddBatchSubmit}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', alignItems: 'flex-end' }}>
             <div>
               <label style={labelStyle}>Start Year *</label>
@@ -674,7 +825,7 @@ export default function HodBatchManagement() {
       </div>
 
       {/* Batch Cards */}
-      {programmeBatches.length === 0 ? (
+      {batches.length === 0 ? (
         <div style={{ ...surface, padding: '40px', textAlign: 'center' }}>
           <Calendar size={32} style={{ color: '#94a3b8', marginBottom: '10px' }} />
           <div style={{ fontSize: '14px', fontWeight: '700', color: ink, marginBottom: '4px' }}>No batches yet</div>
@@ -682,10 +833,9 @@ export default function HodBatchManagement() {
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '12px' }}>
-          {programmeBatches.map((batch) => {
+          {batches.map((batch) => {
             const isActive     = batch.status === 'ACTIVE';
             const isGraduated  = batch.status === 'GRADUATED';
-            const studentsCount = getStudentsByBatch(batch.id).length;
 
             return (
               <div
@@ -709,8 +859,6 @@ export default function HodBatchManagement() {
                       <span>{batch.yearLevel || '—'}</span>
                       <span style={{ color: '#cbd5e1' }}>·</span>
                       <span>{batch.programmeName || selectedProgramme.name}</span>
-                      <span style={{ color: '#cbd5e1' }}>·</span>
-                      <span style={{ color: '#4f46e5', fontWeight: '700' }}>{studentsCount} Enrolled Students</span>
                     </div>
                   </div>
 
@@ -731,7 +879,7 @@ export default function HodBatchManagement() {
 
                     <button
                       type="button"
-                      onClick={() => toggleBatchActiveStatus(batch.id)}
+                      onClick={() => handleToggleBatchStatus(batch)}
                       style={{
                         height: '32px', padding: '0 12px', fontSize: '12px', fontWeight: '600',
                         border: isActive ? '1px solid #fca5a5' : '1px solid #a7f3d0',
@@ -745,7 +893,7 @@ export default function HodBatchManagement() {
                       {isActive ? 'Deactivate' : 'Activate'}
                     </button>
 
-                    {/* REPLACED EDIT WITH ARROW BUTTON TO OPEN BATCH STUDENT ROSTER */}
+                    {/* OPEN BATCH STUDENT ROSTER */}
                     <button
                       type="button"
                       onClick={() => setSelectedBatchForRoster(batch)}
@@ -766,7 +914,7 @@ export default function HodBatchManagement() {
                       }}
                       title="Open Batch Student Roster"
                     >
-                      View <ArrowRight size={14} />
+                      View Roster <ArrowRight size={14} />
                     </button>
 
                     <button

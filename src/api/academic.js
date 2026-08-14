@@ -309,3 +309,33 @@ export const saveProgrammePEOs = async (programmeId, peos) => {
     throw error;
   }
 };
+
+export const getStudentsByBatch = async (batchId) => {
+  try {
+    const response = await apiClient.get('/academic/students', { params: { batchId } });
+    return response;
+  } catch (error) {
+    console.error(`Failed to fetch students for batch ${batchId}:`, error);
+    throw error;
+  }
+};
+
+export const saveStudent = async (studentData) => {
+  try {
+    const response = await apiClient.post('/academic/students', studentData);
+    return response;
+  } catch (error) {
+    console.error('Failed to save student:', error);
+    throw error;
+  }
+};
+
+export const deleteStudent = async (id) => {
+  try {
+    const response = await apiClient.delete(`/academic/students/${id}`);
+    return response;
+  } catch (error) {
+    console.error(`Failed to delete student ${id}:`, error);
+    throw error;
+  }
+};
