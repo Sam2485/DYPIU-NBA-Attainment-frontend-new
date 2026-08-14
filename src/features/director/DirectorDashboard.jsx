@@ -22,10 +22,11 @@ export default function DirectorDashboard() {
   useEffect(() => {
     let isMounted = true;
     const targetSchoolId = selectedSchool?.id || 'sch-1';
-    console.log('[DirectorDashboard] Mounting & fetching backend summary APIs for school:', targetSchoolId);
+    const directorEmail = user?.email || '';
+    console.log('[DirectorDashboard] Fetching backend summary APIs for school:', targetSchoolId, 'director:', directorEmail);
 
     // 1. Fetch School Summary on Dashboard load right after login for current Director
-    getDirectorSchoolSummary(selectedSchool?.id || '', user?.email || '', user?.name || '')
+    getDirectorSchoolSummary(targetSchoolId, directorEmail, user?.name || '')
       .then((res) => {
         const data = res?.data?.data || res?.data || res;
         console.log('[DirectorDashboard] getDirectorSchoolSummary loaded:', data);
@@ -33,15 +34,15 @@ export default function DirectorDashboard() {
       })
       .catch((err) => console.warn('[DirectorDashboard] Could not fetch director school summary:', err));
 
-    // 2. Fetch Setup Progress from backend for current Director
-    getDirectorSetupProgress(selectedSchool.id , user.email )
+    // 2. Fetch Setup Progress from backend for current Director (safe: optional chaining on selectedSchool)
+    getDirectorSetupProgress(targetSchoolId, directorEmail)
       .then((res) => {
         const data = res?.data?.data || res?.data || res;
         console.log('[DirectorDashboard] getDirectorSetupProgress loaded:', data);
         if (data && isMounted) setSetupProgress(data);
       })
       .catch((err) => console.warn('[DirectorDashboard] Could not fetch director setup progress:', err));
-    
+
     // 3. Fetch Department Summary
     getDepartmentSummary(targetSchoolId)
       .then((res) => {
@@ -54,7 +55,7 @@ export default function DirectorDashboard() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [selectedSchool?.id, user?.email]);
 
   const hasSchoolInDb = Boolean(schoolSummary?.schoolName || selectedSchool?.name);
 
@@ -82,11 +83,11 @@ export default function DirectorDashboard() {
   }
 
   const handleSetupButtonClick = async () => {
-    const targetSchoolId = selectedSchool?.id ;
+    const targetSchoolId = selectedSchool?.id;
     if (isCompleted) {
       // If all steps finished, manage setup starts from Step 1
       try {
-        await updateDirectorSetupProgress(targetSchoolId, currentStepNum);
+        await updateDirectorSetupProgress(targetSchoolId, currentStepNum, user?.email || '');
       } catch (err) {
         console.warn('Failed to reset progress for manage setup:', err);
       }
@@ -178,7 +179,7 @@ export default function DirectorDashboard() {
             </div>
           </div>
           <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalDepts}</div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>In {selectedSchool.code}</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>In {selectedSchool?.code}</div>
         </div>
 
         {/* HODs */}
@@ -258,7 +259,7 @@ export default function DirectorDashboard() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <div style={{ fontSize: '14px', fontWeight: '700', color: ink }}>Setup Progress</div>
-            <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>{selectedSchool.name}</div>
+            <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>{selectedSchool?.name}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '12.5px', fontWeight: '700', color: accent }}>{progressPct}%</span>

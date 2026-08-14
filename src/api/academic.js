@@ -60,10 +60,10 @@ export const getDirectorSetupProgress = async (schoolId , directorEmail ) => {
   }
 };
 
-export const updateDirectorSetupProgress = async (schoolId,currentStep) => {
+export const updateDirectorSetupProgress = async (schoolId, currentStep, directorEmail = '') => {
   try {
     const response = await apiClient.post('/academic/director/setup-progress', null, {
-      params: { schoolId, currentStep },
+      params: { schoolId, currentStep, ...(directorEmail ? { directorEmail } : {}) },
     });
     return response;
   } catch (error) {
@@ -84,10 +84,10 @@ export const getDirectorSchoolSummary = async (schoolId = '', directorEmail = ''
   }
 };
 
-export const getDepartmentSummary = async (schoolId = 'sch-1') => {
+export const getDepartmentSummary = async (schoolId = '', directorEmail = '') => {
   try {
     const response = await apiClient.get('/academic/director/department-summary', {
-      params: { schoolId },
+      params: { schoolId, directorEmail },
     });
     return response;
   } catch (error) {
