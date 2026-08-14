@@ -128,11 +128,12 @@ export const deleteDepartment = async (id) => {
   }
 };
 
-export const getProgrammes = async (schoolId = '') => {
+export const getProgrammes = async (schoolId = '', departmentId = '') => {
   try {
-    const response = await apiClient.get('/academic/programmes', {
-      params: schoolId ? { schoolId } : {},
-    });
+    const params = {};
+    if (departmentId) params.departmentId = departmentId;
+    if (schoolId) params.schoolId = schoolId;
+    const response = await apiClient.get('/academic/programmes', { params });
     return response;
   } catch (error) {
     console.error('Failed to fetch programmes:', error);
@@ -196,12 +197,55 @@ export const getHodSetupProgress = async (departmentId = '', hodEmail = '') => {
 
 export const updateHodSetupProgress = async (departmentId = '', currentStep = 1, hodEmail = '') => {
   try {
-    const response = await apiClient.post('/academic/hod/setup-progress', null, {
+    const response = await apiClient.put('/academic/hod/setup-progress', null, {
       params: { departmentId, currentStep, hodEmail },
     });
     return response;
   } catch (error) {
     console.error('Failed to update HOD setup progress:', error);
+    throw error;
+  }
+};
+
+export const completeHodSetup = async (departmentId = '', hodEmail = '') => {
+  try {
+    const response = await apiClient.post('/academic/hod/setup-progress/complete', null, {
+      params: { departmentId, hodEmail },
+    });
+    return response;
+  } catch (error) {
+    console.error('Failed to complete HOD setup progress:', error);
+    throw error;
+  }
+};
+
+export const getBatches = async (programmeId = '') => {
+  try {
+    const params = programmeId ? { programmeId } : {};
+    const response = await apiClient.get('/academic/batches', { params });
+    return response;
+  } catch (error) {
+    console.error('Failed to fetch batches:', error);
+    throw error;
+  }
+};
+
+export const saveBatch = async (batchData) => {
+  try {
+    const response = await apiClient.post('/academic/batches', batchData);
+    return response;
+  } catch (error) {
+    console.error('Failed to save batch:', error);
+    throw error;
+  }
+};
+
+export const deleteBatch = async (id) => {
+  try {
+    const response = await apiClient.delete(`/academic/batches/${id}`);
+    return response;
+  } catch (error) {
+    console.error(`Failed to delete batch ${id}:`, error);
     throw error;
   }
 };

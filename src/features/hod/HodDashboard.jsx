@@ -1,7 +1,9 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GraduationCap, CheckCircle2, ArrowRight, ShieldCheck, Layers, FileText, Calendar, Users, ChevronRight, Check, Clock, UserCheck } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import { getHodDepartmentSummary } from '../../api/academic';
 
 export default function HodDashboard() {
   const navigate = useNavigate();
@@ -14,11 +16,32 @@ export default function HodDashboard() {
     hodApprovals = [],
   } = useAcademic();
 
-  const totalProgrammes = masterProgrammes.length || 3;
-  const totalCourses = courses.length || 6;
-  const assignedCoordinatorsCount = masterProgrammes.filter(
+  const [deptSummary, setDeptSummary] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    getHodDepartmentSummary(user?.email || '')
+      .then((res) => {
+        const data = res?.data?.data || res?.data || res;
+        console.log('[HodDashboard] Loaded HOD department summary:', data);
+        if (data && isMounted) {
+          setDeptSummary(data);
+        }
+      })
+      .catch((err) => console.warn('Could not fetch HOD department summary:', err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.email]);
+
+  const deptName = deptSummary?.deptName || 'Department of Computer Science & Engineering';
+  const totalProgrammes = deptSummary?.programmeCount ?? (masterProgrammes.length || 3);
+  const totalCourses = deptSummary?.courseCount ?? (courses.length || 6);
+  const assignedCoordinatorsCount = deptSummary?.assignedCoordinatorsCount ?? (masterProgrammes.filter(
     (p) => p.coordinator && p.coordinator !== 'Unassigned' && p.coordinator !== 'No coordinator assigned yet' && p.coordinator !== 'Pending HOD Assignment'
-  ).length || totalProgrammes;
+  ).length || totalProgrammes);
+
   const pendingApprovalsCount = hodApprovals.filter(
     (a) => a.status === 'PENDING' || a.status === 'SUBMITTED'
   ).length;
@@ -63,15 +86,34 @@ export default function HodDashboard() {
     },
   ];
 
+  const completedList = deptSummary?.setupProgress?.completedSteps || [];
+  const isCompleted = deptSummary?.setupProgress?.overallStatus === 'COMPLETED';
+
   const setupSteps = [
-    { title: 'Batch Initialized', done: batches.length > 0, desc: batches.length > 0 ? `${batches.length} batch(es) active` : 'No batch created yet' },
-    { title: 'PO, PSO & PEO Defined', done: totalProgrammes > 0, desc: `${totalProgrammes} programme(s) configured` },
-    { title: 'Programme Coordinators Assigned', done: totalProgrammes > 0, desc: 'Coordinator allocation complete' },
-    { title: 'Approvals Cleared', done: pendingApprovalsCount === 0, desc: pendingApprovalsCount > 0 ? `${pendingApprovalsCount} item(s) pending` : 'All submissions reviewed' },
+    {
+      title: 'Programme Coordinators Assigned',
+      done: isCompleted || completedList.includes('coordinators') || assignedCoordinatorsCount > 0,
+      desc: `${assignedCoordinatorsCount} of ${totalProgrammes} coordinator(s) assigned`,
+    },
+    {
+      title: 'Batch Initialized',
+      done: isCompleted || completedList.includes('batch') || batches.length > 0,
+      desc: (isCompleted || completedList.includes('batch') || batches.length > 0) ? 'Batch cycle active' : 'No batch created yet',
+    },
+    {
+      title: 'PO, PSO & PEO Defined',
+      done: isCompleted || completedList.includes('outcomes') || totalProgrammes > 0,
+      desc: `${totalProgrammes} programme(s) configured`,
+    },
+    {
+      title: 'Reviewed & Confirmed',
+      done: isCompleted || completedList.includes('review'),
+      desc: (isCompleted || completedList.includes('review')) ? 'Setup review completed & confirmed' : 'Final setup review pending',
+    },
   ];
 
   const completedCount = setupSteps.filter((s) => s.done).length;
-  const progressPct = Math.round((completedCount / setupSteps.length) * 100);
+  const progressPct = isCompleted ? 100 : Math.round((completedCount / setupSteps.length) * 100);
 
   // ─── Style tokens ─────────────────────────────────────────────────────────
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -92,7 +134,7 @@ export default function HodDashboard() {
             Welcome, {user?.name || 'Head of Department'}
           </h1>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            Department of Computer Science &amp; Engineering
+            {deptName}
           </p>
         </div>
         <button

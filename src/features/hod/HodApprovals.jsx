@@ -78,8 +78,7 @@ export default function HodApprovals() {
   const hodProgrammes = masterProgrammes.filter(
     (p) =>
       p.departmentId === currentDept?.id ||
-      p.department === currentDept?.name ||
-      p.departmentId === 'dept-1'
+      p.department === currentDept?.name
   );
 
   const [selectedProgId, setSelectedProgId] = useState(hodProgrammes[0]?.id || 'prog-1');
