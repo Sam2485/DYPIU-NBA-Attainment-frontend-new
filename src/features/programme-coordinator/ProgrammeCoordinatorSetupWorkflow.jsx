@@ -1,11 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen, Target, CheckCircle2,
   ArrowRight, ArrowLeft, Check, Plus, Trash2, X,
-  ChevronDown, AlertCircle, Save, Clock,
+  ChevronDown, AlertCircle, Save, Clock, Loader2,
 } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
+import { useAuth } from '../../context/AuthContext';
+import {
+  getProgrammes,
+  getCourses,
+  saveCourse,
+  deleteCourse as deleteCourseApi,
+  getUsersByRole,
+  getProgrammePOs,
+  getProgrammePSOs,
+  getProgrammeTargets,
+  saveProgrammeTargets,
+  updateProgrammeCoordinatorSetupProgress,
+  completeProgrammeCoordinatorSetup,
+} from '../../api/academic';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 
@@ -28,43 +42,167 @@ const TARGET_LEVELS = [1.0, 1.5, 2.0, 2.5, 3.0];
 
 export default function ProgrammeCoordinatorSetupWorkflow() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const {
-    masterProgrammes = [],
-    programmeId,
-    setProgrammeId,
-    activePOs  = [],
-    activePSOs = [],
-    courses    = [],
     poPsoTargets       = {},
     updatePoPsoTargets = () => {},
-    addCourse    = () => {},
-    deleteCourse = () => {},
-    assignCourseCoordinator = () => {},
     courseVerificationStore = {},
   } = useAcademic();
+
+  const [programmesList, setProgrammesList] = useState([]);
+  const [selectedProgId, setSelectedProgId] = useState('');
+  const [coursesList, setCoursesList] = useState([]);
+  const [coordinatorsList, setCoordinatorsList] = useState([]);
+
+  const [activePOsList, setActivePOsList] = useState([]);
+  const [activePSOsList, setActivePSOsList] = useState([]);
+
+  const [isLoadingProgrammes, setIsLoadingProgrammes] = useState(true);
+  const [isLoadingCourses, setIsLoadingCourses] = useState(false);
+  const [isSavingCourse, setIsSavingCourse] = useState(false);
 
   const [deletingCourse, setDeletingCourse] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const handleOpenDelete = (c) => {
-    setDeletingCourse(c);
-    setShowDeleteModal(true);
-  };
+  // 1. Load programmes & Course Coordinators on initial mount
+  useEffect(() => {
+    let isMounted = true;
+    const fetchInitialData = async () => {
+      setIsLoadingProgrammes(true);
+      try {
+        const progRes = await getProgrammes('', '', user?.email);
+        const rawProgs = progRes?.data?.data || progRes?.data || [];
+        if (isMounted && Array.isArray(rawProgs) && rawProgs.length > 0) {
+          const userEmail = user?.email?.toLowerCase();
+          const userAssigned = rawProgs.filter(
+            (p) =>
+              (p.coordinatorEmail && p.coordinatorEmail.toLowerCase() === userEmail) ||
+              (p.coordinator && p.coordinator.toLowerCase() === userEmail)
+          );
+          const finalProgs = userAssigned.length > 0 ? userAssigned : rawProgs;
+          setProgrammesList(finalProgs);
 
-  const handleConfirmDelete = () => {
-    if (deletingCourse) {
-      deleteCourse(deletingCourse.id);
-      setShowDeleteModal(false);
-      setDeletingCourse(null);
-    }
-  };
+          // Always pick the first programme returned if not already set
+          const firstProg = finalProgs[0];
+          if (firstProg?.id) {
+            setSelectedProgId(firstProg.id);
+          }
+        }
+
+        // Fetch Course Coordinators and Faculty members
+        const [ccRes, facRes] = await Promise.allSettled([
+          getUsersByRole('course-coordinator'),
+          getUsersByRole('faculty'),
+        ]);
+
+        let combinedUsers = [];
+        if (ccRes.status === 'fulfilled') {
+          const ccList = ccRes.value?.data?.data || ccRes.value?.data || [];
+          if (Array.isArray(ccList)) combinedUsers.push(...ccList);
+        }
+        if (facRes.status === 'fulfilled') {
+          const facList = facRes.value?.data?.data || facRes.value?.data || [];
+          if (Array.isArray(facList)) combinedUsers.push(...facList);
+        }
+
+        if (isMounted) {
+          const uniqueCoordinators = Array.from(
+            new Map(combinedUsers.map((u) => [u.email || u.id || u.name, u.name])).values()
+          );
+          setCoordinatorsList(uniqueCoordinators.length > 0 ? uniqueCoordinators : MASTER_FACULTY_LIST);
+        }
+      } catch (err) {
+        console.warn('Failed to load initial data for Programme Setup Workflow:', err);
+      } finally {
+        if (isMounted) setIsLoadingProgrammes(false);
+      }
+    };
+
+    fetchInitialData();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.email]);
+
+  // 2. Load courses, POs, and PSOs whenever selected programme changes
+  useEffect(() => {
+    if (!selectedProgId) return;
+
+    let isMounted = true;
+    const fetchProgrammeDetails = async () => {
+      setIsLoadingCourses(true);
+      try {
+        const [crsRes, poRes, psoRes, targetRes] = await Promise.allSettled([
+          getCourses(selectedProgId),
+          getProgrammePOs(selectedProgId),
+          getProgrammePSOs(selectedProgId),
+          getProgrammeTargets(selectedProgId),
+        ]);
+
+        if (isMounted) {
+          let pos = [];
+          let psos = [];
+          if (crsRes.status === 'fulfilled') {
+            const fetchedCourses = crsRes.value?.data?.data || crsRes.value?.data || [];
+            setCoursesList(Array.isArray(fetchedCourses) ? fetchedCourses : []);
+          }
+
+          if (poRes.status === 'fulfilled') {
+            const fetchedPOs = poRes.value?.data?.data || poRes.value?.data || [];
+            pos = Array.isArray(fetchedPOs) ? fetchedPOs : [];
+            setActivePOsList(pos);
+          }
+
+          if (psoRes.status === 'fulfilled') {
+            const fetchedPSOs = psoRes.value?.data?.data || psoRes.value?.data || [];
+            psos = Array.isArray(fetchedPSOs) ? fetchedPSOs : [];
+            setActivePSOsList(psos);
+          }
+
+          let fetchedPoTargets = {};
+          let fetchedPsoTargets = {};
+          if (targetRes.status === 'fulfilled') {
+            const targetDto = targetRes.value?.data?.data || targetRes.value?.data || {};
+            fetchedPoTargets = targetDto.poTargets || {};
+            fetchedPsoTargets = targetDto.psoTargets || {};
+          }
+
+          const seedContextTargets = poPsoTargets[selectedProgId] || {};
+          const seedContextPOs = seedContextTargets.poTargets || {};
+          const seedContextPSOs = seedContextTargets.psoTargets || {};
+
+          const poDraft = {};
+          pos.forEach((po) => {
+            poDraft[po.code] = fetchedPoTargets[po.code] ?? seedContextPOs[po.code] ?? 2.0;
+          });
+
+          const psoDraft = {};
+          psos.forEach((pso) => {
+            psoDraft[pso.code] = fetchedPsoTargets[pso.code] ?? seedContextPSOs[pso.code] ?? 2.0;
+          });
+
+          setPoTargetDraft(poDraft);
+          setPsoTargetDraft(psoDraft);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch details for programme', selectedProgId, err);
+      } finally {
+        if (isMounted) setIsLoadingCourses(false);
+      }
+    };
+
+    fetchProgrammeDetails();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedProgId]);
 
   const selectedProgramme =
-    masterProgrammes.find((p) => p.id === programmeId) ||
-    masterProgrammes[0] ||
+    programmesList.find((p) => p.id === selectedProgId) ||
+    programmesList[0] ||
     { id: 'prog-1', name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP', durationYears: 4 };
 
-  const allocationKey = `allocation-${programmeId}`;
+  const allocationKey = `allocation-${selectedProgId}`;
   const allocationRecord = courseVerificationStore[allocationKey] || {};
   const allocationStatus = allocationRecord.allocationStatus || 'PENDING';
   const allocationRemarks = allocationRecord.allocationRemarks || '';
@@ -80,56 +218,153 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const [newCourseCode,  setNewCourseCode]  = useState('');
   const [newCourseName,  setNewCourseName]  = useState('');
   const [newCourseSem,   setNewCourseSem]   = useState(programmeSemesters[0] || 'Sem I');
-  const [newCourseCoord, setNewCourseCoord] = useState(MASTER_FACULTY_LIST[0] || '');
-  const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === programmeId);
+  const [newCourseCoord, setNewCourseCoord] = useState('');
+
+  useEffect(() => {
+    if (coordinatorsList.length > 0 && !newCourseCoord) {
+      setNewCourseCoord(coordinatorsList[0]);
+    }
+  }, [coordinatorsList, newCourseCoord]);
 
   // ── Step 2 – PO/PSO Targets ──────────────────────────────────────────────
-  const existingTargets = poPsoTargets[programmeId] || {};
+  const existingTargets = poPsoTargets[selectedProgId] || {};
   const [poTargetDraft,  setPoTargetDraft]  = useState(() => {
     const seed = existingTargets.poTargets || {};
     const out  = {};
-    activePOs.forEach((po) => { out[po.code] = seed[po.code] ?? 2.0; });
+    activePOsList.forEach((po) => { out[po.code] = seed[po.code] ?? 2.0; });
     return out;
   });
+
   const [psoTargetDraft, setPsoTargetDraft] = useState(() => {
     const seed = existingTargets.psoTargets || {};
-    const normPSOs = activePSOs.map((p) => ({ ...p, competencies: p.competencies ?? [] }));
     const out  = {};
-    normPSOs.forEach((pso) => { out[pso.code] = seed[pso.code] ?? 2.0; });
+    activePSOsList.forEach((pso) => { out[pso.code] = seed[pso.code] ?? 2.0; });
     return out;
   });
 
-  const normPSOs = activePSOs.map((p) => ({ ...p, competencies: p.competencies ?? [] }));
+  useEffect(() => {
+    const seedPO = poPsoTargets[selectedProgId]?.poTargets || {};
+    const outPO = {};
+    activePOsList.forEach((po) => { outPO[po.code] = seedPO[po.code] ?? 2.0; });
+    setPoTargetDraft(outPO);
+
+    const seedPSO = poPsoTargets[selectedProgId]?.psoTargets || {};
+    const outPSO = {};
+    activePSOsList.forEach((pso) => { outPSO[pso.code] = seedPSO[pso.code] ?? 2.0; });
+    setPsoTargetDraft(outPSO);
+  }, [selectedProgId, activePOsList, activePSOsList, poPsoTargets]);
 
   // ── Step handlers ────────────────────────────────────────────────────────
-  const handleAddCourse = (e) => {
+  const handleAddCourse = async (e) => {
     e.preventDefault();
     if (!newCourseCode.trim() || !newCourseName.trim()) return;
-    addCourse({
-      id: `crs-${Date.now()}`,
-      programmeId,
-      code: newCourseCode.toUpperCase().trim(),
-      name: newCourseName.trim(),
-      semester: newCourseSem,
-      coordinator: newCourseCoord,
-      faculty: newCourseCoord,
-    });
-    setNewCourseCode('');
-    setNewCourseName('');
+
+    setIsSavingCourse(true);
+    try {
+      const coursePayload = {
+        code: newCourseCode.toUpperCase().trim(),
+        name: newCourseName.trim(),
+        programmeId: selectedProgId,
+        semester: newCourseSem,
+        coordinator: newCourseCoord || coordinatorsList[0] || 'Unassigned',
+        faculty: newCourseCoord || coordinatorsList[0] || 'Unassigned',
+      };
+
+      const res = await saveCourse(coursePayload);
+      const savedCourse = res?.data?.data || res?.data || coursePayload;
+      setCoursesList((prev) => [...prev, savedCourse]);
+
+      setNewCourseCode('');
+      setNewCourseName('');
+    } catch (err) {
+      console.error('Failed to add course:', err);
+      alert('Failed to save course to backend server. Please try again.');
+    } finally {
+      setIsSavingCourse(false);
+    }
   };
 
-  const handleSaveTargets = () => {
-    updatePoPsoTargets(programmeId, poTargetDraft, psoTargetDraft);
+  const handleAssignCourseCoordinator = async (courseObj, newCoord) => {
+    try {
+      const updatedObj = {
+        ...courseObj,
+        coordinator: newCoord,
+        faculty: newCoord,
+      };
+      const res = await saveCourse(updatedObj);
+      const savedCourse = res?.data?.data || res?.data || updatedObj;
+      setCoursesList((prev) => prev.map((c) => (c.id === courseObj.id ? savedCourse : c)));
+    } catch (err) {
+      console.error('Failed to update course coordinator:', err);
+      alert('Failed to update course coordinator in backend.');
+    }
   };
 
-  const handleNext = () => {
-    if (currentStep === 2) handleSaveTargets();
-    if (currentStep < 3) { setCurrentStep((s) => s + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  const handleOpenDelete = (c) => {
+    setDeletingCourse(c);
+    setShowDeleteModal(true);
   };
+
+  const handleConfirmDelete = async () => {
+    if (deletingCourse) {
+      try {
+        await deleteCourseApi(deletingCourse.id);
+        setCoursesList((prev) => prev.filter((c) => c.id !== deletingCourse.id));
+      } catch (err) {
+        console.error('Failed to delete course:', err);
+        alert('Failed to delete course from backend.');
+      } finally {
+        setShowDeleteModal(false);
+        setDeletingCourse(null);
+      }
+    }
+  };
+
+  const handleSaveTargets = async () => {
+    updatePoPsoTargets(selectedProgId, poTargetDraft, psoTargetDraft);
+    try {
+      await saveProgrammeTargets(selectedProgId, {
+        programmeId: selectedProgId,
+        poTargets: poTargetDraft,
+        psoTargets: psoTargetDraft,
+      });
+      await updateProgrammeCoordinatorSetupProgress(user?.email, selectedProgId, 2);
+    } catch (err) {
+      console.warn('Failed to save targets or update setup progress step 2:', err);
+    }
+  };
+
+  const handleNext = async () => {
+    if (currentStep === 1) {
+      try {
+        await updateProgrammeCoordinatorSetupProgress(user?.email, selectedProgId, 2);
+      } catch (err) {
+        console.warn('Failed to update setup progress step 1:', err);
+      }
+    } else if (currentStep === 2) {
+      handleSaveTargets();
+    }
+    if (currentStep < 3) {
+      setCurrentStep((s) => s + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const handlePrev = () => {
-    if (currentStep > 1) { setCurrentStep((s) => s - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    if (currentStep > 1) {
+      setCurrentStep((s) => s - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
-  const handleFinish = () => navigate('/programme-coordinator/dashboard');
+
+  const handleFinish = async () => {
+    try {
+      await completeProgrammeCoordinatorSetup(user?.email, selectedProgId);
+    } catch (err) {
+      console.warn('Failed to complete setup progress:', err);
+    }
+    navigate('/programme-coordinator/dashboard');
+  };
 
   // ── Step definitions ─────────────────────────────────────────────────────
   const steps = [
@@ -169,14 +404,16 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
             )}
           </div>
         </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ position: 'relative' }}>
             <select
-              value={programmeId}
-              onChange={(e) => setProgrammeId(e.target.value)}
+              value={selectedProgId}
+              onChange={(e) => setSelectedProgId(e.target.value)}
+              disabled={isLoadingProgrammes}
               style={{ height: '38px', paddingLeft: '12px', paddingRight: '32px', fontSize: '12.5px', fontWeight: '600', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ffffff', color: ink, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', appearance: 'none', maxWidth: '280px' }}
             >
-              {masterProgrammes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+              {programmesList.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
             </select>
             <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
           </div>
@@ -258,11 +495,11 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                 <div>
                   <label style={labelStyle}>Course Coordinator</label>
                   <select value={newCourseCoord} onChange={(e) => setNewCourseCoord(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', fontWeight: '600', color: accent }}>
-                    {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                    {coordinatorsList.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
-                <button type="submit" style={{ height: '40px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-                  <Plus size={14} /> Add Course
+                <button type="submit" disabled={isSavingCourse} style={{ height: '40px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: isSavingCourse ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit', opacity: isSavingCourse ? 0.7 : 1 }}>
+                  {isSavingCourse ? <Loader2 size={14} className="spin" /> : <Plus size={14} />} {isSavingCourse ? 'Saving...' : 'Add Course'}
                 </button>
               </div>
             </form>
@@ -280,43 +517,46 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                   </tr>
                 </thead>
                 <tbody>
-                  {progCourses.length === 0 && (
+                  {isLoadingCourses ? (
+                    <tr><td colSpan={5} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>Loading courses from backend...</td></tr>
+                  ) : coursesList.length === 0 ? (
                     <tr><td colSpan={5} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>No courses yet — add one above.</td></tr>
+                  ) : (
+                    coursesList.map((c) => {
+                      const coord = c.coordinator || (c.faculty || '').split('/')[0].trim() || (coordinatorsList[0] || 'Unassigned');
+                      return (
+                        <tr key={c.id}>
+                          <td style={{ fontWeight: '700', color: accent }}>{c.code}</td>
+                          <td style={{ fontWeight: '600', color: ink }}>{c.name}</td>
+                          <td style={{ textAlign: 'center', color: muted, fontSize: '12px' }}>{c.semester || 'Sem I'}</td>
+                          <td>
+                            <select
+                              value={coord}
+                              onChange={(e) => handleAssignCourseCoordinator(c, e.target.value)}
+                              style={{ ...inputStyle, height: '34px', fontSize: '12px', cursor: 'pointer', color: accent, fontWeight: '600' }}
+                            >
+                              {coordinatorsList.map((f) => (
+                                <option key={f} value={f}>{f}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button onClick={() => handleOpenDelete(c)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Delete Course">
+                              <Trash2 size={13} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
-                  {progCourses.map((c) => {
-                    const coord = c.coordinator || (c.faculty || '').split('/')[0].trim() || MASTER_FACULTY_LIST[0];
-                    return (
-                      <tr key={c.id}>
-                        <td style={{ fontWeight: '700', color: accent }}>{c.code}</td>
-                        <td style={{ fontWeight: '600', color: ink }}>{c.name}</td>
-                        <td style={{ textAlign: 'center', color: muted, fontSize: '12px' }}>{c.semester || 'Sem I'}</td>
-                        <td>
-                          <select
-                            value={coord}
-                            onChange={(e) => assignCourseCoordinator(c.id, e.target.value)}
-                            style={{ ...inputStyle, height: '34px', fontSize: '12px', cursor: 'pointer', color: accent, fontWeight: '600' }}
-                          >
-                            {MASTER_FACULTY_LIST.map((f) => (
-                              <option key={f} value={f}>{f}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <button onClick={() => handleOpenDelete(c)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Delete Course">
-                            <Trash2 size={13} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
                 </tbody>
               </table>
             </div>
 
-            {progCourses.length > 0 && (
+            {coursesList.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', marginTop: '16px' }}>
                 <CheckCircle2 size={16} style={{ color: '#16a34a', flexShrink: 0 }} />
-                <span style={{ fontSize: '13px', fontWeight: '600', color: '#15803d' }}>{progCourses.length} course(s) added — click Next to set PO &amp; PSO targets.</span>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: '#15803d' }}>{coursesList.length} course(s) configured — click Next to set PO &amp; PSO targets.</span>
               </div>
             )}
           </div>
@@ -342,10 +582,10 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
             </div>
 
             {/* PO Targets */}
-            {activePOs.length > 0 && (
+            {activePOsList.length > 0 && (
               <div style={{ marginBottom: '20px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-                  Programme Outcomes — Target Levels ({activePOs.length} POs)
+                  Programme Outcomes — Target Levels ({activePOsList.length} POs)
                 </div>
                 <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
                   <table className="audit-data-table">
@@ -357,7 +597,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                       </tr>
                     </thead>
                     <tbody>
-                      {activePOs.map((po) => (
+                      {activePOsList.map((po) => (
                         <tr key={po.code}>
                           <td style={{ textAlign: 'center', fontWeight: '700', color: accent }}>{po.code}</td>
                           <td style={{ fontSize: '12.5px', color: ink }}>{po.statement}</td>
@@ -379,10 +619,10 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
             )}
 
             {/* PSO Targets */}
-            {normPSOs.length > 0 && (
+            {activePSOsList.length > 0 && (
               <div>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-                  Programme Specific Outcomes — Target Levels ({normPSOs.length} PSOs)
+                  Programme Specific Outcomes — Target Levels ({activePSOsList.length} PSOs)
                 </div>
                 <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
                   <table className="audit-data-table">
@@ -394,7 +634,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                       </tr>
                     </thead>
                     <tbody>
-                      {normPSOs.map((pso) => (
+                      {activePSOsList.map((pso) => (
                         <tr key={pso.code}>
                           <td style={{ textAlign: 'center', fontWeight: '700', color: '#059669' }}>{pso.code}</td>
                           <td style={{ fontSize: '12.5px', color: ink }}>{pso.statement}</td>
@@ -415,7 +655,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
               </div>
             )}
 
-            {activePOs.length === 0 && normPSOs.length === 0 && (
+            {activePOsList.length === 0 && activePSOsList.length === 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '14px 16px' }}>
                 <AlertCircle size={16} style={{ color: '#d97706', flexShrink: 0 }} />
                 <span style={{ fontSize: '13px', color: '#92400e', fontWeight: '600' }}>
@@ -450,9 +690,9 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '24px' }}>
               {[
                 { label: 'Programme',     value: selectedProgramme.code,           color: accent    },
-                { label: 'Courses Added', value: `${progCourses.length} courses`,   color: accent    },
-                { label: 'POs Targeted',  value: `${activePOs.length} POs`,        color: accent    },
-                { label: 'PSOs Targeted', value: `${normPSOs.length} PSOs`,        color: '#059669' },
+                { label: 'Courses Added', value: `${coursesList.length} courses`,   color: accent    },
+                { label: 'POs Targeted',  value: `${activePOsList.length} POs`,        color: accent    },
+                { label: 'PSOs Targeted', value: `${activePSOsList.length} PSOs`,        color: '#059669' },
               ].map((item) => (
                 <div key={item.label} style={{ ...surface, padding: '14px 16px' }}>
                   <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>{item.label}</div>
@@ -462,11 +702,11 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
             </div>
 
             {/* Target summary tables */}
-            {activePOs.length > 0 && (
+            {activePOsList.length > 0 && (
               <div style={{ marginBottom: '16px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>PO Target Summary</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {activePOs.map((po) => (
+                  {activePOsList.map((po) => (
                     <div key={po.code} style={{ ...surface, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '12px', fontWeight: '700', color: accent }}>{po.code}</span>
                       <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>{(poTargetDraft[po.code] ?? 2.0).toFixed(1)}</span>
@@ -476,11 +716,11 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
               </div>
             )}
 
-            {normPSOs.length > 0 && (
+            {activePSOsList.length > 0 && (
               <div>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>PSO Target Summary</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {normPSOs.map((pso) => (
+                  {activePSOsList.map((pso) => (
                     <div key={pso.code} style={{ ...surface, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '12px', fontWeight: '700', color: '#059669' }}>{pso.code}</span>
                       <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>{(psoTargetDraft[pso.code] ?? 2.0).toFixed(1)}</span>

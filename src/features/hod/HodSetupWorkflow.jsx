@@ -348,6 +348,23 @@ const activeBatchObj =
     };
   }, [selectedProgramme?.id, programmeId]);
 
+const sortOutcomesNaturally = (list) => {
+  if (!Array.isArray(list)) return [];
+  return [...list]
+    .map((item) => {
+      if (item.competencies && Array.isArray(item.competencies)) {
+        return {
+          ...item,
+          competencies: [...item.competencies].sort((c1, c2) =>
+            (c1.code || '').localeCompare(c2.code || '', undefined, { numeric: true, sensitivity: 'base' })
+          ),
+        };
+      }
+      return item;
+    })
+    .sort((a, b) => (a.code || '').localeCompare(b.code || '', undefined, { numeric: true, sensitivity: 'base' }));
+};
+
   // Fetch POs, PSOs, PEOs for the selected programme
   useEffect(() => {
     let isMounted = true;
@@ -362,13 +379,13 @@ const activeBatchObj =
 
         if (isMounted) {
           const poList = poRes.status === 'fulfilled' ? (poRes.value?.data?.data || poRes.value?.data || []) : [];
-          setActivePOs(Array.isArray(poList) && poList.length > 0 ? poList : DUMMY_POS);
+          setActivePOs(sortOutcomesNaturally(Array.isArray(poList) && poList.length > 0 ? poList : DUMMY_POS));
 
           const psoList = psoRes.status === 'fulfilled' ? (psoRes.value?.data?.data || psoRes.value?.data || []) : [];
-          setActivePSOs(Array.isArray(psoList) && psoList.length > 0 ? psoList : DUMMY_PSOS);
+          setActivePSOs(sortOutcomesNaturally(Array.isArray(psoList) && psoList.length > 0 ? psoList : DUMMY_PSOS));
 
           const peoList = peoRes.status === 'fulfilled' ? (peoRes.value?.data?.data || peoRes.value?.data || []) : [];
-          setActivePEOs(Array.isArray(peoList) && peoList.length > 0 ? peoList : DUMMY_PEOS);
+          setActivePEOs(sortOutcomesNaturally(Array.isArray(peoList) && peoList.length > 0 ? peoList : DUMMY_PEOS));
         }
       } catch (err) {
         console.warn('Failed to fetch outcome framework data:', err);
@@ -1093,7 +1110,9 @@ const activeBatchObj =
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '14px 16px', maxWidth: '680px', marginTop: '16px' }}>
               <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
               <div style={{ fontSize: '13px', color: '#166534' }}>
-                Active Programme Coordinator: <strong style={{ color: '#15803d', fontWeight: '800' }}>{selectedProgramme.coordinator}</strong> {selectedProgramme.coordinatorEmail ? `(${selectedProgramme.coordinatorEmail})` : ''}
+                Active Programme Coordinator: <strong style={{ color: '#15803d', fontWeight: '800' }}>
+                  {coordinatorsList.find((f) => f.id === selectedProgramme.coordinator || f.email === selectedProgramme.coordinatorEmail || f.name === selectedProgramme.coordinator)?.name || selectedProgramme.coordinator}
+                </strong> {selectedProgramme.coordinatorEmail ? `(${selectedProgramme.coordinatorEmail})` : ''}
               </div>
             </div>
           )}

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen, ShieldCheck, FileText, ArrowRight,
@@ -5,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import { getProgrammeCoordinatorSummary } from '../../api/academic';
 
 // ── Style tokens (identical to HodDashboard) ─────────────────────────────────
 const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -25,14 +27,35 @@ export default function ProgrammeCoordinatorDashboard() {
     courseVerificationStore = {},
   } = useAcademic();
 
+  const [summaryData, setSummaryData] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSummary = async () => {
+      try {
+        const res = await getProgrammeCoordinatorSummary(user?.email, programmeId);
+        const data = res?.data?.data || res?.data;
+        if (isMounted && data) {
+          setSummaryData(data);
+        }
+      } catch (err) {
+        console.warn('Failed to load Programme Coordinator summary:', err);
+      }
+    };
+    fetchSummary();
+    return () => { isMounted = false; };
+  }, [user?.email, programmeId]);
+
   const selectedProgramme =
-    masterProgrammes.find((p) => p.id === programmeId) ||
-    masterProgrammes[0] ||
-    { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
+    summaryData?.programmeName
+      ? { name: summaryData.programmeName, code: summaryData.programmeCode || 'BE-COMP' }
+      : masterProgrammes.find((p) => p.id === programmeId) ||
+        masterProgrammes[0] ||
+        { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
 
   const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === programmeId);
 
-  const pendingVerifications = Object.values(courseVerificationStore).filter((rec) => {
+  const pendingVerifications = summaryData?.pendingVerificationsCount ?? Object.values(courseVerificationStore).filter((rec) => {
     return (
       rec.configStatus === 'SUBMITTED' ||
       rec.coStatus === 'PENDING_APPROVAL' ||

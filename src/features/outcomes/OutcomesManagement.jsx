@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import { getCourseCOs, saveCourseCOs } from '../../api/academic';
 import RowButtons from '../../components/common/RowButtons';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
@@ -19,6 +20,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
     selectedProgramme,
     courseId,
     selectedCourse,
+    availableCourses = [],
     activePOs,
     activePSOs,
     activeCOs,
@@ -31,7 +33,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
 
-  const targetCourseId = selectedCourse?.id || courseId || 'crs-1';
+  const targetCourseId = selectedCourse?.id || availableCourses[0]?.id || courseId || 'crs-1';
   const currentCoVerificationStatus = courseVerificationStore[targetCourseId]?.coStatus || 'PENDING_APPROVAL';
 
   const [localCoTargets, setLocalCoTargets] = useState({});
@@ -159,6 +161,24 @@ export default function OutcomesManagement({ hideFooter = false }) {
       })
     );
   }, [targetCourseId, selectedCourse, activeCOs, currentCoVerificationStatus, courseVerificationStore]);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (targetCourseId) {
+      getCourseCOs(targetCourseId)
+        .then((res) => {
+          if (isMounted) {
+            const rawCOs = res?.data?.data || res?.data || [];
+            if (Array.isArray(rawCOs) && rawCOs.length > 0) {
+              setCoList(rawCOs);
+              updateCourseCOs(targetCourseId, rawCOs);
+            }
+          }
+        })
+        .catch((err) => console.warn('Failed to fetch COs from backend:', err));
+    }
+    return () => { isMounted = false; };
+  }, [targetCourseId]);
 
   // ── PO Handlers (Programme Coordinator Proposes -> Director Verifies) ─────────
   const handleAddPO = () => {
@@ -451,8 +471,15 @@ export default function OutcomesManagement({ hideFooter = false }) {
     }
   };
 
-  const handleSaveChanges = (entityName) => {
+  const handleSaveChanges = async (entityName) => {
     updateCourseCOs(targetCourseId, coList);
+    try {
+      if (targetCourseId) {
+        await saveCourseCOs(targetCourseId, coList);
+      }
+    } catch (err) {
+      console.warn('Failed to save COs to backend:', err);
+    }
     if (isLimitedUser) {
       updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
     }

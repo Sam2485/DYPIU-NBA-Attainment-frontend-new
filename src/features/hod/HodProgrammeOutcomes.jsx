@@ -1,9 +1,19 @@
-import { useState } from 'react';
-import { Plus, Trash2, X, CheckCircle2, ChevronDown } from 'lucide-react';
-import { useAcademic } from '../../context/AcademicContext';
+import { useState, useEffect } from 'react';
+import { Plus, Trash2, X, CheckCircle2, ChevronDown, Save, Loader2 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
+import {
+  getHodDepartmentSummary,
+  getProgrammes,
+  getProgrammePOs,
+  saveProgrammePOs,
+  getProgrammePSOs,
+  saveProgrammePSOs,
+  getProgrammePEOs,
+  saveProgrammePEOs,
+} from '../../api/academic';
 
-// ── Style tokens (identical to HodSetupWorkflow) ─────────────────────────────
+// ── Style tokens ─────────────────────────────────────────────────────────────
 const surface  = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
 const ink      = '#0f172a';
 const muted    = '#64748b';
@@ -20,33 +30,69 @@ const inputStyle = {
   outline: 'none',
   fontFamily: 'inherit',
 };
-const labelStyle = {
-  display: 'block',
-  fontSize: '11.5px',
-  fontWeight: '600',
-  color: muted,
-  marginBottom: '5px',
-};
+
+const DEFAULT_POS = [
+  {
+    code: 'PO1',
+    statement: 'Apply computing knowledge to solve engineering problems.',
+    status: 'VERIFIED',
+    competencies: [
+      {
+        id: 'comp-po1-1',
+        statement: 'Demonstrate fundamental computing knowledge.',
+      },
+    ],
+  },
+  {
+    code: 'PO2',
+    statement: 'Analyze complex engineering problems using appropriate methods.',
+    status: 'VERIFIED',
+    competencies: [
+      {
+        id: 'comp-po2-1',
+        statement: 'Analyze and evaluate engineering problems.',
+      },
+    ],
+  },
+];
+
+const DEFAULT_PSOS = [
+  {
+    code: 'PSO1',
+    statement: 'Develop software solutions using modern computing technologies.',
+    competencies: [
+      {
+        id: 'psocomp-pso1-1',
+        statement: 'Design and implement software solutions.',
+      },
+    ],
+  },
+];
+
+const DEFAULT_PEOS = [
+  {
+    code: 'PEO1',
+    statement: 'Build successful careers in computing and related domains.',
+  },
+  {
+    code: 'PEO2',
+    statement: 'Demonstrate professional and ethical responsibility.',
+  },
+];
 
 export default function HodProgrammeOutcomes() {
-  const {
-    masterProgrammes = [],
-    programmeId,
-    setProgrammeId,
-    activePOs = [],
-    activePSOs = [],
-    activePEOs = [],
-    updateProgrammePOs  = () => {},
-    updateProgrammePSOs = () => {},
-    updateProgrammePEOs = () => {},
-  } = useAcademic();
+  const { user } = useAuth();
 
-  const selectedProgramme =
-    masterProgrammes.find((p) => p.id === programmeId) ||
-    masterProgrammes[0] ||
-    { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
+  const [programmesList, setProgrammesList] = useState([]);
+  const [programmeId, setProgrammeId] = useState('');
+  const [activePOs, setActivePOs] = useState(DEFAULT_POS);
+  const [activePSOs, setActivePSOs] = useState(DEFAULT_PSOS);
+  const [activePEOs, setActivePEOs] = useState(DEFAULT_PEOS);
 
   const [activeTab, setActiveTab] = useState('PO');
+  const [isSaving, setIsSaving] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+
   const [deleteModalConfig, setDeleteModalConfig] = useState({
     isOpen: false,
     title: '',
@@ -54,6 +100,110 @@ export default function HodProgrammeOutcomes() {
     description: '',
     onConfirm: () => {},
   });
+
+  const selectedProgramme =
+    programmesList.find((p) => p.id === programmeId) ||
+    programmesList[0] ||
+    { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
+
+  // Load HOD department and programmes
+  useEffect(() => {
+    let isMounted = true;
+    const fetchInitialData = async () => {
+      try {
+        let deptId = '';
+        if (user?.email) {
+          const summaryRes = await getHodDepartmentSummary(user.email);
+          const summaryData = summaryRes?.data?.data || summaryRes?.data || summaryRes;
+          if (summaryData?.deptId) {
+            deptId = summaryData.deptId;
+          }
+        }
+        const progRes = await getProgrammes('', deptId);
+        const progList = progRes?.data?.data || progRes?.data || [];
+        if (isMounted && Array.isArray(progList) && progList.length > 0) {
+          setProgrammesList(progList);
+          setProgrammeId((prev) => prev || progList[0].id);
+        }
+      } catch (err) {
+        console.warn('Failed to load initial programmes for Programme Outcomes:', err);
+      }
+    };
+
+    fetchInitialData();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.email]);
+
+const sortOutcomesNaturally = (list) => {
+  if (!Array.isArray(list)) return [];
+  return [...list]
+    .map((item) => {
+      if (item.competencies && Array.isArray(item.competencies)) {
+        return {
+          ...item,
+          competencies: [...item.competencies].sort((c1, c2) =>
+            (c1.code || '').localeCompare(c2.code || '', undefined, { numeric: true, sensitivity: 'base' })
+          ),
+        };
+      }
+      return item;
+    })
+    .sort((a, b) => (a.code || '').localeCompare(b.code || '', undefined, { numeric: true, sensitivity: 'base' }));
+};
+
+  // Fetch POs, PSOs, PEOs for selected programme
+  useEffect(() => {
+    let isMounted = true;
+    const fetchProgrammeOutcomes = async () => {
+      if (!programmeId) return;
+      try {
+        const [poRes, psoRes, peoRes] = await Promise.allSettled([
+          getProgrammePOs(programmeId),
+          getProgrammePSOs(programmeId),
+          getProgrammePEOs(programmeId),
+        ]);
+
+        if (isMounted) {
+          const poList = poRes.status === 'fulfilled' ? (poRes.value?.data?.data || poRes.value?.data || []) : [];
+          setActivePOs(sortOutcomesNaturally(Array.isArray(poList) && poList.length > 0 ? poList : DEFAULT_POS));
+
+          const psoList = psoRes.status === 'fulfilled' ? (psoRes.value?.data?.data || psoRes.value?.data || []) : [];
+          setActivePSOs(sortOutcomesNaturally(Array.isArray(psoList) && psoList.length > 0 ? psoList : DEFAULT_PSOS));
+
+          const peoList = peoRes.status === 'fulfilled' ? (peoRes.value?.data?.data || peoRes.value?.data || []) : [];
+          setActivePEOs(sortOutcomesNaturally(Array.isArray(peoList) && peoList.length > 0 ? peoList : DEFAULT_PEOS));
+        }
+      } catch (err) {
+        console.warn('Failed to fetch outcome framework data:', err);
+      }
+    };
+
+    fetchProgrammeOutcomes();
+    return () => {
+      isMounted = false;
+    };
+  }, [programmeId]);
+
+  const handleSaveOutcomes = async () => {
+    if (!programmeId) return;
+    setIsSaving(true);
+    try {
+      await Promise.all([
+        saveProgrammePOs(programmeId, activePOs),
+        saveProgrammePSOs(programmeId, activePSOs),
+        saveProgrammePEOs(programmeId, activePEOs),
+      ]);
+      setToastMessage(`🎉 Outcomes (POs, PSOs, PEOs) saved successfully for ${selectedProgramme.name}!`);
+      setTimeout(() => setToastMessage(null), 3500);
+    } catch (err) {
+      console.error('Failed to save outcomes:', err);
+      alert('Failed to save outcomes to server. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const triggerDeleteConfirm = ({ title, itemName, description, onConfirm }) => {
     setDeleteModalConfig({
@@ -75,16 +225,16 @@ export default function HodProgrammeOutcomes() {
       code: `PO${n}`,
       statement: `New Programme Outcome ${n}...`,
       status: 'VERIFIED',
-      competencies: [{ id: `comp-PO${n}-1`, order: 1, statement: `Competency 1 for PO${n}` }],
+      competencies: [{ id: `comp-PO${n}-1`, statement: `Competency 1 for PO${n}` }],
     };
-    updateProgrammePOs(programmeId, [...activePOs, newPo]);
+    setActivePOs([...activePOs, newPo]);
   };
 
   const handleUpdatePOCode = (i, v) => {
-    updateProgrammePOs(programmeId, activePOs.map((p, idx) => (idx === i ? { ...p, code: v } : p)));
+    setActivePOs(activePOs.map((p, idx) => (idx === i ? { ...p, code: v } : p)));
   };
   const handleUpdatePOStatement = (i, v) => {
-    updateProgrammePOs(programmeId, activePOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
+    setActivePOs(activePOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
   };
   const handleDeletePO = (i) => {
     const item = activePOs[i];
@@ -92,23 +242,21 @@ export default function HodProgrammeOutcomes() {
       title: 'Delete Programme Outcome?',
       itemName: item?.code,
       description: 'This action cannot be undone. This PO mapping will be permanently removed.',
-      onConfirm: () => updateProgrammePOs(programmeId, activePOs.filter((_, idx) => idx !== i)),
+      onConfirm: () => setActivePOs(activePOs.filter((_, idx) => idx !== i)),
     });
   };
   const handleAddPOCompetency = (pi) => {
-    updateProgrammePOs(
-      programmeId,
+    setActivePOs(
       activePOs.map((p, i) => {
         if (i !== pi) return p;
         const comps = p.competencies || [];
         const n = comps.length + 1;
-        return { ...p, competencies: [...comps, { id: `comp-${p.code}-${n}`, order: n, statement: `Competency ${n} for ${p.code}` }] };
+        return { ...p, competencies: [...comps, { id: `comp-${p.code}-${n}`, statement: `Competency ${n} for ${p.code}` }] };
       }),
     );
   };
   const handleUpdatePOCompetency = (pi, ci, v) => {
-    updateProgrammePOs(
-      programmeId,
+    setActivePOs(
       activePOs.map((p, i) => {
         if (i !== pi) return p;
         const comps = [...(p.competencies || [])];
@@ -118,18 +266,16 @@ export default function HodProgrammeOutcomes() {
     );
   };
   const handleDeletePOCompetency = (pi, ci) => {
-    updateProgrammePOs(
-      programmeId,
+    setActivePOs(
       activePOs.map((p, i) => {
         if (i !== pi) return p;
-        const comps = (p.competencies || []).filter((_, c) => c !== ci).map((c, idx) => ({ ...c, order: idx + 1 }));
+        const comps = (p.competencies || []).filter((_, c) => c !== ci);
         return { ...p, competencies: comps };
       }),
     );
   };
 
   // ── PSO HANDLERS ────────────────────────────────────────────────────────────
-  // Normalise: ensure every PSO has a competencies array (context seed data may omit it)
   const normalisedPSOs = activePSOs.map((pso) => ({
     ...pso,
     competencies: pso.competencies ?? [],
@@ -140,16 +286,16 @@ export default function HodProgrammeOutcomes() {
     const newPso = {
       code: `PSO${n}`,
       statement: `New Programme Specific Outcome ${n}...`,
-      competencies: [{ id: `psocomp-PSO${n}-1`, order: 1, statement: `Competency 1 for PSO${n}` }],
+      competencies: [{ id: `psocomp-PSO${n}-1`, statement: `Competency 1 for PSO${n}` }],
     };
-    updateProgrammePSOs(programmeId, [...normalisedPSOs, newPso]);
+    setActivePSOs([...normalisedPSOs, newPso]);
   };
 
   const handleUpdatePSOCode = (i, v) => {
-    updateProgrammePSOs(programmeId, normalisedPSOs.map((p, idx) => (idx === i ? { ...p, code: v } : p)));
+    setActivePSOs(normalisedPSOs.map((p, idx) => (idx === i ? { ...p, code: v } : p)));
   };
   const handleUpdatePSOStatement = (i, v) => {
-    updateProgrammePSOs(programmeId, normalisedPSOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
+    setActivePSOs(normalisedPSOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
   };
   const handleDeletePSO = (i) => {
     const item = normalisedPSOs[i];
@@ -157,23 +303,21 @@ export default function HodProgrammeOutcomes() {
       title: 'Delete Programme Specific Outcome?',
       itemName: item?.code,
       description: 'This action cannot be undone. This PSO mapping will be permanently removed.',
-      onConfirm: () => updateProgrammePSOs(programmeId, normalisedPSOs.filter((_, idx) => idx !== i)),
+      onConfirm: () => setActivePSOs(normalisedPSOs.filter((_, idx) => idx !== i)),
     });
   };
   const handleAddPSOCompetency = (pi) => {
-    updateProgrammePSOs(
-      programmeId,
+    setActivePSOs(
       normalisedPSOs.map((p, i) => {
         if (i !== pi) return p;
         const comps = p.competencies || [];
         const n = comps.length + 1;
-        return { ...p, competencies: [...comps, { id: `psocomp-${p.code}-${n}`, order: n, statement: `Competency ${n} for ${p.code}` }] };
+        return { ...p, competencies: [...comps, { id: `psocomp-${p.code}-${n}`, statement: `Competency ${n} for ${p.code}` }] };
       }),
     );
   };
   const handleUpdatePSOCompetency = (pi, ci, v) => {
-    updateProgrammePSOs(
-      programmeId,
+    setActivePSOs(
       normalisedPSOs.map((p, i) => {
         if (i !== pi) return p;
         const comps = [...(p.competencies || [])];
@@ -183,11 +327,10 @@ export default function HodProgrammeOutcomes() {
     );
   };
   const handleDeletePSOCompetency = (pi, ci) => {
-    updateProgrammePSOs(
-      programmeId,
+    setActivePSOs(
       normalisedPSOs.map((p, i) => {
         if (i !== pi) return p;
-        const comps = (p.competencies || []).filter((_, c) => c !== ci).map((c, idx) => ({ ...c, order: idx + 1 }));
+        const comps = (p.competencies || []).filter((_, c) => c !== ci);
         return { ...p, competencies: comps };
       }),
     );
@@ -196,10 +339,10 @@ export default function HodProgrammeOutcomes() {
   // ── PEO HANDLERS ────────────────────────────────────────────────────────────
   const handleAddPEO = () => {
     const n = activePEOs.length + 1;
-    updateProgrammePEOs(programmeId, [...activePEOs, { code: `PEO${n}`, statement: `New Programme Educational Objective ${n}...` }]);
+    setActivePEOs([...activePEOs, { code: `PEO${n}`, statement: `New Programme Educational Objective ${n}...` }]);
   };
   const handleUpdatePEOStatement = (i, v) => {
-    updateProgrammePEOs(programmeId, activePEOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
+    setActivePEOs(activePEOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
   };
   const handleDeletePEO = (i) => {
     const item = activePEOs[i];
@@ -207,15 +350,37 @@ export default function HodProgrammeOutcomes() {
       title: 'Delete Programme Educational Objective?',
       itemName: item?.code,
       description: 'This action cannot be undone. This PEO mapping will be permanently removed.',
-      onConfirm: () => updateProgrammePEOs(programmeId, activePEOs.filter((_, idx) => idx !== i)),
+      onConfirm: () => setActivePEOs(activePEOs.filter((_, idx) => idx !== i)),
     });
   };
 
   return (
-    <div className="animated-page" style={{ paddingBottom: '48px' }}>
+    <div className="animated-page" style={{ paddingBottom: '48px', display: 'grid', gap: '16px' }}>
+
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div
+          style={{
+            background: '#ecfdf5',
+            border: '1.5px solid #6ee7b7',
+            color: '#065f46',
+            padding: '12px 18px',
+            borderRadius: '10px',
+            fontWeight: '700',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.12)',
+          }}
+        >
+          <CheckCircle2 size={18} style={{ color: '#059669' }} />
+          <span>{toastMessage}</span>
+        </div>
+      )}
 
       {/* ── PAGE HEADER ───────────────────────────────────────────────────────── */}
-      <div className="banner-dark-gradient" style={{ padding: '22px 28px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', borderRadius: '14px' }}>
+      <div className="banner-dark-gradient" style={{ padding: '22px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', borderRadius: '14px' }}>
         <div>
           <div style={{ fontSize: '10.5px', fontWeight: '800', color: accent, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>
             HOD Portal &nbsp;·&nbsp; Programme Outcomes
@@ -228,38 +393,66 @@ export default function HodProgrammeOutcomes() {
           </p>
         </div>
 
-        {/* Programme selector */}
-        <div style={{ position: 'relative' }}>
-          <select
-            value={programmeId}
-            onChange={(e) => setProgrammeId(e.target.value)}
+        {/* Programme selector & Save Button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative' }}>
+            <select
+              value={programmeId}
+              onChange={(e) => setProgrammeId(e.target.value)}
+              style={{
+                height: '40px',
+                paddingLeft: '12px',
+                paddingRight: '32px',
+                fontSize: '13px',
+                fontWeight: '700',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                background: '#ffffff',
+                color: ink,
+                cursor: 'pointer',
+                outline: 'none',
+                fontFamily: 'inherit',
+                appearance: 'none',
+                minWidth: '240px',
+              }}
+            >
+              {programmesList.map((p) => (
+                <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+              ))}
+            </select>
+            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSaveOutcomes}
+            disabled={isSaving}
             style={{
-              height: '38px',
-              paddingLeft: '12px',
-              paddingRight: '32px',
-              fontSize: '12.5px',
-              fontWeight: '600',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              background: '#ffffff',
-              color: ink,
-              cursor: 'pointer',
-              outline: 'none',
+              height: '40px',
+              padding: '0 20px',
+              borderRadius: '9px',
+              border: 'none',
+              background: '#4f46e5',
+              color: '#ffffff',
+              fontSize: '13px',
+              fontWeight: '800',
+              cursor: isSaving ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '7px',
+              boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
               fontFamily: 'inherit',
-              appearance: 'none',
-              maxWidth: '300px',
+              opacity: isSaving ? 0.7 : 1,
             }}
           >
-            {masterProgrammes.map((p) => (
-              <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-            ))}
-          </select>
-          <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+            {isSaving ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
+            {isSaving ? 'Saving...' : 'Save Outcomes'}
+          </button>
         </div>
       </div>
 
       {/* ── SECTION HEADER + TAB STRIP + ADD BUTTON ──────────────────────────── */}
-      <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+      <div style={{ ...surface, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         {/* Tab strip */}
         <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px' }}>
           {[

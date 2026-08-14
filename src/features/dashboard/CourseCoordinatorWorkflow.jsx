@@ -6,6 +6,12 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import { useAuth } from '../../context/AuthContext';
+import {
+  getCourseCoordinatorSetupProgress,
+  updateCourseCoordinatorSetupProgress,
+  completeCourseCoordinatorSetup,
+} from '../../api/academic';
 
 // ── Inline step components ─────────────────────────────────────────────────────
 import OutcomesManagement from '../outcomes/OutcomesManagement';
@@ -36,6 +42,7 @@ const STEPS = [
 export default function CourseCoordinatorWorkflow() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
 
   const {
     availableCourses          = [],
@@ -59,6 +66,23 @@ export default function CourseCoordinatorWorkflow() {
   const [currentStep, setCurrentStep] = useState(
     initialStep >= 1 && initialStep <= 7 ? initialStep : 1
   );
+
+  useEffect(() => {
+    let isMounted = true;
+    if (user?.email && course?.id) {
+      getCourseCoordinatorSetupProgress(user.email, course.id)
+        .then((res) => {
+          if (isMounted) {
+            const data = res?.data?.data || res?.data;
+            if (data?.currentStep && data.currentStep >= 1 && data.currentStep <= 7 && !searchParams.get('step')) {
+              setCurrentStep(data.currentStep);
+            }
+          }
+        })
+        .catch((err) => console.warn('Failed to load course coordinator setup progress:', err));
+    }
+    return () => { isMounted = false; };
+  }, [user?.email, course?.id]);
 
   useEffect(() => {
     const s = parseInt(searchParams.get('step'), 10);
@@ -93,13 +117,28 @@ export default function CourseCoordinatorWorkflow() {
   const progressPct    = Math.round((completedCount / STEPS.length) * 100);
 
   // ── Save & Next ──────────────────────────────────────────────────────────────
-  const handleSaveAndNext = () => {
+  const handleSaveAndNext = async () => {
     markWorkflowStepComplete(course?.id, STEPS[currentStep - 1].path);
-    if (currentStep < STEPS.length) goToStep(currentStep + 1);
+    const nextStep = currentStep < STEPS.length ? currentStep + 1 : currentStep;
+    try {
+      if (course?.id) {
+        await updateCourseCoordinatorSetupProgress(user?.email, course.id, nextStep);
+      }
+    } catch (err) {
+      console.warn('Failed to update course coordinator progress:', err);
+    }
+    if (currentStep < STEPS.length) goToStep(nextStep);
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     markWorkflowStepComplete(course?.id, STEPS[STEPS.length - 1].path);
+    try {
+      if (course?.id) {
+        await completeCourseCoordinatorSetup(user?.email, course.id);
+      }
+    } catch (err) {
+      console.warn('Failed to mark course coordinator setup completed:', err);
+    }
     navigate('/dashboard');
   };
 

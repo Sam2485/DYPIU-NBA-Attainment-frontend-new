@@ -1,12 +1,14 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen, Target, BarChart2, FileText, ArrowRight,
   ChevronRight, Check, Clock, AlertCircle, Upload,
   Map, ClipboardList, TrendingUp, Award, ShieldCheck,
-  PlayCircle, Settings, Layers,
+  PlayCircle, Settings, Layers, Loader2,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import { getCourseCoordinatorSummary } from '../../api/academic';
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -37,6 +39,29 @@ export default function DashboardOverview() {
     attainmentConfigs = {},
     workflowProgressStore = {},
   } = useAcademic();
+
+  const [summaryData, setSummaryData] = useState(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (user?.email) {
+      setIsLoadingSummary(true);
+      getCourseCoordinatorSummary(user.email)
+        .then((res) => {
+          if (isMounted) {
+            const data = res?.data?.data || res?.data;
+            setSummaryData(data);
+            console.log('[DashboardOverview] Loaded Course Coordinator Summary:', data);
+          }
+        })
+        .catch((err) => console.warn('Failed to load course coordinator summary:', err))
+        .finally(() => {
+          if (isMounted) setIsLoadingSummary(false);
+        });
+    }
+    return () => { isMounted = false; };
+  }, [user?.email]);
 
   const course         = selectedCourse || availableCourses[0];
   const courseCode     = course?.code || '—';
