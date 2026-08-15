@@ -36,27 +36,21 @@ export default function ProgrammeCoordinatorDashboard() {
     psosCount: 0,
   });
 
-  // 1. Fetch summary & assigned programmes for PC
+  // 1. Fetch available programmes for coordinator
   useEffect(() => {
     let isMounted = true;
-    const fetchInitialData = async () => {
+    const fetchProgrammes = async () => {
       try {
-        const res = await getProgrammeCoordinatorSummary(user?.email, selectedProgId || programmeId);
-        const data = res?.data?.data || res?.data;
-        if (isMounted && data) {
-          setSummaryData(data);
-          if (Array.isArray(data.assignedProgrammes) && data.assignedProgrammes.length > 0) {
-            setProgrammesList(data.assignedProgrammes);
-            if (!selectedProgId) {
-              setSelectedProgId(data.programmeId || data.assignedProgrammes[0].id);
-            }
-          }
+        const progRes = await getProgrammes('', '', user?.email);
+        const rawProgs = progRes?.data?.data || progRes?.data || [];
+        if (isMounted && Array.isArray(rawProgs) && rawProgs.length > 0) {
+          setProgrammesList(rawProgs);
         }
       } catch (err) {
-        console.warn('Failed to load PC initial summary:', err);
+        console.warn('Failed to load programmes list:', err);
       }
     };
-    fetchInitialData();
+    fetchProgrammes();
     return () => { isMounted = false; };
   }, [user?.email]);
 
@@ -64,15 +58,14 @@ export default function ProgrammeCoordinatorDashboard() {
   useEffect(() => {
     let isMounted = true;
     const targetProgId = selectedProgId || summaryData?.programmeId || programmeId;
-    if (!targetProgId) return;
 
     const fetchSummaryAndDetails = async () => {
       try {
         const [sumRes, crsRes, poRes, psoRes] = await Promise.allSettled([
-          getProgrammeCoordinatorSummary(user?.email, targetProgId),
-          getCourses(targetProgId),
-          getProgrammePOs(targetProgId),
-          getProgrammePSOs(targetProgId),
+          getProgrammeCoordinatorSummary(user?.email, targetProgId || ''),
+          targetProgId ? getCourses(targetProgId) : Promise.resolve(null),
+          targetProgId ? getProgrammePOs(targetProgId) : Promise.resolve(null),
+          targetProgId ? getProgrammePSOs(targetProgId) : Promise.resolve(null),
         ]);
 
         if (isMounted) {
@@ -83,12 +76,15 @@ export default function ProgrammeCoordinatorDashboard() {
               if (Array.isArray(data.assignedProgrammes) && data.assignedProgrammes.length > 0) {
                 setProgrammesList(data.assignedProgrammes);
               }
+              if (!selectedProgId && data.programmeId) {
+                setSelectedProgId(data.programmeId);
+              }
             }
           }
 
-          const crsList = crsRes.status === 'fulfilled' ? (crsRes.value?.data?.data || crsRes.value?.data || []) : [];
-          const poList = poRes.status === 'fulfilled' ? (poRes.value?.data?.data || poRes.value?.data || []) : [];
-          const psoList = psoRes.status === 'fulfilled' ? (psoRes.value?.data?.data || psoRes.value?.data || []) : [];
+          const crsList = crsRes.status === 'fulfilled' && crsRes.value ? (crsRes.value?.data?.data || crsRes.value?.data || []) : [];
+          const poList = poRes.status === 'fulfilled' && poRes.value ? (poRes.value?.data?.data || poRes.value?.data || []) : [];
+          const psoList = psoRes.status === 'fulfilled' && psoRes.value ? (psoRes.value?.data?.data || psoRes.value?.data || []) : [];
 
           setProgDetails({
             coursesCount: Array.isArray(crsList) ? crsList.length : 0,
@@ -106,7 +102,7 @@ export default function ProgrammeCoordinatorDashboard() {
 
   const availableProgrammes = (summaryData?.assignedProgrammes && summaryData.assignedProgrammes.length > 0)
     ? summaryData.assignedProgrammes
-    : programmesList;
+    : (programmesList.length > 0 ? programmesList : masterProgrammes);
 
   const pcName = summaryData?.coordinatorName || user?.name || 'Programme Coordinator';
   const pcEmail = summaryData?.coordinatorEmail || user?.email || '';
@@ -115,7 +111,6 @@ export default function ProgrammeCoordinatorDashboard() {
     summaryData?.programmeName
       ? { name: summaryData.programmeName, code: summaryData.programmeCode || '—' }
       : availableProgrammes.find((p) => p.id === (selectedProgId || programmeId)) ||
-        masterProgrammes.find((p) => p.id === (selectedProgId || programmeId)) ||
         availableProgrammes[0] ||
         masterProgrammes[0] ||
         { name: 'No Programme Assigned Yet', code: '—' };
