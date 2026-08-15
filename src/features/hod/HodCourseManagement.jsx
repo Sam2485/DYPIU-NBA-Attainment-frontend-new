@@ -23,9 +23,9 @@ export default function HodCourseManagement() {
 
   const assignedHods = departments.map((d) => d.hod).filter(Boolean);
 
-  const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP', durationYears: 4 };
+  const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || null;
 
-  const durationYears = selectedProgramme.durationYears || 4;
+  const durationYears = selectedProgramme?.durationYears || 4;
   const totalSemesters = durationYears * 2;
   const programmeSemesters = Array.from({ length: totalSemesters }, (_, i) => `Sem ${ROMAN_NUMERALS[i] || i + 1}`);
 
@@ -33,7 +33,7 @@ export default function HodCourseManagement() {
   const [newCode, setNewCode] = useState('');
   const [newName, setNewName] = useState('');
   const [newSem, setNewSem] = useState(programmeSemesters[0] || 'Sem I');
-  const [newCoordinator, setNewCoordinator] = useState(MASTER_FACULTY_LIST[0] || 'Dr. Raj Shaikh');
+  const [newCoordinator, setNewCoordinator] = useState('');
 
   // Inline Edit Row State
   const [editingCourseId, setEditingCourseId] = useState(null);

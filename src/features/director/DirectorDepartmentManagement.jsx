@@ -26,7 +26,7 @@ export default function DirectorDepartmentManagement() {
 
   const [deptName, setDeptName] = useState('');
   const [deptCode, setDeptCode] = useState('');
-  const [selectedHod, setSelectedHod] = useState(MASTER_FACULTY_LIST[0] || '');
+  const [selectedHod, setSelectedHod] = useState('');
   const [hodEmail, setHodEmail] = useState('');
 
   // Fetch schoolId, Department Summary, and HOD Role Users on mount
@@ -78,12 +78,12 @@ export default function DirectorDepartmentManagement() {
   const inputStyle = { height: '40px', fontSize: '13px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 12px', background: '#ffffff', color: ink, width: '100%', outline: 'none', fontFamily: 'inherit' };
   const labelStyle = { display: 'block', fontSize: '11.5px', fontWeight: '600', color: muted, marginBottom: '5px' };
 
-  const activeDepts = deptList.length > 0 ? deptList : departments;
+  const activeDepts = deptList;
 
   const handleOpenAdd = () => {
     setEditingDept(null);
     setDeptName(''); setDeptCode('');
-    setSelectedHod(MASTER_FACULTY_LIST[0] || '');
+    setSelectedHod('');
     setHodEmail('');
     setShowModal(true);
   };
@@ -224,10 +224,11 @@ export default function DirectorDepartmentManagement() {
                 const deptId = dept.deptId || dept.id;
                 const deptCode = dept.deptCode || dept.code;
                 const deptName = dept.deptName || dept.name;
-                const hodName = dept.deptHodName || dept.hod || 'Unassigned';
-                const hodEmail = dept.deptHodEmail || dept.hodEmail || `${(hodName || '').toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`;
-                const isAssigned = dept.hodAssignedStatus ?? (hodName && hodName !== 'Unassigned');
-                const initials = (hodName || '').split(' ').map((n) => n[0]).join('').slice(0, 2);
+                const rawHod = dept.deptHodName || dept.hod;
+                const isAssigned = rawHod && rawHod !== 'Unassigned' && rawHod !== 'No HOD Added Yet';
+                const hodName = isAssigned ? rawHod : 'No HOD Added Yet';
+                const hodEmail = isAssigned ? (dept.deptHodEmail || dept.hodEmail || '—') : '—';
+                const initials = isAssigned ? rawHod.split(' ').map((n) => n[0]).join('').slice(0, 2) : '—';
 
                 return (
                   <tr key={deptId}>
@@ -235,10 +236,10 @@ export default function DirectorDepartmentManagement() {
                     <td style={{ fontWeight: '600', color: ink }}>{deptName}</td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#eef2ff', color: accent, display: 'grid', placeItems: 'center', fontSize: '10px', fontWeight: '800', flexShrink: 0 }}>
+                        <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: isAssigned ? '#eef2ff' : '#f1f5f9', color: isAssigned ? accent : '#64748b', display: 'grid', placeItems: 'center', fontSize: '10px', fontWeight: '800', flexShrink: 0 }}>
                           {initials}
                         </div>
-                        <span style={{ fontSize: '12.5px', fontWeight: '600', color: isAssigned ? ink : '#dc2626' }}>{hodName}</span>
+                        <span style={{ fontSize: '12.5px', fontWeight: '600', color: isAssigned ? ink : '#64748b' }}>{hodName}</span>
                       </div>
                     </td>
                     <td style={{ fontSize: '12px', color: muted }}>
@@ -250,8 +251,8 @@ export default function DirectorDepartmentManagement() {
                           <Check size={11} /> Assigned
                         </span>
                       ) : (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '5px', padding: '2px 8px' }}>
-                          <AlertCircle size={11} /> Pending
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#64748b', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '5px', padding: '2px 8px' }}>
+                          <AlertCircle size={11} /> No HOD Added Yet
                         </span>
                       )}
                     </td>
@@ -319,14 +320,15 @@ export default function DirectorDepartmentManagement() {
                     if (matchedUser) {
                       setHodEmail(matchedUser.email);
                     } else {
-                      setHodEmail(`${selectedName.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`);
+                      setHodEmail('');
                     }
                   }}
                   style={{ ...inputStyle, cursor: 'pointer' }}
                 >
+                  <option value="">-- Select HOD (Optional) --</option>
                   {hodUsers.length > 0
-                    ? hodUsers.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)
-                    : MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                    ? hodUsers.map((u) => <option key={u.id || u.email} value={u.name}>{u.name}</option>)
+                    : <option value="" disabled>No HOD Added Yet</option>}
                 </select>
               </div>
               <div>

@@ -71,78 +71,11 @@ const ink = '#0f172a';
 const muted = '#64748b';
 
 
-const DUMMY_DEPARTMENTS = [
-  {
-    id: 'dept-computer',
-    name: 'Computer Engineering',
-    hod: 'Raj Shaikh',
-  },
-];
-
-const DUMMY_BATCHES = [
-  {
-    id: 'batch-cse-2025-29',
-    programmeId: 'prog-cse',
-    programmeName: 'B.Tech Computer Science & Engineering',
-    programmeCode: 'BE-COMP',
-    name: 'Batch 2025-29 (BE-COMP) — AY 2025-26 to 2028-29',
-    startYear: '2025-26',
-    endYear: '2028-29',
-    status: 'INITIALIZED',
-  },
-];
-
-const DUMMY_POS = [
-  {
-    code: 'PO1',
-    statement: 'Apply computing knowledge to solve engineering problems.',
-    status: 'VERIFIED',
-    competencies: [
-      {
-        id: 'comp-po1-1',
-        order: 1,
-        statement: 'Demonstrate fundamental computing knowledge.',
-      },
-    ],
-  },
-  {
-    code: 'PO2',
-    statement: 'Analyze complex engineering problems using appropriate methods.',
-    status: 'VERIFIED',
-    competencies: [
-      {
-        id: 'comp-po2-1',
-        order: 1,
-        statement: 'Analyze and evaluate engineering problems.',
-      },
-    ],
-  },
-];
-
-const DUMMY_PSOS = [
-  {
-    code: 'PSO1',
-    statement: 'Develop software solutions using modern computing technologies.',
-    competencies: [
-      {
-        id: 'psocomp-pso1-1',
-        order: 1,
-        statement: 'Design and implement software solutions.',
-      },
-    ],
-  },
-];
-
-const DUMMY_PEOS = [
-  {
-    code: 'PEO1',
-    statement: 'Build successful careers in computing and related domains.',
-  },
-  {
-    code: 'PEO2',
-    statement: 'Demonstrate professional and ethical responsibility.',
-  },
-];
+const DUMMY_DEPARTMENTS = [];
+const DUMMY_BATCHES = [];
+const DUMMY_POS = [];
+const DUMMY_PSOS = [];
+const DUMMY_PEOS = [];
 
 export default function HodSetupWorkflow() {
   const navigate = useNavigate();
@@ -152,14 +85,14 @@ export default function HodSetupWorkflow() {
   const [departmentInfo, setDepartmentInfo] = useState(null);
   const [coordinatorsList, setCoordinatorsList] = useState([]);
 
-  const [departments] = useState(DUMMY_DEPARTMENTS);
-  const [batches, setBatches] = useState(DUMMY_BATCHES);
-  const [activePOs, setActivePOs] = useState(DUMMY_POS);
-  const [activePSOs, setActivePSOs] = useState(DUMMY_PSOS);
-  const [activePEOs, setActivePEOs] = useState(DUMMY_PEOS);
+  const [departments] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [activePOs, setActivePOs] = useState([]);
+  const [activePSOs, setActivePSOs] = useState([]);
+  const [activePEOs, setActivePEOs] = useState([]);
 
   const [programmeId, setProgrammeId] = useState('');
-  const [batchId, setBatchId] = useState(DUMMY_BATCHES[0]?.id || '');
+  const [batchId, setBatchId] = useState('');
   const [currentStep, setCurrentStep] = useState(1);
   const [outcomeTab, setOutcomeTab] = useState('PO');
   const [isSaving, setIsSaving] = useState(false);
@@ -379,13 +312,13 @@ const sortOutcomesNaturally = (list) => {
 
         if (isMounted) {
           const poList = poRes.status === 'fulfilled' ? (poRes.value?.data?.data || poRes.value?.data || []) : [];
-          setActivePOs(sortOutcomesNaturally(Array.isArray(poList) && poList.length > 0 ? poList : DUMMY_POS));
+          setActivePOs(sortOutcomesNaturally(Array.isArray(poList) ? poList : []));
 
           const psoList = psoRes.status === 'fulfilled' ? (psoRes.value?.data?.data || psoRes.value?.data || []) : [];
-          setActivePSOs(sortOutcomesNaturally(Array.isArray(psoList) && psoList.length > 0 ? psoList : DUMMY_PSOS));
+          setActivePSOs(sortOutcomesNaturally(Array.isArray(psoList) ? psoList : []));
 
           const peoList = peoRes.status === 'fulfilled' ? (peoRes.value?.data?.data || peoRes.value?.data || []) : [];
-          setActivePEOs(sortOutcomesNaturally(Array.isArray(peoList) && peoList.length > 0 ? peoList : DUMMY_PEOS));
+          setActivePEOs(sortOutcomesNaturally(Array.isArray(peoList) ? peoList : []));
         }
       } catch (err) {
         console.warn('Failed to fetch outcome framework data:', err);

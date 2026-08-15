@@ -35,16 +35,14 @@ export default function HodDashboard() {
     };
   }, [user?.email]);
 
-  const deptName = deptSummary?.deptName || 'Department of Computer Science & Engineering';
-  const totalProgrammes = deptSummary?.programmeCount ?? (masterProgrammes.length || 3);
-  const totalCourses = deptSummary?.courseCount ?? (courses.length || 6);
-  const assignedCoordinatorsCount = deptSummary?.assignedCoordinatorsCount ?? (masterProgrammes.filter(
+  const deptName = deptSummary?.deptName || 'No Department Assigned Yet';
+  const totalProgrammes = deptSummary?.programmeCount ?? masterProgrammes.length;
+  const totalCourses = deptSummary?.courseCount ?? 0;
+  const assignedCoordinatorsCount = deptSummary?.assignedCoordinatorsCount ?? masterProgrammes.filter(
     (p) => p.coordinator && p.coordinator !== 'Unassigned' && p.coordinator !== 'No coordinator assigned yet' && p.coordinator !== 'Pending HOD Assignment'
-  ).length || totalProgrammes);
-
-  const pendingApprovalsCount = hodApprovals.filter(
-    (a) => a.status === 'PENDING' || a.status === 'SUBMITTED'
   ).length;
+
+  const pendingApprovalsCount = 0;
 
   const quickActions = [
     {
@@ -88,22 +86,23 @@ export default function HodDashboard() {
 
   const completedList = deptSummary?.setupProgress?.completedSteps || [];
   const isCompleted = deptSummary?.setupProgress?.overallStatus === 'COMPLETED';
+  const isBatchActive = isCompleted || completedList.includes('batch') || (batches.length > 0 && batches.some((b) => b.status === 'ACTIVE' || b.status === 'INITIALIZED'));
 
   const setupSteps = [
     {
       title: 'Programme Coordinators Assigned',
-      done: isCompleted || completedList.includes('coordinators') || assignedCoordinatorsCount > 0,
-      desc: `${assignedCoordinatorsCount} of ${totalProgrammes} coordinator(s) assigned`,
+      done: isCompleted || completedList.includes('coordinators') || (totalProgrammes > 0 && assignedCoordinatorsCount >= totalProgrammes),
+      desc: totalProgrammes > 0 ? `${assignedCoordinatorsCount} of ${totalProgrammes} coordinator(s) assigned` : 'No programmes available yet',
     },
     {
       title: 'Batch Initialized',
-      done: isCompleted || completedList.includes('batch') || batches.length > 0,
-      desc: (isCompleted || completedList.includes('batch') || batches.length > 0) ? 'Batch cycle active' : 'No batch created yet',
+      done: isBatchActive,
+      desc: isBatchActive ? 'Batch cycle active' : 'No batch created yet',
     },
     {
       title: 'PO, PSO & PEO Defined',
-      done: isCompleted || completedList.includes('outcomes') || totalProgrammes > 0,
-      desc: `${totalProgrammes} programme(s) configured`,
+      done: isCompleted || completedList.includes('outcomes'),
+      desc: totalProgrammes > 0 ? `${totalProgrammes} programme(s) configured` : 'No outcomes configured yet',
     },
     {
       title: 'Reviewed & Confirmed',

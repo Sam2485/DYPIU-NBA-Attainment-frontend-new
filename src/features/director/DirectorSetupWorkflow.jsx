@@ -168,7 +168,7 @@ export default function DirectorSetupWorkflow() {
   const [hodUsers, setHodUsers] = useState([]);
   const [newDeptName, setNewDeptName] = useState('');
   const [newDeptCode, setNewDeptCode] = useState('');
-  const [selectedHod, setSelectedHod] = useState(MASTER_FACULTY_LIST[0] || 'Dr. Raj Shaikh');
+  const [selectedHod, setSelectedHod] = useState('');
   // Step 2 Edit Modal state
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingDept, setEditingDept] = useState(null);
@@ -179,12 +179,13 @@ export default function DirectorSetupWorkflow() {
 
   const handleOpenEditDept = (dept) => {
     setEditingDept(dept);
-    const hName = dept.hod || dept.deptHodName || (hodUsers[0]?.name || MASTER_FACULTY_LIST[0]);
+    const rawHod = dept.hod || dept.deptHodName;
+    const hName = (rawHod && rawHod !== 'Unassigned' && rawHod !== 'No HOD Added Yet') ? rawHod : '';
     setEditDeptName(dept.name || dept.deptName || '');
     setEditDeptCode(dept.code || dept.deptCode || '');
     setEditSelectedHod(hName);
     const matched = hodUsers.find((u) => u.name === hName);
-    setEditHodEmail(dept.hodEmail || dept.deptHodEmail || matched?.email || `${(hName || '').toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`);
+    setEditHodEmail(matched?.email || dept.hodEmail || dept.deptHodEmail || '');
     setShowEditModal(true);
   };
 
@@ -194,14 +195,15 @@ export default function DirectorSetupWorkflow() {
     const targetSchoolId = schoolId || 'sch-1';
     const targetDeptId = editingDept.id || editingDept.deptId;
     const matchedUser = hodUsers.find((u) => u.name === editSelectedHod);
-    const hodEmailPayload = editHodEmail || (matchedUser ? matchedUser.email : `${(editSelectedHod || '').toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`);
+    const hodNamePayload = editSelectedHod || '';
+    const hodEmailPayload = matchedUser ? matchedUser.email : (editSelectedHod ? editHodEmail : '');
 
     const payload = {
       id: targetDeptId,
       schoolId: targetSchoolId,
       name: editDeptName,
       code: editDeptCode.toUpperCase(),
-      hod: editSelectedHod,
+      hod: hodNamePayload,
       hodEmail: hodEmailPayload,
       status: 'ACTIVE',
     };
@@ -240,12 +242,13 @@ export default function DirectorSetupWorkflow() {
     if (!newDeptName || !newDeptCode) return;
     const targetSchoolId = schoolId || 'sch-1';
     const matchedUser = hodUsers.find((u) => u.name === selectedHod);
-    const hodEmailPayload = matchedUser ? matchedUser.email : `${selectedHod.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`;
+    const hodNamePayload = selectedHod || '';
+    const hodEmailPayload = matchedUser ? matchedUser.email : '';
     const deptPayload = {
       schoolId: targetSchoolId,
       name: newDeptName,
       code: newDeptCode.toUpperCase(),
-      hod: selectedHod,
+      hod: hodNamePayload,
       hodEmail: hodEmailPayload,
       status: 'ACTIVE',
     };
@@ -607,9 +610,10 @@ export default function DirectorSetupWorkflow() {
                 <div style={{ width: '210px' }}>
                   <label style={labelStyle}>Assign HOD</label>
                   <select value={selectedHod} onChange={(e) => setSelectedHod(e.target.value)} style={selectStyle}>
+                    <option value="">-- Select HOD (Optional) --</option>
                     {hodUsers.length > 0
-                      ? hodUsers.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)
-                      : MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                      ? hodUsers.map((u) => <option key={u.id || u.email} value={u.name}>{u.name}</option>)
+                      : <option value="" disabled>No HOD Added Yet</option>}
                   </select>
                 </div>
                 <button
@@ -629,7 +633,7 @@ export default function DirectorSetupWorkflow() {
                   <th>Department Name</th>
                   <th style={{ width: '220px' }}>Head of Department</th>
                   <th style={{ width: '200px' }}>Email</th>
-                  <th style={{ width: '120px', textAlign: 'center' }}>Status</th>
+                  <th style={{ width: '130px', textAlign: 'center' }}>Status</th>
                   <th style={{ width: '130px', textAlign: 'center' }}>Action</th>
                 </tr>
               </thead>
@@ -641,10 +645,11 @@ export default function DirectorSetupWorkflow() {
                     const deptId = dept.id || dept.deptId;
                     const deptCode = dept.code || dept.deptCode;
                     const deptName = dept.name || dept.deptName;
-                    const hodName = dept.hod || dept.deptHodName || 'Unassigned';
-                    const hodEmail = dept.hodEmail || dept.deptHodEmail || `${(hodName || '').toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`;
-                    const isAssigned = dept.hodAssignedStatus ?? (hodName && hodName !== 'Unassigned');
-                    const initials = (hodName || '').split(' ').map((n) => n[0]).join('').slice(0, 2);
+                    const rawHod = dept.hod || dept.deptHodName;
+                    const isAssigned = rawHod && rawHod !== 'Unassigned' && rawHod !== 'No HOD Added Yet';
+                    const hodName = isAssigned ? rawHod : 'No HOD Added Yet';
+                    const hodEmail = isAssigned ? (dept.hodEmail || dept.deptHodEmail || '—') : '—';
+                    const initials = isAssigned ? rawHod.split(' ').map((n) => n[0]).join('').slice(0, 2) : '—';
 
                     return (
                       <tr key={deptId}>
@@ -652,10 +657,10 @@ export default function DirectorSetupWorkflow() {
                         <td style={{ fontWeight: '600', color: ink }}>{deptName}</td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#eef2ff', color: accent, display: 'grid', placeItems: 'center', fontSize: '10px', fontWeight: '800', flexShrink: 0 }}>
+                            <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: isAssigned ? '#eef2ff' : '#f1f5f9', color: isAssigned ? accent : '#64748b', display: 'grid', placeItems: 'center', fontSize: '10px', fontWeight: '800', flexShrink: 0 }}>
                               {initials}
                             </div>
-                            <span style={{ fontSize: '12.5px', fontWeight: '600', color: isAssigned ? ink : '#dc2626' }}>{hodName}</span>
+                            <span style={{ fontSize: '12.5px', fontWeight: '600', color: isAssigned ? ink : '#64748b' }}>{hodName}</span>
                           </div>
                         </td>
                         <td style={{ fontSize: '12px', color: muted }}>
@@ -667,8 +672,8 @@ export default function DirectorSetupWorkflow() {
                               <Check size={11} /> Assigned
                             </span>
                           ) : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '5px', padding: '2px 8px' }}>
-                              <AlertCircle size={11} /> Pending
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#64748b', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '5px', padding: '2px 8px' }}>
+                              <AlertCircle size={11} /> No HOD Added Yet
                             </span>
                           )}
                         </td>
@@ -922,14 +927,15 @@ export default function DirectorSetupWorkflow() {
                     if (matchedUser) {
                       setEditHodEmail(matchedUser.email);
                     } else {
-                      setEditHodEmail(`${selectedName.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`);
+                      setEditHodEmail('');
                     }
                   }}
                   style={{ ...inputStyle, cursor: 'pointer' }}
                 >
+                  <option value="">-- Select HOD (Optional) --</option>
                   {hodUsers.length > 0
-                    ? hodUsers.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)
-                    : MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                    ? hodUsers.map((u) => <option key={u.id || u.email} value={u.name}>{u.name}</option>)
+                    : <option value="" disabled>No HOD Added Yet</option>}
                 </select>
               </div>
               <div>

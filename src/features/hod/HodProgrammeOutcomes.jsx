@@ -31,63 +31,18 @@ const inputStyle = {
   fontFamily: 'inherit',
 };
 
-const DEFAULT_POS = [
-  {
-    code: 'PO1',
-    statement: 'Apply computing knowledge to solve engineering problems.',
-    status: 'VERIFIED',
-    competencies: [
-      {
-        id: 'comp-po1-1',
-        statement: 'Demonstrate fundamental computing knowledge.',
-      },
-    ],
-  },
-  {
-    code: 'PO2',
-    statement: 'Analyze complex engineering problems using appropriate methods.',
-    status: 'VERIFIED',
-    competencies: [
-      {
-        id: 'comp-po2-1',
-        statement: 'Analyze and evaluate engineering problems.',
-      },
-    ],
-  },
-];
-
-const DEFAULT_PSOS = [
-  {
-    code: 'PSO1',
-    statement: 'Develop software solutions using modern computing technologies.',
-    competencies: [
-      {
-        id: 'psocomp-pso1-1',
-        statement: 'Design and implement software solutions.',
-      },
-    ],
-  },
-];
-
-const DEFAULT_PEOS = [
-  {
-    code: 'PEO1',
-    statement: 'Build successful careers in computing and related domains.',
-  },
-  {
-    code: 'PEO2',
-    statement: 'Demonstrate professional and ethical responsibility.',
-  },
-];
+const DEFAULT_POS = [];
+const DEFAULT_PSOS = [];
+const DEFAULT_PEOS = [];
 
 export default function HodProgrammeOutcomes() {
   const { user } = useAuth();
 
   const [programmesList, setProgrammesList] = useState([]);
   const [programmeId, setProgrammeId] = useState('');
-  const [activePOs, setActivePOs] = useState(DEFAULT_POS);
-  const [activePSOs, setActivePSOs] = useState(DEFAULT_PSOS);
-  const [activePEOs, setActivePEOs] = useState(DEFAULT_PEOS);
+  const [activePOs, setActivePOs] = useState([]);
+  const [activePSOs, setActivePSOs] = useState([]);
+  const [activePEOs, setActivePEOs] = useState([]);
 
   const [activeTab, setActiveTab] = useState('PO');
   const [isSaving, setIsSaving] = useState(false);
@@ -167,13 +122,13 @@ const sortOutcomesNaturally = (list) => {
 
         if (isMounted) {
           const poList = poRes.status === 'fulfilled' ? (poRes.value?.data?.data || poRes.value?.data || []) : [];
-          setActivePOs(sortOutcomesNaturally(Array.isArray(poList) && poList.length > 0 ? poList : DEFAULT_POS));
+          setActivePOs(sortOutcomesNaturally(Array.isArray(poList) ? poList : []));
 
           const psoList = psoRes.status === 'fulfilled' ? (psoRes.value?.data?.data || psoRes.value?.data || []) : [];
-          setActivePSOs(sortOutcomesNaturally(Array.isArray(psoList) && psoList.length > 0 ? psoList : DEFAULT_PSOS));
+          setActivePSOs(sortOutcomesNaturally(Array.isArray(psoList) ? psoList : []));
 
           const peoList = peoRes.status === 'fulfilled' ? (peoRes.value?.data?.data || peoRes.value?.data || []) : [];
-          setActivePEOs(sortOutcomesNaturally(Array.isArray(peoList) && peoList.length > 0 ? peoList : DEFAULT_PEOS));
+          setActivePEOs(sortOutcomesNaturally(Array.isArray(peoList) ? peoList : []));
         }
       } catch (err) {
         console.warn('Failed to fetch outcome framework data:', err);

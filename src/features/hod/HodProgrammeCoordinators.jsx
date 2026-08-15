@@ -19,12 +19,7 @@ import {
   saveProgramme,
 } from '../../api/academic';
 
-const FALLBACK_FACULTY = [
-  { id: 'fac-1', name: 'Dr. A. K. Sharma', email: 'ak.sharma@dypiu.ac.in' },
-  { id: 'fac-2', name: 'Prof. R. V. Patel', email: 'rv.patel@dypiu.ac.in' },
-  { id: 'fac-3', name: 'Dr. Neha Kulkarni', email: 'neha@example.com' },
-  { id: 'fac-4', name: 'Prof. Amit Joshi', email: 'amit@example.com' },
-];
+const FALLBACK_FACULTY = [];
 
 export default function HodProgrammeCoordinators() {
   const { user } = useAuth();
@@ -63,7 +58,7 @@ export default function HodProgrammeCoordinators() {
 
         const userRes = await getUsersByRole('programme-coordinator');
         const userList = userRes?.data?.data || userRes?.data || [];
-        if (isMounted && Array.isArray(userList) && userList.length > 0) {
+        if (isMounted && Array.isArray(userList)) {
           setCoordinatorsList(userList);
         }
       } catch (err) {
@@ -77,10 +72,7 @@ export default function HodProgrammeCoordinators() {
     };
   }, [user?.email]);
 
-  // Combine fetched backend coordinators and fallback faculty list to ensure ID lookup never fails
-  const availableFaculty = Array.from(
-    new Map([...coordinatorsList, ...FALLBACK_FACULTY].map((f) => [String(f.id || f.name), f])).values()
-  );
+  const availableFaculty = coordinatorsList;
 
   const getCoordinatorDisplayName = (coordVal, coordEmail) => {
     if (

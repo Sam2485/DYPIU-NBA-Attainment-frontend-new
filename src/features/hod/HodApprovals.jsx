@@ -69,11 +69,10 @@ export default function HodApprovals() {
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
 
-  const verifierName = user?.name || 'Dr. Raj Shaikh (HOD)';
+  const verifierName = user?.name || 'HOD';
 
   const currentDept =
-    departments.find((d) => d.hod === user?.name || d.hodEmail === user?.email) ||
-    departments[0];
+    departments.find((d) => d.hod === user?.name || d.hodEmail === user?.email) || null;
 
   const hodProgrammes = masterProgrammes.filter(
     (p) =>
@@ -81,7 +80,7 @@ export default function HodApprovals() {
       p.department === currentDept?.name
   );
 
-  const [selectedProgId, setSelectedProgId] = useState(hodProgrammes[0]?.id || 'prog-1');
+  const [selectedProgId, setSelectedProgId] = useState(hodProgrammes[0]?.id || '');
   const [showRejectModal, setShowRejectModal]   = useState(false);
   const [rejectRemarks, setRejectRemarks]       = useState('');
   const [filterStatus, setFilterStatus]         = useState('ALL');
@@ -89,11 +88,10 @@ export default function HodApprovals() {
 
   const activeProg =
     masterProgrammes.find((p) => p.id === selectedProgId) ||
-    hodProgrammes[0] ||
-    masterProgrammes[0];
+    hodProgrammes[0] || null;
 
   const progCourses = courses.filter(
-    (c) => c.programmeId === selectedProgId || (!c.programmeId && selectedProgId === 'prog-1')
+    (c) => c.programmeId === selectedProgId
   );
 
   const allocationKey    = `allocation-${selectedProgId}`;

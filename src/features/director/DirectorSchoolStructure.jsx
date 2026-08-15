@@ -86,17 +86,7 @@ export default function DirectorSchoolStructure() {
   const assignedHodCount = schoolSummary?.assignedHODsCount ?? deptSummaryList.filter((d) => d.hodAssignedStatus).length;
   const totalProgCount = schoolSummary?.totalProgrammes ?? programmeList.length;
 
-  const displayDepts = deptSummaryList.length > 0
-    ? deptSummaryList
-    : departments.map((d) => ({
-        deptId: d.id,
-        deptCode: d.code,
-        deptName: d.name,
-        deptHodName: d.hod,
-        deptHodEmail: d.hodEmail,
-        hodAssignedStatus: d.hod && d.hod !== 'Unassigned',
-        programmesCount: masterProgrammes.filter((p) => p.departmentId === d.id || p.department === d.name).length,
-      }));
+  const displayDepts = deptSummaryList;
 
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>

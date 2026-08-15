@@ -74,8 +74,8 @@ export default function DirectorProgrammeOverview() {
   const inputStyle = { height: '38px', fontSize: '13px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 12px', background: '#ffffff', color: ink, width: '100%', outline: 'none', fontFamily: 'inherit' };
   const labelStyle = { display: 'block', fontSize: '11.5px', fontWeight: '600', color: muted, marginBottom: '5px' };
 
-  const activeDepts = deptList.length > 0 ? deptList : departments;
-  const activeProgs = progList.length > 0 ? progList : masterProgrammes;
+  const activeDepts = deptList;
+  const activeProgs = progList;
 
   const filteredProgrammes = activeProgs.filter((prog) => {
     if (selectedDeptFilter === 'ALL') return true;
