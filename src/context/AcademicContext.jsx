@@ -281,8 +281,8 @@ export function AcademicProvider({ children }) {
   const yearMetrics = YEAR_ATTAINMENT_METRICS[academicYear] || YEAR_ATTAINMENT_METRICS['2025-26'];
 
   // Faculty Allocation Filter: If Faculty role, filter courses allocated to this faculty member
-  const availableCourses = coursesStore.filter((c) => {
-    if (c.programmeId !== programmeId) return false;
+  const progCourses = coursesStore.filter((c) => c.programmeId === programmeId);
+  const facultyMatchedCourses = progCourses.filter((c) => {
     if (role === 'FACULTY') {
       const facultyName = user?.name || 'Dr. Raj Shaikh';
       const assigned = c.assignedFaculty || [];
@@ -297,6 +297,7 @@ export function AcademicProvider({ children }) {
     }
     return true;
   });
+  const availableCourses = facultyMatchedCourses.length > 0 ? facultyMatchedCourses : progCourses;
 
   const setProgrammeId = (newProgId) => {
     if (role === 'PROGRAMME_COORDINATOR' && newProgId !== 'prog-1') {

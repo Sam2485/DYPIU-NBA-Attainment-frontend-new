@@ -85,9 +85,9 @@ export default function DashboardOverview() {
 
   const rawAssigned = summaryData?.assignedCourses;
   const isApiLoaded = summaryData !== null;
-  const assignedCourses = Array.isArray(rawAssigned)
+  const assignedCourses = (Array.isArray(rawAssigned) && rawAssigned.length > 0)
     ? rawAssigned
-    : (isApiLoaded ? [] : DEFAULT_ASSIGNED_COURSES);
+    : DEFAULT_ASSIGNED_COURSES;
 
   const hasCourses = assignedCourses.length > 0;
 
@@ -185,44 +185,6 @@ export default function DashboardOverview() {
       iconBg: '#f0fdf4',
     },
   ];
-
-  // ── Render empty state if no course is allocated to this coordinator ───────
-  if (isApiLoaded && !hasCourses) {
-    return (
-      <div className="animated-page" style={{ paddingBottom: '48px' }}>
-        <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px' }}>
-          <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
-            Course Coordinator Dashboard
-          </div>
-          <h1 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800' }}>
-            Welcome, {user?.name || 'Course Coordinator'}
-          </h1>
-        </div>
-
-        <div style={{
-          ...surface,
-          background: '#fefce8',
-          border: '1.5px solid #fef08a',
-          borderLeft: '5px solid #ca8a04',
-          padding: '24px 28px',
-          marginBottom: '20px',
-          borderRadius: '12px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <AlertCircle size={28} style={{ color: '#ca8a04', flexShrink: 0 }} />
-            <div>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#854d0e' }}>
-                No Course Assigned Yet
-              </h3>
-              <p style={{ margin: '4px 0 0', fontSize: '13.5px', color: '#a16207', lineHeight: 1.5 }}>
-                You have no courses allocated. Contact your Programme Coordinator for course allocation.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>

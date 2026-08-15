@@ -30,23 +30,6 @@ export default function AttainmentProgressTracker() {
   // Only Course Coordinator role sees this tracker
   if (role !== 'FACULTY') return null;
 
-  // No course assigned
-  if (availableCourses.length === 0) {
-    return (
-      <div style={{ padding: '16px 28px 0', width: '100%', boxSizing: 'border-box' }}>
-        <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderLeft: '6px solid #e11d48', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px', width: '100%', boxSizing: 'border-box' }}>
-          <BookX size={28} style={{ color: '#e11d48', flexShrink: 0 }} />
-          <div>
-            <div style={{ fontSize: '14px', color: '#9f1239', fontWeight: '800', marginBottom: '2px' }}>No Course Assigned Yet</div>
-            <p style={{ margin: 0, fontSize: '12px', color: '#be123c' }}>
-              You have no courses allocated. Contact your Programme Coordinator for course allocation.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const currentPath       = location.pathname;
   const currentStepIndex  = WORKFLOW_STEPS.findIndex((s) => s.path === currentPath);
 
