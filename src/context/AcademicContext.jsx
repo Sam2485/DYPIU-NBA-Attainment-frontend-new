@@ -319,6 +319,7 @@ export function AcademicProvider({ children }) {
   const selectedCourse =
     coursesStore.find((c) => c.id === courseId) ||
     availableCourses.find((c) => c.id === courseId) ||
+    (courseId ? { id: courseId, code: courseId } : null) ||
     availableCourses[0] ||
     coursesStore[0];
 

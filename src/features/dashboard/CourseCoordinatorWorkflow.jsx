@@ -8,6 +8,7 @@ import {
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import {
+  getCourseCoordinatorSummary,
   getCourseCoordinatorSetupProgress,
   updateCourseCoordinatorSetupProgress,
   completeCourseCoordinatorSetup,
@@ -55,9 +56,37 @@ export default function CourseCoordinatorWorkflow() {
     markWorkflowStepComplete  = () => {},
   } = useAcademic();
 
-  const course     = selectedCourse || availableCourses[0];
-  const config     = course?.id ? (attainmentConfigs[course.id] || {}) : {};
-  const courseCOs  = course?.courseOutcomes || activeCOs || [];
+  const [coordinatorCourses, setCoordinatorCourses] = useState([]);
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+    if (user?.email) {
+      getCourseCoordinatorSummary(user.email)
+        .then((res) => {
+          if (isMounted) {
+            const data = res?.data?.data || res?.data;
+            const fetched = data?.assignedCourses;
+            if (Array.isArray(fetched) && fetched.length > 0) {
+              setCoordinatorCourses(fetched);
+              setSelectedCourseId((prev) => prev || fetched[0].id);
+              setCourseId(fetched[0].id);
+            }
+          }
+        })
+        .catch((err) => console.warn('Failed to fetch coordinator summary in workflow:', err));
+    }
+    return () => { isMounted = false; };
+  }, [user?.email]);
+
+  const displayCourses = coordinatorCourses.length > 0
+    ? coordinatorCourses
+    : (availableCourses.length > 0 ? availableCourses : courses);
+
+  const activeCourseId = selectedCourseId || selectedCourse?.id || displayCourses[0]?.id || 'crs-1';
+  const course         = displayCourses.find((c) => c.id === activeCourseId) || selectedCourse || displayCourses[0];
+  const config         = course?.id ? (attainmentConfigs[course.id] || {}) : {};
+  const courseCOs      = course?.courseOutcomes || activeCOs || [];
   const courseProgress = workflowProgressStore[course?.id || 'crs-1'] || {};
 
   // ── URL ↔ state sync ────────────────────────────────────────────────────────
@@ -181,9 +210,11 @@ export default function CourseCoordinatorWorkflow() {
           <div style={{ position: 'relative' }}>
             <select
               aria-label="Select Course"
-              value={course?.id || ''}
+              value={activeCourseId}
               onChange={(e) => {
-                setCourseId(e.target.value);
+                const newId = e.target.value;
+                setSelectedCourseId(newId);
+                setCourseId(newId);
                 goToStep(1);
               }}
               style={{
@@ -194,7 +225,7 @@ export default function CourseCoordinatorWorkflow() {
                 cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
-              {(availableCourses.length > 0 ? availableCourses : courses).map((c) => (
+              {displayCourses.map((c) => (
                 <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
               ))}
             </select>
