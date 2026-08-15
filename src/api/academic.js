@@ -399,6 +399,26 @@ export const saveCourseCOs = async (courseId, cos) => {
   }
 };
 
+export const getCourseMappings = async (courseId) => {
+  try {
+    const response = await apiClient.get(`/outcomes/courses/${courseId}/mappings`);
+    return response;
+  } catch (error) {
+    console.error(`Failed to fetch mappings for course ${courseId}:`, error);
+    throw error;
+  }
+};
+
+export const saveCourseMappings = async (courseId, mappingData) => {
+  try {
+    const response = await apiClient.post(`/outcomes/courses/${courseId}/mappings`, mappingData);
+    return response;
+  } catch (error) {
+    console.error(`Failed to save mappings for course ${courseId}:`, error);
+    throw error;
+  }
+};
+
 export const getStudentsByBatch = async (batchId) => {
   try {
     const response = await apiClient.get('/academic/students', { params: { batchId } });

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck } from 'lucide-react';
+import { Target, FileSpreadsheet, Plus, Trash2, Save, Send, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import { getCourseCOs, saveCourseCOs } from '../../api/academic';
@@ -39,6 +39,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
 
   const coursesList = availableCourses.length > 0 ? availableCourses : (courses.length > 0 ? courses : [{ id: 'crs-1', code: 'CS301', name: 'Computer Networks' }]);
   const targetCourseId = selectedCourseIdState || selectedCourse?.id || availableCourses[0]?.id || courseId || 'crs-1';
+  const isLimitedUser = role === 'FACULTY';
   const currentCoVerificationStatus = courseVerificationStore[targetCourseId]?.coStatus || 'PENDING_APPROVAL';
 
   const [localCoTargets, setLocalCoTargets] = useState({});
@@ -145,29 +146,6 @@ export default function OutcomesManagement({ hideFooter = false }) {
   }, [programmeId, activePSOs]);
 
   useEffect(() => {
-    const targetData = courseVerificationStore[targetCourseId] || {};
-    const globalStatus = targetData.coStatus || currentCoVerificationStatus || 'PENDING_APPROVAL';
-
-    setCoList(
-      activeCOs.map((co) => {
-        const computedStatus =
-          globalStatus === 'APPROVED' || globalStatus === 'VERIFIED'
-            ? 'APPROVED'
-            : globalStatus === 'REJECTED' || globalStatus === 'REVISION_REQUESTED'
-            ? 'REJECTED'
-            : co.status || 'WAITING_FOR_APPROVAL';
-
-        return {
-          ...co,
-          status: computedStatus,
-          submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
-          submittedAt: co.submittedAt || '2026-08-04',
-        };
-      })
-    );
-  }, [targetCourseId, selectedCourse, activeCOs, currentCoVerificationStatus, courseVerificationStore]);
-
-  useEffect(() => {
     let isMounted = true;
     if (targetCourseId) {
       getCourseCOs(targetCourseId)
@@ -175,12 +153,28 @@ export default function OutcomesManagement({ hideFooter = false }) {
           if (isMounted) {
             const rawCOs = res?.data?.data || res?.data || [];
             if (Array.isArray(rawCOs) && rawCOs.length > 0) {
-              setCoList(rawCOs);
-              updateCourseCOs(targetCourseId, rawCOs);
+              const formatted = rawCOs.map((co, idx) => ({
+                id: co.id || `co-${targetCourseId}-${idx + 1}`,
+                code: co.code || `C321.${idx + 1}`,
+                statement: co.statement || '',
+                target: co.target !== undefined && co.target !== null ? co.target : '2.50',
+                status: co.status || 'APPROVED',
+                submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
+                submittedAt: co.submittedAt || '2026-08-04',
+              }));
+              setCoList(formatted);
+              updateCourseCOs(targetCourseId, formatted);
+            } else if (activeCOs && activeCOs.length > 0) {
+              setCoList(activeCOs);
             }
           }
         })
-        .catch((err) => console.warn('Failed to fetch COs from backend:', err));
+        .catch((err) => {
+          console.warn('Failed to fetch COs from backend, using activeCOs:', err);
+          if (isMounted && activeCOs && activeCOs.length > 0) {
+            setCoList(activeCOs);
+          }
+        });
     }
     return () => { isMounted = false; };
   }, [targetCourseId]);
@@ -485,8 +479,18 @@ export default function OutcomesManagement({ hideFooter = false }) {
   const handleSaveChanges = async (entityName) => {
     updateCourseCOs(targetCourseId, coList);
     try {
-      if (targetCourseId) {
-        await saveCourseCOs(targetCourseId, coList);
+      if (targetCourseId && (entityName === 'Course Outcomes' || !entityName)) {
+        const payload = coList.map((co, idx) => ({
+          id: co.id || `co-${targetCourseId}-${idx + 1}`,
+          courseId: targetCourseId,
+          code: co.code || `C321.${idx + 1}`,
+          statement: co.statement || '',
+          target: co.target !== undefined && co.target !== null ? co.target : '2.50',
+          status: co.status || 'APPROVED',
+          submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
+          submittedAt: co.submittedAt || new Date().toISOString().split('T')[0],
+        }));
+        await saveCourseCOs(targetCourseId, payload);
       }
     } catch (err) {
       console.warn('Failed to save COs to backend:', err);
@@ -494,7 +498,30 @@ export default function OutcomesManagement({ hideFooter = false }) {
     if (isLimitedUser) {
       updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
     }
-    alert(`Changes to ${entityName} saved successfully!`);
+    alert(`Changes to ${entityName || 'Course Outcomes'} saved successfully!`);
+  };
+
+  const handleSubmitForReview = async () => {
+    updateCourseCOs(targetCourseId, coList);
+    try {
+      if (targetCourseId) {
+        const payload = coList.map((co, idx) => ({
+          id: co.id || `co-${targetCourseId}-${idx + 1}`,
+          courseId: targetCourseId,
+          code: co.code || `C321.${idx + 1}`,
+          statement: co.statement || '',
+          target: co.target !== undefined && co.target !== null ? co.target : '2.50',
+          status: 'WAITING_FOR_APPROVAL',
+          submittedBy: user?.name || 'Course Coordinator',
+          submittedAt: new Date().toISOString().split('T')[0],
+        }));
+        await saveCourseCOs(targetCourseId, payload);
+      }
+    } catch (err) {
+      console.warn('Failed to submit COs for review:', err);
+    }
+    updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
+    alert('Course Outcomes submitted for Programme Coordinator review & approval successfully!');
   };
 
   // Pending Counts
@@ -513,41 +540,30 @@ export default function OutcomesManagement({ hideFooter = false }) {
             </h2>
           </div>
 
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>
-                Course:
-              </span>
-              <select
-                value={targetCourseId}
-                onChange={(e) => {
-                  const newId = e.target.value;
-                  setSelectedCourseIdState(newId);
-                  if (typeof setCourseId === 'function') {
-                    setCourseId(newId);
-                  }
-                }}
-                style={{
-                  height: '38px',
-                  padding: '0 12px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  background: '#ffffff',
-                  color: '#0f172a',
-                  cursor: 'pointer',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                }}
-              >
-                {coursesList.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code ? `${c.code} — ` : ''}{c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              className="btn btn-success"
+              onClick={handleSubmitForReview}
+              style={{
+                height: '38px',
+                padding: '0 14px',
+                fontSize: '13px',
+                fontWeight: '700',
+                background: '#059669',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontFamily: 'inherit',
+                boxShadow: '0 2px 8px rgba(5,150,105,0.25)',
+              }}
+            >
+              <Send size={15} /> Submit for Review
+            </button>
             <button className="btn btn-primary" onClick={() => handleSaveChanges('Course Outcomes')}>
               <Save size={15} /> Save Changes
             </button>
@@ -1042,16 +1058,56 @@ export default function OutcomesManagement({ hideFooter = false }) {
           {/* Programme Coordinator Status & Rejection Remarks Banner */}
           {(() => {
             const targetData = courseVerificationStore[targetCourseId] || {};
-            const status = targetData.coStatus || currentCoVerificationStatus || 'PENDING_APPROVAL';
+            const status = targetData.coStatus;
             const remarks = targetData.coRemarks || '';
             const verifier = targetData.verifiedBy || 'Dr. Raj Shaikh (Programme Coordinator)';
 
-            const isApproved = status === 'APPROVED' || status === 'VERIFIED';
-            const isRejected = status === 'REJECTED' || status === 'REVISION_REQUESTED';
+            // 1. Initial State / Not Submitted / Draft -> Show nothing
+            if (!status || status === 'DRAFT' || status === 'NOT_SUBMITTED') {
+              return null;
+            }
 
-            if (isApproved) {
+            // 2. Pending Approval / Submitted State -> Show Waiting for Approval banner
+            if (status === 'SUBMITTED' || status === 'PENDING_APPROVAL' || status === 'WAITING_FOR_APPROVAL') {
               return (
-                <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', padding: '14px 18px', marginBottom: '18px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  background: '#fffbeb',
+                  border: '1.5px solid #fde68a',
+                  borderLeft: '5px solid #d97706',
+                  padding: '14px 18px',
+                  marginBottom: '18px',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}>
+                  <Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} />
+                  <div>
+                    <strong style={{ fontSize: '13.5px', color: '#92400e', fontWeight: '800' }}>
+                      ⏳ SUBMITTED — WAITING FOR PROGRAMME COORDINATOR APPROVAL
+                    </strong>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#b45309' }}>
+                      Course outcome statements for {selectedCourse?.code || targetCourseId} have been submitted and are pending review by <strong>{verifier}</strong>.
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
+            // 3. Approved / Verified State -> Show Green Approval banner
+            if (status === 'APPROVED' || status === 'VERIFIED') {
+              return (
+                <div style={{
+                  background: '#f0fdf4',
+                  border: '1.5px solid #a7f3d0',
+                  borderLeft: '5px solid #10b981',
+                  padding: '14px 18px',
+                  marginBottom: '18px',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}>
                   <CheckCircle2 size={20} style={{ color: '#10b981', flexShrink: 0 }} />
                   <div>
                     <strong style={{ fontSize: '13.5px', color: '#15803d', fontWeight: '800' }}>
@@ -1065,13 +1121,14 @@ export default function OutcomesManagement({ hideFooter = false }) {
               );
             }
 
-            if (isRejected) {
+            // 4. Rejected / Revision Requested State -> Show Revision card with remarks
+            if (status === 'REJECTED' || status === 'REVISION_REQUESTED') {
               return (
                 <RequestRevisionCard
                   title="Course Outcomes Revision Requested"
                   requestedBy={verifier}
                   remarks={remarks || 'Please review and update Course Outcome statements as per coordinator notes.'}
-                  actionText="Modify the statements below and click 'Save COs' to re-submit for Programme Coordinator approval."
+                  actionText="Modify the statements below and click 'Save Changes' to re-submit for Programme Coordinator approval."
                 />
               );
             }

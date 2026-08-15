@@ -305,20 +305,56 @@ export default function CourseCoordinatorWorkflow() {
 
       {/* ── STEP CONTENT ──────────────────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '0', marginBottom: '20px', overflow: 'hidden' }}>
-        {currentStep === 1 && <OutcomesManagement hideFooter isWorkflow />}
-        {currentStep === 2 && <COMappingMatrix hideFooter />}
-        {currentStep === 3 && <EndSemMarksHub hideFooter />}
-        {currentStep === 4 && <CourseEndSurveyHub hideFooter />}
-        {currentStep === 5 && <COAttainmentEngine hideFooter />}
+        {currentStep === 1 && (
+          <OutcomesManagement
+            key={course?.id || activeCourseId}
+            selectedCourseId={course?.id || activeCourseId}
+            hideFooter
+            isWorkflow
+          />
+        )}
+        {currentStep === 2 && (
+          <COMappingMatrix
+            key={course?.id || activeCourseId}
+            courseId={course?.id || activeCourseId}
+            hideFooter
+          />
+        )}
+        {currentStep === 3 && (
+          <EndSemMarksHub
+            key={course?.id || activeCourseId}
+            courseId={course?.id || activeCourseId}
+            hideFooter
+          />
+        )}
+        {currentStep === 4 && (
+          <CourseEndSurveyHub
+            key={course?.id || activeCourseId}
+            courseId={course?.id || activeCourseId}
+            hideFooter
+          />
+        )}
+        {currentStep === 5 && (
+          <COAttainmentEngine
+            key={course?.id || activeCourseId}
+            courseId={course?.id || activeCourseId}
+            hideFooter
+          />
+        )}
         {currentStep === 6 && (
-          <div>
+          <div key={course?.id || activeCourseId}>
             <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 24px' }}>
               <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>
-                Course ATR
+                Course ATR {course?.code ? `— ${course.code}` : ''}
               </h3>
             </div>
             <div style={{ padding: '20px' }}>
-              <CourseATR hideFooter hideHeader />
+              <CourseATR
+                key={course?.id || activeCourseId}
+                courseId={course?.id || activeCourseId}
+                hideFooter
+                hideHeader
+              />
             </div>
           </div>
         )}
