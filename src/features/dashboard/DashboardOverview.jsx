@@ -6,7 +6,6 @@ import {
   Map, ClipboardList, TrendingUp, Award, ShieldCheck,
   PlayCircle, Settings, Layers, Loader2,
 } from 'lucide-react';
-import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import { getCourseCoordinatorSummary } from '../../api/academic';
 
@@ -16,32 +15,51 @@ const ink     = '#0f172a';
 const muted   = '#64748b';
 const accent  = '#4f46e5';
 
+// ── Fallback dummy data for course coordinator dashboard ──────────────────────
+const DEFAULT_ASSIGNED_COURSES = [
+  {
+    id: 'crs-1',
+    code: 'CS301',
+    name: 'Computer Networks',
+    programme: 'B.Tech Computer Science & Engineering',
+    programmeCode: 'CSE',
+    semester: 'Sem V',
+    academicYear: '2025-26',
+    courseOutcomesCount: 6,
+    poCount: 12,
+    completedSteps: ['/outcomes', '/co-mapping'],
+  },
+  {
+    id: 'crs-2',
+    code: 'CS302',
+    name: 'Database Management Systems',
+    programme: 'B.Tech Computer Science & Engineering',
+    programmeCode: 'CSE',
+    semester: 'Sem V',
+    academicYear: '2025-26',
+    courseOutcomesCount: 5,
+    poCount: 12,
+    completedSteps: ['/outcomes', '/co-mapping', '/marks-upload', '/survey-upload', '/co-attainment', '/course-atr'],
+  },
+];
+
 // ── Workflow steps mirroring WORKFLOW_STEPS in AttainmentProgressTracker ─────
 const WORKFLOW_STEPS = [
-  { step: 1, label: 'Add COs',             desc: 'Define Course Outcomes',              path: '/outcomes',       icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
-  { step: 2, label: 'CO Target Setting',   desc: 'Set CO attainment targets',           path: '/co-targets',     icon: Target,       color: '#0284c7', bg: '#f0f9ff' },
-  { step: 3, label: 'CO–PO/PSO Mapping',   desc: 'Map COs to programme outcomes',       path: '/co-mapping',     icon: Map,          color: '#7c3aed', bg: '#f5f3ff' },
-  { step: 4, label: 'Direct Assessment',   desc: 'Upload end-sem marks',                path: '/marks-upload',   icon: Upload,       color: '#0369a1', bg: '#e0f2fe' },
-  { step: 5, label: 'Indirect Assessment', desc: 'Upload course-end survey',            path: '/survey-upload',  icon: ClipboardList, color: '#059669', bg: '#f0fdf4' },
-  { step: 6, label: 'CO Attainment',       desc: 'Compute & view CO attainment',        path: '/co-attainment',  icon: BarChart2,    color: '#d97706', bg: '#fffbeb' },
-  { step: 7, label: 'Course ATR',          desc: 'Fill course action-taken report',     path: '/course-atr',     icon: FileText,     color: '#dc2626', bg: '#fef2f2' },
+  { step: 1, label: 'Add COs & Targets',  desc: 'Define Course Outcomes & Targets',    path: '/outcomes',       icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
+  { step: 2, label: 'CO–PO/PSO Mapping',  desc: 'Map COs to programme outcomes',       path: '/co-mapping',     icon: Map,          color: '#7c3aed', bg: '#f5f3ff' },
+  { step: 3, label: 'Direct Assessment',  desc: 'Upload end-sem marks',                path: '/marks-upload',   icon: Upload,       color: '#0369a1', bg: '#e0f2fe' },
+  { step: 4, label: 'Indirect Assessment',desc: 'Upload course-end survey',            path: '/survey-upload',  icon: ClipboardList, color: '#059669', bg: '#f0fdf4' },
+  { step: 5, label: 'CO Attainment',      desc: 'Compute & view CO attainment',        path: '/co-attainment',  icon: BarChart2,    color: '#d97706', bg: '#fffbeb' },
+  { step: 6, label: 'Course ATR',         desc: 'Fill course action-taken report',     path: '/course-atr',     icon: FileText,     color: '#dc2626', bg: '#fef2f2' },
 ];
 
 export default function DashboardOverview() {
   const navigate = useNavigate();
   const { user }  = useAuth();
-  const {
-    selectedCourse,
-    selectedProgramme,
-    availableCourses = [],
-    academicYear,
-    activePOs        = [],
-    attainmentConfigs = {},
-    workflowProgressStore = {},
-  } = useAcademic();
 
   const [summaryData, setSummaryData] = useState(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState('crs-1');
 
   useEffect(() => {
     let isMounted = true;
@@ -52,7 +70,9 @@ export default function DashboardOverview() {
           if (isMounted) {
             const data = res?.data?.data || res?.data;
             setSummaryData(data);
-            console.log('[DashboardOverview] Loaded Course Coordinator Summary:', data);
+            if (data?.assignedCourses?.length > 0) {
+              setSelectedCourseId(data.assignedCourses[0].id || 'crs-1');
+            }
           }
         })
         .catch((err) => console.warn('Failed to load course coordinator summary:', err))
@@ -63,31 +83,50 @@ export default function DashboardOverview() {
     return () => { isMounted = false; };
   }, [user?.email]);
 
-  const course         = selectedCourse || availableCourses[0];
-  const courseCode     = course?.code || '—';
-  const courseName     = course?.name || 'No course selected';
-  const progName       = selectedProgramme?.name || course?.programme || 'Programme';
-  const progCode       = selectedProgramme?.code || '';
-  const courseCOs      = course?.courseOutcomes || [];
-  const config         = course?.id ? (attainmentConfigs[course.id] || {}) : {};
-  const courseProgress = workflowProgressStore[course?.id || 'crs-1'] || {};
+  const rawAssigned = summaryData?.assignedCourses;
+  const isApiLoaded = summaryData !== null;
+  const assignedCourses = Array.isArray(rawAssigned)
+    ? rawAssigned
+    : (isApiLoaded ? [] : DEFAULT_ASSIGNED_COURSES);
 
-  const stepStatus = WORKFLOW_STEPS.map((s, i) => {
-    if (courseProgress[s.path]) return true;
-    if (i === 0) return courseCOs.length > 0;
-    if (i === 1) return courseCOs.some((c) => c.target);
-    if (i === 2) return courseCOs.some((c) => c.mappings);
-    if (i === 3) return !!config.directUploaded;
-    if (i === 4) return !!config.indirectUploaded;
-    if (i === 5) return !!config.attainmentRun;
-    if (i === 6) return !!config.atrSubmitted;
+  const hasCourses = assignedCourses.length > 0;
+
+  const currentCourse = assignedCourses.find((c) => c.id === selectedCourseId) || assignedCourses[0];
+
+  const courseCode     = currentCourse?.code || 'CS301';
+  const courseName     = currentCourse?.name || 'Computer Networks';
+  const progName       = currentCourse?.programme || 'B.Tech Computer Science & Engineering';
+  const progCode       = currentCourse?.programmeCode || 'CSE';
+  const academicYear   = currentCourse?.academicYear || '2025-26';
+  const courseCOsCount = summaryData?.courseOutcomesCount || currentCourse?.courseOutcomesCount || currentCourse?.courseOutcomes?.length || 6;
+  const poCount        = summaryData?.poCount || currentCourse?.poCount || 12;
+  const psoCount       = summaryData?.psoCount || 2;
+
+  const setupCompletedList = summaryData?.setupProgress?.completedSteps || [];
+  const setupStepNum       = summaryData?.setupProgress?.currentStep || 1;
+
+  const stepPathMap = {
+    'cos': '/outcomes',
+    'co_mapping': '/co-mapping',
+    'direct': '/marks-upload',
+    'indirect': '/survey-upload',
+    'attainment': '/co-attainment',
+    'course_atr': '/course-atr',
+  };
+
+  const completedPathsFromApi = setupCompletedList.map((s) => stepPathMap[s] || s);
+  const completedPaths = completedPathsFromApi.length > 0 ? completedPathsFromApi : (currentCourse?.completedSteps || []);
+
+  const stepStatus = WORKFLOW_STEPS.map((s, idx) => {
+    if (completedPaths.includes(s.path)) return true;
+    if (idx + 1 < setupStepNum) return true;
     return false;
   });
 
   const completedCount = stepStatus.filter(Boolean).length;
   const progressPct    = Math.round((completedCount / WORKFLOW_STEPS.length) * 100);
   const nextStep       = WORKFLOW_STEPS.find((_, i) => !stepStatus[i]) || null;
-  const targetStepNum  = nextStep ? nextStep.step : 1;
+  const targetStepNum  = setupStepNum || (nextStep ? nextStep.step : 1);
 
   // Quick action cards
   const quickActions = [
@@ -147,6 +186,44 @@ export default function DashboardOverview() {
     },
   ];
 
+  // ── Render empty state if no course is allocated to this coordinator ───────
+  if (isApiLoaded && !hasCourses) {
+    return (
+      <div className="animated-page" style={{ paddingBottom: '48px' }}>
+        <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px' }}>
+          <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
+            Course Coordinator Dashboard
+          </div>
+          <h1 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800' }}>
+            Welcome, {user?.name || 'Course Coordinator'}
+          </h1>
+        </div>
+
+        <div style={{
+          ...surface,
+          background: '#fefce8',
+          border: '1.5px solid #fef08a',
+          borderLeft: '5px solid #ca8a04',
+          padding: '24px 28px',
+          marginBottom: '20px',
+          borderRadius: '12px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <AlertCircle size={28} style={{ color: '#ca8a04', flexShrink: 0 }} />
+            <div>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#854d0e' }}>
+                No Course Assigned Yet
+              </h3>
+              <p style={{ margin: '4px 0 0', fontSize: '13.5px', color: '#a16207', lineHeight: 1.5 }}>
+                You have no courses allocated. Contact your Programme Coordinator for course allocation.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
 
@@ -173,6 +250,32 @@ export default function DashboardOverview() {
             {progCode ? <span>{progCode}</span> : progName}
             {academicYear ? <span style={{ color: '#94a3b8' }}> &nbsp;·&nbsp; {academicYear}</span> : null}
           </p>
+          {assignedCourses.length > 1 && (
+            <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontSize: '12px', fontWeight: '700', color: muted }}>Active Course:</label>
+              <select
+                value={selectedCourseId}
+                onChange={(e) => setSelectedCourseId(e.target.value)}
+                style={{
+                  height: '32px',
+                  padding: '0 10px',
+                  fontSize: '12.5px',
+                  fontWeight: '600',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  background: '#f8fafc',
+                  color: ink,
+                  cursor: 'pointer',
+                }}
+              >
+                {assignedCourses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} — {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div style={{ marginLeft: 'auto' }}>
           <button
@@ -215,7 +318,7 @@ export default function DashboardOverview() {
               <Target size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{courseCOs.length}</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{courseCOsCount}</div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>COs defined</div>
         </div>
 
@@ -227,8 +330,8 @@ export default function DashboardOverview() {
               <Award size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{activePOs.length || 12}</div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>POs in programme</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{poCount}</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>{poCount} POs &amp; {psoCount} PSOs in programme</div>
         </div>
 
         {/* Workflow progress */}

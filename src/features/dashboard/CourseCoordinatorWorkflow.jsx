@@ -30,13 +30,12 @@ const accent  = '#4f46e5';
 
 // ── Step definitions ───────────────────────────────────────────────────────────
 const STEPS = [
-  { number: 1, title: 'Add COs',            desc: 'Define Course Outcomes',          path: '/outcomes',      icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
-  { number: 2, title: 'CO Targets',         desc: 'Set attainment benchmarks',       path: '/co-targets',    icon: Target,       color: '#0284c7', bg: '#f0f9ff' },
-  { number: 3, title: 'CO–PO/PSO Mapping',  desc: 'Map COs to programme outcomes',   path: '/co-mapping',    icon: Map,          color: '#7c3aed', bg: '#f5f3ff' },
-  { number: 4, title: 'Direct Assessment',  desc: 'Upload end-semester marks',       path: '/marks-upload',  icon: Upload,       color: '#0369a1', bg: '#e0f2fe' },
-  { number: 5, title: 'Indirect Assessment',desc: 'Upload course-end survey',        path: '/survey-upload', icon: ClipboardList,color: '#059669', bg: '#f0fdf4' },
-  { number: 6, title: 'CO Attainment',      desc: 'Compute & review attainment',     path: '/co-attainment', icon: BarChart2,    color: '#d97706', bg: '#fffbeb' },
-  { number: 7, title: 'Course ATR',         desc: 'Fill Course Action Taken Report', path: '/course-atr',    icon: FileText,     color: '#dc2626', bg: '#fef2f2' },
+  { number: 1, title: 'Add COs & Targets',  desc: 'Define Outcomes & Targets',       path: '/outcomes',      icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
+  { number: 2, title: 'CO–PO/PSO Mapping',  desc: 'Map COs to programme outcomes',   path: '/co-mapping',    icon: Map,          color: '#7c3aed', bg: '#f5f3ff' },
+  { number: 3, title: 'Direct Assessment',  desc: 'Upload end-semester marks',       path: '/marks-upload',  icon: Upload,       color: '#0369a1', bg: '#e0f2fe' },
+  { number: 4, title: 'Indirect Assessment',desc: 'Upload course-end survey',        path: '/survey-upload', icon: ClipboardList,color: '#059669', bg: '#f0fdf4' },
+  { number: 5, title: 'CO Attainment',      desc: 'Compute & review attainment',     path: '/co-attainment', icon: BarChart2,    color: '#d97706', bg: '#fffbeb' },
+  { number: 6, title: 'Course ATR',         desc: 'Fill Course Action Taken Report', path: '/course-atr',    icon: FileText,     color: '#dc2626', bg: '#fef2f2' },
 ];
 
 export default function CourseCoordinatorWorkflow() {
@@ -64,7 +63,7 @@ export default function CourseCoordinatorWorkflow() {
   // ── URL ↔ state sync ────────────────────────────────────────────────────────
   const initialStep = parseInt(searchParams.get('step'), 10);
   const [currentStep, setCurrentStep] = useState(
-    initialStep >= 1 && initialStep <= 7 ? initialStep : 1
+    initialStep >= 1 && initialStep <= 6 ? initialStep : 1
   );
 
   useEffect(() => {
@@ -74,7 +73,7 @@ export default function CourseCoordinatorWorkflow() {
         .then((res) => {
           if (isMounted) {
             const data = res?.data?.data || res?.data;
-            if (data?.currentStep && data.currentStep >= 1 && data.currentStep <= 7 && !searchParams.get('step')) {
+            if (data?.currentStep && data.currentStep >= 1 && data.currentStep <= 6 && !searchParams.get('step')) {
               setCurrentStep(data.currentStep);
             }
           }
@@ -86,7 +85,7 @@ export default function CourseCoordinatorWorkflow() {
 
   useEffect(() => {
     const s = parseInt(searchParams.get('step'), 10);
-    if (!s || isNaN(s) || s < 1 || s > 7) {
+    if (!s || isNaN(s) || s < 1 || s > 6) {
       setSearchParams({ step: 1 }, { replace: true });
       setCurrentStep(1);
     } else if (s !== currentStep) {
@@ -104,12 +103,11 @@ export default function CourseCoordinatorWorkflow() {
   const stepDone = STEPS.map((s, idx) => {
     if (courseProgress[s.path]) return true;
     if (idx === 0) return courseCOs.length > 0;
-    if (idx === 1) return courseCOs.some((c) => c.target);
-    if (idx === 2) return courseCOs.some((c) => c.mappings);
-    if (idx === 3) return !!config.directUploaded;
-    if (idx === 4) return !!config.indirectUploaded;
-    if (idx === 5) return !!config.attainmentRun;
-    if (idx === 6) return !!config.atrSubmitted;
+    if (idx === 1) return courseCOs.some((c) => c.mappings);
+    if (idx === 2) return !!config.directUploaded;
+    if (idx === 3) return !!config.indirectUploaded;
+    if (idx === 4) return !!config.attainmentRun;
+    if (idx === 5) return !!config.atrSubmitted;
     return false;
   });
 
@@ -276,13 +274,12 @@ export default function CourseCoordinatorWorkflow() {
 
       {/* ── STEP CONTENT ──────────────────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '0', marginBottom: '20px', overflow: 'hidden' }}>
-        {currentStep === 1 && <OutcomesManagement hideFooter />}
-        {currentStep === 2 && <COTargetSettingHub hideFooter />}
-        {currentStep === 3 && <COMappingMatrix hideFooter />}
-        {currentStep === 4 && <EndSemMarksHub hideFooter />}
-        {currentStep === 5 && <CourseEndSurveyHub hideFooter />}
-        {currentStep === 6 && <COAttainmentEngine hideFooter />}
-        {currentStep === 7 && (
+        {currentStep === 1 && <OutcomesManagement hideFooter isWorkflow />}
+        {currentStep === 2 && <COMappingMatrix hideFooter />}
+        {currentStep === 3 && <EndSemMarksHub hideFooter />}
+        {currentStep === 4 && <CourseEndSurveyHub hideFooter />}
+        {currentStep === 5 && <COAttainmentEngine hideFooter />}
+        {currentStep === 6 && (
           <div>
             <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 24px' }}>
               <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>

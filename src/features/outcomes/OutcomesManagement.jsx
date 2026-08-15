@@ -19,8 +19,10 @@ export default function OutcomesManagement({ hideFooter = false }) {
     programmeId,
     selectedProgramme,
     courseId,
+    setCourseId = () => {},
     selectedCourse,
     availableCourses = [],
+    courses = [],
     activePOs,
     activePSOs,
     activeCOs,
@@ -33,7 +35,10 @@ export default function OutcomesManagement({ hideFooter = false }) {
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
 
-  const targetCourseId = selectedCourse?.id || availableCourses[0]?.id || courseId || 'crs-1';
+  const [selectedCourseIdState, setSelectedCourseIdState] = useState(null);
+
+  const coursesList = availableCourses.length > 0 ? availableCourses : (courses.length > 0 ? courses : [{ id: 'crs-1', code: 'CS301', name: 'Computer Networks' }]);
+  const targetCourseId = selectedCourseIdState || selectedCourse?.id || availableCourses[0]?.id || courseId || 'crs-1';
   const currentCoVerificationStatus = courseVerificationStore[targetCourseId]?.coStatus || 'PENDING_APPROVAL';
 
   const [localCoTargets, setLocalCoTargets] = useState({});
@@ -434,6 +439,12 @@ export default function OutcomesManagement({ hideFooter = false }) {
     }
   };
 
+  const handleUpdateCOTarget = (index, newTarget) => {
+    const updated = coList.map((c, i) => (i === index ? { ...c, target: newTarget } : c));
+    setCoList(updated);
+    updateCourseCOs(targetCourseId, updated);
+  };
+
   const handleApproveCO = (index) => {
     const updated = coList.map((c, i) => (i === index ? { ...c, status: 'APPROVED', approvedBy: user?.name || 'Programme Coordinator', approvedAt: new Date().toISOString().split('T')[0] } : c));
     setCoList(updated);
@@ -502,7 +513,41 @@ export default function OutcomesManagement({ hideFooter = false }) {
             </h2>
           </div>
 
-          <div style={{ marginLeft: 'auto' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>
+                Course:
+              </span>
+              <select
+                value={targetCourseId}
+                onChange={(e) => {
+                  const newId = e.target.value;
+                  setSelectedCourseIdState(newId);
+                  if (typeof setCourseId === 'function') {
+                    setCourseId(newId);
+                  }
+                }}
+                style={{
+                  height: '38px',
+                  padding: '0 12px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  borderRadius: '8px',
+                  border: '1.5px solid #cbd5e1',
+                  background: '#ffffff',
+                  color: '#0f172a',
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                }}
+              >
+                {coursesList.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code ? `${c.code} — ` : ''}{c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <button className="btn btn-primary" onClick={() => handleSaveChanges('Course Outcomes')}>
               <Save size={15} /> Save Changes
             </button>
@@ -1042,7 +1087,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                     <th style={{ width: '50px', textAlign: 'center' }}>#</th>
                     <th style={{ width: '90px', minWidth: '90px', maxWidth: '100px', textAlign: 'center' }}>CO Code</th>
                     <th style={{ width: '100%' }}>Course Outcome Statement</th>
-                    <th style={{ width: '150px' }}>Proposed By</th>
+                    <th style={{ width: '140px', textAlign: 'center' }}>Target Level (1.0–3.0)</th>
                     <th style={{ width: '180px', textAlign: 'center' }}>Approval Status</th>
                     <th style={{ width: '150px', textAlign: 'center' }}>Actions</th>
                   </tr>
@@ -1084,9 +1129,17 @@ export default function OutcomesManagement({ hideFooter = false }) {
                               style={{ fontSize: '13px', width: '100%', minWidth: '500px', boxSizing: 'border-box', padding: '8px 12px' }}
                             />
                           </td>
-                          <td style={{ fontSize: '11.5px', color: '#475569' }}>
-                            <strong>{co.submittedBy}</strong>
-                            <div style={{ fontSize: '10px', color: '#94a3b8' }}>{co.submittedAt}</div>
+                          <td style={{ textAlign: 'center' }}>
+                            <input
+                              type="number"
+                              step="0.05"
+                              min="1.00"
+                              max="3.00"
+                              className="form-control"
+                              style={{ width: '85px', textAlign: 'center', margin: '0 auto', fontWeight: '700', color: '#0369a1', padding: '6px' }}
+                              value={co.target !== undefined && co.target !== null ? co.target : '2.50'}
+                              onChange={(e) => handleUpdateCOTarget(index, e.target.value)}
+                            />
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             {isApproved ? (
