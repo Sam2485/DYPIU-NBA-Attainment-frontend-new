@@ -227,32 +227,10 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   }, [coordinatorsList, newCourseCoord]);
 
   // ── Step 2 – PO/PSO Targets ──────────────────────────────────────────────
-  const existingTargets = poPsoTargets[selectedProgId] || {};
-  const [poTargetDraft,  setPoTargetDraft]  = useState(() => {
-    const seed = existingTargets.poTargets || {};
-    const out  = {};
-    activePOsList.forEach((po) => { out[po.code] = seed[po.code] ?? 2.0; });
-    return out;
-  });
-
-  const [psoTargetDraft, setPsoTargetDraft] = useState(() => {
-    const seed = existingTargets.psoTargets || {};
-    const out  = {};
-    activePSOsList.forEach((pso) => { out[pso.code] = seed[pso.code] ?? 2.0; });
-    return out;
-  });
-
-  useEffect(() => {
-    const seedPO = poPsoTargets[selectedProgId]?.poTargets || {};
-    const outPO = {};
-    activePOsList.forEach((po) => { outPO[po.code] = seedPO[po.code] ?? 2.0; });
-    setPoTargetDraft(outPO);
-
-    const seedPSO = poPsoTargets[selectedProgId]?.psoTargets || {};
-    const outPSO = {};
-    activePSOsList.forEach((pso) => { outPSO[pso.code] = seedPSO[pso.code] ?? 2.0; });
-    setPsoTargetDraft(outPSO);
-  }, [selectedProgId, activePOsList, activePSOsList, poPsoTargets]);
+  const [poTargetDraft,  setPoTargetDraft]  = useState({});
+  const [psoTargetDraft, setPsoTargetDraft] = useState({});
+  const [isSavingTargets, setIsSavingTargets] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
 
   // ── Step handlers ────────────────────────────────────────────────────────
   const handleAddCourse = async (e) => {
@@ -321,16 +299,23 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   };
 
   const handleSaveTargets = async () => {
-    updatePoPsoTargets(selectedProgId, poTargetDraft, psoTargetDraft);
+    if (!selectedProgId) return;
+    setIsSavingTargets(true);
     try {
+      updatePoPsoTargets(selectedProgId, poTargetDraft, psoTargetDraft);
       await saveProgrammeTargets(selectedProgId, {
         programmeId: selectedProgId,
         poTargets: poTargetDraft,
         psoTargets: psoTargetDraft,
       });
       await updateProgrammeCoordinatorSetupProgress(user?.email, selectedProgId, 2);
+      setToastMessage('🎉 PO & PSO Target Levels saved successfully to backend database!');
+      setTimeout(() => setToastMessage(null), 3000);
     } catch (err) {
       console.warn('Failed to save targets or update setup progress step 2:', err);
+      alert('Failed to save target levels to database.');
+    } finally {
+      setIsSavingTargets(false);
     }
   };
 
@@ -342,7 +327,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
         console.warn('Failed to update setup progress step 1:', err);
       }
     } else if (currentStep === 2) {
-      handleSaveTargets();
+      await handleSaveTargets();
     }
     if (currentStep < 3) {
       setCurrentStep((s) => s + 1);
@@ -431,6 +416,29 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
           </button>
         </div>
       </div>
+
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div
+          style={{
+            background: '#ecfdf5',
+            border: '1.5px solid #6ee7b7',
+            color: '#065f46',
+            padding: '12px 18px',
+            borderRadius: '10px',
+            fontWeight: '700',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            marginBottom: '20px',
+            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.12)',
+          }}
+        >
+          <CheckCircle2 size={18} style={{ color: '#059669' }} />
+          <span>{toastMessage}</span>
+        </div>
+      )}
 
       {/* ── HOD REVISION ALERT BANNER ────────────────────────────────────────── */}
       {allocationStatus === 'REVISION_REQUESTED' && (
@@ -581,9 +589,11 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
               <button
                 type="button"
                 onClick={handleSaveTargets}
-                style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
+                disabled={isSavingTargets}
+                style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: isSavingTargets ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit', opacity: isSavingTargets ? 0.7 : 1 }}
               >
-                <Save size={14} /> Save Targets
+                {isSavingTargets ? <Loader2 size={14} className="spin" /> : <Save size={14} />}
+                {isSavingTargets ? 'Saving...' : 'Save Targets'}
               </button>
             </div>
 

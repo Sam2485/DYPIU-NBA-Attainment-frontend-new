@@ -46,6 +46,22 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
   const isPreviousYear = selectedYear !== (academicYear || '2025-26');
   const locked = readOnly || isPreviousYear || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
 
+  if (!selectedProgramme || selectedProgramme?.name === 'No Programme Assigned Yet') {
+    return (
+      <div style={{ ...surface, padding: '48px 24px', textAlign: 'center', margin: '20px 0' }}>
+        <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: '#eef2ff', color: accent, display: 'grid', placeItems: 'center', margin: '0 auto 16px' }}>
+          <Clock size={28} />
+        </div>
+        <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: '800', color: ink }}>
+          No Programme Assigned Yet
+        </h3>
+        <p style={{ margin: 0, fontSize: '13px', color: muted, maxWidth: '480px', marginInline: 'auto' }}>
+          No degree programmes are assigned to your profile yet. Please contact your Head of Department or Director to allocate a programme.
+        </p>
+      </div>
+    );
+  }
+
   // ── Build PO/PSO ATR list ──────────────────────────────────────────
   const progTargets = poPsoTargets[programmeId] || { poTargets: {}, psoTargets: {} };
 

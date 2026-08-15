@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Save, History, Printer, CheckCircle2, ChevronDown, Layers, FileText, AlertCircle, Clock, Lock } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import { useAuth } from '../../context/AuthContext';
+import { getProgrammes } from '../../api/academic';
 import CourseATR from './CourseATR';
 
 // Course-specific baseline seeds for Programme ATR
@@ -40,7 +42,7 @@ const COURSE_PROG_SEEDS = {
 };
 
 export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
 
   const {
@@ -48,6 +50,7 @@ export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
     courses = [],
     selectedCourse,
     selectedProgramme,
+    masterProgrammes = [],
     setCourseId = () => {},
     academicYear = '2025-26',
     availableYears = ['2025-26', '2024-25', '2023-24'],
@@ -58,6 +61,36 @@ export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
+
+  const [programmesList, setProgrammesList] = useState([]);
+  const [isLoadingProgrammes, setIsLoadingProgrammes] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchProgrammes = async () => {
+      setIsLoadingProgrammes(true);
+      try {
+        const progRes = await getProgrammes('', '', user?.email);
+        const rawProgs = progRes?.data?.data || progRes?.data || [];
+        if (isMounted && Array.isArray(rawProgs)) {
+          const userEmail = user?.email?.toLowerCase();
+          const userAssigned = rawProgs.filter(
+            (p) =>
+              (p.coordinatorEmail && p.coordinatorEmail.toLowerCase() === userEmail) ||
+              (p.coordinator && p.coordinator.toLowerCase() === userEmail)
+          );
+          const finalProgs = userAssigned.length > 0 ? userAssigned : rawProgs;
+          setProgrammesList(finalProgs);
+        }
+      } catch (err) {
+        console.warn('Failed to load programmes in ATRReportsNavHub:', err);
+      } finally {
+        if (isMounted) setIsLoadingProgrammes(false);
+      }
+    };
+    fetchProgrammes();
+    return () => { isMounted = false; };
+  }, [user?.email]);
 
   const [activeAtrTab, setActiveAtrTab] = useState(initialTab);
   const [selectedYear, setSelectedYear] = useState(academicYear || '2025-26');
@@ -366,7 +399,21 @@ export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
       )}
 
       {/* TAB 2: PROGRAMME ATR (HOD / Programme Coordinator / Director only) */}
-      {!isCourseCoordinator && activeAtrTab === 'programme-atr' && (
+      {!isCourseCoordinator && activeAtrTab === 'programme-atr' && (!isLoadingProgrammes && (programmesList.length === 0 || !selectedProgramme || selectedProgramme?.name === 'No Programme Assigned Yet')) && (
+        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '48px 24px', textAlign: 'center', marginBottom: '20px' }}>
+          <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: '#eef2ff', color: '#4f46e5', display: 'grid', placeItems: 'center', margin: '0 auto 16px' }}>
+            <Layers size={28} />
+          </div>
+          <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+            No Programme Assigned Yet
+          </h3>
+          <p style={{ margin: 0, fontSize: '13px', color: '#64748b', maxWidth: '480px', marginInline: 'auto' }}>
+            No degree programmes are assigned to your profile yet. Please contact your Head of Department or Director to allocate a programme.
+          </p>
+        </div>
+      )}
+
+      {!isCourseCoordinator && activeAtrTab === 'programme-atr' && (isLoadingProgrammes || (programmesList.length > 0 && selectedProgramme && selectedProgramme?.name !== 'No Programme Assigned Yet')) && (
         <div>
           <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px 20px', marginBottom: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen, ShieldCheck, FileText, ArrowRight,
-  ChevronRight, Check, Clock, Target, BarChart2, AlertCircle, ChevronDown,
+  ChevronRight, Check, Clock, Target, BarChart2, AlertCircle, ChevronDown, Layers,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -29,65 +29,103 @@ export default function ProgrammeCoordinatorDashboard() {
 
   const [summaryData, setSummaryData] = useState(null);
   const [programmesList, setProgrammesList] = useState([]);
-  const [selectedProgId, setSelectedProgId] = useState(programmeId);
+  const [selectedProgId, setSelectedProgId] = useState('');
+  const [progDetails, setProgDetails] = useState({
+    coursesCount: 0,
+    posCount: 0,
+    psosCount: 0,
+  });
 
-  // 1. Fetch available programmes for coordinator
+  // 1. Fetch summary & assigned programmes for PC
   useEffect(() => {
     let isMounted = true;
-    const fetchProgrammes = async () => {
+    const fetchInitialData = async () => {
       try {
-        const progRes = await getProgrammes('', '', user?.email);
-        const rawProgs = progRes?.data?.data || progRes?.data || [];
-        if (isMounted && Array.isArray(rawProgs) && rawProgs.length > 0) {
-          const userEmail = user?.email?.toLowerCase();
-          const userAssigned = rawProgs.filter(
-            (p) =>
-              (p.coordinatorEmail && p.coordinatorEmail.toLowerCase() === userEmail) ||
-              (p.coordinator && p.coordinator.toLowerCase() === userEmail)
-          );
-          const finalProgs = userAssigned.length > 0 ? userAssigned : rawProgs;
-          setProgrammesList(finalProgs);
-          if (!selectedProgId && finalProgs[0]?.id) {
-            setSelectedProgId(finalProgs[0].id);
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to load programmes list for PC Dashboard:', err);
-      }
-    };
-    fetchProgrammes();
-    return () => { isMounted = false; };
-  }, [user?.email]);
-
-  // 2. Fetch summary for selected programme
-  useEffect(() => {
-    let isMounted = true;
-    const fetchSummary = async () => {
-      const targetProgId = selectedProgId || programmeId;
-      try {
-        const res = await getProgrammeCoordinatorSummary(user?.email, targetProgId);
+        const res = await getProgrammeCoordinatorSummary(user?.email, selectedProgId || programmeId);
         const data = res?.data?.data || res?.data;
         if (isMounted && data) {
           setSummaryData(data);
+          if (Array.isArray(data.assignedProgrammes) && data.assignedProgrammes.length > 0) {
+            setProgrammesList(data.assignedProgrammes);
+            if (!selectedProgId) {
+              setSelectedProgId(data.programmeId || data.assignedProgrammes[0].id);
+            }
+          }
         }
       } catch (err) {
-        console.warn('Failed to load Programme Coordinator summary:', err);
+        console.warn('Failed to load PC initial summary:', err);
       }
     };
-    fetchSummary();
+    fetchInitialData();
     return () => { isMounted = false; };
-  }, [user?.email, selectedProgId, programmeId]);
+  }, [user?.email]);
+
+  // 2. Fetch summary & detail counts when selected programme changes
+  useEffect(() => {
+    let isMounted = true;
+    const targetProgId = selectedProgId || summaryData?.programmeId || programmeId;
+    if (!targetProgId) return;
+
+    const fetchSummaryAndDetails = async () => {
+      try {
+        const [sumRes, crsRes, poRes, psoRes] = await Promise.allSettled([
+          getProgrammeCoordinatorSummary(user?.email, targetProgId),
+          getCourses(targetProgId),
+          getProgrammePOs(targetProgId),
+          getProgrammePSOs(targetProgId),
+        ]);
+
+        if (isMounted) {
+          if (sumRes.status === 'fulfilled') {
+            const data = sumRes.value?.data?.data || sumRes.value?.data;
+            if (data) {
+              setSummaryData(data);
+              if (Array.isArray(data.assignedProgrammes) && data.assignedProgrammes.length > 0) {
+                setProgrammesList(data.assignedProgrammes);
+              }
+            }
+          }
+
+          const crsList = crsRes.status === 'fulfilled' ? (crsRes.value?.data?.data || crsRes.value?.data || []) : [];
+          const poList = poRes.status === 'fulfilled' ? (poRes.value?.data?.data || poRes.value?.data || []) : [];
+          const psoList = psoRes.status === 'fulfilled' ? (psoRes.value?.data?.data || psoRes.value?.data || []) : [];
+
+          setProgDetails({
+            coursesCount: Array.isArray(crsList) ? crsList.length : 0,
+            posCount: Array.isArray(poList) ? poList.length : 0,
+            psosCount: Array.isArray(psoList) ? psoList.length : 0,
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to load Programme Coordinator summary/details:', err);
+      }
+    };
+    fetchSummaryAndDetails();
+    return () => { isMounted = false; };
+  }, [user?.email, selectedProgId]);
+
+  const availableProgrammes = (summaryData?.assignedProgrammes && summaryData.assignedProgrammes.length > 0)
+    ? summaryData.assignedProgrammes
+    : programmesList;
+
+  const pcName = summaryData?.coordinatorName || user?.name || 'Programme Coordinator';
+  const pcEmail = summaryData?.coordinatorEmail || user?.email || '';
 
   const selectedProgramme =
     summaryData?.programmeName
       ? { name: summaryData.programmeName, code: summaryData.programmeCode || '—' }
-      : programmesList.find((p) => p.id === (selectedProgId || programmeId)) ||
+      : availableProgrammes.find((p) => p.id === (selectedProgId || programmeId)) ||
         masterProgrammes.find((p) => p.id === (selectedProgId || programmeId)) ||
-        programmesList[0] ||
+        availableProgrammes[0] ||
         masterProgrammes[0] ||
         { name: 'No Programme Assigned Yet', code: '—' };
 
-  const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === (selectedProgId || programmeId));
+  const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === (selectedProgId || summaryData?.programmeId || programmeId));
+
+  const totalProgrammes = availableProgrammes.length;
+  const totalCourses = summaryData?.courseCount ?? progDetails.coursesCount ?? progCourses.length;
+  const totalPOs = summaryData?.activePOsCount ?? progDetails.posCount ?? activePOs.length;
+  const totalPSOs = summaryData?.activePSOsCount ?? progDetails.psosCount ?? activePSOs.length;
 
   const pendingVerifications = summaryData?.pendingVerificationsCount ?? Object.values(courseVerificationStore).filter((rec) => {
     return (
@@ -143,26 +181,30 @@ export default function ProgrammeCoordinatorDashboard() {
   ];
 
   // ── Setup checklist ───────────────────────────────────────────────────────
+  const rawCompleted = (summaryData?.setupProgress?.completedSteps || []).map((s) => s.toLowerCase().trim());
+  const currentStep = summaryData?.setupProgress?.currentStep || 1;
+  const overallStatus = summaryData?.setupProgress?.overallStatus || 'IN_PROGRESS';
+
   const setupSteps = [
     {
       title: 'Programme Setup',
-      done:  progCourses.length > 0,
-      desc:  progCourses.length > 0 ? `${progCourses.length} course(s) configured under programme` : 'No courses added yet',
+      done:  rawCompleted.includes('programme setup') || rawCompleted.includes('courses') || totalCourses > 0 || currentStep > 1,
+      desc:  totalCourses > 0 ? `${totalCourses} course(s) configured under programme` : 'No courses added yet',
     },
     {
       title: 'PO / PSO Target',
-      done:  activePOs.length > 0,
-      desc:  activePOs.length > 0 ? `${activePOs.length} POs, ${activePSOs.length} PSOs target levels benchmarked` : 'Targets pending configuration',
+      done:  rawCompleted.includes('po/pso target') || rawCompleted.includes('targets') || (totalPOs > 0 && totalPSOs > 0) || currentStep > 2,
+      desc:  (totalPOs > 0 || totalPSOs > 0) ? `${totalPOs} POs, ${totalPSOs} PSOs target levels benchmarked` : 'Targets pending configuration',
     },
     {
       title: 'Programme ATR',
-      done:  false,
+      done:  rawCompleted.includes('programme atr') || rawCompleted.includes('atr'),
       desc:  'Prepare and submit Programme ATR for HOD approval',
     },
     {
       title: 'Verify & Finish',
-      done:  progCourses.length > 0 && activePOs.length > 0,
-      desc:  (progCourses.length > 0 && activePOs.length > 0) ? 'Programme setup review completed' : 'Complete setup steps to verify',
+      done:  rawCompleted.includes('verify&finish') || rawCompleted.includes('review') || overallStatus === 'COMPLETED' || currentStep >= 4,
+      desc:  (rawCompleted.includes('verify&finish') || overallStatus === 'COMPLETED' || currentStep >= 4) ? 'Programme setup review completed' : 'Complete setup steps to verify',
     },
   ];
 
@@ -179,10 +221,10 @@ export default function ProgrammeCoordinatorDashboard() {
             Programme Coordinator Dashboard
           </div>
           <h1 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
-            Welcome, {user?.name || 'Programme Coordinator'}
+            Welcome, {pcName}
           </h1>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            {selectedProgramme.name} &nbsp;·&nbsp; {selectedProgramme.code}
+            {selectedProgramme.name} &nbsp;·&nbsp; {selectedProgramme.code} {pcEmail ? `(${pcEmail})` : ''}
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
@@ -190,7 +232,7 @@ export default function ProgrammeCoordinatorDashboard() {
             <select
               value={selectedProgId || ''}
               onChange={(e) => setSelectedProgId(e.target.value)}
-              disabled={programmesList.length === 0}
+              disabled={availableProgrammes.length === 0}
               style={{
                 height: '40px',
                 paddingLeft: '12px',
@@ -201,17 +243,17 @@ export default function ProgrammeCoordinatorDashboard() {
                 borderRadius: '8px',
                 background: '#ffffff',
                 color: ink,
-                cursor: programmesList.length === 0 ? 'not-allowed' : 'pointer',
+                cursor: availableProgrammes.length === 0 ? 'not-allowed' : 'pointer',
                 outline: 'none',
                 fontFamily: 'inherit',
                 appearance: 'none',
                 minWidth: '220px',
               }}
             >
-              {programmesList.length === 0 ? (
+              {availableProgrammes.length === 0 ? (
                 <option value="">No programmes assigned yet</option>
               ) : (
-                programmesList.map((p) => (
+                availableProgrammes.map((p) => (
                   <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
                 ))
               )}
@@ -231,18 +273,16 @@ export default function ProgrammeCoordinatorDashboard() {
       {/* ── STAT CARDS ────────────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '20px' }}>
 
-        {/* Active Batch */}
+        {/* Total Programmes */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Active Batch</span>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Programmes</span>
             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#eef2ff', display: 'grid', placeItems: 'center', color: accent }}>
-              <BookOpen size={16} />
+              <Layers size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '20px', fontWeight: '800', color: ink, lineHeight: 1 }}>{activeBatchLabel}</div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: '#16a34a', fontWeight: '600', marginTop: '6px' }}>
-            <Check size={11} /> Active cycle
-          </div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{programmesList.length}</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>Assigned to coordinator</div>
         </div>
 
         {/* Total Courses */}
@@ -253,7 +293,7 @@ export default function ProgrammeCoordinatorDashboard() {
               <BookOpen size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{progCourses.length}</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalCourses}</div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>Under programme</div>
         </div>
 
@@ -265,7 +305,7 @@ export default function ProgrammeCoordinatorDashboard() {
               <Target size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{activePOs.length} / {activePSOs.length}</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalPOs} / {totalPSOs}</div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>POs &amp; PSOs configured</div>
         </div>
 
