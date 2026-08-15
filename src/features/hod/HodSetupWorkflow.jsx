@@ -148,32 +148,17 @@ export default function HodSetupWorkflow() {
     },
 ];
 
-const fallbackProgramme = {
-    id: 'prog-1',
-    code: 'BE-COMP',
-    name: 'B.Tech Computer Science & Engineering',
-    departmentId: departmentInfo?.deptId || '',
-    department:
-        departmentInfo?.deptName ||
-        'Department of Computer Science & Engineering',
-    durationYears: 4,
-    coordinator: '',
-    coordinatorEmail: '',
-};
-
-const availableProgrammes =
-    hodProgrammes.length > 0
-        ? hodProgrammes
-        : [fallbackProgramme];
+const availableProgrammes = hodProgrammes;
 
 const selectedProgramme =
     availableProgrammes.find((p) => p.id === programmeId) ||
-    availableProgrammes[0];
+    availableProgrammes[0] ||
+    null;
 
 const currentDept =
     departments.find(
         (d) => d.id === selectedProgramme?.departmentId
-    ) || departments[0];
+    ) || departments[0] || null;
 
 const targetDeptId =
     departmentInfo?.deptId ||
@@ -871,7 +856,7 @@ const sortOutcomesNaturally = (list) => {
             Programme Setup
           </h2>
           <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
-            {selectedProgramme.code} &nbsp;—&nbsp; {selectedProgramme.name}
+            {selectedProgramme ? `${selectedProgramme.code} — ${selectedProgramme.name}` : 'No programmes added yet'}
           </p>
         </div>
 
@@ -882,6 +867,7 @@ const sortOutcomesNaturally = (list) => {
             <select
               value={programmeId}
               onChange={(e) => setProgrammeId(e.target.value)}
+              disabled={availableProgrammes.length === 0}
               style={{
                 height: '38px',
                 fontSize: '13px',
@@ -893,16 +879,20 @@ const sortOutcomesNaturally = (list) => {
                 width: 'auto',
                 minWidth: '260px',
                 fontWeight: '800',
-                cursor: 'pointer',
+                cursor: availableProgrammes.length === 0 ? 'not-allowed' : 'pointer',
                 outline: 'none',
                 fontFamily: 'inherit',
               }}
             >
-              {availableProgrammes.map((p) => (
-                <option key={p.id} value={p.id} style={{ color: '#0f172a', background: '#ffffff' }}>
-                  {p.code} — {p.name}
-                </option>
-              ))}
+              {availableProgrammes.length === 0 ? (
+                <option value="">No programmes added yet</option>
+              ) : (
+                availableProgrammes.map((p) => (
+                  <option key={p.id} value={p.id} style={{ color: '#0f172a', background: '#ffffff' }}>
+                    {p.code} — {p.name}
+                  </option>
+                ))
+              )}
             </select>
           </div>
 
@@ -970,84 +960,92 @@ const sortOutcomesNaturally = (list) => {
             </p>
           </div>
 
-          {/* Chosen Programme Info Card */}
-          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px 18px', maxWidth: '680px', marginBottom: '18px' }}>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Chosen Programme</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-              <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '8px', padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '13.5px', fontWeight: '800', color: accent }}>{selectedProgramme.code}</span>
-              </div>
-              <div>
-                <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{selectedProgramme.name}</div>
-                <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>{currentDept?.name || selectedProgramme.department}</div>
-              </div>
+          {!selectedProgramme ? (
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '32px', textAlign: 'center', color: '#64748b', fontSize: '13.5px', fontWeight: '600' }}>
+              No programmes added yet for your department. Please contact the Director to assign degree programmes to your department first.
             </div>
-          </div>
-
-          {/* Programme Coordinator Selector */}
-          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', maxWidth: '680px' }}>
-            <div style={{ fontSize: '13px', fontWeight: '800', color: ink, marginBottom: '12px' }}>Assign Programme Coordinator</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'flex-end' }}>
-              <div>
-                <label style={labelStyle}>Choose Programme Coordinator *</label>
-                <div style={{ position: 'relative' }}>
-                  <select
-                    value={selectedCoordinatorEmail || selectedCoordinator}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const found = coordinatorsList.find((c) => c.email === val || c.name === val);
-                      if (found) {
-                        setSelectedCoordinator(found.name);
-                        setSelectedCoordinatorEmail(found.email);
-                      } else {
-                        setSelectedCoordinator(val);
-                        setSelectedCoordinatorEmail('');
-                      }
-                    }}
-                    style={{ ...inputStyle, cursor: 'pointer', fontWeight: '700', paddingRight: '32px', appearance: 'none', border: '1.5px solid #4f46e5', color: accent }}
-                  >
-                    <option value="" disabled style={{ color: '#94a3b8' }}>
-                      -- Select Programme Coordinator --
-                    </option>
-                    {coordinatorsList.map((u) => {
-                      const isHod = assignedHods.includes(u.name);
-                      return (
-                        <option
-                          key={u.email || u.id}
-                          value={u.email || u.name}
-                          disabled={isHod}
-                          style={{ color: isHod ? '#94a3b8' : '#0f172a' }}
-                        >
-                          {u.name} ({u.email}) {isHod ? '(Disabled — Is HOD)' : ''}
-                        </option>
-                      );
-                    })}
-                  </select>
-                  <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
+          ) : (
+            <>
+              {/* Chosen Programme Info Card */}
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px 18px', maxWidth: '680px', marginBottom: '18px' }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Chosen Programme</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                  <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '8px', padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '13.5px', fontWeight: '800', color: accent }}>{selectedProgramme.code}</span>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{selectedProgramme.name}</div>
+                    <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>{currentDept?.name || selectedProgramme.department || 'Department'}</div>
+                  </div>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleSaveCoordinator}
-                disabled={isSavingCoordinator}
-                className="btn btn-primary"
-                style={{ height: '38px', padding: '0 20px', fontSize: '13px', fontWeight: '800', opacity: isSavingCoordinator ? 0.7 : 1 }}
-              >
-                {isSavingCoordinator ? 'Saving...' : 'Save Assignment'}
-              </button>
-            </div>
-          </div>
 
-          {/* Current Assigned Status Confirmation */}
-          {selectedProgramme.coordinator && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '14px 16px', maxWidth: '680px', marginTop: '16px' }}>
-              <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
-              <div style={{ fontSize: '13px', color: '#166534' }}>
-                Active Programme Coordinator: <strong style={{ color: '#15803d', fontWeight: '800' }}>
-                  {coordinatorsList.find((f) => f.id === selectedProgramme.coordinator || f.email === selectedProgramme.coordinatorEmail || f.name === selectedProgramme.coordinator)?.name || selectedProgramme.coordinator}
-                </strong> {selectedProgramme.coordinatorEmail ? `(${selectedProgramme.coordinatorEmail})` : ''}
+              {/* Programme Coordinator Selector */}
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', maxWidth: '680px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: ink, marginBottom: '12px' }}>Assign Programme Coordinator</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'flex-end' }}>
+                  <div>
+                    <label style={labelStyle}>Choose Programme Coordinator *</label>
+                    <div style={{ position: 'relative' }}>
+                      <select
+                        value={selectedCoordinatorEmail || selectedCoordinator}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const found = coordinatorsList.find((c) => c.email === val || c.name === val);
+                          if (found) {
+                            setSelectedCoordinator(found.name);
+                            setSelectedCoordinatorEmail(found.email);
+                          } else {
+                            setSelectedCoordinator(val);
+                            setSelectedCoordinatorEmail('');
+                          }
+                        }}
+                        style={{ ...inputStyle, cursor: 'pointer', fontWeight: '700', paddingRight: '32px', appearance: 'none', border: '1.5px solid #4f46e5', color: accent }}
+                      >
+                        <option value="" disabled style={{ color: '#94a3b8' }}>
+                          -- Select Programme Coordinator --
+                        </option>
+                        {coordinatorsList.map((u) => {
+                          const isHod = assignedHods.includes(u.name);
+                          return (
+                            <option
+                              key={u.email || u.id}
+                              value={u.email || u.name}
+                              disabled={isHod}
+                              style={{ color: isHod ? '#94a3b8' : '#0f172a' }}
+                            >
+                              {u.name} ({u.email}) {isHod ? '(Disabled — Is HOD)' : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveCoordinator}
+                    disabled={isSavingCoordinator}
+                    className="btn btn-primary"
+                    style={{ height: '38px', padding: '0 20px', fontSize: '13px', fontWeight: '800', opacity: isSavingCoordinator ? 0.7 : 1 }}
+                  >
+                    {isSavingCoordinator ? 'Saving...' : 'Save Assignment'}
+                  </button>
+                </div>
               </div>
-            </div>
+
+              {/* Current Assigned Status Confirmation */}
+              {selectedProgramme.coordinator && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '14px 16px', maxWidth: '680px', marginTop: '16px' }}>
+                  <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
+                  <div style={{ fontSize: '13px', color: '#166534' }}>
+                    Active Programme Coordinator: <strong style={{ color: '#15803d', fontWeight: '800' }}>
+                      {coordinatorsList.find((f) => f.id === selectedProgramme.coordinator || f.email === selectedProgramme.coordinatorEmail || f.name === selectedProgramme.coordinator)?.name || selectedProgramme.coordinator}
+                    </strong> {selectedProgramme.coordinatorEmail ? `(${selectedProgramme.coordinatorEmail})` : ''}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

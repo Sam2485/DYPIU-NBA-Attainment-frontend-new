@@ -68,7 +68,7 @@ export default function HodBatchManagement() {
   const selectedProgramme =
     programmesList.find((p) => p.id === selectedProgrammeId) ||
     programmesList[0] ||
-    { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP', durationYears: 4 };
+    null;
 
   const durationYears = selectedProgramme.durationYears || 4;
 
@@ -735,7 +735,7 @@ export default function HodBatchManagement() {
               Batch Setup
             </h2>
             <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: '#64748b' }}>
-              Initialize a {durationYears}-year academic batch for <strong style={{ color: accent }}>{selectedProgramme.name}</strong>. Start year must be after 2020.
+              Initialize a {durationYears}-year academic batch for <strong style={{ color: accent }}>{selectedProgramme ? selectedProgramme.name : 'your programme'}</strong>. Start year must be after 2020.
             </p>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {[
@@ -764,19 +764,24 @@ export default function HodBatchManagement() {
               <select
                 value={selectedProgrammeId}
                 onChange={(e) => setSelectedProgrammeId(e.target.value)}
+                disabled={programmesList.length === 0}
                 style={{
                   width: '100%', height: '40px', fontSize: '13px',
                   fontWeight: '700', color: '#1e293b',
                   background: '#ffffff', border: '1.5px solid rgba(255,255,255,0.8)',
                   borderRadius: '9px', padding: '0 34px 0 12px',
-                  outline: 'none', appearance: 'none', cursor: 'pointer',
+                  outline: 'none', appearance: 'none', cursor: programmesList.length === 0 ? 'not-allowed' : 'pointer',
                   fontFamily: 'inherit',
                   boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
                 }}
               >
-                {programmesList.map((p) => (
-                  <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-                ))}
+                {programmesList.length === 0 ? (
+                  <option value="">No programmes added yet</option>
+                ) : (
+                  programmesList.map((p) => (
+                    <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+                  ))
+                )}
               </select>
               <ChevronDown size={13} style={{ position: 'absolute', right: '11px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
             </div>

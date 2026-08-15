@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen, ShieldCheck, FileText, ArrowRight,
-  ChevronRight, Check, Clock, Target, BarChart2, AlertCircle,
+  ChevronRight, Check, Clock, Target, BarChart2, AlertCircle, ChevronDown,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
-import { getProgrammeCoordinatorSummary } from '../../api/academic';
+import { getProgrammeCoordinatorSummary, getProgrammes } from '../../api/academic';
 
 // ── Style tokens (identical to HodDashboard) ─────────────────────────────────
 const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -28,12 +28,44 @@ export default function ProgrammeCoordinatorDashboard() {
   } = useAcademic();
 
   const [summaryData, setSummaryData] = useState(null);
+  const [programmesList, setProgrammesList] = useState([]);
+  const [selectedProgId, setSelectedProgId] = useState(programmeId);
 
+  // 1. Fetch available programmes for coordinator
+  useEffect(() => {
+    let isMounted = true;
+    const fetchProgrammes = async () => {
+      try {
+        const progRes = await getProgrammes('', '', user?.email);
+        const rawProgs = progRes?.data?.data || progRes?.data || [];
+        if (isMounted && Array.isArray(rawProgs) && rawProgs.length > 0) {
+          const userEmail = user?.email?.toLowerCase();
+          const userAssigned = rawProgs.filter(
+            (p) =>
+              (p.coordinatorEmail && p.coordinatorEmail.toLowerCase() === userEmail) ||
+              (p.coordinator && p.coordinator.toLowerCase() === userEmail)
+          );
+          const finalProgs = userAssigned.length > 0 ? userAssigned : rawProgs;
+          setProgrammesList(finalProgs);
+          if (!selectedProgId && finalProgs[0]?.id) {
+            setSelectedProgId(finalProgs[0].id);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load programmes list for PC Dashboard:', err);
+      }
+    };
+    fetchProgrammes();
+    return () => { isMounted = false; };
+  }, [user?.email]);
+
+  // 2. Fetch summary for selected programme
   useEffect(() => {
     let isMounted = true;
     const fetchSummary = async () => {
+      const targetProgId = selectedProgId || programmeId;
       try {
-        const res = await getProgrammeCoordinatorSummary(user?.email, programmeId);
+        const res = await getProgrammeCoordinatorSummary(user?.email, targetProgId);
         const data = res?.data?.data || res?.data;
         if (isMounted && data) {
           setSummaryData(data);
@@ -44,16 +76,18 @@ export default function ProgrammeCoordinatorDashboard() {
     };
     fetchSummary();
     return () => { isMounted = false; };
-  }, [user?.email, programmeId]);
+  }, [user?.email, selectedProgId, programmeId]);
 
   const selectedProgramme =
     summaryData?.programmeName
-      ? { name: summaryData.programmeName, code: summaryData.programmeCode || 'BE-COMP' }
-      : masterProgrammes.find((p) => p.id === programmeId) ||
+      ? { name: summaryData.programmeName, code: summaryData.programmeCode || '—' }
+      : programmesList.find((p) => p.id === (selectedProgId || programmeId)) ||
+        masterProgrammes.find((p) => p.id === (selectedProgId || programmeId)) ||
+        programmesList[0] ||
         masterProgrammes[0] ||
-        { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
+        { name: 'No Programme Assigned Yet', code: '—' };
 
-  const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === programmeId);
+  const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === (selectedProgId || programmeId));
 
   const pendingVerifications = summaryData?.pendingVerificationsCount ?? Object.values(courseVerificationStore).filter((rec) => {
     return (
@@ -73,7 +107,7 @@ export default function ProgrammeCoordinatorDashboard() {
       id:    'setup',
       title: 'Programme Setup',
       desc:  'Add courses, assign coordinators, and view PO/PSO/PEO outcomes.',
-      path:  '/academic',
+      path:  '/programme-coordinator/setup-workflow',
       icon:  BookOpen,
     },
     {
@@ -82,6 +116,13 @@ export default function ProgrammeCoordinatorDashboard() {
       desc:  'Set PO and PSO benchmark target levels (1.0 – 3.0 scale).',
       path:  '/programme-coordinator/target-settings',
       icon:  Target,
+    },
+    {
+      id:    'programme-atr',
+      title: 'Programme ATR',
+      desc:  'Prepare and submit Programme Action Taken Report for HOD review.',
+      path:  '/programme-atr',
+      icon:  FileText,
     },
     {
       id:    'verification',
@@ -104,34 +145,24 @@ export default function ProgrammeCoordinatorDashboard() {
   // ── Setup checklist ───────────────────────────────────────────────────────
   const setupSteps = [
     {
-      title: 'Programme Courses Added',
+      title: 'Programme Setup',
       done:  progCourses.length > 0,
-      desc:  progCourses.length > 0 ? `${progCourses.length} course(s) under programme` : 'No courses added yet',
+      desc:  progCourses.length > 0 ? `${progCourses.length} course(s) configured under programme` : 'No courses added yet',
     },
     {
-      title: 'PO & PSO Targets Set',
+      title: 'PO / PSO Target',
       done:  activePOs.length > 0,
-      desc:  activePOs.length > 0 ? `${activePOs.length} POs, ${activePSOs.length} PSOs configured` : 'Targets not configured yet',
+      desc:  activePOs.length > 0 ? `${activePOs.length} POs, ${activePSOs.length} PSOs target levels benchmarked` : 'Targets pending configuration',
     },
     {
-      title: 'Faculty Allocated',
-      done:  progCourses.length > 0,
-      desc:  progCourses.length > 0 ? 'Course Coordinators assigned' : 'Allocation pending',
-    },
-    {
-      title: 'Course Verifications Cleared',
-      done:  pendingVerifications === 0,
-      desc:  pendingVerifications > 0 ? `${pendingVerifications} submission(s) awaiting review` : 'All course submissions reviewed',
-    },
-    {
-      title: 'Attainment Data Available',
-      done:  progCourses.length > 0,
-      desc:  progCourses.length > 0 ? 'CO attainment data from coordinators' : 'Pending course coordinator submissions',
-    },
-    {
-      title: 'Programme ATR Submitted',
+      title: 'Programme ATR',
       done:  false,
-      desc:  'Prepare and submit ATR for HOD approval',
+      desc:  'Prepare and submit Programme ATR for HOD approval',
+    },
+    {
+      title: 'Verify & Finish',
+      done:  progCourses.length > 0 && activePOs.length > 0,
+      desc:  (progCourses.length > 0 && activePOs.length > 0) ? 'Programme setup review completed' : 'Complete setup steps to verify',
     },
   ];
 
@@ -154,12 +185,47 @@ export default function ProgrammeCoordinatorDashboard() {
             {selectedProgramme.name} &nbsp;·&nbsp; {selectedProgramme.code}
           </p>
         </div>
-        <button
-          onClick={() => navigate('/programme-coordinator/setup-workflow')}
-          style={{ height: '40px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px' }}
-        >
-          Start / Continue Process <ArrowRight size={14} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative' }}>
+            <select
+              value={selectedProgId || ''}
+              onChange={(e) => setSelectedProgId(e.target.value)}
+              disabled={programmesList.length === 0}
+              style={{
+                height: '40px',
+                paddingLeft: '12px',
+                paddingRight: '32px',
+                fontSize: '13px',
+                fontWeight: '700',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                background: '#ffffff',
+                color: ink,
+                cursor: programmesList.length === 0 ? 'not-allowed' : 'pointer',
+                outline: 'none',
+                fontFamily: 'inherit',
+                appearance: 'none',
+                minWidth: '220px',
+              }}
+            >
+              {programmesList.length === 0 ? (
+                <option value="">No programmes assigned yet</option>
+              ) : (
+                programmesList.map((p) => (
+                  <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+                ))
+              )}
+            </select>
+            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+          </div>
+
+          <button
+            onClick={() => navigate('/programme-coordinator/setup-workflow')}
+            style={{ height: '40px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px' }}
+          >
+            Start / Continue Process <ArrowRight size={14} />
+          </button>
+        </div>
       </div>
 
       {/* ── STAT CARDS ────────────────────────────────────────────────────────── */}

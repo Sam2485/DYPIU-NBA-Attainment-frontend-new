@@ -153,7 +153,7 @@ export default function ProgrammeTargetSettings() {
   const selectedProgramme =
     programmesList.find((p) => p.id === selectedProgId) ||
     programmesList[0] ||
-    { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
+    { name: 'No Programme Assigned Yet', code: '—' };
 
   const normPSOs = activePSOsList.map((p) => ({ ...p, competencies: p.competencies ?? [] }));
 

@@ -59,7 +59,7 @@ export default function HodProgrammeOutcomes() {
   const selectedProgramme =
     programmesList.find((p) => p.id === programmeId) ||
     programmesList[0] ||
-    { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
+    null;
 
   // Load HOD department and programmes
   useEffect(() => {
@@ -344,7 +344,7 @@ const sortOutcomesNaturally = (list) => {
             Programme Outcomes
           </h2>
           <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
-            {selectedProgramme.code} &nbsp;—&nbsp; {selectedProgramme.name}
+            {selectedProgramme ? `${selectedProgramme.code} — ${selectedProgramme.name}` : 'No programmes added yet'}
           </p>
         </div>
 
@@ -354,6 +354,7 @@ const sortOutcomesNaturally = (list) => {
             <select
               value={programmeId}
               onChange={(e) => setProgrammeId(e.target.value)}
+              disabled={programmesList.length === 0}
               style={{
                 height: '40px',
                 paddingLeft: '12px',
@@ -364,16 +365,20 @@ const sortOutcomesNaturally = (list) => {
                 borderRadius: '8px',
                 background: '#ffffff',
                 color: ink,
-                cursor: 'pointer',
+                cursor: programmesList.length === 0 ? 'not-allowed' : 'pointer',
                 outline: 'none',
                 fontFamily: 'inherit',
                 appearance: 'none',
                 minWidth: '240px',
               }}
             >
-              {programmesList.map((p) => (
-                <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-              ))}
+              {programmesList.length === 0 ? (
+                <option value="">No programmes added yet</option>
+              ) : (
+                programmesList.map((p) => (
+                  <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+                ))
+              )}
             </select>
             <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
           </div>

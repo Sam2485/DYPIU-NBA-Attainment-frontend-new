@@ -200,7 +200,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const selectedProgramme =
     programmesList.find((p) => p.id === selectedProgId) ||
     programmesList[0] ||
-    { id: 'prog-1', name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP', durationYears: 4 };
+    { id: 'prog-fallback', name: 'No Programme Assigned Yet', code: '—', durationYears: 4 };
 
   const allocationKey = `allocation-${selectedProgId}`;
   const allocationRecord = courseVerificationStore[allocationKey] || {};
@@ -385,7 +385,9 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
           <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
             Programme Setup
           </h2>
-          <p style={{ margin: '3px 0 6px', fontSize: '12.5px', color: muted }}>{selectedProgramme.name} ({selectedProgramme.code})</p>
+          <p style={{ margin: '3px 0 6px', fontSize: '12.5px', color: muted }}>
+            {selectedProgramme ? `${selectedProgramme.name} (${selectedProgramme.code})` : 'No Programme Assigned Yet'}
+          </p>
 
           {/* HOD Verification Status Badge */}
           <div>
@@ -410,10 +412,14 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
             <select
               value={selectedProgId}
               onChange={(e) => setSelectedProgId(e.target.value)}
-              disabled={isLoadingProgrammes}
-              style={{ height: '38px', paddingLeft: '12px', paddingRight: '32px', fontSize: '12.5px', fontWeight: '600', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ffffff', color: ink, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', appearance: 'none', maxWidth: '280px' }}
+              disabled={isLoadingProgrammes || programmesList.length === 0}
+              style={{ height: '38px', paddingLeft: '12px', paddingRight: '32px', fontSize: '12.5px', fontWeight: '600', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ffffff', color: ink, cursor: programmesList.length === 0 ? 'not-allowed' : 'pointer', outline: 'none', fontFamily: 'inherit', appearance: 'none', maxWidth: '280px' }}
             >
-              {programmesList.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+              {programmesList.length === 0 ? (
+                <option value="">No programmes assigned yet</option>
+              ) : (
+                programmesList.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)
+              )}
             </select>
             <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
           </div>
