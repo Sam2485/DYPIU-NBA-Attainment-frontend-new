@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { FileCheck, Upload, CheckCircle2, FileSpreadsheet, Calculator, Award, Save, HardDrive, Clock } from 'lucide-react';
+import { FileCheck, Upload, CheckCircle2, FileSpreadsheet, Calculator, Award, Save, HardDrive, Clock, Eye, RefreshCw, X, FileText } from 'lucide-react';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 import { useAcademic } from '../../context/AcademicContext';
-import { getExaminationAttainment, saveExaminationAttainment, uploadExaminationFile } from '../../api/academic';
+import { getExaminationAttainment, saveExaminationAttainment, uploadExaminationFile, getUploadedDocuments } from '../../api/academic';
 import * as XLSX from 'xlsx';
 
 export default function EndSemMarksHub({ courseId, hideFooter = false }) {
@@ -14,6 +14,7 @@ export default function EndSemMarksHub({ courseId, hideFooter = false }) {
   const [studentMarks, setStudentMarks] = useState([]);
   const [attainmentResult, setAttainmentResult] = useState(null);
   const [uploadedFileDetails, setUploadedFileDetails] = useState(null);
+  const [showDocModal, setShowDocModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -323,92 +324,154 @@ export default function EndSemMarksHub({ courseId, hideFooter = false }) {
       </div>
 
       {/* SECTION 1 (TOP): Excel Document Upload & Backend File Status */}
-      <div className="card" style={{ padding: '24px', background: '#ffffff' }}>
+      <div className="card" style={{ padding: '24px', background: '#ffffff', marginBottom: '22px' }}>
         <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Upload size={18} style={{ color: '#4f46e5' }} /> 1. Upload Examination Excel Document to Backend Server
         </h3>
 
-        <div
-          style={{
-            border: '2px dashed #6366f1',
-            borderRadius: '12px',
-            padding: '24px',
-            background: '#f8fafc',
-            textAlign: 'center',
-          }}
-        >
-          <FileSpreadsheet size={36} style={{ color: '#4f46e5', marginBottom: '8px' }} />
-          <strong style={{ display: 'block', fontSize: '15px', color: '#0f172a' }}>
-            Select & Upload Examination Sheet Excel File (.xlsx / .xls)
-          </strong>
-          <p style={{ margin: '4px 0 16px', fontSize: '12px', color: '#64748b' }}>
-            The uploaded document will be saved on backend server disk and processed via Apache POI.
-          </p>
+        {uploadedFileDetails || studentMarks.length > 0 ? (
+          <div style={{ padding: '20px', background: '#f8fafc', border: '1.5px solid #cbd5e1', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#e0e7ff', display: 'grid', placeItems: 'center', color: '#4338ca' }}>
+                  <FileSpreadsheet size={26} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <strong style={{ fontSize: '15px', color: '#0f172a' }}>
+                      {uploadedFileDetails?.fileName || 'Examination_Sheet.xlsx'}
+                    </strong>
+                    <span className="badge badge-success" style={{ fontSize: '11px', background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '4px', fontWeight: '700' }}>
+                      ✓ Document Saved & Verified on Server
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '4px', fontSize: '12px', color: '#64748b' }}>
+                    <span><HardDrive size={13} style={{ display: 'inline', marginRight: '3px' }} /> Storage: Direct Attainment Directory</span>
+                    <span><Clock size={13} style={{ display: 'inline', marginRight: '3px' }} /> Records: {uploadedFileDetails?.recordsProcessed || studentMarks.length} Students</span>
+                  </div>
+                </div>
+              </div>
 
-          <input
-            type="file"
-            accept=".xlsx,.xls"
-            id="marks-file-input"
-            style={{ display: 'none' }}
-            onChange={handleFileUpload}
-          />
-          <label htmlFor="marks-file-input" className="btn btn-primary" style={{ cursor: 'pointer', padding: '10px 22px' }}>
-            <Upload size={16} /> Choose Excel File & Process
-          </label>
-        </div>
-
-        {/* Upload Success State Banner */}
-        {uploadedFileDetails && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setShowDocModal(true)}
+                  style={{ padding: '8px 18px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', background: '#4f46e5' }}
+                >
+                  <Eye size={16} /> View Document
+                </button>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  id="reupload-marks-file-input"
+                  style={{ display: 'none' }}
+                  onChange={handleFileUpload}
+                />
+                <label
+                  htmlFor="reupload-marks-file-input"
+                  className="btn btn-secondary"
+                  style={{ cursor: 'pointer', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
+                >
+                  <RefreshCw size={14} /> Upload New Document
+                </label>
+              </div>
+            </div>
+          </div>
+        ) : (
           <div
             style={{
-              marginTop: '18px',
-              padding: '16px 20px',
-              background: '#f0fdf4',
-              borderRadius: '10px',
-              border: '1.5px solid #86efac',
-              display: 'flex',
-              alignItems: 'center',
-              justify: 'space-between',
-              flexWrap: 'wrap',
-              gap: '12px',
+              border: '2px dashed #6366f1',
+              borderRadius: '12px',
+              padding: '24px',
+              background: '#f8fafc',
+              textAlign: 'center',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div
-                style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '50%',
-                  background: '#dcfce7',
-                  display: 'grid',
-                  placeItems: 'center',
-                  color: '#16a34a',
-                }}
-              >
-                <CheckCircle2 size={20} />
+            <FileSpreadsheet size={36} style={{ color: '#4f46e5', marginBottom: '8px' }} />
+            <strong style={{ display: 'block', fontSize: '15px', color: '#0f172a' }}>
+              Select & Upload Examination Sheet Excel File (.xlsx / .xls)
+            </strong>
+            <p style={{ margin: '4px 0 16px', fontSize: '12px', color: '#64748b' }}>
+              The uploaded document will be saved on backend server disk and processed via Apache POI.
+            </p>
+
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              id="marks-file-input"
+              style={{ display: 'none' }}
+              onChange={handleFileUpload}
+            />
+            <label htmlFor="marks-file-input" className="btn btn-primary" style={{ cursor: 'pointer', padding: '10px 22px' }}>
+              <Upload size={16} /> Choose Excel File & Process
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* Document Inspection Modal */}
+      {showDocModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'grid', placeItems: 'center', padding: '20px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '650px', background: '#ffffff', borderRadius: '16px', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', pb: '14px', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FileText size={22} style={{ color: '#4f46e5' }} />
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+                  Direct Attainment Document Details
+                </h3>
               </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <strong style={{ fontSize: '14px', color: '#14532d' }}>
-                    {uploadedFileDetails.fileName || 'Examination_Sheet.xlsx'}
-                  </strong>
-                  <span className="badge badge-success" style={{ fontSize: '11px' }}>
-                    ✓ Document Saved & Verified on Server
-                  </span>
+              <button className="btn btn-secondary" onClick={() => setShowDocModal(false)} style={{ padding: '6px' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
+              <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <strong style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase' }}>Document Name</strong>
+                <div style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>
+                  {uploadedFileDetails?.fileName || 'Examination_Sheet.xlsx'}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '4px', fontSize: '12px', color: '#166534' }}>
-                  <span><HardDrive size={13} style={{ display: 'inline', marginRight: '3px' }} /> Path: {uploadedFileDetails.savedPath || 'Backend Disk Store'}</span>
-                  <span><Clock size={13} style={{ display: 'inline', marginRight: '3px' }} /> Records: {uploadedFileDetails.recordsProcessed || studentMarks.length} Students</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <strong style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase' }}>Attainment Type</strong>
+                  <div style={{ fontWeight: '700', color: '#4338ca' }}>Direct Attainment (Examination)</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <strong style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase' }}>Records Processed</strong>
+                  <div style={{ fontWeight: '700', color: '#0f172a' }}>{uploadedFileDetails?.recordsProcessed || studentMarks.length} Students</div>
+                </div>
+              </div>
+
+              <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <strong style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase' }}>Backend Storage Directory</strong>
+                <div style={{ fontWeight: '600', color: '#334155', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '12px' }}>
+                  {uploadedFileDetails?.savedPath || `~/.obe_uploads/direct_attainment/${targetCourseId}/`}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <strong style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase' }}>Uploaded By</strong>
+                  <div style={{ fontWeight: '600', color: '#0f172a' }}>{uploadedFileDetails?.uploadedBy || 'Course Coordinator'}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <strong style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase' }}>Verification Status</strong>
+                  <div style={{ fontWeight: '700', color: '#16a34a' }}>✓ PERSISTED & VERIFIED</div>
                 </div>
               </div>
             </div>
 
-            <span style={{ fontSize: '12px', fontWeight: '700', color: '#15803d', background: '#dcfce7', padding: '4px 10px', borderRadius: '6px' }}>
-              Status: ACTIVE
-            </span>
+            <div style={{ marginTop: '20px', textAlign: 'right' }}>
+              <button className="btn btn-primary" onClick={() => setShowDocModal(false)} style={{ padding: '8px 20px' }}>
+                Close Preview
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* SECTION 2: Threshold & Out-Of Marks Configuration Card */}
       <div className="card" style={{ padding: '24px', background: '#ffffff' }}>

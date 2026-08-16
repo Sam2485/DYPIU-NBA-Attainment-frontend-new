@@ -616,3 +616,13 @@ export const getCourseCombinedAttainment = async (courseId) => {
     throw error;
   }
 };
+
+export const getUploadedDocuments = async (courseId) => {
+  try {
+    const response = await apiClient.get(`/attainment/documents/${courseId}`);
+    return response;
+  } catch (error) {
+    console.error(`Failed to fetch uploaded documents for course ${courseId}:`, error);
+    throw error;
+  }
+};
