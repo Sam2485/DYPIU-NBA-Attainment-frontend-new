@@ -126,6 +126,28 @@ export default function COMappingMatrix({ hideFooter = false, courseId = null })
               if (Array.isArray(data.psos) && data.psos.length > 0) {
                 setPsoListState(data.psos);
               }
+              if (Array.isArray(data.poMappings) && data.poMappings.length > 0) {
+                const poMapObj = {};
+                data.poMappings.forEach((m) => {
+                  const coObj = data.cos?.find((c) => c.id === m.courseOutcomeId);
+                  const coCode = coObj?.code || m.courseOutcomeId;
+                  if (coCode && m.poCode) {
+                    poMapObj[`${coCode}_${m.poCode}`] = m.mappingLevel;
+                  }
+                });
+                setSavedPoMappings(poMapObj);
+              }
+              if (Array.isArray(data.psoMappings) && data.psoMappings.length > 0) {
+                const psoMapObj = {};
+                data.psoMappings.forEach((m) => {
+                  const coObj = data.cos?.find((c) => c.id === m.courseOutcomeId);
+                  const coCode = coObj?.code || m.courseOutcomeId;
+                  if (coCode && m.psoCode) {
+                    psoMapObj[`${coCode}_${m.psoCode}`] = m.mappingLevel;
+                  }
+                });
+                setSavedPsoMappings(psoMapObj);
+              }
               if (data.poKeywordsStore && Object.keys(data.poKeywordsStore).length > 0) {
                 setPoKeywordsStore((prev) => ({ ...prev, [targetCourseId]: data.poKeywordsStore }));
               }
@@ -147,6 +169,8 @@ export default function COMappingMatrix({ hideFooter = false, courseId = null })
   // Keyword Stores for POs & PSOs (keyed by courseId)
   const [poKeywordsStore, setPoKeywordsStore] = useState({});
   const [psoKeywordsStore, setPsoKeywordsStore] = useState({});
+  const [savedPoMappings, setSavedPoMappings] = useState({});
+  const [savedPsoMappings, setSavedPsoMappings] = useState({});
 
   // Helper to get PO competencies dynamically
   const getCoursePoCompetencies = (poCode) => {
@@ -178,6 +202,36 @@ export default function COMappingMatrix({ hideFooter = false, courseId = null })
       { id: `psocomp-${psoCode}-1`, statement: `Demonstrate PSO competency statement 1 for ${psoCode}`, keywords: {} },
       { id: `psocomp-${psoCode}-2`, statement: `Demonstrate PSO competency statement 2 for ${psoCode}`, keywords: {} },
     ];
+  };
+
+  // Helper: Compute PO Strength based on keywords or saved DB mappings
+  const computePoStrengthForCO = (poCode, coCode) => {
+    if (savedPoMappings[`${coCode}_${poCode}`] !== undefined) {
+      return savedPoMappings[`${coCode}_${poCode}`];
+    }
+    const comps = getCoursePoCompetencies(poCode);
+    if (!comps || comps.length === 0) return '-';
+    const mappedCount = comps.filter((c) => c.keywords?.[coCode] && c.keywords[coCode].trim() !== '').length;
+    const pct = (mappedCount / comps.length) * 100;
+    if (pct >= 75) return 3;
+    if (pct >= 50) return 2;
+    if (pct > 0) return 1;
+    return '-';
+  };
+
+  // Helper: Compute PSO Strength based on keywords or saved DB mappings
+  const computePsoStrengthForCO = (psoCode, coCode) => {
+    if (savedPsoMappings[`${coCode}_${psoCode}`] !== undefined) {
+      return savedPsoMappings[`${coCode}_${psoCode}`];
+    }
+    const comps = getCoursePsoCompetencies(psoCode);
+    if (!comps || comps.length === 0) return '-';
+    const mappedCount = comps.filter((c) => c.keywords?.[coCode] && c.keywords[coCode].trim() !== '').length;
+    const pct = (mappedCount / comps.length) * 100;
+    if (pct >= 75) return 3;
+    if (pct >= 50) return 2;
+    if (pct > 0) return 1;
+    return '-';
   };
 
   // Handler for PO Keyword edit
@@ -222,30 +276,6 @@ export default function COMappingMatrix({ hideFooter = false, courseId = null })
         },
       };
     });
-  };
-
-  // Helper: Compute PO Strength based on keywords
-  const computePoStrengthForCO = (poCode, coCode) => {
-    const comps = getCoursePoCompetencies(poCode);
-    if (!comps || comps.length === 0) return '-';
-    const mappedCount = comps.filter((c) => c.keywords?.[coCode] && c.keywords[coCode].trim() !== '').length;
-    const pct = (mappedCount / comps.length) * 100;
-    if (pct >= 75) return 3;
-    if (pct >= 50) return 2;
-    if (pct > 0) return 1;
-    return '-';
-  };
-
-  // Helper: Compute PSO Strength based on keywords
-  const computePsoStrengthForCO = (psoCode, coCode) => {
-    const comps = getCoursePsoCompetencies(psoCode);
-    if (!comps || comps.length === 0) return '-';
-    const mappedCount = comps.filter((c) => c.keywords?.[coCode] && c.keywords[coCode].trim() !== '').length;
-    const pct = (mappedCount / comps.length) * 100;
-    if (pct >= 75) return 3;
-    if (pct >= 50) return 2;
-    if (pct > 0) return 1;
-    return '-';
   };
 
   // Derived Combined Matrix

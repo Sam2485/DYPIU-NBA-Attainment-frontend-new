@@ -73,13 +73,19 @@ export default function COAttainmentEngine({ hideFooter = false }) {
     combinedAttainment: null,
   }));
 
-  const hasData = coResults.length > 0 && coResults.some((c) => c.directPct !== null || c.indirectPct !== null);
-
-  const overallCOAttainment = attainmentData?.overallCoAttainment ?? (
-    hasData && coList.length > 0
-      ? (coList.reduce((acc, curr) => acc + (parseFloat(curr.combinedAttainment) || 0), 0) / coList.length).toFixed(2)
-      : '0.00'
+  const hasData = coResults.length > 0 && coResults.some(
+    (c) => (c.directPct !== null && c.directPct > 0) ||
+           (c.indirectPct !== null && c.indirectPct > 0) ||
+           (c.directLevel !== null && c.directLevel > 0) ||
+           (c.indirectLevel !== null && c.indirectLevel > 0) ||
+           (c.combinedAttainment !== null && parseFloat(c.combinedAttainment) > 0)
   );
+
+  const overallCOAttainment = attainmentData?.overallCoAttainment !== undefined && attainmentData?.overallCoAttainment !== null
+    ? parseFloat(attainmentData.overallCoAttainment).toFixed(2)
+    : (hasData && coList.length > 0
+        ? (coList.reduce((acc, curr) => acc + (parseFloat(curr.combinedAttainment) || 0), 0) / coList.length).toFixed(2)
+        : '0.00');
 
   // Helper: Mapping strength
   const getMappingStrength = (coCode, targetCode) => {
