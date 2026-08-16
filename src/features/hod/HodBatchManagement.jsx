@@ -70,7 +70,7 @@ export default function HodBatchManagement() {
     programmesList[0] ||
     null;
 
-  const durationYears = selectedProgramme.durationYears || 4;
+  const durationYears = selectedProgramme?.durationYears || 4;
 
   // ── Add-form state ────────────────────────────────────────────────────────
   const [startYearInput, setStartYearInput] = useState('2025');
@@ -105,14 +105,22 @@ export default function HodBatchManagement() {
       try {
         let deptId = '';
         if (user?.email) {
-          const summaryRes = await getHodDepartmentSummary(user.email);
-          const summaryData = summaryRes?.data?.data || summaryRes?.data || summaryRes;
-          if (summaryData?.deptId) {
-            deptId = summaryData.deptId;
+          try {
+            const summaryRes = await getHodDepartmentSummary(user.email);
+            const summaryData = summaryRes?.data?.data || summaryRes?.data || summaryRes;
+            if (summaryData?.deptId) {
+              deptId = summaryData.deptId;
+            }
+          } catch (e) {
+            console.warn('Could not fetch HOD department summary, falling back to all programmes:', e);
           }
         }
-        const progRes = await getProgrammes('', deptId);
-        const progList = progRes?.data?.data || progRes?.data || [];
+        let progRes = await getProgrammes('', deptId);
+        let progList = progRes?.data?.data || progRes?.data || [];
+        if (!Array.isArray(progList) || progList.length === 0) {
+          progRes = await getProgrammes('');
+          progList = progRes?.data?.data || progRes?.data || [];
+        }
         if (isMounted && Array.isArray(progList) && progList.length > 0) {
           setProgrammesList(progList);
           setSelectedProgrammeId((prev) => prev || progList[0].id);
@@ -208,11 +216,11 @@ export default function HodBatchManagement() {
     const endAY = `${en - 1}-${String(en).slice(-2)}`;
 
     const newBatchPayload = {
-      programmeId: selectedProgramme.id,
-      programmeCode: selectedProgramme.code,
-      programmeName: selectedProgramme.name,
+      programmeId: selectedProgramme?.id || selectedProgrammeId,
+      programmeCode: selectedProgramme?.code || 'PROG',
+      programmeName: selectedProgramme?.name || 'Programme',
       durationYears,
-      name: `Batch ${s}-${String(en).slice(-2)} (${selectedProgramme.code}) — AY ${startAY} to ${endAY}`,
+      name: `Batch ${s}-${String(en).slice(-2)} (${selectedProgramme?.code || 'PROG'}) — AY ${startAY} to ${endAY}`,
       startYear: startAY,
       endYear: endAY,
       yearLevel: 'Year 1 (Freshmen)',
@@ -834,7 +842,7 @@ export default function HodBatchManagement() {
         <div style={{ ...surface, padding: '40px', textAlign: 'center' }}>
           <Calendar size={32} style={{ color: '#94a3b8', marginBottom: '10px' }} />
           <div style={{ fontSize: '14px', fontWeight: '700', color: ink, marginBottom: '4px' }}>No batches yet</div>
-          <div style={{ fontSize: '12.5px', color: muted }}>Use the form above to add the first {durationYears}-year batch for {selectedProgramme.name}.</div>
+          <div style={{ fontSize: '12.5px', color: muted }}>Use the form above to add the first {durationYears}-year batch for {selectedProgramme?.name || 'this programme'}.</div>
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '12px' }}>
@@ -863,7 +871,7 @@ export default function HodBatchManagement() {
                       <span style={{ color: '#cbd5e1' }}>·</span>
                       <span>{batch.yearLevel || '—'}</span>
                       <span style={{ color: '#cbd5e1' }}>·</span>
-                      <span>{batch.programmeName || selectedProgramme.name}</span>
+                      <span>{batch.programmeName || selectedProgramme?.name || 'Programme'}</span>
                     </div>
                   </div>
 
