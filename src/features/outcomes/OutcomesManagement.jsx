@@ -153,15 +153,21 @@ export default function OutcomesManagement({ hideFooter = false }) {
           if (isMounted) {
             const rawCOs = res?.data?.data || res?.data || [];
             if (Array.isArray(rawCOs) && rawCOs.length > 0) {
-              const formatted = rawCOs.map((co, idx) => ({
-                id: co.id || `co-${targetCourseId}-${idx + 1}`,
-                code: co.code || `C321.${idx + 1}`,
-                statement: co.statement || '',
-                target: co.target !== undefined && co.target !== null ? co.target : '2.50',
-                status: co.status || 'APPROVED',
-                submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
-                submittedAt: co.submittedAt || '2026-08-04',
-              }));
+              const formatted = rawCOs.map((co, idx) => {
+                const targetVal = co.targetLevel !== undefined && co.targetLevel !== null
+                  ? parseFloat(co.targetLevel)
+                  : (co.target !== undefined && co.target !== null ? parseFloat(co.target) : 2.50);
+                return {
+                  id: co.id || `co-${targetCourseId}-${idx + 1}`,
+                  code: co.code || `C321.${idx + 1}`,
+                  statement: co.statement || '',
+                  targetLevel: targetVal,
+                  target: targetVal,
+                  status: co.status || 'APPROVED',
+                  submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
+                  submittedAt: co.submittedAt || '2026-08-04',
+                };
+              });
               setCoList(formatted);
               updateCourseCOs(targetCourseId, formatted);
             } else if (activeCOs && activeCOs.length > 0) {
@@ -403,6 +409,8 @@ export default function OutcomesManagement({ hideFooter = false }) {
     const newCo = {
       code: `C321.${newCoNum}`,
       statement: `New proposed Course Outcome statement ${newCoNum}...`,
+      targetLevel: 2.50,
+      target: '2.50',
       status: role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' ? 'APPROVED' : 'WAITING_FOR_APPROVAL',
       submittedBy: user?.name || 'Course Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
@@ -434,7 +442,9 @@ export default function OutcomesManagement({ hideFooter = false }) {
   };
 
   const handleUpdateCOTarget = (index, newTarget) => {
-    const updated = coList.map((c, i) => (i === index ? { ...c, target: newTarget } : c));
+    const num = parseFloat(newTarget);
+    const validNum = isNaN(num) ? 1.00 : Math.min(3.00, Math.max(1.00, num));
+    const updated = coList.map((c, i) => (i === index ? { ...c, target: newTarget, targetLevel: validNum } : c));
     setCoList(updated);
     updateCourseCOs(targetCourseId, updated);
   };
@@ -480,16 +490,22 @@ export default function OutcomesManagement({ hideFooter = false }) {
     updateCourseCOs(targetCourseId, coList);
     try {
       if (targetCourseId && (entityName === 'Course Outcomes' || !entityName)) {
-        const payload = coList.map((co, idx) => ({
-          id: co.id || `co-${targetCourseId}-${idx + 1}`,
-          courseId: targetCourseId,
-          code: co.code || `C321.${idx + 1}`,
-          statement: co.statement || '',
-          target: co.target !== undefined && co.target !== null ? co.target : '2.50',
-          status: co.status || 'APPROVED',
-          submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
-          submittedAt: co.submittedAt || new Date().toISOString().split('T')[0],
-        }));
+        const payload = coList.map((co, idx) => {
+          const targetVal = co.targetLevel !== undefined && co.targetLevel !== null
+            ? parseFloat(co.targetLevel)
+            : (co.target !== undefined && co.target !== null ? parseFloat(co.target) : 2.50);
+          return {
+            id: co.id || `co-${targetCourseId}-${idx + 1}`,
+            courseId: targetCourseId,
+            code: co.code || `C321.${idx + 1}`,
+            statement: co.statement || '',
+            targetLevel: targetVal,
+            target: co.target !== undefined && co.target !== null ? co.target : '2.50',
+            status: co.status || 'APPROVED',
+            submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
+            submittedAt: co.submittedAt || new Date().toISOString().split('T')[0],
+          };
+        });
         await saveCourseCOs(targetCourseId, payload);
       }
     } catch (err) {
@@ -505,16 +521,22 @@ export default function OutcomesManagement({ hideFooter = false }) {
     updateCourseCOs(targetCourseId, coList);
     try {
       if (targetCourseId) {
-        const payload = coList.map((co, idx) => ({
-          id: co.id || `co-${targetCourseId}-${idx + 1}`,
-          courseId: targetCourseId,
-          code: co.code || `C321.${idx + 1}`,
-          statement: co.statement || '',
-          target: co.target !== undefined && co.target !== null ? co.target : '2.50',
-          status: 'WAITING_FOR_APPROVAL',
-          submittedBy: user?.name || 'Course Coordinator',
-          submittedAt: new Date().toISOString().split('T')[0],
-        }));
+        const payload = coList.map((co, idx) => {
+          const targetVal = co.targetLevel !== undefined && co.targetLevel !== null
+            ? parseFloat(co.targetLevel)
+            : (co.target !== undefined && co.target !== null ? parseFloat(co.target) : 2.50);
+          return {
+            id: co.id || `co-${targetCourseId}-${idx + 1}`,
+            courseId: targetCourseId,
+            code: co.code || `C321.${idx + 1}`,
+            statement: co.statement || '',
+            targetLevel: targetVal,
+            target: co.target !== undefined && co.target !== null ? co.target : '2.50',
+            status: 'WAITING_FOR_APPROVAL',
+            submittedBy: user?.name || 'Course Coordinator',
+            submittedAt: new Date().toISOString().split('T')[0],
+          };
+        });
         await saveCourseCOs(targetCourseId, payload);
       }
     } catch (err) {
