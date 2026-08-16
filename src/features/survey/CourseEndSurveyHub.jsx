@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ClipboardList, Upload, CheckCircle2, FileSpreadsheet, Award, Save, HardDrive, Clock, Eye, RefreshCw, X, FileText } from 'lucide-react';
+import { ClipboardList, Upload, CheckCircle2, FileSpreadsheet, Award, Save, HardDrive, Clock, Eye, RefreshCw, X, FileText, ExternalLink } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 import { getSurveyAttainment, saveSurveyAttainment, uploadSurveyFile } from '../../api/academic';
@@ -314,14 +314,16 @@ export default function CourseEndSurveyHub({ courseId, hideFooter = false }) {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <button
-                  type="button"
+                <a
+                  href={`http://localhost:8080/api/v1/attainment/documents/${targetCourseId}/download/SURVEY`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="btn btn-primary"
-                  onClick={() => setShowDocModal(true)}
-                  style={{ padding: '8px 18px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', background: '#7c3aed' }}
+                  style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', background: '#059669', textDecoration: 'none', color: '#ffffff' }}
                 >
-                  <Eye size={16} /> View Document
-                </button>
+                  <ExternalLink size={15} /> Download Excel
+                </a>
+
                 <input
                   type="file"
                   accept=".xlsx,.xls"
@@ -334,7 +336,7 @@ export default function CourseEndSurveyHub({ courseId, hideFooter = false }) {
                   className="btn btn-secondary"
                   style={{ cursor: 'pointer', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
                 >
-                  <RefreshCw size={14} /> Upload New Document
+                  <RefreshCw size={14} /> Upload New
                 </label>
               </div>
             </div>
@@ -425,7 +427,16 @@ export default function CourseEndSurveyHub({ courseId, hideFooter = false }) {
               </div>
             </div>
 
-            <div style={{ marginTop: '20px', textAlign: 'right' }}>
+            <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+              <a
+                href={`http://localhost:8080/api/v1/attainment/documents/${targetCourseId}/download/SURVEY`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-primary"
+                style={{ padding: '8px 20px', display: 'inline-flex', alignItems: 'center', gap: '8px', fontWeight: '700', background: '#059669', textDecoration: 'none', color: '#ffffff' }}
+              >
+                <ExternalLink size={16} /> Open Excel File in New Tab
+              </a>
               <button className="btn btn-primary" onClick={() => setShowDocModal(false)} style={{ padding: '8px 20px', background: '#7c3aed' }}>
                 Close Preview
               </button>
