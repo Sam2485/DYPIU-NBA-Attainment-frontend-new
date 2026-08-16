@@ -70,13 +70,6 @@ const accent = '#4f46e5';
 const ink = '#0f172a';
 const muted = '#64748b';
 
-
-const DUMMY_DEPARTMENTS = [];
-const DUMMY_BATCHES = [];
-const DUMMY_POS = [];
-const DUMMY_PSOS = [];
-const DUMMY_PEOS = [];
-
 export default function HodSetupWorkflow() {
   const navigate = useNavigate();
   const { user } = useAuth();

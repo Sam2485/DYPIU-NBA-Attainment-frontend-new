@@ -7,6 +7,7 @@ import {
   PlayCircle, Settings, Layers, Loader2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useAcademic } from '../../context/AcademicContext';
 import { getCourseCoordinatorSummary } from '../../api/academic';
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
@@ -31,7 +32,7 @@ export default function DashboardOverview() {
 
   const [summaryData, setSummaryData] = useState(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
-  const [selectedCourseId, setSelectedCourseId] = useState('crs-1');
+  const [selectedCourseId, setSelectedCourseId] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -43,7 +44,7 @@ export default function DashboardOverview() {
             const data = res?.data?.data || res?.data;
             setSummaryData(data);
             if (data?.assignedCourses?.length > 0) {
-              setSelectedCourseId(data.assignedCourses[0].id || 'crs-1');
+              setSelectedCourseId(data.assignedCourses[0].id || '');
             }
           }
         })
@@ -55,7 +56,7 @@ export default function DashboardOverview() {
     return () => { isMounted = false; };
   }, [user?.email]);
 
-  const { courseOfferings = [], selectedCourseOffering } = useAuth ? {} : {};
+  const { courseOfferings = [], selectedCourseOffering } = useAcademic();
   const rawAssigned = summaryData?.assignedCourses;
   const isApiLoaded = summaryData !== null;
   const assignedCourses = (Array.isArray(rawAssigned) && rawAssigned.length > 0)

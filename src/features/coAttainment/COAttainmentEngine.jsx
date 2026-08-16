@@ -38,8 +38,8 @@ export default function COAttainmentEngine({ hideFooter = false }) {
   const indirectThreshold = attainmentData?.config?.indirectThreshold ?? activeAttainmentConfig?.indirectThreshold ?? 60;
 
   // Dynamic Lists
-  const poList = fetchedPOs.length > 0 ? fetchedPOs.map((p) => p.code || p) : (activePOs?.length > 0 ? activePOs.map((p) => p.code || p) : ['PO1', 'PO2', 'PO3', 'PO4', 'PO5', 'PO6', 'PO7', 'PO8', 'PO9', 'PO10', 'PO11', 'PO12']);
-  const psoList = fetchedPSOs.length > 0 ? fetchedPSOs.map((p) => p.code || p) : (activePSOs?.length > 0 ? activePSOs.map((p) => p.code || p) : ['PSO1', 'PSO2']);
+  const poList = fetchedPOs.length > 0 ? fetchedPOs.map((p) => p.code || p) : (activePOs?.length > 0 ? activePOs.map((p) => p.code || p) : []);
+  const psoList = fetchedPSOs.length > 0 ? fetchedPSOs.map((p) => p.code || p) : (activePSOs?.length > 0 ? activePSOs.map((p) => p.code || p) : []);
 
   useEffect(() => {
     let isMounted = true;
@@ -512,49 +512,59 @@ export default function COAttainmentEngine({ hideFooter = false }) {
               </tr>
             </thead>
             <tbody>
-              {coList.map((co, idx) => (
-                <tr key={co.coCode || co.code || idx}>
-                  <td style={{ textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
-                  <td style={{ fontWeight: '700', color: '#0f172a' }}>{co.coCode || co.code}</td>
-
-                  {/* PO Columns */}
-                  {poList.map((po) => {
-                    const val = getMappingStrength(co.coCode || co.code, po);
-                    return (
-                      <td key={po} style={{ textAlign: 'center' }}>
-                        {val}
-                      </td>
-                    );
-                  })}
-
-                  {/* PSO Columns */}
-                  {psoList.map((pso) => {
-                    const val = getMappingStrength(co.coCode || co.code, pso);
-                    return (
-                      <td key={pso} style={{ textAlign: 'center' }}>
-                        {val}
-                      </td>
-                    );
-                  })}
+              {coList.length === 0 ? (
+                <tr>
+                  <td colSpan={Math.max(1, poList.length + psoList.length + 2)} style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>
+                    No Course Outcomes defined for this course yet (0 COs).
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                coList.map((co, idx) => (
+                  <tr key={co.coCode || co.code || idx}>
+                    <td style={{ textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
+                    <td style={{ fontWeight: '700', color: '#0f172a' }}>{co.coCode || co.code}</td>
+
+                    {/* PO Columns */}
+                    {poList.map((po) => {
+                      const val = getMappingStrength(co.coCode || co.code, po);
+                      return (
+                        <td key={po} style={{ textAlign: 'center' }}>
+                          {val}
+                        </td>
+                      );
+                    })}
+
+                    {/* PSO Columns */}
+                    {psoList.map((pso) => {
+                      const val = getMappingStrength(co.coCode || co.code, pso);
+                      return (
+                        <td key={pso} style={{ textAlign: 'center' }}>
+                          {val}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))
+              )}
 
               {/* Average Row */}
-              <tr style={{ background: '#f8fafc', fontWeight: '700' }}>
-                <td colSpan={2} style={{ textAlign: 'right', paddingRight: '12px', color: '#0f172a' }}>
-                  Average
-                </td>
-                {poList.map((po) => (
-                  <td key={po} style={{ textAlign: 'center', color: '#0f172a', fontWeight: '700' }}>
-                    {calculateAverageMapping(po)}
+              {coList.length > 0 && (
+                <tr style={{ background: '#f8fafc', fontWeight: '700' }}>
+                  <td colSpan={2} style={{ textAlign: 'right', paddingRight: '12px', color: '#0f172a' }}>
+                    Average
                   </td>
-                ))}
-                {psoList.map((pso) => (
-                  <td key={pso} style={{ textAlign: 'center', color: '#0f172a', fontWeight: '700' }}>
-                    {calculateAverageMapping(pso)}
-                  </td>
-                ))}
-              </tr>
+                  {poList.map((po) => (
+                    <td key={po} style={{ textAlign: 'center', color: '#0f172a', fontWeight: '700' }}>
+                      {calculateAverageMapping(po)}
+                    </td>
+                  ))}
+                  {psoList.map((pso) => (
+                    <td key={pso} style={{ textAlign: 'center', color: '#0f172a', fontWeight: '700' }}>
+                      {calculateAverageMapping(pso)}
+                    </td>
+                  ))}
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -587,7 +597,7 @@ export default function COAttainmentEngine({ hideFooter = false }) {
             </thead>
             <tbody>
               <tr>
-                <td style={{ padding: '12px 14px', fontWeight: '800', color: '#0f172a' }}>{currentCourse?.code || 'Course'}</td>
+                <td style={{ padding: '12px 14px', fontWeight: '800', color: '#0f172a' }}>{currentCourse?.code || '—'}</td>
                 <td style={{ padding: '12px 14px', color: '#475569' }}>Average Mapping Weight (Table 1)</td>
                 {poList.map((po) => (
                   <td key={po} style={{ padding: '12px 6px', textAlign: 'center', fontWeight: '600' }}>
@@ -602,7 +612,7 @@ export default function COAttainmentEngine({ hideFooter = false }) {
               </tr>
 
               <tr style={{ background: '#ecfdf5', fontWeight: '900' }}>
-                <td style={{ padding: '14px', color: '#065f46', fontWeight: '900' }}>{currentCourse?.code || 'Course'}</td>
+                <td style={{ padding: '14px', color: '#065f46', fontWeight: '900' }}>{currentCourse?.code || '—'}</td>
                 <td style={{ padding: '14px', color: '#065f46', fontWeight: '900', fontSize: '13px' }}>
                   Final PO / PSO Direct Attainment Value
                 </td>

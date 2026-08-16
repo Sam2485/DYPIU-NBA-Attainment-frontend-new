@@ -83,11 +83,11 @@ export default function CourseCoordinatorWorkflow() {
     ? coordinatorCourses
     : (availableCourses.length > 0 ? availableCourses : courses);
 
-  const activeCourseId = selectedCourseId || selectedCourse?.id || displayCourses[0]?.id || 'crs-1';
-  const course         = displayCourses.find((c) => c.id === activeCourseId) || selectedCourse || displayCourses[0];
+  const activeCourseId = selectedCourseId || selectedCourse?.id || displayCourses[0]?.id || '';
+  const course         = displayCourses.find((c) => c.id === activeCourseId) || selectedCourse || displayCourses[0] || null;
   const config         = course?.id ? (attainmentConfigs[course.id] || {}) : {};
   const courseCOs      = course?.courseOutcomes || activeCOs || [];
-  const courseProgress = workflowProgressStore[course?.id || 'crs-1'] || {};
+  const courseProgress = course?.id ? (workflowProgressStore[course.id] || {}) : {};
 
   // ── URL ↔ state sync ────────────────────────────────────────────────────────
   const initialStep = parseInt(searchParams.get('step'), 10);
@@ -225,9 +225,13 @@ export default function CourseCoordinatorWorkflow() {
                 cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
-              {displayCourses.map((c) => (
-                <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
-              ))}
+              {displayCourses.length > 0 ? (
+                displayCourses.map((c) => (
+                  <option key={c.id} value={c.id}>{c.code || c.courseCode} — {c.name || c.courseName}</option>
+                ))
+              ) : (
+                <option value="">No courses assigned yet</option>
+              )}
             </select>
             <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
           </div>

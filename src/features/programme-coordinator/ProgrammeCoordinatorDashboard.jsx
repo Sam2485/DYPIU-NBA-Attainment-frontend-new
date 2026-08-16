@@ -6,7 +6,13 @@ import {
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
-import { getProgrammeCoordinatorSummary, getProgrammes } from '../../api/academic';
+import {
+  getProgrammeCoordinatorSummary,
+  getProgrammes,
+  getCourses,
+  getProgrammePOs,
+  getProgrammePSOs,
+} from '../../api/academic';
 
 // ── Style tokens (identical to HodDashboard) ─────────────────────────────────
 const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -19,7 +25,7 @@ export default function ProgrammeCoordinatorDashboard() {
   const { user } = useAuth();
   const {
     masterProgrammes = [],
-    programmeId      = 'prog-1',
+    programmeId      = '',
     courses          = [],
     selectedBatch    = { name: 'Batch 2025-29' },
     activePOs        = [],

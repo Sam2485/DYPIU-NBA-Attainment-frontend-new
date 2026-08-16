@@ -170,7 +170,7 @@ export default function COTargetSettingHub({ hideFooter = false }) {
 
       {isNeedsRevision && (
         <RequestRevisionCard
-          title={`CO Targets Revision Requested (${currentCourse?.code || 'CS301'})`}
+          title={`CO Targets Revision Requested (${currentCourse?.code || '—'})`}
           requestedBy={targetData.verifiedBy || 'Programme Coordinator'}
           remarks={targetData.coRemarks || 'Please review and adjust CO target attainment benchmarks.'}
           actionText="Modify the target levels below and click 'Save Changes' to resubmit for Programme Coordinator approval."

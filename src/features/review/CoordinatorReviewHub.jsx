@@ -210,7 +210,7 @@ export default function CoordinatorReviewHub() {
   const selectedProgramme =
     masterProgrammes.find((p) => p.id === programmeId) ||
     masterProgrammes[0] ||
-    { name: 'B.Tech CSE', code: 'BE-COMP' };
+    { name: 'No Programme Assigned', code: '—' };
 
   // ── Active tab (URL-driven) ───────────────────────────────────────────────
   const TABS = ['config', 'cos', 'atr', 'programme-atr'];
@@ -225,8 +225,8 @@ export default function CoordinatorReviewHub() {
   const handleTabChange = (t) => { setActiveTab(t); setSearchParams({ tab: t }); };
 
   // ── Selected course ───────────────────────────────────────────────────────
-  const [reviewCourseId, setReviewCourseId] = useState(availableCourses[0]?.id || 'crs-1');
-  const selectedCourse = availableCourses.find((c) => c.id === reviewCourseId) || availableCourses[0];
+  const [reviewCourseId, setReviewCourseId] = useState(availableCourses[0]?.id || '');
+  const selectedCourse = availableCourses.find((c) => c.id === reviewCourseId) || availableCourses[0] || null;
 
   const courseReview = courseVerificationStore[reviewCourseId] || {
     configStatus: 'DRAFT', coStatus: 'PENDING_APPROVAL', atrStatus: 'DRAFT', programmeAtrStatus: 'DRAFT',

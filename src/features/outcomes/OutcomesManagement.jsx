@@ -37,8 +37,8 @@ export default function OutcomesManagement({ hideFooter = false }) {
 
   const [selectedCourseIdState, setSelectedCourseIdState] = useState(null);
 
-  const coursesList = availableCourses.length > 0 ? availableCourses : (courses.length > 0 ? courses : [{ id: 'crs-1', code: 'CS301', name: 'Computer Networks' }]);
-  const targetCourseId = selectedCourseIdState || selectedCourse?.id || availableCourses[0]?.id || courseId || 'crs-1';
+  const coursesList = availableCourses.length > 0 ? availableCourses : courses;
+  const targetCourseId = selectedCourseIdState || selectedCourse?.id || availableCourses[0]?.id || courseId || '';
   const isLimitedUser = role === 'FACULTY';
   const currentCoVerificationStatus = courseVerificationStore[targetCourseId]?.coStatus || 'PENDING_APPROVAL';
 
@@ -68,19 +68,14 @@ export default function OutcomesManagement({ hideFooter = false }) {
   }, [role, activeOutcomeTab]);
 
   // Multiple Teachers for Course
-  const courseTeachers = selectedCourse?.faculty || 'Dr. Raj Shaikh / Prof. XYZ';
+  const courseTeachers = selectedCourse?.faculty || selectedCourse?.coordinator || '—';
 
-  // ── PEOs (Programme Educational Objectives - No Verification Required) ──────
-  const [peoList, setPeoList] = useState([
-    { code: 'PEO1', statement: 'To prepare graduates with strong fundamental knowledge in engineering and mathematical principles to solve real-world problems.' },
-    { code: 'PEO2', statement: 'To foster professional competence, leadership, team working skills, and ethical responsibilities in career.' },
-    { code: 'PEO3', statement: 'To encourage lifelong learning, research, higher education, and adaptation to technological advancements.' },
-    { code: 'PEO4', statement: 'To develop entrepreneurial capabilities and innovative mindset for societal contribution.' },
-  ]);
+  // ── PEOs (Programme Educational Objectives) ──────────────────────────────────
+  const [peoList, setPeoList] = useState(activePEOs || []);
 
   const handleAddPEO = () => {
     const newNum = peoList.length + 1;
-    setPeoList([...peoList, { code: `PEO${newNum}`, statement: `New Programme Educational Objective ${newNum} Statement...` }]);
+    setPeoList([...peoList, { code: `PEO${newNum}`, statement: '' }]);
   };
 
   const handleUpdatePEOStatement = (index, newStatement) => {
@@ -93,46 +88,30 @@ export default function OutcomesManagement({ hideFooter = false }) {
     setPeoList(updated);
   };
 
-  // ── POs with Director Verification Status ────────────────────────────────────
-  const [poList, setPoList] = useState(() => {
-    return activePOs.map((po, idx) => ({
-      ...po,
-      status: po.status || (idx % 2 === 0 ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION'),
-      submittedBy: po.submittedBy || 'Programme Coordinator',
-      submittedAt: po.submittedAt || '2026-08-04',
-    }));
-  });
+  // ── POs ──────────────────────────────────────────────────────────────────────
+  const [poList, setPoList] = useState(activePOs || []);
 
-  // ── PSOs with Director Verification Status ───────────────────────────────────
-  const [psoList, setPsoList] = useState(() => {
-    return activePSOs.map((pso, idx) => ({
-      ...pso,
-      status: pso.status || (idx % 2 === 0 ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION'),
-      submittedBy: pso.submittedBy || 'Programme Coordinator',
-      submittedAt: pso.submittedAt || '2026-08-04',
-    }));
-  });
+  // ── PSOs ─────────────────────────────────────────────────────────────────────
+  const [psoList, setPsoList] = useState(activePSOs || []);
 
-  // ── COs with Coordinator Approval Status ─────────────────────────────────────
-  const [coList, setCoList] = useState(() => {
-    return activeCOs.map((co) => ({
-      ...co,
-      status: co.status || (currentCoVerificationStatus === 'APPROVED' ? 'APPROVED' : 'WAITING_FOR_APPROVAL'),
-      submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
-      submittedAt: co.submittedAt || '2026-08-04',
-    }));
-  });
+  // ── COs ──────────────────────────────────────────────────────────────────────
+  const [coList, setCoList] = useState(activeCOs || []);
 
   useEffect(() => {
-    setPoList(
-      activePOs.map((po, idx) => ({
-        ...po,
-        status: po.status || (idx % 2 === 0 ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION'),
-        submittedBy: po.submittedBy || 'Programme Coordinator',
-        submittedAt: po.submittedAt || '2026-08-04',
-      }))
-    );
-  }, [programmeId, activePOs]);
+    setPeoList(activePEOs || []);
+  }, [activePEOs]);
+
+  useEffect(() => {
+    setPoList(activePOs || []);
+  }, [activePOs]);
+
+  useEffect(() => {
+    setPsoList(activePSOs || []);
+  }, [activePSOs]);
+
+  useEffect(() => {
+    setCoList(activeCOs || []);
+  }, [activeCOs]);
 
   useEffect(() => {
     setPsoList(

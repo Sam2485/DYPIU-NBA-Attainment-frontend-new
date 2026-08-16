@@ -25,7 +25,7 @@ export default function AttainmentProgressTracker() {
   const location = useLocation();
   const navigate = useNavigate();
   const { selectedCourse, availableCourses = [], academicYear, workflowProgressStore = {} } = useAcademic();
-  const courseProgress = workflowProgressStore[selectedCourse?.id || 'crs-1'] || {};
+  const courseProgress = selectedCourse?.id ? (workflowProgressStore[selectedCourse.id] || {}) : {};
 
   // Only Course Coordinator role sees this tracker
   if (role !== 'FACULTY') return null;

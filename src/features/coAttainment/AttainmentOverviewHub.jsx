@@ -76,7 +76,7 @@ export default function AttainmentOverviewHub() {
     activePSOs             = [],
     activeCOs              = [],
     poPsoTargets           = {},
-    programmeId            = 'prog-1',
+    programmeId            = '',
   } = useAcademic();
 
   const course = selectedCourse || availableCourses[0];

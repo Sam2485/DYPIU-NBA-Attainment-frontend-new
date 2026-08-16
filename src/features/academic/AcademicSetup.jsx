@@ -177,7 +177,7 @@ export default function AcademicSetup() {
   const selectedProgramme =
     programmesList.find((p) => p.id === selectedProgId) ||
     programmesList[0] ||
-    { id: 'prog-1', name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
+    { id: '', name: 'No Programme Selected', code: '—' };
 
   const normPSOs = activePSOsList.map((p) => ({ ...p, competencies: p.competencies ?? [] }));
 

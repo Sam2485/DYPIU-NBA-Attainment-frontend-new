@@ -62,8 +62,8 @@ export function AuthProvider({ children }) {
       email: profileData.email || profileData.username,
       username: profileData.username || profileData.email,
       role: profileData.role || 'FACULTY',
-      department: profileData.department || 'Computer Science & Engineering',
-      programme: profileData.programme || 'B.Tech CSE',
+      department: profileData.department || '—',
+      programme: profileData.programme || '—',
     };
 
     if (token) {
@@ -92,14 +92,35 @@ export function AuthProvider({ children }) {
     return getSessionData('refreshToken') || '';
   };
 
+  const switchRole = (newRole) => {
+    setRole(newRole);
+    if (user) {
+      const updatedUser = { ...user, role: newRole };
+      setUser(updatedUser);
+      saveSessionData('nba_user', JSON.stringify(updatedUser));
+    }
+    saveSessionData('role', newRole);
+  };
+
   const logout = () => {
     clearSessionData();
     setUser(null);
-    window.location.href = '/login';
+    setRole('FACULTY');
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, loginUser, logout, getAccessToken, getRefreshToken }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        role,
+        setRole: switchRole,
+        switchRole,
+        loginUser,
+        logout,
+        getAccessToken,
+        getRefreshToken,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

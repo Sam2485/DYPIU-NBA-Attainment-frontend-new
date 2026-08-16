@@ -290,7 +290,7 @@ export default function HodBatchManagement() {
 
   const handleOpenAddStudentModal = () => {
     setEditingStudent(null);
-    setStudentPrn(`1032250${Math.floor(100 + Math.random() * 900)}`);
+    setStudentPrn('');
     setStudentName('');
     setStudentEmail('');
     setShowStudentModal(true);
