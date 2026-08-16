@@ -206,31 +206,37 @@ export default function COMappingMatrix({ hideFooter = false, courseId = null })
 
   // Helper: Compute PO Strength based on keywords or saved DB mappings
   const computePoStrengthForCO = (poCode, coCode) => {
+    const comps = getCoursePoCompetencies(poCode);
+    if (comps && comps.length > 0) {
+      const mappedCount = comps.filter((c) => c.keywords?.[coCode] && c.keywords[coCode].trim() !== '').length;
+      if (mappedCount > 0) {
+        const pct = (mappedCount / comps.length) * 100;
+        if (pct >= 75) return 3;
+        if (pct >= 50) return 2;
+        if (pct > 0) return 1;
+      }
+    }
     if (savedPoMappings[`${coCode}_${poCode}`] !== undefined) {
       return savedPoMappings[`${coCode}_${poCode}`];
     }
-    const comps = getCoursePoCompetencies(poCode);
-    if (!comps || comps.length === 0) return '-';
-    const mappedCount = comps.filter((c) => c.keywords?.[coCode] && c.keywords[coCode].trim() !== '').length;
-    const pct = (mappedCount / comps.length) * 100;
-    if (pct >= 75) return 3;
-    if (pct >= 50) return 2;
-    if (pct > 0) return 1;
     return '-';
   };
 
   // Helper: Compute PSO Strength based on keywords or saved DB mappings
   const computePsoStrengthForCO = (psoCode, coCode) => {
+    const comps = getCoursePsoCompetencies(psoCode);
+    if (comps && comps.length > 0) {
+      const mappedCount = comps.filter((c) => c.keywords?.[coCode] && c.keywords[coCode].trim() !== '').length;
+      if (mappedCount > 0) {
+        const pct = (mappedCount / comps.length) * 100;
+        if (pct >= 75) return 3;
+        if (pct >= 50) return 2;
+        if (pct > 0) return 1;
+      }
+    }
     if (savedPsoMappings[`${coCode}_${psoCode}`] !== undefined) {
       return savedPsoMappings[`${coCode}_${psoCode}`];
     }
-    const comps = getCoursePsoCompetencies(psoCode);
-    if (!comps || comps.length === 0) return '-';
-    const mappedCount = comps.filter((c) => c.keywords?.[coCode] && c.keywords[coCode].trim() !== '').length;
-    const pct = (mappedCount / comps.length) * 100;
-    if (pct >= 75) return 3;
-    if (pct >= 50) return 2;
-    if (pct > 0) return 1;
     return '-';
   };
 

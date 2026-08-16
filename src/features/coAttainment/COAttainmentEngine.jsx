@@ -392,7 +392,7 @@ export default function COAttainmentEngine({ hideFooter = false }) {
       <div className="card" style={{ marginBottom: '22px', padding: '22px', border: '1px solid #e2e8f0', borderRadius: '14px', background: '#ffffff' }}>
         <div style={{ marginBottom: '14px' }}>
           <h3 style={{ fontSize: '16px', color: '#0f172a', fontWeight: '800', margin: 0 }}>
-            Table 1 : Mapping Matrix of CO to PO & PSO
+            Table 1 : Combined Mapping of CO to PO/PSO {currentCourse?.code ? `(${currentCourse.code})` : ''}
           </h3>
           <span style={{ fontSize: '12px', color: '#64748b' }}>
             Course Outcomes mapped to Programme Outcomes (PO1–PO12) and Programme Specific Outcomes (PSO1–PSO2)
@@ -402,10 +402,22 @@ export default function COAttainmentEngine({ hideFooter = false }) {
         <div style={{ overflowX: 'auto', width: '100%', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
           <table className="audit-data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
             <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
+                <th colSpan={2} style={{ padding: '10px', textAlign: 'center', background: '#f1f5f9', color: '#0f172a', fontWeight: '700' }}>
+                  Course Outcomes ({coList.length})
+                </th>
+                <th colSpan={poList.length} style={{ padding: '10px', textAlign: 'center', background: '#f1f5f9', color: '#0f172a', fontWeight: '700' }}>
+                  Programme Outcomes ({poList.length})
+                </th>
+                {psoList.length > 0 && (
+                  <th colSpan={psoList.length} style={{ padding: '10px', textAlign: 'center', background: '#e2e8f0', color: '#0f172a', fontWeight: '700' }}>
+                    Programme Specific Outcomes ({psoList.length})
+                  </th>
+                )}
+              </tr>
               <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-                <th style={{ padding: '10px', width: '60px', textAlign: 'center' }}>Sr No</th>
-                <th style={{ padding: '10px', width: '80px', textAlign: 'center' }}>Code</th>
-                <th style={{ padding: '10px', minWidth: '220px', textAlign: 'left' }}>Statement</th>
+                <th style={{ padding: '10px', width: '50px', textAlign: 'center' }}>Sr No</th>
+                <th style={{ padding: '10px', width: '120px', textAlign: 'center' }}>CO Code</th>
                 {poList.map((po) => (
                   <th key={po} style={{ padding: '10px 6px', width: '50px', textAlign: 'center' }}>{po}</th>
                 ))}
@@ -419,7 +431,6 @@ export default function COAttainmentEngine({ hideFooter = false }) {
                 <tr key={co.coCode || co.code || index} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '10px', textAlign: 'center', fontWeight: '600', color: '#64748b' }}>{index + 1}</td>
                   <td style={{ padding: '10px', textAlign: 'center', fontWeight: '800', color: '#0f172a' }}>{co.coCode || co.code}</td>
-                  <td style={{ padding: '10px', color: '#334155', lineHeight: 1.3 }}>{co.statement || `Course outcome ${co.coCode || co.code}`}</td>
                   {poList.map((po) => {
                     const str = getMappingStrength(co.coCode || co.code, po);
                     return (
@@ -440,8 +451,8 @@ export default function COAttainmentEngine({ hideFooter = false }) {
               ))}
 
               {/* Average Mapping Row */}
-              <tr style={{ background: '#f1f5f9', fontWeight: '800', borderTop: '2px solid #cbd5e1' }}>
-                <td colSpan={3} style={{ padding: '12px 16px', color: '#0f172a', fontSize: '13px' }}>Average Mapping Weightage</td>
+              <tr style={{ background: '#f8fafc', fontWeight: '800', borderTop: '2px solid #cbd5e1' }}>
+                <td colSpan={2} style={{ padding: '12px 16px', textAlign: 'right', color: '#0f172a', fontSize: '13px' }}>Average</td>
                 {poList.map((po) => (
                   <td key={po} style={{ padding: '10px 6px', textAlign: 'center', fontSize: '13px', color: '#1e293b' }}>
                     {calculateAverageMapping(po)}
