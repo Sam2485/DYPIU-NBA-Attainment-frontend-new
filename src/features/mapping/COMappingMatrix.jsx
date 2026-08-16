@@ -717,7 +717,7 @@ export default function COMappingMatrix({ hideFooter = false, courseId = null })
         <div className="card">
           <div className="card-header" style={{ marginBottom: '12px' }}>
             <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
-              Table 1 : Combined Mapping of CO to PO/PSO ({selectedCourse.code})
+              Table 1 : Combined Mapping of CO to PO/PSO {selectedCourse?.code ? `(${selectedCourse.code})` : ''}
             </h3>
           </div>
 

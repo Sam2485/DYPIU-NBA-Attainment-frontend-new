@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Calculator, Save, AlertCircle, RefreshCw, Layers, FileQuestion } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
-import { getCourseCombinedAttainment } from '../../api/academic';
+import { getCourseCombinedAttainment, getCourseMappings } from '../../api/academic';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function COAttainmentEngine({ hideFooter = false }) {
@@ -18,6 +18,8 @@ export default function COAttainmentEngine({ hideFooter = false }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [attainmentData, setAttainmentData] = useState(null);
+  const [savedPoMappings, setSavedPoMappings] = useState({});
+  const [savedPsoMappings, setSavedPsoMappings] = useState({});
 
   // Target course ID from user selection — strictly NO hardcoded dummy fallbacks
   const currentCourse = selectedCourse || availableCourses[0];
@@ -43,8 +45,9 @@ export default function COAttainmentEngine({ hideFooter = false }) {
     getCourseCombinedAttainment(courseId)
       .then((res) => {
         if (!isMounted) return;
-        if (res && res.data) {
-          setAttainmentData(res.data);
+        const payload = res?.data?.data || res?.data;
+        if (payload) {
+          setAttainmentData(payload);
         }
       })
       .catch((err) => {
@@ -55,6 +58,37 @@ export default function COAttainmentEngine({ hideFooter = false }) {
       .finally(() => {
         if (isMounted) setLoading(false);
       });
+
+    getCourseMappings(courseId)
+      .then((res) => {
+        if (!isMounted) return;
+        const data = res?.data?.data || res?.data;
+        if (data) {
+          if (Array.isArray(data.poMappings)) {
+            const poMapObj = {};
+            data.poMappings.forEach((m) => {
+              const coObj = data.cos?.find((c) => c.id === m.courseOutcomeId);
+              const coCode = coObj?.code || m.courseOutcomeId;
+              if (coCode && m.poCode) {
+                poMapObj[`${coCode}_${m.poCode}`] = m.mappingLevel;
+              }
+            });
+            setSavedPoMappings(poMapObj);
+          }
+          if (Array.isArray(data.psoMappings)) {
+            const psoMapObj = {};
+            data.psoMappings.forEach((m) => {
+              const coObj = data.cos?.find((c) => c.id === m.courseOutcomeId);
+              const coCode = coObj?.code || m.courseOutcomeId;
+              if (coCode && m.psoCode) {
+                psoMapObj[`${coCode}_${m.psoCode}`] = m.mappingLevel;
+              }
+            });
+            setSavedPsoMappings(psoMapObj);
+          }
+        }
+      })
+      .catch((err) => console.warn('Failed to fetch course mappings in COAttainmentEngine:', err));
 
     return () => {
       isMounted = false;
@@ -87,11 +121,14 @@ export default function COAttainmentEngine({ hideFooter = false }) {
         ? (coList.reduce((acc, curr) => acc + (parseFloat(curr.combinedAttainment) || 0), 0) / coList.length).toFixed(2)
         : '0.00');
 
-  // Helper: Mapping strength
+  // Helper: Real saved mapping strength from database
   const getMappingStrength = (coCode, targetCode) => {
-    if (targetCode === 'PO1' || targetCode === 'PO2' || targetCode === 'PSO1') return 3;
-    if (targetCode === 'PO3' || targetCode === 'PSO2') return 2;
-    if (targetCode === 'PO4' || targetCode === 'PO12') return 1;
+    if (savedPoMappings[`${coCode}_${targetCode}`] !== undefined) {
+      return savedPoMappings[`${coCode}_${targetCode}`];
+    }
+    if (savedPsoMappings[`${coCode}_${targetCode}`] !== undefined) {
+      return savedPsoMappings[`${coCode}_${targetCode}`];
+    }
     return '-';
   };
 
