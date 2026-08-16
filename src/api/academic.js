@@ -1,628 +1,203 @@
+/**
+ * ====================================================================
+ * UNIFIED ACADEMIC API EXPORT & ADAPTER (Master Contract Aligned)
+ * ====================================================================
+ * Re-exports all modular API functions for full contract compliance
+ * and provides robust compatibility adapters for all existing modules.
+ */
+
+export * from './academicApi';
+export * from './attainmentApi';
+export * from './reportsApi';
+export * from './approvalApi';
+export * from './dashboardApi';
+
 import apiClient from './client';
 
-export const getSchools = async () => {
-  try {
-    const response = await apiClient.get('/academic/schools');
-    return response;
-  } catch (error) {
-    console.error('Failed to fetch schools:', error);
-    throw error;
-  }
-};
+import {
+  getSchools,
+  getSchool,
+  createSchool,
+  updateSchool,
+  getDepartments,
+  getDepartment,
+  createDepartment,
+  updateDepartment,
+  getProgrammes,
+  getProgramme,
+  createProgramme,
+  updateProgramme,
+  getBatches,
+  getBatch,
+  createBatch,
+  updateBatch,
+  getCourses,
+  getCourse,
+  createCourse,
+  updateCourse,
+  getCourseOfferings,
+  getCourseOffering,
+  createCourseOffering,
+  updateCourseOffering,
+  getUsers,
+  getFaculty,
+  getProgrammeCoordinators,
+  getStudents,
+  getStudent,
+  createStudent,
+  updateStudent,
+  importStudents,
+  getProgrammeOutcomes,
+  saveProgrammeOutcomes,
+  getProgrammeTargets,
+  saveProgrammeTargets,
+  getCourseOutcomes,
+  saveCourseOutcomes,
+  getCOPOMappings,
+  saveCOPOMappings,
+  getAttainmentConfiguration,
+  saveAttainmentConfiguration,
+  uploadCourseMarks,
+  uploadCourseSurvey,
+  uploadProgrammeSurvey,
+} from './academicApi';
 
-export const getSchoolById = async (id) => {
-  try {
-    const response = await apiClient.get(`/academic/schools/${id}`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to fetch school ${id}:`, error);
-    throw error;
-  }
-};
+import {
+  getCourseAttainment,
+  getProgrammeBatchAttainment,
+  getProgrammeBatchDataset,
+  getProgrammeAverageMapping,
+  getProgrammeAverageDirect,
+  getProgrammeAverageIndirect,
+  getProgrammeOverallAttainment,
+} from './attainmentApi';
 
-export const createSchool = async (schoolData) => {
-  try {
-    const response = await apiClient.post('/academic/schools', schoolData);
-    return response;
-  } catch (error) {
-    console.error('Failed to create school:', error);
-    throw error;
-  }
-};
+import {
+  getCourseAtr,
+  saveCourseAtr,
+  submitCourseAtr,
+  getProgrammeAtr,
+  saveProgrammeAtr,
+  submitProgrammeAtr,
+} from './reportsApi';
 
-export const updateSchool = async (id, schoolData) => {
-  try {
-    const response = await apiClient.put(`/academic/schools/${id}`, schoolData);
-    return response;
-  } catch (error) {
-    console.error(`Failed to update school ${id}:`, error);
-    throw error;
-  }
-};
+import {
+  getDirectorDashboard,
+  getHodDashboard,
+  getProgrammeCoordinatorDashboard,
+  getCourseCoordinatorDashboard,
+  getRoleSetupProgress,
+  updateRoleSetupProgress,
+} from './dashboardApi';
 
-export const saveSchoolInfo = async (schoolData) => {
-  if (schoolData.id) {
-    return await updateSchool(schoolData.id, schoolData);
-  } else {
-    return await createSchool(schoolData);
-  }
-};
+// ── Role User Helpers ───────────────────────────────────────────────────────
+export const getUsersByRole = (role) => getUsers({ role });
 
-export const getCourseCoordinatorSummary = async (coordinatorEmail = '') => {
-  try {
-    const response = await apiClient.get('/academic/course-coordinator/summary', {
-      params: coordinatorEmail ? { coordinatorEmail } : {},
-    });
-    return response;
-  } catch (error) {
-    console.error('Failed to fetch course coordinator summary:', error);
-    throw error;
-  }
-};
+// ── Course & Outcome Helpers ────────────────────────────────────────────────
+export const getCourseCOs = (offeringOrCourseId) => getCourseOutcomes(offeringOrCourseId);
+export const saveCourseCOs = (offeringOrCourseId, data) => saveCourseOutcomes(offeringOrCourseId, data);
 
-export const getCourseCoordinatorSetupProgress = async (coordinatorEmail = '', courseId = '') => {
-  try {
-    const response = await apiClient.get('/academic/course-coordinator/setup-progress', {
-      params: { coordinatorEmail, courseId },
-    });
-    return response;
-  } catch (error) {
-    console.error('Failed to fetch course coordinator setup progress:', error);
-    throw error;
-  }
-};
+export const getCOMatrix = (offeringOrCourseId) => getCOPOMappings(offeringOrCourseId);
+export const saveCOMatrix = (offeringOrCourseId, data) => saveCOPOMappings(offeringOrCourseId, data);
+export const getCourseMappings = (offeringOrCourseId) => getCOPOMappings(offeringOrCourseId);
+export const saveCourseMappings = (offeringOrCourseId, data) => saveCOPOMappings(offeringOrCourseId, data);
 
-export const updateCourseCoordinatorSetupProgress = async (coordinatorEmail = '', courseId = '', currentStep = 1) => {
-  try {
-    const response = await apiClient.post('/academic/course-coordinator/setup-progress', null, {
-      params: { coordinatorEmail, courseId, currentStep },
-    });
-    return response;
-  } catch (error) {
-    console.error('Failed to update course coordinator setup progress:', error);
-    throw error;
-  }
-};
-
-export const completeCourseCoordinatorSetup = async (coordinatorEmail = '', courseId = '') => {
-  try {
-    const response = await apiClient.post('/academic/course-coordinator/setup-progress/complete', null, {
-      params: { coordinatorEmail, courseId },
-    });
-    return response;
-  } catch (error) {
-    console.error('Failed to complete course coordinator setup:', error);
-    throw error;
-  }
-};
-
-export const getDirectorSetupProgress = async (schoolId , directorEmail ) => {
-  try {
-    const response = await apiClient.get('/academic/director/setup-progress', {
-      params: { schoolId, directorEmail },
-    });
-    return response;
-  } catch (error) {
-    console.error('Failed to fetch director setup progress:', error);
-    throw error;
-  }
-};
-
-export const updateDirectorSetupProgress = async (schoolId, currentStep, directorEmail = '') => {
-  try {
-    const response = await apiClient.post('/academic/director/setup-progress', null, {
-      params: { schoolId, currentStep, ...(directorEmail ? { directorEmail } : {}) },
-    });
-    return response;
-  } catch (error) {
-    console.error('Failed to update director setup progress:', error);
-    throw error;
-  }
-};
-
-export const getDirectorSchoolSummary = async (schoolId = '', directorEmail = '', directorName = '') => {
-  try {
-    const response = await apiClient.get('/academic/director/school-summary', {
-      params: {directorEmail},
-    });
-    return response;
-  } catch (error) {
-    console.error('Failed to fetch director school summary:', error);
-    throw error;
-  }
-};
-
-export const getDepartmentSummary = async (schoolId = '', directorEmail = '') => {
-  try {
-    const response = await apiClient.get('/academic/director/department-summary', {
-      params: { schoolId, directorEmail },
-    });
-    return response;
-  } catch (error) {
-    console.error('Failed to fetch department summary:', error);
-    throw error;
-  }
-};
-
-export const getDepartments = async (schoolId = '') => {
-  try {
-    const response = await apiClient.get('/academic/departments', {
-      params: schoolId ? { schoolId } : {},
-    });
-    return response;
-  } catch (error) {
-    console.error('Failed to fetch departments:', error);
-    throw error;
-  }
-};
-
-export const saveDepartment = async (deptData) => {
-  try {
-    const response = await apiClient.post('/academic/departments', deptData);
-    return response;
-  } catch (error) {
-    console.error('Failed to save department:', error);
-    throw error;
-  }
-};
-
-export const deleteDepartment = async (id) => {
-  try {
-    const response = await apiClient.delete(`/academic/departments/${id}`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to delete department ${id}:`, error);
-    throw error;
-  }
-};
-
-export const getProgrammes = async (schoolId = '', departmentId = '', coordinatorEmail = '') => {
-  try {
-    const params = {};
-    if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
-    if (departmentId) params.departmentId = departmentId;
-    if (schoolId) params.schoolId = schoolId;
-    const response = await apiClient.get('/academic/programmes', { params });
-    return response;
-  } catch (error) {
-    console.error('Failed to fetch programmes:', error);
-    throw error;
-  }
-};
-
-export const saveProgramme = async (progData) => {
-  try {
-    const response = await apiClient.post('/academic/programmes', progData);
-    return response;
-  } catch (error) {
-    console.error('Failed to save programme:', error);
-    throw error;
-  }
-};
-
-export const deleteProgramme = async (id) => {
-  try {
-    const response = await apiClient.delete(`/academic/programmes/${id}`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to delete programme ${id}:`, error);
-    throw error;
-  }
-};
-
-export const getUsersByRole = async (role = 'HOD') => {
-  try {
-    const response = await apiClient.get('/academic/users', { params: { role } });
-    return response;
-  } catch (error) {
-    console.error(`Failed to fetch users by role ${role}:`, error);
-    throw error;
-  }
-};
-
-export const getHodDepartmentSummary = async (hodEmail = '') => {
-  try {
-    const response = await apiClient.get('/academic/hod/department-summary', {
-      params: { hodEmail },
-    });
-    return response;
-  } catch (error) {
-    console.error('Failed to fetch HOD department summary:', error);
-    throw error;
-  }
-};
-
-export const getHodSetupProgress = async (departmentId = '', hodEmail = '') => {
-  try {
-    const response = await apiClient.get('/academic/hod/setup-progress', {
-      params: { departmentId, hodEmail },
-    });
-    return response;
-  } catch (error) {
-    console.error('Failed to fetch HOD setup progress:', error);
-    throw error;
-  }
-};
-
-export const updateHodSetupProgress = async (departmentId = '', currentStep = 1, hodEmail = '') => {
-  try {
-    const response = await apiClient.put('/academic/hod/setup-progress', null, {
-      params: { departmentId, currentStep, hodEmail },
-    });
-    return response;
-  } catch (error) {
-    console.error('Failed to update HOD setup progress:', error);
-    throw error;
-  }
-};
-
-export const completeHodSetup = async (departmentId = '', hodEmail = '') => {
-  try {
-    const response = await apiClient.post('/academic/hod/setup-progress/complete', null, {
-      params: { departmentId, hodEmail },
-    });
-    return response;
-  } catch (error) {
-    console.error('Failed to complete HOD setup progress:', error);
-    throw error;
-  }
-};
-
-export const getBatches = async (programmeId = '') => {
-  try {
-    const params = programmeId ? { programmeId } : {};
-    const response = await apiClient.get('/academic/batches', { params });
-    return response;
-  } catch (error) {
-    console.error('Failed to fetch batches:', error);
-    throw error;
-  }
-};
-
-export const saveBatch = async (batchData) => {
-  try {
-    const response = await apiClient.post('/academic/batches', batchData);
-    return response;
-  } catch (error) {
-    console.error('Failed to save batch:', error);
-    throw error;
-  }
-};
-
-export const deleteBatch = async (id) => {
-  try {
-    const response = await apiClient.delete(`/academic/batches/${id}`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to delete batch ${id}:`, error);
-    throw error;
-  }
-};
+export const saveCourse = (data) => (data?.id ? updateCourse(data.id, data) : createCourse(data));
+export const deleteCourse = (courseId) => apiClient.delete(`/academic/courses/${courseId}`);
 
 export const getProgrammePOs = async (programmeId) => {
-  try {
-    const response = await apiClient.get(`/outcomes/programmes/${programmeId}/pos`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to fetch POs for programme ${programmeId}:`, error);
-    throw error;
-  }
-};
-
-export const saveProgrammePOs = async (programmeId, pos) => {
-  try {
-    const response = await apiClient.post(`/outcomes/programmes/${programmeId}/pos`, pos);
-    return response;
-  } catch (error) {
-    console.error(`Failed to save POs for programme ${programmeId}:`, error);
-    throw error;
-  }
+  const res = await getProgrammeOutcomes(programmeId);
+  return { data: res?.data?.pos || res?.pos || [] };
 };
 
 export const getProgrammePSOs = async (programmeId) => {
-  try {
-    const response = await apiClient.get(`/outcomes/programmes/${programmeId}/psos`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to fetch PSOs for programme ${programmeId}:`, error);
-    throw error;
-  }
-};
-
-export const getProgrammeTargets = async (programmeId) => {
-  try {
-    const response = await apiClient.get(`/outcomes/programmes/${programmeId}/targets`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to fetch targets for programme ${programmeId}:`, error);
-    throw error;
-  }
-};
-
-export const saveProgrammeTargets = async (programmeId, targetsData) => {
-  try {
-    const response = await apiClient.post(`/outcomes/programmes/${programmeId}/targets`, targetsData);
-    return response;
-  } catch (error) {
-    console.error(`Failed to save targets for programme ${programmeId}:`, error);
-    throw error;
-  }
-};
-
-export const saveProgrammePSOs = async (programmeId, psos) => {
-  try {
-    const response = await apiClient.post(`/outcomes/programmes/${programmeId}/psos`, psos);
-    return response;
-  } catch (error) {
-    console.error(`Failed to save PSOs for programme ${programmeId}:`, error);
-    throw error;
-  }
+  const res = await getProgrammeOutcomes(programmeId);
+  return { data: res?.data?.psos || res?.psos || [] };
 };
 
 export const getProgrammePEOs = async (programmeId) => {
-  try {
-    const response = await apiClient.get(`/outcomes/programmes/${programmeId}/peos`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to fetch PEOs for programme ${programmeId}:`, error);
-    throw error;
-  }
+  const res = await getProgrammeOutcomes(programmeId);
+  return { data: res?.data?.peos || res?.peos || [] };
 };
 
-export const saveProgrammePEOs = async (programmeId, peos) => {
-  try {
-    const response = await apiClient.post(`/outcomes/programmes/${programmeId}/peos`, peos);
-    return response;
-  } catch (error) {
-    console.error(`Failed to save PEOs for programme ${programmeId}:`, error);
-    throw error;
-  }
+// ── School & Department Setup Helpers ───────────────────────────────────────
+export const saveSchoolInfo = (data) => (data?.id ? updateSchool(data.id, data) : createSchool(data));
+export const saveDepartment = (data) => (data?.id ? updateDepartment(data.id, data) : createDepartment(data));
+export const deleteDepartment = (departmentId) => apiClient.delete(`/academic/departments/${departmentId}`);
+export const saveProgramme = (data) => (data?.id ? updateProgramme(data.id, data) : createProgramme(data));
+export const deleteProgramme = (programmeId) => apiClient.delete(`/academic/programmes/${programmeId}`);
+
+// ── Evidence & Attainment Upload Helpers ────────────────────────────────────
+export const getExaminationAttainment = (offeringId) => getCourseAttainment(offeringId);
+export const saveExaminationAttainment = (offeringId, data) => saveCourseOutcomes(offeringId, data);
+export const uploadExaminationFile = (offeringId, file, threshold) => uploadCourseMarks(offeringId, file, threshold);
+export const getUploadedDocuments = (offeringId) => apiClient.get(`/academic/course-offerings/${offeringId}/documents`);
+
+export const getSurveyAttainment = (offeringId) => getCourseAttainment(offeringId);
+export const saveSurveyAttainment = (offeringId, data) => saveCourseOutcomes(offeringId, data);
+export const uploadSurveyFile = (offeringId, file) => uploadCourseSurvey(offeringId, file);
+
+// ── Batch & Student Helpers ────────────────────────────────────────────────
+export const saveBatch = (data) => (data?.id ? updateBatch(data.id, data) : createBatch(data));
+export const deleteBatch = (batchId) => apiClient.delete(`/academic/batches/${batchId}`);
+export const getStudentsByBatch = (batchId) => getStudents(batchId);
+export const saveStudent = (data) => (data?.id ? updateStudent(data.id, data) : createStudent(data));
+export const deleteStudent = (studentId) => apiClient.delete(`/academic/students/${studentId}`);
+
+// ── Coordinator & Target Helpers ───────────────────────────────────────────
+export const saveProgrammeCoordinator = (progId, coordId) =>
+  apiClient.put(`/academic/programmes/${progId}/coordinator`, { coordinatorId: coordId });
+export const saveProgrammePOs = (progId, pos) => saveProgrammeOutcomes(progId, { pos });
+export const saveProgrammePSOs = (progId, psos) => saveProgrammeOutcomes(progId, { psos });
+export const saveProgrammePEOs = (progId, peos) => saveProgrammeOutcomes(progId, { peos });
+export const saveProgrammeTargetLevels = (progId, data) => saveProgrammeTargets(progId, data);
+export const getProgrammeTargetLevels = (progId) => getProgrammeTargets(progId);
+
+export const getCourseCombinedAttainment = (offeringId) => getCourseAttainment(offeringId);
+export const saveCourseCombinedAttainment = (offeringId, data) => saveCourseAtr(data);
+
+// ── ATR Helpers ─────────────────────────────────────────────────────────────
+export const getCourseAtrData = (offeringId) => getCourseAtr(offeringId);
+export const saveCourseAtrData = (offeringId, data) => saveCourseAtr(data);
+export const submitCourseAtrForApproval = (atrId, comments) => submitCourseAtr(atrId, comments);
+
+export const getProgrammeAtrData = (programmeId, batchId) => getProgrammeAtr(programmeId, batchId);
+export const saveProgrammeAtrData = (programmeId, batchId, data) => saveProgrammeAtr(data);
+export const submitProgrammeAtrForApproval = (atrId, comments) => submitProgrammeAtr(atrId, comments);
+export const getPreviousBatchProgrammeAtr = (programmeId, batchId) => getProgrammeAtr(programmeId, batchId);
+
+// ── Dashboard & Summary Helpers ─────────────────────────────────────────────
+export const getDirectorSchoolSummary = () => getDirectorDashboard();
+export const getDepartmentSummary = (deptId) => getHodDashboard(deptId);
+export const getHodDepartmentSummary = (deptId) => getHodDashboard(deptId);
+export const getProgrammeCoordinatorSummary = (progId) => getProgrammeCoordinatorDashboard(progId);
+export const getCourseCoordinatorSummary = (offeringId) => getCourseCoordinatorDashboard(offeringId);
+
+// ── Setup Progress Helpers ──────────────────────────────────────────────────
+export const getDirectorSetupProgress = (email, id) => getRoleSetupProgress('DIRECTOR', id);
+export const updateDirectorSetupProgress = (email, id, step) => updateRoleSetupProgress('DIRECTOR', id, step);
+
+export const getHodSetupProgress = (email, id) => getRoleSetupProgress('HOD', id);
+export const updateHodSetupProgress = (email, id, step) => updateRoleSetupProgress('HOD', id, step);
+export const completeHodSetup = (email, id) => updateRoleSetupProgress('HOD', id, 6);
+
+export const getProgrammeCoordinatorSetupProgress = (email, id) => getRoleSetupProgress('PROGRAMME_COORDINATOR', id);
+export const updateProgrammeCoordinatorSetupProgress = (email, id, step) => updateRoleSetupProgress('PROGRAMME_COORDINATOR', id, step);
+export const completeProgrammeCoordinatorSetup = (email, id) => updateRoleSetupProgress('PROGRAMME_COORDINATOR', id, 6);
+
+export const getCourseCoordinatorSetupProgress = (email, id) => getRoleSetupProgress('COURSE_COORDINATOR', id);
+export const updateCourseCoordinatorSetupProgress = (email, id, step) => updateRoleSetupProgress('COURSE_COORDINATOR', id, step);
+export const completeCourseCoordinatorSetup = (email, id) => updateRoleSetupProgress('COURSE_COORDINATOR', id, 6);
+
+// ── Export Download Helpers ─────────────────────────────────────────────────
+export const downloadAttainmentExcel = (courseOfferingId, batchId) => {
+  const url = `/api/v1/reports/course-atr/${courseOfferingId}/export-data?format=excel`;
+  window.open(url, '_blank');
+  return Promise.resolve();
 };
 
-export const getCourseCOs = async (courseId) => {
-  try {
-    const response = await apiClient.get(`/outcomes/courses/${courseId}/cos`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to fetch COs for course ${courseId}:`, error);
-    throw error;
-  }
-};
-
-export const saveCourseCOs = async (courseId, cos) => {
-  try {
-    const response = await apiClient.post(`/outcomes/courses/${courseId}/cos`, cos);
-    return response;
-  } catch (error) {
-    console.error(`Failed to save COs for course ${courseId}:`, error);
-    throw error;
-  }
-};
-
-export const getCourseMappings = async (courseId) => {
-  try {
-    const response = await apiClient.get(`/outcomes/courses/${courseId}/mappings`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to fetch mappings for course ${courseId}:`, error);
-    throw error;
-  }
-};
-
-export const saveCourseMappings = async (courseId, mappingData) => {
-  try {
-    const response = await apiClient.post(`/outcomes/courses/${courseId}/mappings`, mappingData);
-    return response;
-  } catch (error) {
-    console.error(`Failed to save mappings for course ${courseId}:`, error);
-    throw error;
-  }
-};
-
-export const getStudentsByBatch = async (batchId) => {
-  try {
-    const response = await apiClient.get('/academic/students', { params: { batchId } });
-    return response;
-  } catch (error) {
-    console.error(`Failed to fetch students for batch ${batchId}:`, error);
-    throw error;
-  }
-};
-
-export const saveStudent = async (studentData) => {
-  try {
-    const response = await apiClient.post('/academic/students', studentData);
-    return response;
-  } catch (error) {
-    console.error('Failed to save student:', error);
-    throw error;
-  }
-};
-
-export const deleteStudent = async (id) => {
-  try {
-    const response = await apiClient.delete(`/academic/students/${id}`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to delete student ${id}:`, error);
-    throw error;
-  }
-};
-
-export const getProgrammeCoordinatorSummary = async (coordinatorEmail = '', programmeId = '') => {
-  try {
-    const params = {};
-    if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
-    if (programmeId) params.programmeId = programmeId;
-    const response = await apiClient.get('/academic/coordinator/programme-summary', { params });
-    return response;
-  } catch (error) {
-    console.error('Failed to fetch Programme Coordinator summary:', error);
-    throw error;
-  }
-};
-
-export const getProgrammeCoordinatorSetupProgress = async (coordinatorEmail = '', programmeId = '') => {
-  try {
-    const params = {};
-    if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
-    if (programmeId) params.programmeId = programmeId;
-    const response = await apiClient.get('/academic/coordinator/setup-progress', { params });
-    return response;
-  } catch (error) {
-    console.error('Failed to fetch Programme Coordinator setup progress:', error);
-    throw error;
-  }
-};
-
-export const updateProgrammeCoordinatorSetupProgress = async (coordinatorEmail = '', programmeId = '', currentStep = 1) => {
-  try {
-    const params = { currentStep };
-    if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
-    if (programmeId) params.programmeId = programmeId;
-    const response = await apiClient.put('/academic/coordinator/setup-progress', null, { params });
-    return response;
-  } catch (error) {
-    console.error('Failed to update Programme Coordinator setup progress:', error);
-    throw error;
-  }
-};
-
-export const completeProgrammeCoordinatorSetup = async (coordinatorEmail = '', programmeId = '') => {
-  try {
-    const params = {};
-    if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
-    if (programmeId) params.programmeId = programmeId;
-    const response = await apiClient.post('/academic/coordinator/setup-progress/complete', null, { params });
-    return response;
-  } catch (error) {
-    console.error('Failed to complete Programme Coordinator setup:', error);
-    throw error;
-  }
-};
-
-export const getCourses = async (programmeId = '') => {
-  try {
-    const params = programmeId ? { programmeId } : {};
-    const response = await apiClient.get('/academic/courses', { params });
-    return response;
-  } catch (error) {
-    console.error('Failed to fetch courses:', error);
-    throw error;
-  }
-};
-
-export const saveCourse = async (courseData) => {
-  try {
-    const response = await apiClient.post('/academic/courses', courseData);
-    return response;
-  } catch (error) {
-    console.error('Failed to save course:', error);
-    throw error;
-  }
-};
-
-export const deleteCourse = async (id) => {
-  try {
-    const response = await apiClient.delete(`/academic/courses/${id}`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to delete course ${id}:`, error);
-    throw error;
-  }
-};
-
-export const getExaminationAttainment = async (courseId) => {
-  try {
-    const response = await apiClient.get(`/attainment/examination/${courseId}`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to fetch examination attainment for course ${courseId}:`, error);
-    throw error;
-  }
-};
-
-export const saveExaminationAttainment = async (courseId, payload) => {
-  try {
-    const response = await apiClient.post(`/attainment/examination/${courseId}`, payload);
-    return response;
-  } catch (error) {
-    console.error(`Failed to save examination attainment for course ${courseId}:`, error);
-    throw error;
-  }
-};
-
-export const uploadExaminationFile = async (courseId, file, thresholdPercentage = 45) => {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (thresholdPercentage) {
-      formData.append('thresholdPercentage', thresholdPercentage);
-    }
-    const response = await apiClient.post(`/attainment/examination/${courseId}/upload`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response;
-  } catch (error) {
-    console.error(`Failed to upload examination file for course ${courseId}:`, error);
-    throw error;
-  }
-};
-
-export const getSurveyAttainment = async (courseId) => {
-  try {
-    const response = await apiClient.get(`/attainment/survey/${courseId}`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to fetch survey attainment for course ${courseId}:`, error);
-    throw error;
-  }
-};
-
-export const saveSurveyAttainment = async (courseId, payload) => {
-  try {
-    const response = await apiClient.post(`/attainment/survey/${courseId}`, payload);
-    return response;
-  } catch (error) {
-    console.error(`Failed to save survey attainment for course ${courseId}:`, error);
-    throw error;
-  }
-};
-
-export const uploadSurveyFile = async (courseId, file) => {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await apiClient.post(`/attainment/survey/${courseId}/upload`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response;
-  } catch (error) {
-    console.error(`Failed to upload survey file for course ${courseId}:`, error);
-    throw error;
-  }
-};
-
-export const getCourseCombinedAttainment = async (courseId) => {
-  try {
-    const response = await apiClient.get(`/attainment/calculate/course/${courseId}`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to fetch combined CO attainment for course ${courseId}:`, error);
-    throw error;
-  }
-};
-
-export const getUploadedDocuments = async (courseId) => {
-  try {
-    const response = await apiClient.get(`/attainment/documents/${courseId}`);
-    return response;
-  } catch (error) {
-    console.error(`Failed to fetch uploaded documents for course ${courseId}:`, error);
-    throw error;
-  }
+export const downloadAttainmentPdf = (courseOfferingId, batchId) => {
+  const url = `/api/v1/reports/course-atr/${courseOfferingId}/export-data?format=pdf`;
+  window.open(url, '_blank');
+  return Promise.resolve();
 };

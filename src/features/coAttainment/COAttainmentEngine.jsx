@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Calculator, Save, AlertCircle, RefreshCw, Layers, FileQuestion } from 'lucide-react';
+import { Calculator, Save, AlertCircle, RefreshCw, Layers, FileQuestion, FileSpreadsheet, FileText, Download } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
-import { getCourseCombinedAttainment, getCourseMappings } from '../../api/academic';
+import { getCourseCombinedAttainment, getCourseMappings, downloadAttainmentExcel, downloadAttainmentPdf } from '../../api/academic';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function COAttainmentEngine({ hideFooter = false }) {
   const {
     academicYear,
+    selectedBatchId,
     selectedCourse,
     availableCourses = [],
     activeCOs = [],
@@ -15,11 +16,16 @@ export default function COAttainmentEngine({ hideFooter = false }) {
     activeAttainmentConfig,
   } = useAcademic();
 
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [attainmentData, setAttainmentData] = useState(null);
   const [savedPoMappings, setSavedPoMappings] = useState({});
   const [savedPsoMappings, setSavedPsoMappings] = useState({});
+  const [fetchedPOs, setFetchedPOs] = useState([]);
+  const [fetchedPSOs, setFetchedPSOs] = useState([]);
 
   // Target course ID from user selection — strictly NO hardcoded dummy fallbacks
   const currentCourse = selectedCourse || availableCourses[0];
@@ -32,8 +38,8 @@ export default function COAttainmentEngine({ hideFooter = false }) {
   const indirectThreshold = attainmentData?.config?.indirectThreshold ?? activeAttainmentConfig?.indirectThreshold ?? 60;
 
   // Dynamic Lists
-  const poList = activePOs?.length > 0 ? activePOs.map((p) => p.code) : ['PO1', 'PO2', 'PO3', 'PO4', 'PO5', 'PO6', 'PO7', 'PO8', 'PO9', 'PO10', 'PO11', 'PO12'];
-  const psoList = activePSOs?.length > 0 ? activePSOs.map((p) => p.code) : ['PSO1', 'PSO2'];
+  const poList = fetchedPOs.length > 0 ? fetchedPOs.map((p) => p.code || p) : (activePOs?.length > 0 ? activePOs.map((p) => p.code || p) : ['PO1', 'PO2', 'PO3', 'PO4', 'PO5', 'PO6', 'PO7', 'PO8', 'PO9', 'PO10', 'PO11', 'PO12']);
+  const psoList = fetchedPSOs.length > 0 ? fetchedPSOs.map((p) => p.code || p) : (activePSOs?.length > 0 ? activePSOs.map((p) => p.code || p) : ['PSO1', 'PSO2']);
 
   useEffect(() => {
     let isMounted = true;
@@ -64,6 +70,12 @@ export default function COAttainmentEngine({ hideFooter = false }) {
         if (!isMounted) return;
         const data = res?.data?.data || res?.data;
         if (data) {
+          if (Array.isArray(data.pos) && data.pos.length > 0) {
+            setFetchedPOs(data.pos);
+          }
+          if (Array.isArray(data.psos) && data.psos.length > 0) {
+            setFetchedPSOs(data.psos);
+          }
           if (Array.isArray(data.poMappings)) {
             const poMapObj = {};
             data.poMappings.forEach((m) => {
@@ -158,6 +170,30 @@ export default function COAttainmentEngine({ hideFooter = false }) {
     alert(`Attainment-Main calculation saved successfully for ${currentCourse.code} (${academicYear})!`);
   };
 
+  const handleDownloadExcel = async () => {
+    if (!courseId) return;
+    try {
+      setExportingExcel(true);
+      await downloadAttainmentExcel(courseId, selectedBatchId);
+    } catch (err) {
+      alert('Failed to download Attainment Excel: ' + (err.message || 'Error'));
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!courseId) return;
+    try {
+      setExportingPdf(true);
+      await downloadAttainmentPdf(courseId, selectedBatchId);
+    } catch (err) {
+      alert('Failed to download Attainment PDF: ' + (err.message || 'Error'));
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   return (
     <div className="animated-page" style={{ paddingBottom: '30px' }}>
       {/* Header Banner */}
@@ -197,7 +233,55 @@ export default function COAttainmentEngine({ hideFooter = false }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            onClick={handleDownloadExcel}
+            disabled={exportingExcel || !courseId}
+            style={{
+              background: '#0284c7',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '10px 16px',
+              fontSize: '13px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
+              opacity: exportingExcel ? 0.7 : 1,
+            }}
+            title="Download fully populated Excel workbook matching NBA Attainment Template"
+          >
+            <FileSpreadsheet size={16} />
+            {exportingExcel ? 'Exporting...' : 'Export Excel (.xlsx)'}
+          </button>
+
+          <button
+            onClick={handleDownloadPdf}
+            disabled={exportingPdf || !courseId}
+            style={{
+              background: '#dc2626',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '10px 16px',
+              fontSize: '13px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+              opacity: exportingPdf ? 0.7 : 1,
+            }}
+            title="Download high quality PDF report for NBA accreditation documentation"
+          >
+            <FileText size={16} />
+            {exportingPdf ? 'Generating...' : 'Export PDF Report'}
+          </button>
+
           <button
             onClick={handleSaveCalculation}
             style={{
@@ -205,7 +289,7 @@ export default function COAttainmentEngine({ hideFooter = false }) {
               color: '#ffffff',
               border: 'none',
               borderRadius: '10px',
-              padding: '10px 18px',
+              padding: '10px 16px',
               fontSize: '13px',
               fontWeight: '700',
               cursor: 'pointer',
@@ -215,7 +299,7 @@ export default function COAttainmentEngine({ hideFooter = false }) {
               boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
             }}
           >
-            <Save size={16} /> Save Calculation Results
+            <Save size={16} /> Save
           </button>
         </div>
       </div>
@@ -388,78 +472,85 @@ export default function COAttainmentEngine({ hideFooter = false }) {
         </div>
       </div>
 
-      {/* Table 1: Mapping of CO to PO/PSO */}
-      <div className="card" style={{ marginBottom: '22px', padding: '22px', border: '1px solid #e2e8f0', borderRadius: '14px', background: '#ffffff' }}>
-        <div style={{ marginBottom: '14px' }}>
-          <h3 style={{ fontSize: '16px', color: '#0f172a', fontWeight: '800', margin: 0 }}>
+      {/* Table 1: Combined Mapping of CO to PO/PSO */}
+      <div className="card">
+        <div className="card-header" style={{ marginBottom: '12px' }}>
+          <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
             Table 1 : Combined Mapping of CO to PO/PSO {currentCourse?.code ? `(${currentCourse.code})` : ''}
           </h3>
-          <span style={{ fontSize: '12px', color: '#64748b' }}>
-            Course Outcomes mapped to Programme Outcomes (PO1–PO12) and Programme Specific Outcomes (PSO1–PSO2)
-          </span>
         </div>
 
-        <div style={{ overflowX: 'auto', width: '100%', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-          <table className="audit-data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+        <div style={{ overflowX: 'auto', width: '100%' }}>
+          <table className="audit-data-table">
             <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
-                <th colSpan={2} style={{ padding: '10px', textAlign: 'center', background: '#f1f5f9', color: '#0f172a', fontWeight: '700' }}>
+              <tr>
+                <th colSpan={2} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a' }}>
                   Course Outcomes ({coList.length})
                 </th>
-                <th colSpan={poList.length} style={{ padding: '10px', textAlign: 'center', background: '#f1f5f9', color: '#0f172a', fontWeight: '700' }}>
+                <th colSpan={poList.length} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a' }}>
                   Programme Outcomes ({poList.length})
                 </th>
                 {psoList.length > 0 && (
-                  <th colSpan={psoList.length} style={{ padding: '10px', textAlign: 'center', background: '#e2e8f0', color: '#0f172a', fontWeight: '700' }}>
+                  <th colSpan={psoList.length} style={{ textAlign: 'center', background: '#e2e8f0', color: '#0f172a' }}>
                     Programme Specific Outcomes ({psoList.length})
                   </th>
                 )}
               </tr>
-              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-                <th style={{ padding: '10px', width: '50px', textAlign: 'center' }}>Sr No</th>
-                <th style={{ padding: '10px', width: '120px', textAlign: 'center' }}>CO Code</th>
+              <tr>
+                <th style={{ width: '50px', textAlign: 'center' }}>Sr No</th>
+                <th style={{ width: '120px' }}>CO Code</th>
                 {poList.map((po) => (
-                  <th key={po} style={{ padding: '10px 6px', width: '50px', textAlign: 'center' }}>{po}</th>
+                  <th key={po} style={{ width: '65px', textAlign: 'center' }}>
+                    {po}
+                  </th>
                 ))}
                 {psoList.map((pso) => (
-                  <th key={pso} style={{ padding: '10px 6px', width: '50px', textAlign: 'center', background: '#f1f5f9' }}>{pso}</th>
+                  <th key={pso} style={{ width: '65px', textAlign: 'center' }}>
+                    {pso}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {coList.map((co, index) => (
-                <tr key={co.coCode || co.code || index} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '10px', textAlign: 'center', fontWeight: '600', color: '#64748b' }}>{index + 1}</td>
-                  <td style={{ padding: '10px', textAlign: 'center', fontWeight: '800', color: '#0f172a' }}>{co.coCode || co.code}</td>
+              {coList.map((co, idx) => (
+                <tr key={co.coCode || co.code || idx}>
+                  <td style={{ textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
+                  <td style={{ fontWeight: '700', color: '#0f172a' }}>{co.coCode || co.code}</td>
+
+                  {/* PO Columns */}
                   {poList.map((po) => {
-                    const str = getMappingStrength(co.coCode || co.code, po);
+                    const val = getMappingStrength(co.coCode || co.code, po);
                     return (
-                      <td key={po} style={{ padding: '10px 6px', textAlign: 'center', fontWeight: str !== '-' ? '800' : '400', color: str !== '-' ? '#2563eb' : '#94a3b8' }}>
-                        {str}
+                      <td key={po} style={{ textAlign: 'center' }}>
+                        {val}
                       </td>
                     );
                   })}
+
+                  {/* PSO Columns */}
                   {psoList.map((pso) => {
-                    const str = getMappingStrength(co.coCode || co.code, pso);
+                    const val = getMappingStrength(co.coCode || co.code, pso);
                     return (
-                      <td key={pso} style={{ padding: '10px 6px', textAlign: 'center', fontWeight: str !== '-' ? '800' : '400', color: str !== '-' ? '#7c3aed' : '#94a3b8', background: '#faf5ff' }}>
-                        {str}
+                      <td key={pso} style={{ textAlign: 'center' }}>
+                        {val}
                       </td>
                     );
                   })}
                 </tr>
               ))}
 
-              {/* Average Mapping Row */}
-              <tr style={{ background: '#f8fafc', fontWeight: '800', borderTop: '2px solid #cbd5e1' }}>
-                <td colSpan={2} style={{ padding: '12px 16px', textAlign: 'right', color: '#0f172a', fontSize: '13px' }}>Average</td>
+              {/* Average Row */}
+              <tr style={{ background: '#f8fafc', fontWeight: '700' }}>
+                <td colSpan={2} style={{ textAlign: 'right', paddingRight: '12px', color: '#0f172a' }}>
+                  Average
+                </td>
                 {poList.map((po) => (
-                  <td key={po} style={{ padding: '10px 6px', textAlign: 'center', fontSize: '13px', color: '#1e293b' }}>
+                  <td key={po} style={{ textAlign: 'center', color: '#0f172a', fontWeight: '700' }}>
                     {calculateAverageMapping(po)}
                   </td>
                 ))}
                 {psoList.map((pso) => (
-                  <td key={pso} style={{ padding: '10px 6px', textAlign: 'center', fontSize: '13px', color: '#6b21a8', background: '#f3e8ff' }}>
+                  <td key={pso} style={{ textAlign: 'center', color: '#0f172a', fontWeight: '700' }}>
                     {calculateAverageMapping(pso)}
                   </td>
                 ))}

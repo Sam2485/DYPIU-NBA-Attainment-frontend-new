@@ -1,42 +1,51 @@
 import { useState, useEffect } from 'react';
-import { BarChart3, Award, RefreshCw } from 'lucide-react';
+import { BarChart3, Award, RefreshCw, FileSpreadsheet, FileText, Download } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
-import { getCourseCombinedAttainment } from '../../api/academic';
+import { getCourseCombinedAttainment, downloadAttainmentExcel, downloadAttainmentPdf } from '../../api/academic';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function POPSOAttainmentEngine({ hideFooter = false }) {
   const { role } = useAuth();
   const {
     academicYear,
+    selectedBatchId,
     selectedProgramme,
+    selectedCourseOffering,
+    courseOfferings = [],
     selectedCourse,
     availableCourses = [],
     activePOs = [],
     activePSOs = [],
     activeCOs = [],
+    activeMappings = [],
   } = useAcademic();
 
   const [activeTab, setActiveTab] = useState('summary'); // 'summary' or 'competency'
   const [loading, setLoading] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [combinedData, setCombinedData] = useState(null);
 
-  const currentCourse = selectedCourse || availableCourses[0];
-  const courseId = currentCourse?.id;
+  const targetOffering = selectedCourseOffering || courseOfferings[0];
+  const targetCourse = selectedCourse || availableCourses[0];
+  const targetId = targetOffering?.id || targetCourse?.id;
 
   useEffect(() => {
     let isMounted = true;
-    if (!courseId) return;
+    if (!targetId) return;
 
     setLoading(true);
-    getCourseCombinedAttainment(courseId)
+    getCourseCombinedAttainment(targetId)
       .then((res) => {
         if (isMounted && res?.data) {
           setCombinedData(res.data);
+        } else if (isMounted && res && typeof res === 'object') {
+          setCombinedData(res);
         }
       })
       .catch((err) => {
-        console.error('Error loading PO/PSO attainment:', err);
+        console.warn('Error loading PO/PSO attainment from backend:', err);
       })
       .finally(() => {
         if (isMounted) setLoading(false);
@@ -45,26 +54,40 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
     return () => {
       isMounted = false;
     };
-  }, [courseId]);
+  }, [targetId]);
 
-  // Dynamic Lists from Outcome Management
+  // Dynamic Lists from Database Outcome Models
   const poList = (activePOs || []).map((p) => p?.code || p).filter(Boolean);
   const psoList = (activePSOs || []).map((p) => p?.code || p).filter(Boolean);
   const courseOutcomes = activeCOs || [];
 
-  const overallCOAttainment = combinedData?.overallCoAttainment ?? '0.00';
+  const overallCOAttainment = combinedData?.overallCoAttainment ?? combinedData?.overallAttainment ?? '0.00';
 
-  // Helper: Get mapping strength for a CO and PO/PSO
+  // Get mapping strength from real database mappings
   const getMappingStrength = (coCode, targetCode) => {
-    if (!coCode) return '-';
-    if (targetCode === 'PO1' || targetCode === 'PO2' || targetCode === 'PSO1') return 3;
-    if (targetCode === 'PO3' || targetCode === 'PSO2') return 2;
-    if (targetCode === 'PO4' || targetCode === 'PO12' || targetCode === 'PSO3') return coCode.endsWith('.5') || coCode.endsWith('.6') ? 1 : 2;
+    if (!coCode || !targetCode) return '-';
+    // Check if provided in combinedData response
+    if (combinedData?.mappings && Array.isArray(combinedData.mappings)) {
+      const found = combinedData.mappings.find(
+        (m) => (m.coCode === coCode || m.courseOutcomeCode === coCode) && (m.poCode === targetCode || m.psoCode === targetCode || m.targetCode === targetCode)
+      );
+      if (found && found.mappingLevel) return found.mappingLevel;
+    }
+    // Check in activeMappings from context
+    if (Array.isArray(activeMappings)) {
+      const found = activeMappings.find(
+        (m) => (m.coCode === coCode || m.courseOutcomeCode === coCode) && (m.poCode === targetCode || m.psoCode === targetCode || m.targetCode === targetCode)
+      );
+      if (found && found.mappingLevel) return found.mappingLevel;
+    }
     return '-';
   };
 
-  // Helper: Calculate Average for a PO or PSO column
+  // Authoritative Average for a PO or PSO column (from backend or computed on real mappings)
   const calculateAverage = (key) => {
+    if (combinedData?.averageMappings && combinedData.averageMappings[key] !== undefined) {
+      return Number(combinedData.averageMappings[key]).toFixed(2);
+    }
     let sum = 0;
     let count = 0;
     courseOutcomes.forEach((co) => {
@@ -77,12 +100,48 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
     return count > 0 ? (sum / count).toFixed(2) : '-';
   };
 
-  // Helper: Final PO/PSO Attainment Value: (Average * Overall CO Attainment) / 3
+  // Authoritative Final PO/PSO Attainment Value: (Average * Overall CO Attainment) / 3
   const calculateAttainmentValue = (key) => {
+    if (combinedData?.poAttainments && combinedData.poAttainments[key] !== undefined) {
+      return Number(combinedData.poAttainments[key]).toFixed(2);
+    }
+    if (combinedData?.psoAttainments && combinedData.psoAttainments[key] !== undefined) {
+      return Number(combinedData.psoAttainments[key]).toFixed(2);
+    }
     const avg = calculateAverage(key);
     if (avg === '-' || parseFloat(overallCOAttainment) === 0) return '-';
     return ((parseFloat(avg) * parseFloat(overallCOAttainment)) / 3).toFixed(2);
   };
+
+  const handleDownloadExcel = async () => {
+    if (!targetId) return;
+    try {
+      setExportingExcel(true);
+      await downloadAttainmentExcel(targetId, selectedBatchId);
+    } catch (err) {
+      alert('Failed to download Attainment Excel: ' + (err.message || 'Error'));
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!targetId) return;
+    try {
+      setExportingPdf(true);
+      await downloadAttainmentPdf(targetId, selectedBatchId);
+    } catch (err) {
+      alert('Failed to download Attainment PDF: ' + (err.message || 'Error'));
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  const courseDisplayName = targetOffering?.courseCode
+    ? `${targetOffering.courseCode} — ${targetOffering.courseName || ''}`
+    : targetCourse
+    ? `${targetCourse.code} — ${targetCourse.name}`
+    : 'Select Course';
 
   return (
     <div className="animated-page">
@@ -104,7 +163,7 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
             </div>
             <div>
               <span style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#bae6fd' }}>
-                Part 2 — CO to PO & PSO Attainment &nbsp;·&nbsp; {currentCourse ? `${currentCourse.code} — ${currentCourse.name}` : 'Select Course'}
+                Part 2 — CO to PO & PSO Attainment &nbsp;·&nbsp; {courseDisplayName}
               </span>
               <h2 style={{ margin: '4px 0 0 0', fontSize: '20px', color: '#ffffff', fontWeight: '800' }}>
                 PO & PSO Attainment Engine
@@ -112,7 +171,55 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              onClick={handleDownloadExcel}
+              disabled={exportingExcel || !targetId}
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                color: '#ffffff',
+                border: '1px solid rgba(255, 255, 255, 0.4)',
+                borderRadius: '8px',
+                padding: '8px 14px',
+                fontSize: '12.5px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                backdropFilter: 'blur(4px)',
+                opacity: exportingExcel ? 0.7 : 1,
+              }}
+              title="Download fully populated Excel workbook"
+            >
+              <FileSpreadsheet size={15} />
+              {exportingExcel ? 'Exporting...' : 'Export Excel'}
+            </button>
+
+            <button
+              onClick={handleDownloadPdf}
+              disabled={exportingPdf || !targetId}
+              style={{
+                background: '#dc2626',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 14px',
+                fontSize: '12.5px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+                opacity: exportingPdf ? 0.7 : 1,
+              }}
+              title="Download NBA Attainment PDF report"
+            >
+              <FileText size={15} />
+              {exportingPdf ? 'Generating...' : 'Export PDF'}
+            </button>
+
             <button
               onClick={() => setActiveTab('summary')}
               className={`btn ${activeTab === 'summary' ? 'btn-primary' : 'btn-secondary'}`}
@@ -134,7 +241,7 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
       {loading && (
         <div style={{ padding: '20px', textAlign: 'center', background: '#f8fafc', borderRadius: '12px', marginBottom: '20px' }}>
           <RefreshCw size={20} className="spin" style={{ color: '#0284c7', marginBottom: '8px' }} />
-          <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>Calculating PO/PSO attainment for {currentCourse?.code}...</div>
+          <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>Calculating PO/PSO attainment from database records...</div>
         </div>
       )}
 
@@ -163,7 +270,7 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
         <div className="card" style={{ marginBottom: '20px', padding: '22px', border: '1px solid #e2e8f0', borderRadius: '14px', background: '#ffffff' }}>
           <div className="card-header" style={{ marginBottom: '14px' }}>
             <h3 style={{ fontSize: '16px', color: '#0f172a', margin: 0, fontWeight: '800' }}>
-              PO & PSO Attainment Summary Matrix ({currentCourse?.code || 'Course'} • {academicYear || 'AY 2025-26'})
+              PO & PSO Attainment Summary Matrix ({targetOffering?.courseCode || targetCourse?.code || 'Course'} • {academicYear || 'AY 2025-26'})
             </h3>
           </div>
           <div style={{ overflowX: 'auto', width: '100%' }}>
@@ -171,9 +278,9 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
               <thead>
                 <tr>
                   <th colSpan={2} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a', padding: '10px' }}>
-                    Course Code: {currentCourse?.code || 'Course'}
+                    Course Code: {targetOffering?.courseCode || targetCourse?.code || 'Course'}
                   </th>
-                  <th colSpan={poList.length} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a', padding: '10px' }}>
+                  <th colSpan={poList.length || 1} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a', padding: '10px' }}>
                     Programme Outcomes ({poList.length} POs)
                   </th>
                   {psoList.length > 0 && (
@@ -199,7 +306,7 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
               </thead>
               <tbody>
                 <tr>
-                  <td style={{ fontWeight: '800', color: '#0f172a', padding: '12px' }}>{currentCourse?.code || 'Course'}</td>
+                  <td style={{ fontWeight: '800', color: '#0f172a', padding: '12px' }}>{targetOffering?.courseCode || targetCourse?.code || 'Course'}</td>
                   <td style={{ fontSize: '12px', color: '#475569', padding: '12px' }}>Avg Mapping Strength</td>
                   {poList.map((po) => (
                     <td key={po} style={{ textAlign: 'center', padding: '12px 4px', fontWeight: '600' }}>
@@ -213,7 +320,7 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
                   ))}
                 </tr>
                 <tr style={{ background: '#ecfdf5', fontWeight: '900' }}>
-                  <td style={{ fontWeight: '900', color: '#065f46', padding: '14px' }}>{currentCourse?.code || 'Course'}</td>
+                  <td style={{ fontWeight: '900', color: '#065f46', padding: '14px' }}>{targetOffering?.courseCode || targetCourse?.code || 'Course'}</td>
                   <td style={{ fontWeight: '900', color: '#065f46', padding: '14px' }}>Final PO / PSO Attainment Value</td>
                   {poList.map((po) => (
                     <td key={po} style={{ textAlign: 'center', fontSize: '14px', color: '#047857', fontWeight: '900', padding: '14px 4px' }}>
@@ -236,7 +343,7 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
         <div className="card" style={{ marginBottom: '20px', padding: '22px', border: '1px solid #e2e8f0', borderRadius: '14px', background: '#ffffff' }}>
           <div className="card-header" style={{ marginBottom: '14px' }}>
             <h3 style={{ fontSize: '16px', color: '#0f172a', margin: 0, fontWeight: '800' }}>
-              Competency-Level Attainment Breakdown ({currentCourse?.code || 'Course'})
+              Competency-Level Attainment Breakdown ({targetOffering?.courseCode || targetCourse?.code || 'Course'})
             </h3>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
@@ -266,7 +373,7 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
           prevPath="/co-attainment"
           nextPath="/programme-atr"
           nextLabel="Save & Proceed to Programme ATR →"
-          onSave={() => alert(`PO/PSO Attainment saved for ${currentCourse?.code || 'Course'} (${academicYear})!`)}
+          onSave={() => alert(`PO/PSO Attainment saved for ${targetOffering?.courseCode || targetCourse?.code || 'Course'} (${academicYear})!`)}
         />
       )}
     </div>

@@ -15,34 +15,6 @@ const ink     = '#0f172a';
 const muted   = '#64748b';
 const accent  = '#4f46e5';
 
-// ── Fallback dummy data for course coordinator dashboard ──────────────────────
-const DEFAULT_ASSIGNED_COURSES = [
-  {
-    id: 'crs-1',
-    code: 'CS301',
-    name: 'Computer Networks',
-    programme: 'B.Tech Computer Science & Engineering',
-    programmeCode: 'CSE',
-    semester: 'Sem V',
-    academicYear: '2025-26',
-    courseOutcomesCount: 6,
-    poCount: 12,
-    completedSteps: ['/outcomes', '/co-mapping'],
-  },
-  {
-    id: 'crs-2',
-    code: 'CS302',
-    name: 'Database Management Systems',
-    programme: 'B.Tech Computer Science & Engineering',
-    programmeCode: 'CSE',
-    semester: 'Sem V',
-    academicYear: '2025-26',
-    courseOutcomesCount: 5,
-    poCount: 12,
-    completedSteps: ['/outcomes', '/co-mapping', '/marks-upload', '/survey-upload', '/co-attainment', '/course-atr'],
-  },
-];
-
 // ── Workflow steps mirroring WORKFLOW_STEPS in AttainmentProgressTracker ─────
 const WORKFLOW_STEPS = [
   { step: 1, label: 'Add COs & Targets',  desc: 'Define Course Outcomes & Targets',    path: '/outcomes',       icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
@@ -83,24 +55,25 @@ export default function DashboardOverview() {
     return () => { isMounted = false; };
   }, [user?.email]);
 
+  const { courseOfferings = [], selectedCourseOffering } = useAuth ? {} : {};
   const rawAssigned = summaryData?.assignedCourses;
   const isApiLoaded = summaryData !== null;
   const assignedCourses = (Array.isArray(rawAssigned) && rawAssigned.length > 0)
     ? rawAssigned
-    : DEFAULT_ASSIGNED_COURSES;
+    : [];
 
   const hasCourses = assignedCourses.length > 0;
 
-  const currentCourse = assignedCourses.find((c) => c.id === selectedCourseId) || assignedCourses[0];
+  const currentCourse = assignedCourses.find((c) => c.id === selectedCourseId) || assignedCourses[0] || null;
 
-  const courseCode     = currentCourse?.code || 'CS301';
-  const courseName     = currentCourse?.name || 'Computer Networks';
-  const progName       = currentCourse?.programme || 'B.Tech Computer Science & Engineering';
-  const progCode       = currentCourse?.programmeCode || 'CSE';
+  const courseCode     = currentCourse?.code || currentCourse?.courseCode || '—';
+  const courseName     = currentCourse?.name || currentCourse?.courseName || 'No Course Selected';
+  const progName       = currentCourse?.programme || currentCourse?.programmeName || '—';
+  const progCode       = currentCourse?.programmeCode || '—';
   const academicYear   = currentCourse?.academicYear || '2025-26';
-  const courseCOsCount = summaryData?.courseOutcomesCount || currentCourse?.courseOutcomesCount || currentCourse?.courseOutcomes?.length || 6;
-  const poCount        = summaryData?.poCount || currentCourse?.poCount || 12;
-  const psoCount       = summaryData?.psoCount || 2;
+  const courseCOsCount = summaryData?.courseOutcomesCount || currentCourse?.courseOutcomesCount || currentCourse?.courseOutcomes?.length || 0;
+  const poCount        = summaryData?.poCount || currentCourse?.poCount || 0;
+  const psoCount       = summaryData?.psoCount || 0;
 
   const setupCompletedList = summaryData?.setupProgress?.completedSteps || [];
   const setupStepNum       = summaryData?.setupProgress?.currentStep || 1;

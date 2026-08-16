@@ -8,6 +8,7 @@ import { useAcademic } from '../../context/AcademicContext';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 import ApprovalHeaderControls from '../../components/common/ApprovalHeaderControls';
 import { useAuth } from '../../context/AuthContext';
+import { approveItem, requestRevision } from '../../api/approvalApi';
 
 /* ─── tiny style helpers ─────────────────────────────────────────── */
 const surface = {
@@ -111,24 +112,39 @@ export default function HodApprovals() {
   });
 
   /* ── actions ───────────────────────────────────────────────────── */
-  const handleApprove = () => {
-    updateCourseVerificationStatus(allocationKey, 'allocationStatus', 'APPROVED', '', verifierName);
-    approveHodSubmission(selectedProgId, verifierName);
-    approveHodSubmission('ALL', verifierName);
-    alert(`🎉 Course Coordinator allocations for ${activeProg?.code || 'programme'} approved by HOD!`);
+  const handleApprove = async () => {
+    try {
+      updateCourseVerificationStatus(allocationKey, 'allocationStatus', 'APPROVED', '', verifierName);
+      approveHodSubmission(selectedProgId, verifierName);
+      approveHodSubmission('ALL', verifierName);
+      if (allocationRecord.id) {
+        await approveItem(allocationRecord.id, 'Approved by Head of Department (HOD)');
+      }
+      alert(`🎉 Course Coordinator allocations for ${activeProg?.code || 'programme'} approved by HOD!`);
+    } catch (err) {
+      console.warn('Backend approval call info:', err.message);
+    }
   };
 
-  const handleConfirmReject = () => {
-    const finalRemarks = rejectRemarks.trim() || 'Please review and re-assign Course Coordinators as per HOD notes.';
-    updateCourseVerificationStatus(
-      allocationKey,
-      'allocationStatus',
-      'REVISION_REQUESTED',
-      finalRemarks,
-      verifierName
-    );
-    setShowRejectModal(false);
-    alert(`⚠️ Revision request sent to Programme Coordinator for ${activeProg?.code || 'programme'}!`);
+  const handleConfirmReject = async () => {
+    try {
+      const finalRemarks = rejectRemarks.trim() || 'Please review and re-assign Course Coordinators as per HOD notes.';
+      updateCourseVerificationStatus(
+        allocationKey,
+        'allocationStatus',
+        'REVISION_REQUESTED',
+        finalRemarks,
+        verifierName
+      );
+      if (allocationRecord.id) {
+        await requestRevision(allocationRecord.id, finalRemarks);
+      }
+      setShowRejectModal(false);
+      alert(`⚠️ Revision request sent to Programme Coordinator for ${activeProg?.code || 'programme'}!`);
+    } catch (err) {
+      console.warn('Backend revision call info:', err.message);
+      setShowRejectModal(false);
+    }
   };
 
   /* ═══════════════════════════════════════════════════════════════
