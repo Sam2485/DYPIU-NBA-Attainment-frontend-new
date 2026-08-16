@@ -20,8 +20,10 @@ export default function COMappingMatrix({ hideFooter = false, courseId = null })
     activeCOs: contextCOs = [],
   } = useAcademic();
 
-  const targetCourseId = courseId || selectedCourse?.id || 'crs-1';
-  const targetProgrammeId = selectedCourse?.programmeId || selectedProgramme?.id || 'prog-1';
+  const targetCourseId = courseId || selectedCourse?.id;
+  const targetProgrammeId = selectedCourse?.programmeId || selectedProgramme?.id;
+
+  console.log('[COMappingMatrix] [DEBUG courseId] Active targetCourseId:', targetCourseId, '| targetProgrammeId:', targetProgrammeId);
 
   const [courseOutcomes, setCourseOutcomes] = useState(contextCOs);
   const [poListState, setPoListState] = useState(contextPOs);
@@ -33,6 +35,7 @@ export default function COMappingMatrix({ hideFooter = false, courseId = null })
   useEffect(() => {
     let isMounted = true;
     if (targetCourseId) {
+      console.log('[COMappingMatrix] [DEBUG courseId] Calling getCourseCOs for targetCourseId:', targetCourseId);
       getCourseCOs(targetCourseId)
         .then((res) => {
           if (isMounted) {
@@ -91,15 +94,38 @@ export default function COMappingMatrix({ hideFooter = false, courseId = null })
     return () => { isMounted = false; };
   }, [targetProgrammeId]);
 
-  // Fetch saved course mappings & keyword stores from backend
+  // Primary Backend Integration Effect: Fetch course mappings, COs, POs, PSOs, and keyword stores using targetCourseId
   useEffect(() => {
     let isMounted = true;
     if (targetCourseId) {
+      console.log('[COMappingMatrix] [DEBUG getCourseMappings Request] Sending courseId:', targetCourseId);
       getCourseMappings(targetCourseId)
         .then((res) => {
+          console.log('[COMappingMatrix] [DEBUG getCourseMappings Response Full Object]:', res);
+          console.log('[COMappingMatrix] [DEBUG getCourseMappings Response Data]:', res?.data);
           if (isMounted) {
             const data = res?.data?.data || res?.data;
+            console.log('[COMappingMatrix] [DEBUG Parsed Mapping Data]:', {
+              courseId: data?.courseId,
+              programmeId: data?.programmeId,
+              cosCount: data?.cos?.length,
+              posCount: data?.pos?.length,
+              psosCount: data?.psos?.length,
+              poMappingsCount: data?.poMappings?.length,
+              psoMappingsCount: data?.psoMappings?.length,
+              poKeywordsStore: data?.poKeywordsStore,
+              psoKeywordsStore: data?.psoKeywordsStore,
+            });
             if (data) {
+              if (Array.isArray(data.cos) && data.cos.length > 0) {
+                setCourseOutcomes(data.cos);
+              }
+              if (Array.isArray(data.pos) && data.pos.length > 0) {
+                setPoListState(data.pos);
+              }
+              if (Array.isArray(data.psos) && data.psos.length > 0) {
+                setPsoListState(data.psos);
+              }
               if (data.poKeywordsStore && Object.keys(data.poKeywordsStore).length > 0) {
                 setPoKeywordsStore((prev) => ({ ...prev, [targetCourseId]: data.poKeywordsStore }));
               }

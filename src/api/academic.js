@@ -531,3 +531,88 @@ export const deleteCourse = async (id) => {
     throw error;
   }
 };
+
+export const getExaminationAttainment = async (courseId) => {
+  try {
+    const response = await apiClient.get(`/attainment/examination/${courseId}`);
+    return response;
+  } catch (error) {
+    console.error(`Failed to fetch examination attainment for course ${courseId}:`, error);
+    throw error;
+  }
+};
+
+export const saveExaminationAttainment = async (courseId, payload) => {
+  try {
+    const response = await apiClient.post(`/attainment/examination/${courseId}`, payload);
+    return response;
+  } catch (error) {
+    console.error(`Failed to save examination attainment for course ${courseId}:`, error);
+    throw error;
+  }
+};
+
+export const uploadExaminationFile = async (courseId, file, thresholdPercentage = 45) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (thresholdPercentage) {
+      formData.append('thresholdPercentage', thresholdPercentage);
+    }
+    const response = await apiClient.post(`/attainment/examination/${courseId}/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response;
+  } catch (error) {
+    console.error(`Failed to upload examination file for course ${courseId}:`, error);
+    throw error;
+  }
+};
+
+export const getSurveyAttainment = async (courseId) => {
+  try {
+    const response = await apiClient.get(`/attainment/survey/${courseId}`);
+    return response;
+  } catch (error) {
+    console.error(`Failed to fetch survey attainment for course ${courseId}:`, error);
+    throw error;
+  }
+};
+
+export const saveSurveyAttainment = async (courseId, payload) => {
+  try {
+    const response = await apiClient.post(`/attainment/survey/${courseId}`, payload);
+    return response;
+  } catch (error) {
+    console.error(`Failed to save survey attainment for course ${courseId}:`, error);
+    throw error;
+  }
+};
+
+export const uploadSurveyFile = async (courseId, file) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post(`/attainment/survey/${courseId}/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response;
+  } catch (error) {
+    console.error(`Failed to upload survey file for course ${courseId}:`, error);
+    throw error;
+  }
+};
+
+export const getCourseCombinedAttainment = async (courseId) => {
+  try {
+    const response = await apiClient.get(`/attainment/calculate/course/${courseId}`);
+    return response;
+  } catch (error) {
+    console.error(`Failed to fetch combined CO attainment for course ${courseId}:`, error);
+    throw error;
+  }
+};

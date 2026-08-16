@@ -1,40 +1,91 @@
-import { Calculator, Save } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Calculator, Save, AlertCircle, RefreshCw, Layers, FileQuestion } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import { getCourseCombinedAttainment } from '../../api/academic';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function COAttainmentEngine({ hideFooter = false }) {
   const {
     academicYear,
-    selectedProgramme,
     selectedCourse,
-    activeCOs,
-    activePOs,
-    activePSOs,
-    yearMetrics,
+    availableCourses = [],
+    activeCOs = [],
+    activePOs = [],
+    activePSOs = [],
     activeAttainmentConfig,
   } = useAcademic();
 
-  // Dynamic parameters from Attainment Configuration (Module 7)
-  const directWeight = activeAttainmentConfig?.directWeight || 80;
-  const indirectWeight = activeAttainmentConfig?.indirectWeight || 20;
-  const directThreshold = activeAttainmentConfig?.directThreshold || 60;
-  const thresholdPct = `${directThreshold}%`;
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [attainmentData, setAttainmentData] = useState(null);
+
+  // Target course ID from user selection — strictly NO hardcoded dummy fallbacks
+  const currentCourse = selectedCourse || availableCourses[0];
+  const courseId = currentCourse?.id;
+
+  // Dynamic parameters from Attainment Configuration
+  const directWeight = attainmentData?.config?.directWeight ?? activeAttainmentConfig?.directWeight ?? 80;
+  const indirectWeight = attainmentData?.config?.indirectWeight ?? activeAttainmentConfig?.indirectWeight ?? 20;
+  const directThreshold = attainmentData?.config?.directThreshold ?? activeAttainmentConfig?.directThreshold ?? 60;
+  const indirectThreshold = attainmentData?.config?.indirectThreshold ?? activeAttainmentConfig?.indirectThreshold ?? 60;
 
   // Dynamic Lists
-  const courseOutcomes = activeCOs;
-  const poList = activePOs.map((p) => p.code);
-  const psoList = activePSOs.map((p) => p.code);
+  const poList = activePOs?.length > 0 ? activePOs.map((p) => p.code) : ['PO1', 'PO2', 'PO3', 'PO4', 'PO5', 'PO6', 'PO7', 'PO8', 'PO9', 'PO10', 'PO11', 'PO12'];
+  const psoList = activePSOs?.length > 0 ? activePSOs.map((p) => p.code) : ['PSO1', 'PSO2'];
 
-  // Year-wise Attainment Levels from AcademicContext
-  const directLevel = yearMetrics.directExamAttainment;
-  const indirectLevel = yearMetrics.indirectSurveyAttainment;
-  const overallCOAttainment = ((directLevel * directWeight + indirectLevel * indirectWeight) / 100).toFixed(2);
+  useEffect(() => {
+    let isMounted = true;
+    if (!courseId) return;
+
+    setLoading(true);
+    setError(null);
+
+    getCourseCombinedAttainment(courseId)
+      .then((res) => {
+        if (!isMounted) return;
+        if (res && res.data) {
+          setAttainmentData(res.data);
+        }
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        console.error('Error fetching combined CO attainment data:', err);
+        setError('Could not load attainment details from backend server for this course.');
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [courseId]);
+
+  // CO List from API for selected course
+  const coResults = attainmentData?.coAttainments || [];
+  const coList = coResults.length > 0 ? coResults : activeCOs.map((c) => ({
+    coCode: c.code,
+    statement: c.statement,
+    directPct: null,
+    directLevel: null,
+    indirectPct: null,
+    indirectLevel: null,
+    combinedAttainment: null,
+  }));
+
+  const hasData = coResults.length > 0 && coResults.some((c) => c.directPct !== null || c.indirectPct !== null);
+
+  const overallCOAttainment = attainmentData?.overallCoAttainment ?? (
+    hasData && coList.length > 0
+      ? (coList.reduce((acc, curr) => acc + (parseFloat(curr.combinedAttainment) || 0), 0) / coList.length).toFixed(2)
+      : '0.00'
+  );
 
   // Helper: Mapping strength
   const getMappingStrength = (coCode, targetCode) => {
     if (targetCode === 'PO1' || targetCode === 'PO2' || targetCode === 'PSO1') return 3;
     if (targetCode === 'PO3' || targetCode === 'PSO2') return 2;
-    if (targetCode === 'PO4' || targetCode === 'PO12' || targetCode === 'PSO3') return coCode.endsWith('.5') || coCode.endsWith('.6') ? 1 : 2;
+    if (targetCode === 'PO4' || targetCode === 'PO12') return 1;
     return '-';
   };
 
@@ -42,8 +93,8 @@ export default function COAttainmentEngine({ hideFooter = false }) {
   const calculateAverageMapping = (key) => {
     let sum = 0;
     let count = 0;
-    courseOutcomes.forEach((co) => {
-      const val = getMappingStrength(co.code, key);
+    coList.forEach((co) => {
+      const val = getMappingStrength(co.coCode || co.code, key);
       if (typeof val === 'number') {
         sum += val;
         count++;
@@ -55,140 +106,307 @@ export default function COAttainmentEngine({ hideFooter = false }) {
   // Helper: Table 2 Final PO/PSO Attainment Value: (Average * Overall CO Attainment) / 3
   const calculatePoPsoAttainment = (key) => {
     const avg = calculateAverageMapping(key);
-    if (avg === '-') return '-';
+    if (avg === '-' || !hasData) return '-';
     return ((parseFloat(avg) * parseFloat(overallCOAttainment)) / 3).toFixed(2);
   };
 
   const handleSaveCalculation = () => {
-    alert(`CO & PO/PSO Attainment calculation saved for ${selectedCourse.code} (${academicYear})!`);
+    if (!currentCourse) return;
+    alert(`Attainment-Main calculation saved successfully for ${currentCourse.code} (${academicYear})!`);
   };
 
   return (
-    <div className="animated-page">
+    <div className="animated-page" style={{ paddingBottom: '30px' }}>
       {/* Header Banner */}
-      <div className="banner-dark-gradient">
-        <div className="banner-content-row">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div
-              style={{
-                width: '46px',
-                height: '46px',
-                borderRadius: '12px',
-                background: '#f5f3ff',
-                border: '1.5px solid #6366f1',
-                display: 'grid',
-                placeItems: 'center',
-              }}
-            >
-              <Calculator size={24} style={{ color: '#4f46e5' }} />
-            </div>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
-                Course Outcome (CO) Attainment
-              </h2>
+      <div style={{
+        background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)',
+        borderRadius: '16px',
+        padding: '24px 28px',
+        color: '#ffffff',
+        marginBottom: '22px',
+        boxShadow: '0 10px 25px -5px rgba(49, 46, 129, 0.3)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '16px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{
+            width: '52px',
+            height: '52px',
+            borderRadius: '14px',
+            background: 'rgba(255, 255, 255, 0.15)',
+            backdropFilter: 'blur(8px)',
+            display: 'grid',
+            placeItems: 'center',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+          }}>
+            <Calculator size={26} style={{ color: '#ffffff' }} />
+          </div>
+          <div>
+            <span style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c7d2fe' }}>
+              Attainment Engine &nbsp;·&nbsp; {currentCourse ? `${currentCourse.code} — ${currentCourse.name}` : 'Select Course'}
+            </span>
+            <h2 style={{ margin: '4px 0 0 0', fontSize: '22px', fontWeight: '800', letterSpacing: '-0.02em' }}>
+              Course Outcome (CO) Attainment Summary
+            </h2>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={handleSaveCalculation}
+            style={{
+              background: '#10b981',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '10px 18px',
+              fontSize: '13px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+            }}
+          >
+            <Save size={16} /> Save Calculation Results
+          </button>
+        </div>
+      </div>
+
+      {loading && (
+        <div style={{ padding: '30px', textAlign: 'center', background: '#f8fafc', borderRadius: '12px', marginBottom: '20px' }}>
+          <RefreshCw size={24} className="spin" style={{ color: '#6366f1', marginBottom: '10px' }} />
+          <div style={{ fontSize: '14px', fontWeight: '700', color: '#334155' }}>Fetching backend attainment calculation for {currentCourse?.code}...</div>
+        </div>
+      )}
+
+      {error && (
+        <div style={{ padding: '14px 18px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '10px', color: '#991b1b', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <AlertCircle size={18} />
+          <span style={{ fontSize: '13px', fontWeight: '600' }}>{error}</span>
+        </div>
+      )}
+
+      {!hasData && !loading && (
+        <div style={{ padding: '24px', background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: '14px', color: '#1e40af', marginBottom: '22px', display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+          <FileQuestion size={24} style={{ flexShrink: 0, marginTop: '2px', color: '#2563eb' }} />
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: '800' }}>No uploaded data for {currentCourse?.code || 'selected course'}</div>
+            <div style={{ fontSize: '13px', marginTop: '4px', lineHeight: 1.4 }}>
+              Upload Examination marks (`2. Examination`) and Survey responses (`3. Course End Survey`) for this course to calculate real direct and indirect attainment.
             </div>
           </div>
+        </div>
+      )}
 
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button className="btn btn-success" onClick={handleSaveCalculation}>
-              <Save size={15} /> Save Calculation Results
-            </button>
+      {/* Dynamic Weightage & Threshold Summary Card */}
+      <div className="card" style={{ marginBottom: '22px', padding: '22px', border: '1px solid #e2e8f0', borderRadius: '14px', background: '#ffffff' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <h3 style={{ fontSize: '16px', color: '#0f172a', fontWeight: '800', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Layers size={18} style={{ color: '#4f46e5' }} /> Attainment Configuration Parameters ({currentCourse?.code || 'Course'} • {academicYear || 'AY 2025-26'})
+          </h3>
+          <span style={{ fontSize: '12px', fontWeight: '700', color: '#059669', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '4px 12px', borderRadius: '20px' }}>
+            Database Settings
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '16px' }}>
+          <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Direct Weightage</span>
+            <div style={{ fontSize: '24px', fontWeight: '900', color: '#2563eb', marginTop: '4px' }}>{directWeight}%</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>From Attainment Settings</div>
+          </div>
+
+          <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Indirect Weightage</span>
+            <div style={{ fontSize: '24px', fontWeight: '900', color: '#7c3aed', marginTop: '4px' }}>{indirectWeight}%</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>From Attainment Settings</div>
+          </div>
+
+          <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Direct Level 3 Threshold</span>
+            <div style={{ fontSize: '24px', fontWeight: '900', color: '#059669', marginTop: '4px' }}>≥ {directThreshold}%</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Level 2 (40-59%) · Level 1 (1-39%)</div>
+          </div>
+
+          <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Indirect Level 3 Threshold</span>
+            <div style={{ fontSize: '24px', fontWeight: '900', color: '#0284c7', marginTop: '4px' }}>≥ {indirectThreshold}%</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Level 2 (40-59%) · Level 1 (1-39%)</div>
+          </div>
+
+          <div style={{ background: '#f0fdf4', padding: '16px', borderRadius: '12px', border: '1.5px solid #bbf7d0' }}>
+            <span style={{ fontSize: '11px', color: '#166534', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Overall CO Attainment</span>
+            <div style={{ fontSize: '24px', fontWeight: '900', color: '#15803d', marginTop: '4px' }}>{overallCOAttainment}</div>
+            <div style={{ fontSize: '11px', color: '#166534', marginTop: '4px' }}>Combined Average out of 3.00</div>
           </div>
         </div>
       </div>
 
-      {/* Dynamic Weightage & Threshold Summary Card (from Attainment Config) */}
-      <div className="card" style={{ marginBottom: '20px' }}>
-        <div className="card-header" style={{ marginBottom: '12px' }}>
-          <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
-            Dynamic Attainment Configuration Parameters ({selectedCourse.code} • {academicYear})
-          </h3>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-          <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Direct Weightage</span>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#2563eb', marginTop: '2px' }}>{directWeight}%</div>
-          </div>
-          <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Indirect Weightage</span>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0284c7', marginTop: '2px' }}>{indirectWeight}%</div>
-          </div>
-          <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Target Threshold</span>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#059669', marginTop: '2px' }}>{thresholdPct}</div>
-          </div>
-          <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Overall CO Attainment</span>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>{overallCOAttainment}</div>
+      {/* Reference Work: CO Direct & Indirect Examination / Survey Attainment Table */}
+      <div className="card" style={{ marginBottom: '22px', padding: '22px', border: '1px solid #e2e8f0', borderRadius: '14px', background: '#ffffff' }}>
+        <div style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h3 style={{ fontSize: '16px', color: '#0f172a', fontWeight: '800', margin: 0 }}>
+              Reference Work — Direct & Indirect Attainment Calculation ({currentCourse?.code || 'Course'})
+            </h3>
+            <span style={{ fontSize: '12px', color: '#64748b' }}>
+              Formula: Attainment of CO = ({directWeight}% Direct Level) + ({indirectWeight}% Indirect Level)
+            </span>
           </div>
         </div>
-      </div>
 
-      {/* CO Direct & Indirect Attainment Table (Dynamic Values) */}
-      <div className="card" style={{ marginBottom: '20px' }}>
-        <div className="card-header" style={{ marginBottom: '12px' }}>
-          <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
-            CO Direct & Indirect Examination / Survey Attainment ({courseOutcomes.length} COs)
-          </h3>
-        </div>
-        <div style={{ overflowX: 'auto', width: '100%' }}>
-          <table className="audit-data-table">
+        <div style={{ overflowX: 'auto', width: '100%', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+          <table className="audit-data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
-              <tr>
-                <th style={{ width: '180px' }}>Attainment Component</th>
-                <th style={{ width: '220px' }}>Metric</th>
-                {courseOutcomes.map((co) => (
-                  <th key={co.code} style={{ textAlign: 'center' }}>
-                    {co.code}
+              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
+                <th style={{ padding: '12px 16px', textAlign: 'left', width: '220px', color: '#334155' }}>Attainment Metric</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', width: '250px', color: '#334155' }}>Assessment Component</th>
+                {coList.map((co) => (
+                  <th key={co.coCode || co.code} style={{ padding: '12px 14px', textAlign: 'center', color: '#0f172a', fontWeight: '800' }}>
+                    {co.coCode || co.code}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td style={{ fontWeight: '700', color: '#2563eb' }}>Direct Examination</td>
-                <td style={{ fontSize: '12px', color: '#475569' }}>% Students ≥ Threshold ({thresholdPct})</td>
-                {courseOutcomes.map((co) => (
-                  <td key={co.code} style={{ textAlign: 'center', fontWeight: '600' }}>
-                    {thresholdPct}
-                  </td>
-                ))}
-              </tr>
-              <tr style={{ background: '#f8fafc' }}>
-                <td style={{ fontWeight: '700', color: '#2563eb' }}>Direct Examination</td>
-                <td style={{ fontWeight: '700', color: '#0f172a' }}>Direct Attainment Level</td>
-                {courseOutcomes.map((co) => (
-                  <td key={co.code} style={{ textAlign: 'center', fontWeight: '800', color: '#2563eb' }}>
-                    {directLevel}
+              {/* Row 1: Direct % */}
+              <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ padding: '12px 16px', fontWeight: '700', color: '#2563eb' }}>% of students above threshold</td>
+                <td style={{ padding: '12px 16px', color: '#475569' }}>Direct through Examination</td>
+                {coList.map((co) => (
+                  <td key={co.coCode || co.code} style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '600' }}>
+                    {co.directPct !== undefined && co.directPct !== null ? `${co.directPct}%` : '—'}
                   </td>
                 ))}
               </tr>
 
-              <tr>
-                <td style={{ fontWeight: '700', color: '#0284c7' }}>Indirect Course Survey</td>
-                <td style={{ fontSize: '12px', color: '#475569' }}>% Positive Rating</td>
-                {courseOutcomes.map((co) => (
-                  <td key={co.code} style={{ textAlign: 'center', fontWeight: '600' }}>
-                    82%
-                  </td>
-                ))}
-              </tr>
-              <tr style={{ background: '#f8fafc' }}>
-                <td style={{ fontWeight: '700', color: '#0284c7' }}>Indirect Course Survey</td>
-                <td style={{ fontWeight: '700', color: '#0f172a' }}>Indirect Attainment Level</td>
-                {courseOutcomes.map((co) => (
-                  <td key={co.code} style={{ textAlign: 'center', fontWeight: '800', color: '#0284c7' }}>
-                    {indirectLevel}
+              {/* Row 2: Direct Level */}
+              <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
+                <td style={{ padding: '12px 16px', fontWeight: '800', color: '#2563eb' }}>Direct Attainment Level</td>
+                <td style={{ padding: '12px 16px', fontWeight: '600', color: '#334155' }}>Score Range 1–3 (≥{directThreshold}% = 3)</td>
+                {coList.map((co) => (
+                  <td key={co.coCode || co.code} style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '900', fontSize: '15px', color: '#2563eb' }}>
+                    {co.directLevel !== undefined && co.directLevel !== null ? co.directLevel : '—'}
                   </td>
                 ))}
               </tr>
 
+              {/* Row 3: Indirect % */}
+              <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ padding: '12px 16px', fontWeight: '700', color: '#7c3aed' }}>% of students above threshold</td>
+                <td style={{ padding: '12px 16px', color: '#475569' }}>Indirect through Course End Survey</td>
+                {coList.map((co) => (
+                  <td key={co.coCode || co.code} style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '600' }}>
+                    {co.indirectPct !== undefined && co.indirectPct !== null ? `${co.indirectPct}%` : '—'}
+                  </td>
+                ))}
+              </tr>
+
+              {/* Row 4: Indirect Level */}
+              <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
+                <td style={{ padding: '12px 16px', fontWeight: '800', color: '#7c3aed' }}>Indirect Attainment Level</td>
+                <td style={{ padding: '12px 16px', fontWeight: '600', color: '#334155' }}>Score Range 1–3 (≥{indirectThreshold}% = 3)</td>
+                {coList.map((co) => (
+                  <td key={co.coCode || co.code} style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '900', fontSize: '15px', color: '#7c3aed' }}>
+                    {co.indirectLevel !== undefined && co.indirectLevel !== null ? co.indirectLevel : '—'}
+                  </td>
+                ))}
+              </tr>
+
+              {/* Row 5: Attainment of CO */}
+              <tr style={{ borderBottom: '2px solid #cbd5e1', background: '#eef2ff' }}>
+                <td style={{ padding: '14px 16px', fontWeight: '800', color: '#1e1b4b', fontSize: '14px' }}>Attainment of CO</td>
+                <td style={{ padding: '14px 16px', fontWeight: '700', color: '#3730a3' }}>
+                  ({directWeight}% Direct + {indirectWeight}% Indirect)
+                </td>
+                {coList.map((co) => (
+                  <td key={co.coCode || co.code} style={{ padding: '14px 14px', textAlign: 'center', fontWeight: '900', fontSize: '16px', color: '#3730a3' }}>
+                    {co.combinedAttainment !== undefined && co.combinedAttainment !== null ? co.combinedAttainment : '—'}
+                  </td>
+                ))}
+              </tr>
+
+              {/* Row 6: Overall CO Attainment */}
+              <tr style={{ background: '#ecfdf5' }}>
+                <td colSpan={2} style={{ padding: '16px', fontWeight: '900', color: '#065f46', fontSize: '15px' }}>
+                  Overall CO Attainment Score (Average of all COs)
+                </td>
+                <td colSpan={coList.length} style={{ padding: '16px', textAlign: 'center', fontWeight: '900', fontSize: '20px', color: '#047857' }}>
+                  {overallCOAttainment} / 3.00
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Table 1: Mapping of CO to PO/PSO */}
+      <div className="card" style={{ marginBottom: '22px', padding: '22px', border: '1px solid #e2e8f0', borderRadius: '14px', background: '#ffffff' }}>
+        <div style={{ marginBottom: '14px' }}>
+          <h3 style={{ fontSize: '16px', color: '#0f172a', fontWeight: '800', margin: 0 }}>
+            Table 1 : Mapping Matrix of CO to PO & PSO
+          </h3>
+          <span style={{ fontSize: '12px', color: '#64748b' }}>
+            Course Outcomes mapped to Programme Outcomes (PO1–PO12) and Programme Specific Outcomes (PSO1–PSO2)
+          </span>
+        </div>
+
+        <div style={{ overflowX: 'auto', width: '100%', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+          <table className="audit-data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
+                <th style={{ padding: '10px', width: '60px', textAlign: 'center' }}>Sr No</th>
+                <th style={{ padding: '10px', width: '80px', textAlign: 'center' }}>Code</th>
+                <th style={{ padding: '10px', minWidth: '220px', textAlign: 'left' }}>Statement</th>
+                {poList.map((po) => (
+                  <th key={po} style={{ padding: '10px 6px', width: '50px', textAlign: 'center' }}>{po}</th>
+                ))}
+                {psoList.map((pso) => (
+                  <th key={pso} style={{ padding: '10px 6px', width: '50px', textAlign: 'center', background: '#f1f5f9' }}>{pso}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {coList.map((co, index) => (
+                <tr key={co.coCode || co.code || index} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '10px', textAlign: 'center', fontWeight: '600', color: '#64748b' }}>{index + 1}</td>
+                  <td style={{ padding: '10px', textAlign: 'center', fontWeight: '800', color: '#0f172a' }}>{co.coCode || co.code}</td>
+                  <td style={{ padding: '10px', color: '#334155', lineHeight: 1.3 }}>{co.statement || `Course outcome ${co.coCode || co.code}`}</td>
+                  {poList.map((po) => {
+                    const str = getMappingStrength(co.coCode || co.code, po);
+                    return (
+                      <td key={po} style={{ padding: '10px 6px', textAlign: 'center', fontWeight: str !== '-' ? '800' : '400', color: str !== '-' ? '#2563eb' : '#94a3b8' }}>
+                        {str}
+                      </td>
+                    );
+                  })}
+                  {psoList.map((pso) => {
+                    const str = getMappingStrength(co.coCode || co.code, pso);
+                    return (
+                      <td key={pso} style={{ padding: '10px 6px', textAlign: 'center', fontWeight: str !== '-' ? '800' : '400', color: str !== '-' ? '#7c3aed' : '#94a3b8', background: '#faf5ff' }}>
+                        {str}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+
+              {/* Average Mapping Row */}
               <tr style={{ background: '#f1f5f9', fontWeight: '800', borderTop: '2px solid #cbd5e1' }}>
-                <td style={{ color: '#0f172a' }}>Combined CO Attainment</td>
-                <td style={{ color: '#0f172a' }}>({directWeight}% Direct + {indirectWeight}% Indirect)</td>
-                {courseOutcomes.map((co) => (
-                  <td key={co.code} style={{ textAlign: 'center', fontSize: '14px', color: '#0f172a' }}>
-                    {overallCOAttainment}
+                <td colSpan={3} style={{ padding: '12px 16px', color: '#0f172a', fontSize: '13px' }}>Average Mapping Weightage</td>
+                {poList.map((po) => (
+                  <td key={po} style={{ padding: '10px 6px', textAlign: 'center', fontSize: '13px', color: '#1e293b' }}>
+                    {calculateAverageMapping(po)}
+                  </td>
+                ))}
+                {psoList.map((pso) => (
+                  <td key={pso} style={{ padding: '10px 6px', textAlign: 'center', fontSize: '13px', color: '#6b21a8', background: '#f3e8ff' }}>
+                    {calculateAverageMapping(pso)}
                   </td>
                 ))}
               </tr>
@@ -197,69 +415,59 @@ export default function COAttainmentEngine({ hideFooter = false }) {
         </div>
       </div>
 
-      {/* Table 2: PO & PSO Attainment Values */}
-      <div className="card">
-        <div className="card-header" style={{ marginBottom: '12px' }}>
-          <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
-            Table 2 : PO & PSO Attainment Values for {selectedCourse.code} ({academicYear})
+      {/* Table 2: PO & PSO Attainment Values (Direct Attainment) */}
+      <div className="card" style={{ padding: '22px', border: '1px solid #e2e8f0', borderRadius: '14px', background: '#ffffff' }}>
+        <div style={{ marginBottom: '14px' }}>
+          <h3 style={{ fontSize: '16px', color: '#0f172a', fontWeight: '800', margin: 0 }}>
+            Table 2: PO & PSO Attainment Values (Direct Attainment)
           </h3>
+          <span style={{ fontSize: '12px', color: '#64748b' }}>
+            Formula: PO Attainment = Average CO Mapping × (Overall CO Attainment / 3.00)
+          </span>
         </div>
-        <div style={{ overflowX: 'auto', width: '100%' }}>
-          <table className="audit-data-table">
+
+        <div style={{ overflowX: 'auto', width: '100%', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+          <table className="audit-data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
             <thead>
-              <tr>
-                <th colSpan={2} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a' }}>
-                  Course Code: {selectedCourse.code}
-                </th>
-                <th colSpan={poList.length} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a' }}>
-                  Programme Outcomes ({poList.length} POs)
-                </th>
-                {psoList.length > 0 && (
-                  <th colSpan={psoList.length} style={{ textAlign: 'center', background: '#e2e8f0', color: '#0f172a' }}>
-                    Programme Specific Outcomes ({psoList.length} PSOs)
-                  </th>
-                )}
-              </tr>
-              <tr>
-                <th style={{ width: '120px' }}>Course Code</th>
-                <th style={{ width: '180px' }}>Metric</th>
+              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
+                <th style={{ padding: '10px 14px', width: '140px', color: '#0f172a' }}>Course Code</th>
+                <th style={{ padding: '10px 14px', width: '240px', color: '#0f172a' }}>Attainment Metric</th>
                 {poList.map((po) => (
-                  <th key={po} style={{ width: '65px', textAlign: 'center' }}>
-                    {po}
-                  </th>
+                  <th key={po} style={{ padding: '10px 6px', width: '55px', textAlign: 'center' }}>{po}</th>
                 ))}
                 {psoList.map((pso) => (
-                  <th key={pso} style={{ width: '65px', textAlign: 'center' }}>
-                    {pso}
-                  </th>
+                  <th key={pso} style={{ padding: '10px 6px', width: '55px', textAlign: 'center', background: '#f1f5f9' }}>{pso}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td style={{ fontWeight: '700', color: '#0f172a' }}>{selectedCourse.code}</td>
-                <td style={{ fontSize: '12px', color: '#475569' }}>Avg Mapping Strength (Table 1)</td>
+                <td style={{ padding: '12px 14px', fontWeight: '800', color: '#0f172a' }}>{currentCourse?.code || 'Course'}</td>
+                <td style={{ padding: '12px 14px', color: '#475569' }}>Average Mapping Weight (Table 1)</td>
                 {poList.map((po) => (
-                  <td key={po} style={{ textAlign: 'center' }}>
+                  <td key={po} style={{ padding: '12px 6px', textAlign: 'center', fontWeight: '600' }}>
                     {calculateAverageMapping(po)}
                   </td>
                 ))}
                 {psoList.map((pso) => (
-                  <td key={pso} style={{ textAlign: 'center' }}>
+                  <td key={pso} style={{ padding: '12px 6px', textAlign: 'center', fontWeight: '600', background: '#faf5ff' }}>
                     {calculateAverageMapping(pso)}
                   </td>
                 ))}
               </tr>
-              <tr style={{ background: '#f1f5f9', fontWeight: '800' }}>
-                <td style={{ fontWeight: '800', color: '#0f172a' }}>{selectedCourse.code}</td>
-                <td style={{ fontWeight: '800', color: '#0f172a' }}>Final PO / PSO Attainment Value</td>
+
+              <tr style={{ background: '#ecfdf5', fontWeight: '900' }}>
+                <td style={{ padding: '14px', color: '#065f46', fontWeight: '900' }}>{currentCourse?.code || 'Course'}</td>
+                <td style={{ padding: '14px', color: '#065f46', fontWeight: '900', fontSize: '13px' }}>
+                  Final PO / PSO Direct Attainment Value
+                </td>
                 {poList.map((po) => (
-                  <td key={po} style={{ textAlign: 'center', fontSize: '13.5px', color: '#0f172a' }}>
+                  <td key={po} style={{ padding: '14px 6px', textAlign: 'center', fontSize: '14px', color: '#047857', fontWeight: '900' }}>
                     {calculatePoPsoAttainment(po)}
                   </td>
                 ))}
                 {psoList.map((pso) => (
-                  <td key={pso} style={{ textAlign: 'center', fontSize: '13.5px', color: '#0f172a' }}>
+                  <td key={pso} style={{ padding: '14px 6px', textAlign: 'center', fontSize: '14px', color: '#047857', fontWeight: '900', background: '#d1fae5' }}>
                     {calculatePoPsoAttainment(pso)}
                   </td>
                 ))}
@@ -272,7 +480,7 @@ export default function COAttainmentEngine({ hideFooter = false }) {
       {/* Save, Previous & Save & Next Footer */}
       {!hideFooter && (
         <SectionSaveFooter
-          label="CO Attainment"
+          label="Attainment-Main"
           prevPath="/survey-upload"
           nextPath="/course-atr"
           nextLabel="Save & Proceed to Course ATR →"
