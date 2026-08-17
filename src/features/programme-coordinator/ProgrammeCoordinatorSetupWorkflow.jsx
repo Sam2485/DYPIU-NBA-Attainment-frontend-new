@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import {
   BookOpen, Target, CheckCircle2,
   ArrowRight, ArrowLeft, Check, Plus, Trash2, X,
-  ChevronDown, AlertCircle, Save, Clock,
+  ChevronDown, AlertCircle, Save, Clock, Layers,
 } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
+import ProgrammeATR from '../atr/ProgrammeATR';
 
 // ── Style tokens (identical to HodSetupWorkflow) ─────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -124,7 +125,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
 
   const handleNext = () => {
     if (currentStep === 2) handleSaveTargets();
-    if (currentStep < 3) { setCurrentStep((s) => s + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    if (currentStep < 4) { setCurrentStep((s) => s + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   };
   const handlePrev = () => {
     if (currentStep > 1) { setCurrentStep((s) => s - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }
@@ -135,7 +136,8 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const steps = [
     { number: 1, title: 'Programme Setup',   desc: 'Add courses under programme', icon: BookOpen     },
     { number: 2, title: 'PO / PSO Targets',  desc: 'Set benchmark levels',         icon: Target       },
-    { number: 3, title: 'Review',             desc: 'Verify & finish',              icon: CheckCircle2 },
+    { number: 3, title: 'Programme ATR',     desc: 'Fill PO/PSO ATR',             icon: Layers       },
+    { number: 4, title: 'Review',             desc: 'Verify & finish',              icon: CheckCircle2 },
   ];
 
   return (
@@ -145,10 +147,10 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
       <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
-            Programme Coordinator Guided Workflow &nbsp;·&nbsp; Step {currentStep} of 3
+            Programme Coordinator Guided Workflow &nbsp;·&nbsp; Step {currentStep} of {steps.length}
           </div>
           <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
-            Programme Setup
+            {steps[currentStep - 1]?.title || 'Programme Setup'}
           </h2>
           <p style={{ margin: '3px 0 6px', fontSize: '12.5px', color: muted }}>{selectedProgramme.name} ({selectedProgramme.code})</p>
 
@@ -201,8 +203,8 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
 
       {/* ── STEPPER ───────────────────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', position: 'relative' }}>
-          <div style={{ position: 'absolute', top: '18px', left: '16.6%', right: '16.6%', height: '1px', background: '#e2e8f0', zIndex: 0 }} />
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${steps.length}, 1fr)`, gap: '8px', position: 'relative' }}>
+          <div style={{ position: 'absolute', top: '18px', left: '12.5%', right: '12.5%', height: '1px', background: '#e2e8f0', zIndex: 0 }} />
           {steps.map((s) => {
             const done   = currentStep > s.number;
             const active = currentStep === s.number;
@@ -426,13 +428,28 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
           </div>
         )}
 
-        {/* ── STEP 3: REVIEW ──────────────────────────────────────────────── */}
+        {/* ── STEP 3: PROGRAMME ATR ───────────────────────────────────────── */}
         {currentStep === 3 && (
+          <div>
+            <div style={{ marginBottom: '16px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>Programme Action Taken Report (ATR)</h3>
+              <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>
+                Fill and review the PO/PSO Action Taken Report for <strong>{selectedProgramme.name}</strong> ({selectedProgramme.code}) before final review.
+              </p>
+            </div>
+            <div style={{ padding: '4px 0' }}>
+              <ProgrammeATR hideFooter={true} hideHeader={true} />
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 4: REVIEW & CONFIRM ────────────────────────────────────── */}
+        {currentStep === 4 && (
           <div>
             <div style={{ marginBottom: '16px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>Review &amp; Confirm</h3>
               <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>
-                Verify the programme setup for <strong>{selectedProgramme.name}</strong> before finishing.
+                Verify the programme setup and ATR reports for <strong>{selectedProgramme.name}</strong> before finishing.
               </p>
             </div>
 
@@ -441,7 +458,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
               <div>
                 <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#15803d' }}>Programme Setup Complete</div>
                 <div style={{ fontSize: '12px', color: '#166534', marginTop: '1px' }}>
-                  Courses added and PO/PSO targets configured for {selectedProgramme.name}.
+                  Courses added, PO/PSO targets configured, and Programme ATR reviewed for {selectedProgramme.name}.
                 </div>
               </div>
             </div>
@@ -520,13 +537,13 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
             ))}
           </div>
 
-          {currentStep < 3 ? (
+          {currentStep < 4 ? (
             <button
               type="button"
               onClick={handleNext}
               style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}
             >
-              {currentStep === 2 ? 'Save & Review' : 'Next'} <ArrowRight size={14} />
+              {currentStep === 3 ? 'Save & Review' : 'Next'} <ArrowRight size={14} />
             </button>
           ) : (
             <button

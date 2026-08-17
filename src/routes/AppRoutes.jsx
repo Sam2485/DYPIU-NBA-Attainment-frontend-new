@@ -1,5 +1,7 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
+import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
 import AcademicPage from '../pages/AcademicPage';
 import UsersPage from '../pages/UsersPage';
@@ -42,52 +44,320 @@ import HodSetupWorkflowPage from '../pages/hod/HodSetupWorkflowPage';
 import HodProgrammeCoordinatorsPage from '../pages/hod/HodProgrammeCoordinatorsPage';
 import CourseCoordinatorWorkflowPage from '../pages/CourseCoordinatorWorkflowPage';
 
+function ProtectedRoute({ children }) {
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return children;
+}
+
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/dashboard" element={<DashboardPage />} />
-      <Route path="/course-coordinator/workflow" element={<CourseCoordinatorWorkflowPage />} />
-      
+      {/* Public Authentication Route */}
+      <Route path="/login" element={<LoginPage />} />
+
+      {/* Protected Routes */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/course-coordinator/workflow"
+        element={
+          <ProtectedRoute>
+            <CourseCoordinatorWorkflowPage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Director Routes */}
-      <Route path="/director/dashboard" element={<DashboardPage />} />
-      <Route path="/director/setup-workflow" element={<DirectorSetupWorkflowPage />} />
-      <Route path="/director/school-structure" element={<DirectorSchoolStructurePage />} />
-      <Route path="/director/department-management" element={<DirectorDepartmentPage />} />
-      <Route path="/director/programme-overview" element={<DirectorProgrammeOverviewPage />} />
-      <Route path="/director/reports" element={<DirectorReportsPage />} />
+      <Route
+        path="/director/dashboard"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/director/setup-workflow"
+        element={
+          <ProtectedRoute>
+            <DirectorSetupWorkflowPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/director/school-structure"
+        element={
+          <ProtectedRoute>
+            <DirectorSchoolStructurePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/director/department-management"
+        element={
+          <ProtectedRoute>
+            <DirectorDepartmentPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/director/programme-overview"
+        element={
+          <ProtectedRoute>
+            <DirectorProgrammeOverviewPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/director/reports"
+        element={
+          <ProtectedRoute>
+            <DirectorReportsPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Programme Coordinator Routes */}
-      <Route path="/programme-coordinator/dashboard" element={<ProgrammeCoordinatorDashboardPage />} />
-      <Route path="/programme-coordinator/setup-workflow" element={<ProgrammeCoordinatorSetupWorkflowPage />} />
-      <Route path="/programme-coordinator/target-settings" element={<ProgrammeTargetSettingsPage />} />
+      <Route
+        path="/programme-coordinator/dashboard"
+        element={
+          <ProtectedRoute>
+            <ProgrammeCoordinatorDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/programme-coordinator/setup-workflow"
+        element={
+          <ProtectedRoute>
+            <ProgrammeCoordinatorSetupWorkflowPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/programme-coordinator/target-settings"
+        element={
+          <ProtectedRoute>
+            <ProgrammeTargetSettingsPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* HOD Routes */}
-      <Route path="/hod/dashboard" element={<DashboardPage />} />
-      <Route path="/hod/setup-workflow" element={<HodSetupWorkflowPage />} />
-      <Route path="/hod/batch-management" element={<HodBatchManagementPage />} />
-      <Route path="/hod/programme-outcomes" element={<HodProgrammeOutcomesPage />} />
-      <Route path="/hod/programme-coordinators" element={<HodProgrammeCoordinatorsPage />} />
-      <Route path="/hod/approvals" element={<HodApprovalsPage />} />
-      <Route path="/hod/programme-atr" element={<HodProgrammeATRPage />} />
-      <Route path="/hod/reports" element={<HodReportsPage />} />
+      <Route
+        path="/hod/dashboard"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hod/setup-workflow"
+        element={
+          <ProtectedRoute>
+            <HodSetupWorkflowPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hod/batch-management"
+        element={
+          <ProtectedRoute>
+            <HodBatchManagementPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hod/programme-outcomes"
+        element={
+          <ProtectedRoute>
+            <HodProgrammeOutcomesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hod/programme-coordinators"
+        element={
+          <ProtectedRoute>
+            <HodProgrammeCoordinatorsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hod/approvals"
+        element={
+          <ProtectedRoute>
+            <HodApprovalsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hod/programme-atr"
+        element={
+          <ProtectedRoute>
+            <HodProgrammeATRPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hod/reports"
+        element={
+          <ProtectedRoute>
+            <HodReportsPage />
+          </ProtectedRoute>
+        }
+      />
 
-      <Route path="/users" element={<UsersPage />} />
-      <Route path="/configurations" element={<ConfigurationPage />} />
-      <Route path="/attainment-config" element={<ConfigurationPage />} />
-      <Route path="/academic" element={<AcademicPage />} />
-      <Route path="/outcomes" element={<OutcomesPage />} />
-      <Route path="/co-targets" element={<COTargetSettingPage />} />
-      <Route path="/co-mapping" element={<MappingPage />} />
-      <Route path="/marks-upload" element={<MarksPage />} />
-      <Route path="/survey-upload" element={<SurveyPage />} />
-      <Route path="/co-attainment" element={<COAttainmentPage />} />
-      <Route path="/po-pso-attainment" element={<POPSOAttainmentPage />} />
-      <Route path="/attainment-overview" element={<AttainmentOverviewPage />} />
-      <Route path="/course-atr" element={<CourseATRPage />} />
-      <Route path="/atr-reports" element={<ATRReportsPage />} />
-      <Route path="/programme-atr" element={<ProgrammeATRPage />} />
-      <Route path="/coordinator-review" element={<CoordinatorReviewPage />} />
-      <Route path="/reports" element={<ReportsPage />} />
+      {/* Academic & Attainment Configuration */}
+      <Route
+        path="/users"
+        element={
+          <ProtectedRoute>
+            <UsersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/configurations"
+        element={
+          <ProtectedRoute>
+            <ConfigurationPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/attainment-config"
+        element={
+          <ProtectedRoute>
+            <ConfigurationPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/academic"
+        element={
+          <ProtectedRoute>
+            <AcademicPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/outcomes"
+        element={
+          <ProtectedRoute>
+            <OutcomesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/co-targets"
+        element={
+          <ProtectedRoute>
+            <COTargetSettingPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/co-mapping"
+        element={
+          <ProtectedRoute>
+            <MappingPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/marks-upload"
+        element={
+          <ProtectedRoute>
+            <MarksPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/survey-upload"
+        element={
+          <ProtectedRoute>
+            <SurveyPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/co-attainment"
+        element={
+          <ProtectedRoute>
+            <COAttainmentPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/po-pso-attainment"
+        element={
+          <ProtectedRoute>
+            <POPSOAttainmentPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/attainment-overview"
+        element={
+          <ProtectedRoute>
+            <AttainmentOverviewPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/course-atr"
+        element={
+          <ProtectedRoute>
+            <CourseATRPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/atr-reports"
+        element={
+          <ProtectedRoute>
+            <ATRReportsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/programme-atr"
+        element={
+          <ProtectedRoute>
+            <ProgrammeATRPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/coordinator-review"
+        element={
+          <ProtectedRoute>
+            <CoordinatorReviewPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute>
+            <ReportsPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Default Fallback Routes */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />

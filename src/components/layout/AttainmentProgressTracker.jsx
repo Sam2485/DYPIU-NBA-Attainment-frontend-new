@@ -6,7 +6,7 @@ import {
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 
-// Exact 8-Step Course Coordinator Workflow Sequence
+// Exact 7-Step Course Coordinator Workflow Sequence
 export const WORKFLOW_STEPS = [
   { step: 1, label: 'Add COs',             path: '/outcomes',      icon: BookOpen      },
   { step: 2, label: 'Target Setting',      path: '/co-targets',    icon: Target        },
@@ -15,7 +15,6 @@ export const WORKFLOW_STEPS = [
   { step: 5, label: 'Indirect Assessment', path: '/survey-upload', icon: ClipboardList  },
   { step: 6, label: 'CO Attainment',       path: '/co-attainment', icon: BarChart2     },
   { step: 7, label: 'Course ATR',          path: '/course-atr',    icon: FileText      },
-  { step: 8, label: 'Programme ATR',       path: '/programme-atr', icon: Layers        },
 ];
 
 const accent = '#4f46e5';

@@ -32,7 +32,6 @@ const STEPS = [
   { number: 5, title: 'Indirect Assessment',desc: 'Upload course-end survey',        path: '/survey-upload', icon: ClipboardList,color: '#059669', bg: '#f0fdf4' },
   { number: 6, title: 'CO Attainment',      desc: 'Compute & review attainment',     path: '/co-attainment', icon: BarChart2,    color: '#d97706', bg: '#fffbeb' },
   { number: 7, title: 'Course ATR',         desc: 'Fill Course Action Taken Report', path: '/course-atr',    icon: FileText,     color: '#dc2626', bg: '#fef2f2' },
-  { number: 8, title: 'Programme ATR',      desc: 'Fill PO/PSO Action Taken Report', path: '/programme-atr', icon: Layers,       color: '#059669', bg: '#f0fdf4' },
 ];
 
 export default function CourseCoordinatorWorkflow() {
@@ -258,18 +257,6 @@ export default function CourseCoordinatorWorkflow() {
             </div>
             <div style={{ padding: '20px' }}>
               <CourseATR hideFooter hideHeader />
-            </div>
-          </div>
-        )}
-        {currentStep === 8 && (
-          <div>
-            <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 24px' }}>
-              <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>
-                Programme ATR
-              </h3>
-            </div>
-            <div style={{ padding: '20px' }}>
-              <ProgrammeATR hideFooter hideHeader />
             </div>
           </div>
         )}
