@@ -56,21 +56,36 @@ export default function CourseCoordinatorWorkflow() {
   const courseCOs  = course?.courseOutcomes || activeCOs || [];
   const courseProgress = workflowProgressStore[course?.id || 'crs-1'] || {};
 
+  // ── Per-step completion flags (strictly based on completed & saved workflow steps) ──
+  const stepDone = STEPS.map((s) => {
+    return !!courseProgress[s.path];
+  });
+
+  const completedCount = stepDone.filter(Boolean).length;
+  const progressPct    = Math.round((completedCount / STEPS.length) * 100);
+
+  // Compute the current in-progress step (first incomplete step)
+  const firstIncompleteIdx = stepDone.findIndex((done) => !done);
+  const firstIncompleteStep = firstIncompleteIdx !== -1 ? firstIncompleteIdx + 1 : 1;
+
   // ── URL ↔ state sync ────────────────────────────────────────────────────────
-  const initialStep = parseInt(searchParams.get('step'), 10);
+  const rawStepParam = searchParams.get('step');
+  const parsedStep = parseInt(rawStepParam, 10);
+  const hasValidParam = parsedStep >= 1 && parsedStep <= STEPS.length;
+
   const [currentStep, setCurrentStep] = useState(
-    initialStep >= 1 && initialStep <= 8 ? initialStep : 1
+    hasValidParam ? parsedStep : firstIncompleteStep
   );
 
   useEffect(() => {
     const s = parseInt(searchParams.get('step'), 10);
-    if (!s || isNaN(s) || s < 1 || s > 8) {
-      setSearchParams({ step: 1 }, { replace: true });
-      setCurrentStep(1);
+    if (!s || isNaN(s) || s < 1 || s > STEPS.length) {
+      setSearchParams({ step: firstIncompleteStep }, { replace: true });
+      setCurrentStep(firstIncompleteStep);
     } else if (s !== currentStep) {
       setCurrentStep(s);
     }
-  }, [searchParams]);
+  }, [searchParams, firstIncompleteStep]);
 
   const goToStep = (n) => {
     setCurrentStep(n);
@@ -78,27 +93,12 @@ export default function CourseCoordinatorWorkflow() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // ── Per-step completion flags ────────────────────────────────────────────────
-  const stepDone = STEPS.map((s, idx) => {
-    if (courseProgress[s.path]) return true;
-    if (idx === 0) return courseCOs.length > 0;
-    if (idx === 1) return courseCOs.some((c) => c.target);
-    if (idx === 2) return courseCOs.some((c) => c.mappings);
-    if (idx === 3) return !!config.directUploaded;
-    if (idx === 4) return !!config.indirectUploaded;
-    if (idx === 5) return !!config.attainmentRun;
-    if (idx === 6) return !!config.atrSubmitted;
-    if (idx === 7) return !!config.progAtrSubmitted;
-    return false;
-  });
-
-  const completedCount = stepDone.filter(Boolean).length;
-  const progressPct    = Math.round((completedCount / STEPS.length) * 100);
-
   // ── Save & Next ──────────────────────────────────────────────────────────────
   const handleSaveAndNext = () => {
     markWorkflowStepComplete(course?.id, STEPS[currentStep - 1].path);
-    if (currentStep < STEPS.length) goToStep(currentStep + 1);
+    if (currentStep < STEPS.length) {
+      goToStep(currentStep + 1);
+    }
   };
 
   const handleFinish = () => {
@@ -106,7 +106,7 @@ export default function CourseCoordinatorWorkflow() {
     navigate('/dashboard');
   };
 
-  const currentStepMeta = STEPS[currentStep - 1];
+  const currentStepMeta = STEPS[currentStep - 1] || STEPS[0];
 
   return (
     <div className="animated-page" style={{ paddingBottom: '60px' }}>
@@ -148,8 +148,12 @@ export default function CourseCoordinatorWorkflow() {
             <select
               value={course?.id || ''}
               onChange={(e) => {
-                setCourseId(e.target.value);
-                goToStep(1);
+                const nextCourseId = e.target.value;
+                setCourseId(nextCourseId);
+                const nextProg = workflowProgressStore[nextCourseId] || {};
+                const nextIncompleteIdx = STEPS.findIndex((s) => !nextProg[s.path]);
+                const nextStepNum = nextIncompleteIdx !== -1 ? nextIncompleteIdx + 1 : 1;
+                goToStep(nextStepNum);
               }}
               style={{
                 height: '38px', fontSize: '13px', fontWeight: '700', color: accent,

@@ -84,7 +84,7 @@ const FACULTY_NAV = [
 ];
 
 export default function AppSidebar() {
-  const { user, role, switchRole, logout } = useAuth();
+  const { user, role, logout } = useAuth();
   const { academicYear = '2025-26', setAcademicYear = () => {} } = useAcademic();
   const navigate = useNavigate();
   const location = useLocation();
@@ -148,7 +148,7 @@ export default function AppSidebar() {
       }}
     >
       {/* ── Brand Header ───────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 4px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '2px 4px 4px', flexShrink: 0 }}>
         <div
           style={{
             width: 38,
@@ -177,48 +177,10 @@ export default function AppSidebar() {
         </div>
       </div>
 
-      {/* ── Role Switcher ──────────────────────────────────────────── */}
-      <div
-        style={{
-          background: 'rgba(51, 65, 85, 0.45)',
-          border: '1px solid rgba(148,163,184,0.16)',
-          borderRadius: 14,
-          padding: '8px 12px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-          flexShrink: 0,
-        }}
-      >
-        <div style={{ fontSize: 9.5, color: '#60a5fa', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-          Active User Role
-        </div>
-        <select
-          value={role}
-          onChange={(e) => switchRole(e.target.value)}
-          style={{
-            width: '100%',
-            height: '32px',
-            borderRadius: '8px',
-            border: '1px solid rgba(148, 163, 184, 0.25)',
-            background: '#1e293b',
-            color: '#f8fafc',
-            fontSize: '12px',
-            fontWeight: '800',
-            padding: '0 8px',
-            cursor: 'pointer',
-            outline: 'none',
-          }}
-        >
-          <option value="FACULTY" style={{ color: '#0f172a', background: '#ffffff' }}>Course Coordinator</option>
-          <option value="PROGRAMME_COORDINATOR" style={{ color: '#0f172a', background: '#ffffff' }}>Programme Coordinator</option>
-          <option value="HOD" style={{ color: '#0f172a', background: '#ffffff' }}>Head of Department (HOD)</option>
-          <option value="DIRECTOR" style={{ color: '#0f172a', background: '#ffffff' }}>School Director</option>
-          <option value="IQAC" style={{ color: '#0f172a', background: '#ffffff' }}>IQAC Admin</option>
-        </select>
-      </div>
+      {/* ── Divider ────────────────────────────────────────────────── */}
+      <div style={{ height: '1px', background: 'rgba(148, 163, 184, 0.18)', width: '100%', flexShrink: 0 }} />
 
-      {/* ── Academic Year Selector with Status Tags ────────────────── */}
+      {/* ── Academic Batch Selector with Status Tags ────────────────── */}
       <div
         style={{
           background: 'rgba(51, 65, 85, 0.45)',
@@ -233,7 +195,7 @@ export default function AppSidebar() {
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 9.5, color: '#38bdf8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            Academic Year
+            Academic Batch
           </span>
           <span
             style={{
@@ -266,11 +228,14 @@ export default function AppSidebar() {
             outline: 'none',
           }}
         >
-          <option value="2026-27" style={{ color: '#0f172a', background: '#ffffff' }}>AY 2026-27 (Active)</option>
-          <option value="2025-26" style={{ color: '#0f172a', background: '#ffffff' }}>AY 2025-26 (Active — Current)</option>
-          <option value="2024-25" style={{ color: '#0f172a', background: '#ffffff' }}>AY 2024-25 (Closed / Archived)</option>
+          <option value="2026-27" style={{ color: '#0f172a', background: '#ffffff' }}>Batch 2026-27 (Active)</option>
+          <option value="2025-26" style={{ color: '#0f172a', background: '#ffffff' }}>Batch 2025-26 (Active — Current)</option>
+          <option value="2024-25" style={{ color: '#0f172a', background: '#ffffff' }}>Batch 2024-25 (Closed / Archived)</option>
         </select>
       </div>
+
+      {/* ── Divider ────────────────────────────────────────────────── */}
+      <div style={{ height: '1px', background: 'rgba(148, 163, 184, 0.18)', width: '100%', flexShrink: 0 }} />
 
       {/* ── MAIN NAVIGATION AREA ─────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', paddingRight: 2 }}>

@@ -48,17 +48,8 @@ export default function DashboardOverview() {
   const config         = course?.id ? (attainmentConfigs[course.id] || {}) : {};
   const courseProgress = workflowProgressStore[course?.id || 'crs-1'] || {};
 
-  const stepStatus = WORKFLOW_STEPS.map((s, i) => {
-    if (courseProgress[s.path]) return true;
-    if (i === 0) return courseCOs.length > 0;
-    if (i === 1) return courseCOs.some((c) => c.target);
-    if (i === 2) return courseCOs.some((c) => c.mappings);
-    if (i === 3) return !!config.directUploaded;
-    if (i === 4) return !!config.indirectUploaded;
-    if (i === 5) return !!config.attainmentRun;
-    if (i === 6) return !!config.atrSubmitted;
-    if (i === 7) return !!config.progAtrSubmitted;
-    return false;
+  const stepStatus = WORKFLOW_STEPS.map((s) => {
+    return !!courseProgress[s.path];
   });
 
   const completedCount = stepStatus.filter(Boolean).length;
@@ -153,7 +144,7 @@ export default function DashboardOverview() {
         </div>
         <div style={{ marginLeft: 'auto' }}>
           <button
-            onClick={() => navigate('/course-coordinator/workflow?step=1')}
+            onClick={() => navigate(`/course-coordinator/workflow?step=${targetStepNum}`)}
             style={{
               height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '800',
               background: accent, color: '#fff', border: 'none', borderRadius: '8px',
@@ -163,7 +154,9 @@ export default function DashboardOverview() {
             }}
           >
             <PlayCircle size={15} />
-            Start Course Attainment Workflow (Step 1)
+            {targetStepNum === 1
+              ? 'Start Course Attainment Workflow (Step 1)'
+              : `Continue Workflow (Step ${targetStepNum}: ${nextStep?.label || ''})`}
             <ArrowRight size={14} />
           </button>
         </div>
@@ -243,10 +236,10 @@ export default function DashboardOverview() {
             </div>
           </div>
           <button
-            onClick={() => navigate('/course-coordinator/workflow?step=1')}
+            onClick={() => navigate(`/course-coordinator/workflow?step=${targetStepNum}`)}
             style={{ height: '34px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#d97706', color: '#fff', border: 'none', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit', flexShrink: 0 }}
           >
-            Start Workflow (Step 1) <ChevronRight size={14} />
+            Continue Step {targetStepNum} ({nextStep.label}) <ChevronRight size={14} />
           </button>
         </div>
       )}

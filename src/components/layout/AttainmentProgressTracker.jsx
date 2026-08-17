@@ -1,20 +1,21 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  CheckCircle2, BookX, PlayCircle, Check, ChevronRight,
-  BookOpen, Target, Map, Upload, ClipboardList, BarChart2, FileText,
+  CheckCircle2, BookX, ChevronRight,
+  BookOpen, Target, Map, Upload, ClipboardList, BarChart2, FileText, Layers,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 
-// Exact 7-Step Course Coordinator Workflow Sequence
+// Exact 8-Step Course Coordinator Workflow Sequence
 export const WORKFLOW_STEPS = [
-  { step: 1, label: 'Add COs',             path: '/outcomes',     icon: BookOpen    },
-  { step: 2, label: 'Target Setting',       path: '/co-targets',   icon: Target      },
-  { step: 3, label: 'CO Mapping',           path: '/co-mapping',   icon: Map         },
-  { step: 4, label: 'Direct Assessment',    path: '/marks-upload', icon: Upload      },
-  { step: 5, label: 'Indirect Assessment',  path: '/survey-upload',icon: ClipboardList },
-  { step: 6, label: 'CO Attainment',        path: '/co-attainment',icon: BarChart2   },
-  { step: 7, label: 'Course ATR',           path: '/course-atr',   icon: FileText    },
+  { step: 1, label: 'Add COs',             path: '/outcomes',      icon: BookOpen      },
+  { step: 2, label: 'Target Setting',      path: '/co-targets',    icon: Target        },
+  { step: 3, label: 'CO Mapping',          path: '/co-mapping',    icon: Map           },
+  { step: 4, label: 'Direct Assessment',   path: '/marks-upload',  icon: Upload        },
+  { step: 5, label: 'Indirect Assessment', path: '/survey-upload', icon: ClipboardList  },
+  { step: 6, label: 'CO Attainment',       path: '/co-attainment', icon: BarChart2     },
+  { step: 7, label: 'Course ATR',          path: '/course-atr',    icon: FileText      },
+  { step: 8, label: 'Programme ATR',       path: '/programme-atr', icon: Layers        },
 ];
 
 const accent = '#4f46e5';
@@ -67,7 +68,7 @@ export default function AttainmentProgressTracker() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ background: '#eef2ff', color: accent, fontWeight: '800', fontSize: '11px', padding: '3px 10px', borderRadius: '20px', border: '1px solid #c7d2fe', textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
-              Step {activeStep.step} of 7 &nbsp;·&nbsp; {activeStep.label}
+              Step {activeStep.step} of {WORKFLOW_STEPS.length} &nbsp;·&nbsp; {activeStep.label}
             </span>
             <span style={{ fontSize: '12px', color: ink, fontWeight: '700' }}>
               {selectedCourse?.code} — {selectedCourse?.name}
@@ -77,7 +78,7 @@ export default function AttainmentProgressTracker() {
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
               type="button"
-              onClick={() => navigate('/course-coordinator/workflow')}
+              onClick={() => navigate(`/course-coordinator/workflow?step=${activeStep.step}`)}
               style={{ height: '30px', padding: '0 12px', fontSize: '11.5px', fontWeight: '700', background: '#eef2ff', color: accent, border: '1px solid #c7d2fe', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontFamily: 'inherit' }}
             >
               View All Steps <ChevronRight size={12} />
@@ -92,10 +93,10 @@ export default function AttainmentProgressTracker() {
           </div>
         </div>
 
-        {/* 7-step stepper strip */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
+        {/* 8-step stepper strip */}
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${WORKFLOW_STEPS.length}, 1fr)`, gap: '4px' }}>
           {WORKFLOW_STEPS.map((stepItem, idx) => {
-            const isCompleted = courseProgress[stepItem.path] || idx < currentStepIndex;
+            const isCompleted = !!courseProgress[stepItem.path];
             const isCurrent   = idx === currentStepIndex;
             const StepIcon    = stepItem.icon;
             return (

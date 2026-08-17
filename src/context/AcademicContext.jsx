@@ -597,19 +597,44 @@ export function AcademicProvider({ children }) {
   };
 
   // Dynamic Actions
-  const [workflowProgressStore, setWorkflowProgressStore] = useState({
-    'crs-1': { '/outcomes': true, '/co-targets': true },
+  const [workflowProgressStore, setWorkflowProgressStore] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dypiu_workflow_progress');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
   });
 
   const markWorkflowStepComplete = (targetCourseId, path) => {
     const cid = targetCourseId || selectedCourse?.id || 'crs-1';
-    setWorkflowProgressStore((prev) => ({
-      ...prev,
-      [cid]: {
-        ...(prev[cid] || {}),
-        [path]: true,
-      },
-    }));
+    setWorkflowProgressStore((prev) => {
+      const updated = {
+        ...prev,
+        [cid]: {
+          ...(prev[cid] || {}),
+          [path]: true,
+        },
+      };
+      try {
+        localStorage.setItem('dypiu_workflow_progress', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const resetWorkflowProgress = (targetCourseId) => {
+    const cid = targetCourseId || selectedCourse?.id || 'crs-1';
+    setWorkflowProgressStore((prev) => {
+      const updated = {
+        ...prev,
+        [cid]: {},
+      };
+      try {
+        localStorage.setItem('dypiu_workflow_progress', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
   };
 
   const updateProgrammePOs = (progId, newPOs) => {
@@ -1053,6 +1078,7 @@ export function AcademicProvider({ children }) {
         updateProgrammeAtrObservations,
         workflowProgressStore,
         markWorkflowStepComplete,
+        resetWorkflowProgress,
         // Batch Students Store & APIs
         batchStudentsStore,
         getStudentsByBatch,
