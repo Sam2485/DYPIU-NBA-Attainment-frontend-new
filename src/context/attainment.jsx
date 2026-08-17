@@ -56,7 +56,7 @@ export const INITIAL_ATTAINMENT_CONFIGS = {
     thresholdPct: '60%',
     calculationRunId: 'calc-run-202526-crs1',
     ...defaultLevels,
-    status: 'NO_SUBMISSION',
+    status: 'DRAFT',
     submittedBy: null,
     submittedAt: null,
   },
@@ -72,7 +72,7 @@ export const INITIAL_ATTAINMENT_CONFIGS = {
     thresholdPct: '65%',
     calculationRunId: 'calc-run-202526-crs2',
     ...defaultLevels,
-    status: 'NO_SUBMISSION',
+    status: 'DRAFT',
     submittedBy: null,
     submittedAt: null,
   },
@@ -88,7 +88,7 @@ export const INITIAL_ATTAINMENT_CONFIGS = {
     thresholdPct: '60%',
     calculationRunId: 'calc-run-202526-crs3',
     ...defaultLevels,
-    status: 'NO_SUBMISSION',
+    status: 'DRAFT',
     submittedBy: null,
     submittedAt: null,
   },
@@ -100,7 +100,7 @@ export const INITIAL_ATTAINMENT_CONFIGS = {
     directThreshold: 60,
     thresholdPct: '60%',
     ...defaultLevels,
-    status: 'NO_SUBMISSION',
+    status: 'DRAFT',
     submittedBy: null,
     submittedAt: null,
   },
@@ -108,9 +108,9 @@ export const INITIAL_ATTAINMENT_CONFIGS = {
 
 export const INITIAL_PROGRAMME_ATR_LIST = {
   'prog-1': {
-    status: 'SUBMITTED_FOR_APPROVAL',
-    submittedBy: 'Dr. A. K. Sharma (Programme Coordinator)',
-    submittedAt: '2026-08-06',
+    status: 'DRAFT',
+    submittedBy: null,
+    submittedAt: null,
     observations: [
       {
         target: 'PO1 & PO2 (Engineering Knowledge & Problem Analysis)',

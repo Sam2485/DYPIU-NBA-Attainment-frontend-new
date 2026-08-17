@@ -45,7 +45,7 @@ export default function AcademicSetup() {
 
   const allocationKey = `allocation-${programmeId}`;
   const allocationRecord = courseVerificationStore[allocationKey] || {};
-  const allocationStatus = allocationRecord.allocationStatus || 'NO_SUBMISSION';
+  const allocationStatus = allocationRecord.allocationStatus || 'DRAFT';
   const allocationRemarks = allocationRecord.allocationRemarks || '';
   const verifierName = allocationRecord.verifiedBy || 'Head of Department (HOD)';
 

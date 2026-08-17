@@ -184,10 +184,10 @@ export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
             </button>
           </div>
 
-          {/* ACADEMIC YEAR & COURSE SELECTOR & SAVE OPTION (EXTREME RIGHT) */}
+          {/* ACADEMIC BATCH & COURSE SELECTOR & SAVE OPTION (EXTREME RIGHT) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            {/* Academic Year Selector Dropdown */}
-            <div style={{ position: 'relative', width: '150px' }}>
+            {/* Academic Batch Selector Dropdown */}
+            <div style={{ position: 'relative', minWidth: '180px' }}>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
@@ -195,11 +195,11 @@ export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
                   height: '38px',
                   fontSize: '12.5px',
                   fontWeight: '800',
-                  color: selectedYear === academicYear ? '#4f46e5' : '#1e40af',
-                  border: selectedYear === academicYear ? '1.5px solid #cbd5e1' : '1.5px solid #93c5fd',
+                  color: '#0f172a',
+                  border: '1.5px solid #cbd5e1',
                   borderRadius: '8px',
                   padding: '0 28px 0 10px',
-                  background: selectedYear === academicYear ? '#ffffff' : '#eff6ff',
+                  background: '#ffffff',
                   width: '100%',
                   outline: 'none',
                   appearance: 'none',
@@ -208,28 +208,27 @@ export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
                   boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                 }}
               >
-                {availableYears.map((yr) => (
-                  <option key={yr} value={yr}>
-                    AY {yr} {yr === academicYear ? '(Active)' : '(Archived)'}
-                  </option>
-                ))}
+                <option value="2025-26">Batch 2025–29 (Active)</option>
+                <option value="2024-25">Batch 2024–28 (Active)</option>
+                <option value="2023-24">Batch 2023–27 (Final Year)</option>
+                <option value="2022-23">Batch 2022–26 (Archived)</option>
               </select>
               <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
             </div>
 
             {/* Course Selector Dropdown */}
-            <div style={{ position: 'relative', width: '240px' }}>
+            <div style={{ position: 'relative', width: '220px' }}>
               <select
                 value={selectedCourse?.id || ''}
                 onChange={(e) => setCourseId(e.target.value)}
                 style={{
                   height: '38px',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  color: '#4f46e5',
+                  fontSize: '12.5px',
+                  fontWeight: '800',
+                  color: '#0f172a',
                   border: '1.5px solid #cbd5e1',
                   borderRadius: '8px',
-                  padding: '0 30px 0 12px',
+                  padding: '0 28px 0 10px',
                   background: '#ffffff',
                   width: '100%',
                   outline: 'none',
@@ -248,12 +247,6 @@ export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
               <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
             </div>
 
-            {isPreviousYear ? (
-              <span className="badge" style={{ height: '38px', boxSizing: 'border-box', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '0 14px', fontSize: '12px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <Lock size={14} /> AY {selectedYear} ARCHIVED (READ-ONLY)
-              </span>
-            ) : (progStatus === 'VERIFIED' || progStatus === 'APPROVED') ? (
-              <span className="badge badge-active" style={{ height: '38px', boxSizing: 'border-box', background: '#dcfce7', color: '#15803d', padding: '0 14px', fontSize: '12px', fontWeight: '800', display: 'inline-flex', alignItems: 'center' }}>
                 ✓ VERIFIED BY {verifierName.toUpperCase()}
               </span>
             ) : progStatus === 'REVISION_REQUESTED' ? (

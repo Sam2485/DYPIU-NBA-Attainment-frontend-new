@@ -89,9 +89,108 @@ const FACULTY_NAV = [
 
 export default function AppSidebar() {
   const { user, role, logout } = useAuth();
-  const { academicYear = '2025-26', setAcademicYear = () => {} } = useAcademic();
+  const {
+    academicYear = '2025-26',
+    setAcademicYear = () => {},
+    batches = [],
+    batchId,
+    setBatchId = () => {},
+    selectedBatch,
+    programmeId,
+  } = useAcademic();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Helper to extract clean 4-digit span e.g. "2025-2029" from batch object
+  const getBatchYearSpan = (b) => {
+    if (!b) return '';
+    const startMatch = (b.startYear || '').match(/^(\d{4})/);
+    const startY = startMatch ? parseInt(startMatch[1], 10) : null;
+
+    let endY = null;
+    if (b.endYear) {
+      const endMatch = b.endYear.match(/(\d{2,4})$/);
+      if (endMatch) {
+        const val = endMatch[1];
+        if (val.length === 2) {
+          endY = parseInt(b.endYear.slice(0, 2) + val, 10);
+        } else if (val.length === 4) {
+          endY = parseInt(val, 10);
+        }
+      }
+    }
+
+    if (!endY && startY && b.durationYears) {
+      endY = startY + b.durationYears;
+    }
+    if (!endY && startY) {
+      endY = startY + 4;
+    }
+
+    if (startY && endY) {
+      return `${startY}-${endY}`;
+    }
+
+    const nameMatch = (b.name || '').match(/20(\d{2})-(\d{2})/);
+    if (nameMatch) {
+      return `20${nameMatch[1]}-20${nameMatch[2]}`;
+    }
+
+    return b.name || b.id;
+  };
+
+  // ── Compute deduplicated unique year batches across all programme batches ─────
+  const rawBatches = batches.length > 0 ? batches : [];
+  const uniqueBatches = [];
+  const seenSpans = new Set();
+
+  rawBatches.forEach((b) => {
+    const span = getBatchYearSpan(b);
+    if (span && !seenSpans.has(span)) {
+      seenSpans.add(span);
+      uniqueBatches.push({
+        span,
+        startYear: b.startYear || '2025-26',
+        endYear: b.endYear || '2028-29',
+        status: b.status || 'ACTIVE',
+        sampleBatchId: b.id,
+        durationYears: b.durationYears || 4,
+        label: `Batch ${span}`,
+      });
+    }
+  });
+
+  // Sort unique batches in descending order by start year (e.g. 2026-2030, 2025-2029, 2024-2028...)
+  uniqueBatches.sort((a, b) => {
+    const aStart = parseInt(a.span.split('-')[0], 10) || 0;
+    const bStart = parseInt(b.span.split('-')[0], 10) || 0;
+    return bStart - aStart;
+  });
+
+  // Determine active span
+  const currentSpan = selectedBatch
+    ? getBatchYearSpan(selectedBatch)
+    : (uniqueBatches.find((ub) => ub.startYear === academicYear)?.span || uniqueBatches[0]?.span || '2025-2029');
+
+  const currentUniqueBatch = uniqueBatches.find((ub) => ub.span === currentSpan) || uniqueBatches[0];
+  const isBatchActive = currentUniqueBatch?.status === 'ACTIVE' || currentUniqueBatch?.status === 'INITIALIZED';
+
+  const handleBatchChange = (targetSpan) => {
+    const matchingUnique = uniqueBatches.find((ub) => ub.span === targetSpan);
+    if (matchingUnique) {
+      const progBatch = rawBatches.find((b) => {
+        const bSpan = getBatchYearSpan(b);
+        return bSpan === targetSpan && (!programmeId || b.programmeId === programmeId);
+      }) || rawBatches.find((b) => getBatchYearSpan(b) === targetSpan) || rawBatches[0];
+
+      if (progBatch) {
+        setBatchId(progBatch.id);
+        if (progBatch.startYear) {
+          setAcademicYear(progBatch.startYear);
+        }
+      }
+    }
+  };
 
   // Dropdown States
   const [navOpenDirector, setNavOpenDirector] = useState(false);
@@ -207,17 +306,23 @@ export default function AppSidebar() {
               fontWeight: '800',
               padding: '1px 6px',
               borderRadius: '4px',
-              background: academicYear === '2024-25' ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)',
-              color: academicYear === '2024-25' ? '#f87171' : '#4ade80',
-              border: `1px solid ${academicYear === '2024-25' ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'}`,
+              background: isBatchActive ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)',
+              color: isBatchActive ? '#4ade80' : '#f87171',
+              border: `1px solid ${isBatchActive ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
             }}
           >
-            {academicYear === '2024-25' ? 'CLOSED' : 'ACTIVE'}
+            {currentUniqueBatch?.status === 'GRADUATED'
+              ? 'GRADUATED'
+              : currentUniqueBatch?.status === 'INITIALIZED'
+              ? 'UPCOMING'
+              : isBatchActive
+              ? 'ACTIVE'
+              : 'CLOSED'}
           </span>
         </div>
         <select
-          value={academicYear}
-          onChange={(e) => setAcademicYear(e.target.value)}
+          value={currentSpan}
+          onChange={(e) => handleBatchChange(e.target.value)}
           style={{
             width: '100%',
             height: '32px',
@@ -232,9 +337,24 @@ export default function AppSidebar() {
             outline: 'none',
           }}
         >
-          <option value="2026-27" style={{ color: '#0f172a', background: '#ffffff' }}>Batch 2026-27 (Active)</option>
-          <option value="2025-26" style={{ color: '#0f172a', background: '#ffffff' }}>Batch 2025-26 (Active — Current)</option>
-          <option value="2024-25" style={{ color: '#0f172a', background: '#ffffff' }}>Batch 2024-25 (Closed / Archived)</option>
+          {uniqueBatches.map((ub) => {
+            const isCurrent = ub.span === '2025-2029' || ub.startYear === '2025-26';
+            const statusLabel = isCurrent
+              ? '(Active — Current)'
+              : ub.status === 'ACTIVE'
+              ? '(Active)'
+              : ub.status === 'GRADUATED'
+              ? '(Graduated / Alumni)'
+              : ub.status === 'INITIALIZED'
+              ? '(Upcoming)'
+              : '(Closed)';
+
+            return (
+              <option key={ub.span} value={ub.span} style={{ color: '#0f172a', background: '#ffffff' }}>
+                Batch {ub.span} {statusLabel}
+              </option>
+            );
+          })}
         </select>
       </div>
 

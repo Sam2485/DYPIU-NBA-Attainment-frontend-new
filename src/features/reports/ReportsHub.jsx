@@ -90,10 +90,8 @@ const SEMESTER_GROUPS = [
 ];
 
 export default function ReportsHub() {
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   const {
-    academicYear = '2025-26',
-    availableYears = ['2026-27', '2025-26', '2024-25'],
     programmeId = 'prog-1',
     setProgrammeId = () => {},
     masterProgrammes = [],
@@ -113,8 +111,73 @@ export default function ReportsHub() {
   const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
   const isProgrammeCoordinator = role === 'PROGRAMME_COORDINATOR';
   const isHod = role === 'HOD';
-  const isDirector = role === 'DIRECTOR' || role === 'SCHOOL_DIRECTOR';
+  const isDirector = role === 'DIRECTOR' || role === 'SCHOOL_DIRECTOR' || role === 'IQAC';
   const isHodOrDirector = isHod || isDirector;
+
+  // Role-based Programmes List
+  const roleProgrammes = (() => {
+    if (isDirector) {
+      // Director sees all programmes across the school
+      return masterProgrammes.length > 0 ? masterProgrammes : [
+        { id: 'prog-1', code: 'BE-COMP', name: 'B.Tech Computer Science & Engineering', departmentId: 'dept-1' },
+        { id: 'prog-2', code: 'BE-AI', name: 'B.Tech AI & Data Science', departmentId: 'dept-1' },
+        { id: 'prog-3', code: 'MBA', name: 'Master of Business Administration', departmentId: 'dept-4' },
+        { id: 'prog-4', code: 'BE-ENTC', name: 'B.Tech Electronics & Telecommunication', departmentId: 'dept-2' },
+        { id: 'prog-5', code: 'ME-COMP', name: 'M.Tech Computer Science & Engineering', departmentId: 'dept-1' },
+      ];
+    }
+    if (isHod) {
+      // HOD sees all programmes under their department (dept-1 / CSE by default)
+      const userDeptId = user?.departmentId || 'dept-1';
+      const filtered = masterProgrammes.filter(
+        (p) => !p.departmentId || p.departmentId === userDeptId || p.department?.toLowerCase().includes('computer')
+      );
+      return filtered.length > 0 ? filtered : masterProgrammes.slice(0, 3);
+    }
+    if (isProgrammeCoordinator) {
+      // Programme Coordinator sees only assigned programmes
+      const userProgId = user?.programmeId || 'prog-1';
+      const filtered = masterProgrammes.filter(
+        (p) =>
+          p.id === userProgId ||
+          (p.coordinator && user?.name && p.coordinator.toLowerCase().includes(user.name.toLowerCase()))
+      );
+      return filtered.length > 0 ? filtered : masterProgrammes.filter((p) => p.id === 'prog-1');
+    }
+    // Course Coordinator
+    return masterProgrammes.filter((p) => p.id === programmeId || p.id === 'prog-1');
+  })();
+
+  // Current Programme
+  const currentProgId = roleProgrammes.some((p) => p.id === programmeId)
+    ? programmeId
+    : roleProgrammes[0]?.id || 'prog-1';
+
+  const currentProgramme =
+    roleProgrammes.find((p) => p.id === currentProgId) ||
+    masterProgrammes.find((p) => p.id === currentProgId) ||
+    roleProgrammes[0] ||
+    selectedProgramme ||
+    { id: 'prog-1', code: 'BE-COMP', name: 'B.Tech Computer Science & Engineering' };
+
+  // All courses under currently selected programme
+  const programmeCourses = courses.filter(
+    (c) => !c.programmeId || c.programmeId === currentProgramme.id
+  );
+
+  // Available courses for the dropdown:
+  // For Course Coordinator: faculty assigned courses under current programme
+  // For PC / HOD / Director: all courses under selected programme
+  const roleCourses = isCourseCoordinator
+    ? (availableCourses.length > 0 ? availableCourses : programmeCourses)
+    : (programmeCourses.length > 0 ? programmeCourses : courses.filter((c) => c.programmeId === currentProgramme.id));
+
+  const allProgrammeCourses = roleCourses.length > 0 ? roleCourses : courses;
+
+  const currentCourseObj =
+    allProgrammeCourses.find((c) => c.id === courseId) ||
+    allProgrammeCourses[0] ||
+    { code: '310244', name: 'Computer Network and Security', id: 'crs-1' };
 
   // ── 1. MAIN TAB STATE: 'attainment-reports' | 'atr-reports' ────────────────
   const [activeMainTab, setActiveMainTab] = useState('attainment-reports');
@@ -127,7 +190,6 @@ export default function ReportsHub() {
   const [atrSubTab, setAtrSubTab] = useState('course-atr');
 
   // ── 4. FILTERS STATE ────────────────────────────────────────────────────────
-  const [selectedAyFilter, setSelectedAyFilter] = useState(academicYear || '2025-26');
   const [selectedBatchId, setSelectedBatchId] = useState('batch-2023-27');
   const [batchReportType, setBatchReportType] = useState('average-mapping'); // 'average-mapping' | 'average-attainment-direct' | 'average-attainment-indirect' | 'overall-attainment'
 
@@ -141,13 +203,6 @@ export default function ReportsHub() {
     { code: 'CO4', statement: 'Implement database connectivity and backend API protocols.' },
     { code: 'CO5', statement: 'Conduct system verification and automated unit testing.' },
   ];
-
-  const currentProgramme = selectedProgramme || masterProgrammes[0] || { code: 'BE-COMP', name: 'B.Tech Computer Science & Engineering' };
-  const allProgrammeCourses = (availableCourses.length > 0 ? availableCourses : courses).filter(
-    (c) => !c.programmeId || c.programmeId === currentProgramme.id || c.programmeId === programmeId
-  );
-
-  const currentCourseObj = selectedCourse || allProgrammeCourses[0] || { code: '310244', name: 'Computer Network and Security', id: 'crs-1' };
 
   // Batches
   const batchList = batches.length > 0 ? batches : DEFAULT_BATCHES;
@@ -167,10 +222,10 @@ export default function ReportsHub() {
 
     if (activeMainTab === 'attainment-reports') {
       if (effectiveAttainmentViewMode === 'course-attainment') {
-        filename = `Course_Attainment_${currentCourseObj.code}_AY_${selectedAyFilter}.xlsx`;
+        filename = `Course_Attainment_${currentCourseObj.code}_${currentBatchObj.id}.xlsx`;
         sheetData = [
           [`D. Y. PATIL INTERNATIONAL UNIVERSITY, AKURDI PUNE`],
-          [`COURSE ATTAINMENT REPORT — ACADEMIC YEAR ${selectedAyFilter}`],
+          [`COURSE ATTAINMENT REPORT — ${currentBatchObj.name}`],
           [`Programme: ${currentProgramme.code} - ${currentProgramme.name}`],
           [`Course: ${currentCourseObj.code} - ${currentCourseObj.name}`],
           [],
@@ -221,10 +276,10 @@ export default function ReportsHub() {
       }
     } else {
       const typeLabel = atrSubTab === 'course-atr' ? 'Course_ATR' : 'Programme_ATR';
-      filename = `${typeLabel}_${currentCourseObj.code}_AY_${selectedAyFilter}.xlsx`;
+      filename = `${typeLabel}_${currentCourseObj.code}_${currentBatchObj.id}.xlsx`;
       sheetData = [
         [`D. Y. PATIL INTERNATIONAL UNIVERSITY, AKURDI PUNE`],
-        [`ACTION TAKEN REPORT (ATR) — AY ${selectedAyFilter}`],
+        [`ACTION TAKEN REPORT (ATR) — ${currentBatchObj.name}`],
         [`Programme: ${currentProgramme.code}`],
         [`Course: ${currentCourseObj.code} - ${currentCourseObj.name}`],
         [],
@@ -329,16 +384,23 @@ export default function ReportsHub() {
         {/* Dynamic Filters Row */}
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '14px', paddingTop: '14px', borderTop: '1px solid #f1f5f9' }}>
           
-          {/* 1. PROGRAMME SELECTOR (Only for HOD & Director) */}
-          {isHodOrDirector && (
+          {/* 1. PROGRAMME SELECTOR (For Programme Coordinator, HOD, Director) */}
+          {!isCourseCoordinator && (
             <div style={{ minWidth: '240px', flex: '1 1 240px' }}>
               <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Select Programme
+                {isProgrammeCoordinator ? 'Assigned Programme' : isHod ? 'Department Programme' : 'School Programme'}
               </label>
               <div style={{ position: 'relative' }}>
                 <select
-                  value={programmeId}
-                  onChange={(e) => setProgrammeId(e.target.value)}
+                  value={currentProgramme.id}
+                  onChange={(e) => {
+                    const newProgId = e.target.value;
+                    setProgrammeId(newProgId);
+                    const matchingCourses = courses.filter((c) => !c.programmeId || c.programmeId === newProgId);
+                    if (matchingCourses.length > 0) {
+                      setCourseId(matchingCourses[0].id);
+                    }
+                  }}
                   style={{
                     height: '38px',
                     width: '100%',
@@ -355,7 +417,7 @@ export default function ReportsHub() {
                     fontFamily: 'inherit',
                   }}
                 >
-                  {masterProgrammes.map((p) => (
+                  {roleProgrammes.map((p) => (
                     <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
                   ))}
                 </select>
@@ -367,11 +429,11 @@ export default function ReportsHub() {
           {/* 2. COURSE SELECTOR (For All Roles) */}
           <div style={{ minWidth: '260px', flex: '1 1 260px' }}>
             <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-              {isHodOrDirector ? 'Select Course (of Programme)' : 'Select Course'}
+              Select Course (under {currentProgramme.code})
             </label>
             <div style={{ position: 'relative' }}>
               <select
-                value={courseId || ''}
+                value={currentCourseObj.id || courseId || ''}
                 onChange={(e) => setCourseId(e.target.value)}
                 style={{
                   height: '38px',
@@ -397,75 +459,38 @@ export default function ReportsHub() {
             </div>
           </div>
 
-          {/* 3. ACADEMIC YEAR SELECTOR (Visible for AY Attainment mode or ATR Reports) */}
-          {(activeMainTab === 'atr-reports' || effectiveAttainmentViewMode === 'course-attainment') && (
-            <div style={{ width: '160px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Academic Year
-              </label>
-              <div style={{ position: 'relative' }}>
-                <select
-                  value={selectedAyFilter}
-                  onChange={(e) => setSelectedAyFilter(e.target.value)}
-                  style={{
-                    height: '38px',
-                    width: '100%',
-                    fontSize: '12.5px',
-                    fontWeight: '700',
-                    color: '#0f172a',
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '8px',
-                    padding: '0 28px 0 12px',
-                    appearance: 'none',
-                    cursor: 'pointer',
-                    outline: 'none',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  {availableYears.map((yr) => (
-                    <option key={yr} value={yr}>{yr}</option>
-                  ))}
-                </select>
-                <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
-              </div>
+          {/* 3. ACADEMIC BATCH SELECTOR (For All Roles) */}
+          <div style={{ minWidth: '240px', flex: '1 1 240px' }}>
+            <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+              Academic Batch
+            </label>
+            <div style={{ position: 'relative' }}>
+              <select
+                value={selectedBatchId}
+                onChange={(e) => setSelectedBatchId(e.target.value)}
+                style={{
+                  height: '38px',
+                  width: '100%',
+                  fontSize: '12.5px',
+                  fontWeight: '700',
+                  color: '#0f172a',
+                  background: '#ffffff',
+                  border: '1.5px solid #cbd5e1',
+                  borderRadius: '8px',
+                  padding: '0 28px 0 12px',
+                  appearance: 'none',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {batchList.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
             </div>
-          )}
-
-          {/* 4. BATCH SELECTOR (Visible when in Programme Attainment mode) */}
-          {activeMainTab === 'attainment-reports' && effectiveAttainmentViewMode === 'programme-attainment' && (
-            <div style={{ minWidth: '240px', flex: '1 1 240px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Target Batch
-              </label>
-              <div style={{ position: 'relative' }}>
-                <select
-                  value={selectedBatchId}
-                  onChange={(e) => setSelectedBatchId(e.target.value)}
-                  style={{
-                    height: '38px',
-                    width: '100%',
-                    fontSize: '12.5px',
-                    fontWeight: '700',
-                    color: '#0f172a',
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '8px',
-                    padding: '0 28px 0 12px',
-                    appearance: 'none',
-                    cursor: 'pointer',
-                    outline: 'none',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  {batchList.map((b) => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
-                </select>
-                <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       </div>
 
@@ -568,7 +593,7 @@ export default function ReportsHub() {
                   gap: '6px',
                 }}
               >
-                <Calendar size={14} /> Course Attainment (By Academic Year)
+                <Calendar size={14} /> Course Attainment
               </button>
 
               <button
@@ -589,13 +614,13 @@ export default function ReportsHub() {
                   gap: '6px',
                 }}
               >
-                <Layers size={14} /> Programme Attainment (By Batch)
+                <Layers size={14} /> Programme Attainment
               </button>
             </div>
           )}
 
           {/* ───────────────────────────────────────────────────────────────── */}
-          {/* MODE A: COURSE ATTAINMENT (By Academic Year)                     */}
+          {/* MODE A: COURSE ATTAINMENT                                         */}
           {/* ───────────────────────────────────────────────────────────────── */}
           {effectiveAttainmentViewMode === 'course-attainment' && (
             <div style={{ display: 'grid', gap: '20px' }}>
@@ -604,14 +629,14 @@ export default function ReportsHub() {
               <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a', fontWeight: '800' }}>
-                    Course Attainment Report — AY {selectedAyFilter}
+                    Course Attainment Report — {currentBatchObj.name}
                   </h3>
                   <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#64748b' }}>
                     {currentCourseObj.code} &nbsp;—&nbsp; {currentCourseObj.name} ({currentProgramme.code})
                   </p>
                 </div>
                 <span style={{ fontSize: '11.5px', fontWeight: '700', background: '#e0e7ff', color: '#3730a3', padding: '4px 10px', borderRadius: '6px' }}>
-                  AY {selectedAyFilter}
+                  {currentBatchObj.name.split('—')[0] || currentBatchObj.name}
                 </span>
               </div>
 
@@ -1129,12 +1154,12 @@ export default function ReportsHub() {
 
           {/* ATR SUB-TAB 1: COURSE ATR (For Course Coordinator, or when course-atr selected) */}
           {(isCourseCoordinator || atrSubTab === 'course-atr') && (
-            <CourseATR hideFooter={true} hideHeader={true} courseId={courseId} />
+            <CourseATR hideFooter={true} hideHeader={false} courseId={currentCourseObj.id} batchId={currentBatchObj.id} />
           )}
 
           {/* ATR SUB-TAB 2: PROGRAMME ATR (Only for Programme Coordinator, HOD, Director) */}
           {!isCourseCoordinator && atrSubTab === 'programme-atr' && (
-            <ProgrammeATR hideFooter={true} hideHeader={true} courseId={courseId} />
+            <ProgrammeATR hideFooter={true} hideHeader={false} programmeId={currentProgramme.id} courseId={currentCourseObj.id} batchId={currentBatchObj.id} />
           )}
 
         </div>

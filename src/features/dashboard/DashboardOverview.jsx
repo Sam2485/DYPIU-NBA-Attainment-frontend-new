@@ -1,9 +1,10 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen, Target, BarChart2, FileText, ArrowRight,
   ChevronRight, Check, Clock, AlertCircle, Upload,
   Map, ClipboardList, TrendingUp, Award, ShieldCheck,
-  PlayCircle, Settings, Layers,
+  PlayCircle, Settings, Layers, AlertTriangle,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -35,16 +36,57 @@ export default function DashboardOverview() {
     activePOs        = [],
     attainmentConfigs = {},
     workflowProgressStore = {},
+    courseVerificationStore = {},
   } = useAcademic();
 
   const course         = selectedCourse || availableCourses[0];
+  const courseId       = course?.id || 'crs-1';
   const courseCode     = course?.code || '—';
   const courseName     = course?.name || 'No course selected';
   const progName       = selectedProgramme?.name || course?.programme || 'Programme';
   const progCode       = selectedProgramme?.code || '';
   const courseCOs      = course?.courseOutcomes || [];
   const config         = course?.id ? (attainmentConfigs[course.id] || {}) : {};
-  const courseProgress = workflowProgressStore[course?.id || 'crs-1'] || {};
+  const courseProgress = workflowProgressStore[courseId] || {};
+
+  // ── Verification status & revision requests ──────────────────────────────
+  const verificationRecord = courseVerificationStore[courseId] || {};
+  const isConfigRevision = verificationRecord.configStatus === 'REVISION_REQUESTED' || verificationRecord.configStatus === 'NEEDS_REVISION' || verificationRecord.configStatus === 'REJECTED';
+  const isCoRevision = verificationRecord.coStatus === 'REVISION_REQUESTED' || verificationRecord.coStatus === 'NEEDS_REVISION' || verificationRecord.coStatus === 'REJECTED';
+  const isAtrRevision = verificationRecord.atrStatus === 'REVISION_REQUESTED' || verificationRecord.atrStatus === 'NEEDS_REVISION' || verificationRecord.atrStatus === 'REJECTED';
+
+  const hasAnyRevision = isConfigRevision || isCoRevision || isAtrRevision;
+
+  const configRemarks = verificationRecord.configRemarks || verificationRecord.remarks || 'Please re-adjust Direct/Indirect weightages and benchmark thresholds.';
+  const coRemarks = verificationRecord.coRemarks || verificationRecord.remarks || 'Please review and refine Course Outcome (CO) statements and Bloom taxonomy levels.';
+  const atrRemarks = verificationRecord.atrRemarks || verificationRecord.remarks || 'Please update corrective action items and observations for unmet outcomes.';
+  const verifierName = verificationRecord.verifiedBy || 'Programme Coordinator';
+
+  // ── One-time card dismissal state ─────────────────────────────────────────
+  const [dismissedRevisions, setDismissedRevisions] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(`dypiu_dismissed_rev_${courseId}`);
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(`dypiu_dismissed_rev_${courseId}`);
+      setDismissedRevisions(saved ? JSON.parse(saved) : false);
+    } catch {
+      setDismissedRevisions(false);
+    }
+  }, [courseId]);
+
+  const handleAcknowledgeRevision = () => {
+    setDismissedRevisions(true);
+    try {
+      sessionStorage.setItem(`dypiu_dismissed_rev_${courseId}`, JSON.stringify(true));
+    } catch {}
+  };
 
   const stepStatus = WORKFLOW_STEPS.map((s) => {
     return !!courseProgress[s.path];
@@ -122,6 +164,19 @@ export default function DashboardOverview() {
     },
   ];
 
+  const getActionRevisionInfo = (actionId) => {
+    if (actionId === 'attainment-config' && isConfigRevision) {
+      return { hasRevision: true, label: 'Attainment Settings Revision Requested', remarks: configRemarks };
+    }
+    if (actionId === 'outcomes' && isCoRevision) {
+      return { hasRevision: true, label: 'CO Outcomes Revision Requested', remarks: coRemarks };
+    }
+    if (actionId === 'course-atr' && isAtrRevision) {
+      return { hasRevision: true, label: 'Course ATR Revision Requested', remarks: atrRemarks };
+    }
+    return { hasRevision: false };
+  };
+
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
 
@@ -132,7 +187,7 @@ export default function DashboardOverview() {
         marginBottom: '20px',
         display: 'flex',
         alignItems: 'center',
-        justify: 'space-between',
+        justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '16px',
       }}>
@@ -168,6 +223,111 @@ export default function DashboardOverview() {
           </button>
         </div>
       </div>
+
+      {/* ── ONE-TIME REVISION REQUEST STATUS CARD ──────────────────────────── */}
+      {hasAnyRevision && !dismissedRevisions && (
+        <div style={{
+          background: '#fef2f2',
+          border: '2px solid #f87171',
+          borderRadius: '12px',
+          padding: '20px 24px',
+          marginBottom: '20px',
+          boxShadow: '0 4px 20px rgba(220, 38, 38, 0.12)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1, minWidth: '280px' }}>
+              <div style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '10px',
+                background: '#fee2e2',
+                border: '1.5px solid #fca5a5',
+                display: 'grid',
+                placeItems: 'center',
+                flexShrink: 0,
+              }}>
+                <img src="/exclaimation.png" alt="Revision Needed" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#991b1b' }}>
+                    Revision Requested by {verifierName}
+                  </h3>
+                  <span style={{ fontSize: '11px', fontWeight: '700', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: '6px', padding: '2px 8px' }}>
+                    Action Required
+                  </span>
+                </div>
+                <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#7f1d1d', lineHeight: 1.4 }}>
+                  The {verifierName} has requested changes to the following sections for <strong>{courseCode} — {courseName}</strong>. Please review the remarks below, update the requested sections, and return them for review:
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {isConfigRevision && (
+                    <div style={{ background: '#ffffff', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '700', color: '#991b1b' }}>
+                        <Settings size={14} style={{ color: '#dc2626' }} />
+                        1. Attainment Settings / Configuration
+                      </div>
+                      <div style={{ fontSize: '12.5px', color: '#475569', marginTop: '3px', paddingLeft: '20px', fontStyle: 'italic' }}>
+                        "{configRemarks}"
+                      </div>
+                    </div>
+                  )}
+
+                  {isCoRevision && (
+                    <div style={{ background: '#ffffff', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '700', color: '#991b1b' }}>
+                        <BookOpen size={14} style={{ color: '#dc2626' }} />
+                        2. Course Outcomes (COs)
+                      </div>
+                      <div style={{ fontSize: '12.5px', color: '#475569', marginTop: '3px', paddingLeft: '20px', fontStyle: 'italic' }}>
+                        "{coRemarks}"
+                      </div>
+                    </div>
+                  )}
+
+                  {isAtrRevision && (
+                    <div style={{ background: '#ffffff', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '700', color: '#991b1b' }}>
+                        <FileText size={14} style={{ color: '#dc2626' }} />
+                        3. Course Action Taken Report (ATR)
+                      </div>
+                      <div style={{ fontSize: '12.5px', color: '#475569', marginTop: '3px', paddingLeft: '20px', fontStyle: 'italic' }}>
+                        "{atrRemarks}"
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* OK Button */}
+            <div style={{ alignSelf: 'flex-start', flexShrink: 0 }}>
+              <button
+                onClick={handleAcknowledgeRevision}
+                style={{
+                  height: '38px',
+                  padding: '0 24px',
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  background: '#dc2626',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 8px rgba(220, 38, 38, 0.35)',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <Check size={16} /> OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── STAT CARDS ─────────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px', marginBottom: '20px' }}>
@@ -224,33 +384,6 @@ export default function DashboardOverview() {
 
       </div>
 
-      {/* ── NEXT STEP ALERT ─────────────────────────────────────────────────── */}
-      {nextStep && (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px',
-          background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px',
-          padding: '14px 18px', marginBottom: '20px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AlertCircle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#92400e' }}>
-                Next step: <strong>Step {nextStep.step} — {nextStep.label}</strong>
-              </div>
-              <div style={{ fontSize: '12px', color: '#b45309', marginTop: '1px' }}>
-                {nextStep.desc}. Complete this to move your course attainment forward.
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate(`/course-coordinator/workflow?step=${targetStepNum}`)}
-            style={{ height: '34px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#d97706', color: '#fff', border: 'none', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit', flexShrink: 0 }}
-          >
-            Continue Step {targetStepNum} ({nextStep.label}) <ChevronRight size={14} />
-          </button>
-        </div>
-      )}
-
       {/* ── QUICK ACTIONS ───────────────────────────────────────────────────── */}
       <div style={{ marginBottom: '20px' }}>
         <div style={{ fontSize: '12px', fontWeight: '700', color: muted, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '12px' }}>
@@ -259,20 +392,74 @@ export default function DashboardOverview() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
           {quickActions.map((action) => {
             const Icon = action.icon;
+            const revInfo = getActionRevisionInfo(action.id);
+            const hasRev = revInfo.hasRevision;
+
             return (
               <div
                 key={action.id}
                 onClick={() => navigate(action.path)}
-                style={{ ...surface, padding: '16px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px', transition: 'box-shadow .15s ease, border-color .15s ease' }}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.06)'; e.currentTarget.style.borderColor = '#c7d2fe'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                style={{
+                  ...surface,
+                  position: 'relative',
+                  padding: '16px 18px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                  border: '1px solid #e2e8f0',
+                  background: '#ffffff',
+                  transition: 'box-shadow .15s ease, border-color .15s ease',
+                  boxShadow: 'none',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.06)';
+                  e.currentTarget.style.borderColor = '#c7d2fe';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                }}
               >
-                <div style={{ width: '38px', height: '38px', borderRadius: '9px', background: action.iconBg, color: action.iconColor, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                {/* Exclamation mark icon for requested revision (doubled size) */}
+                {hasRev && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '8px',
+                    right: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}>
+                    <img
+                      src="/exclaimation.png"
+                      alt="Revision Needed"
+                      style={{ width: '36px', height: '36px', objectFit: 'contain' }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '9px',
+                  background: action.iconBg,
+                  color: action.iconColor,
+                  display: 'grid',
+                  placeItems: 'center',
+                  flexShrink: 0,
+                }}>
                   <Icon size={18} />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: ink, marginBottom: '2px' }}>{action.title}</div>
-                  <p style={{ margin: 0, fontSize: '12px', color: muted, lineHeight: 1.4 }}>{action.desc}</p>
+                <div style={{ flex: 1, minWidth: 0, paddingRight: hasRev ? '42px' : '0' }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: ink, marginBottom: '2px' }}>
+                    {action.title}
+                  </div>
+                  <p style={{ margin: 0, fontSize: '12px', color: muted, lineHeight: 1.4 }}>
+                    {hasRev ? revInfo.label : action.desc}
+                  </p>
                 </div>
                 <ChevronRight size={16} style={{ color: '#cbd5e1', flexShrink: 0 }} />
               </div>
@@ -281,13 +468,13 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      {/* ── 7-STEP WORKFLOW PROGRESS ────────────────────────────────────────── */}
+      {/* ── 6-STEP WORKFLOW PROGRESS ────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '20px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <div style={{ fontSize: '14px', fontWeight: '700', color: ink }}>Course Attainment Workflow</div>
             <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>
-              {completedCount} of {WORKFLOW_STEPS.length} steps completed &nbsp;·&nbsp; Follow the guided 7-step process below.
+              {completedCount} of {WORKFLOW_STEPS.length} steps completed &nbsp;·&nbsp; Follow the guided 6-step process below.
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -303,6 +490,8 @@ export default function DashboardOverview() {
             const done    = stepStatus[idx];
             const current = !done && (idx === 0 || stepStatus[idx - 1]);
             const Icon    = s.icon;
+            const isStepRev = (s.step === 1 && isCoRevision) || (s.step === 6 && isAtrRevision);
+
             return (
               <div
                 key={s.step}
@@ -322,11 +511,17 @@ export default function DashboardOverview() {
                 <div style={{
                   width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
                   display: 'grid', placeItems: 'center',
-                  background: done ? '#f0fdf4' : current ? s.bg : '#f8fafc',
-                  border: `1.5px solid ${done ? '#86efac' : current ? s.color + '55' : '#e2e8f0'}`,
+                  background: isStepRev ? '#ffffff' : done ? '#f0fdf4' : current ? s.bg : '#f8fafc',
+                  border: `1.5px solid ${isStepRev ? '#e2e8f0' : done ? '#86efac' : current ? s.color + '55' : '#e2e8f0'}`,
                   color: done ? '#16a34a' : current ? s.color : '#94a3b8',
                 }}>
-                  {done ? <Check size={15} /> : <Icon size={15} />}
+                  {isStepRev ? (
+                    <img src="/exclaimation.png" alt="Revision Needed" style={{ width: '16px', height: '16px', objectFit: 'contain' }} />
+                  ) : done ? (
+                    <Check size={15} />
+                  ) : (
+                    <Icon size={15} />
+                  )}
                 </div>
 
                 {/* Step info */}
@@ -335,7 +530,12 @@ export default function DashboardOverview() {
                     <span style={{ fontSize: '10px', fontWeight: '700', color: done ? '#16a34a' : current ? s.color : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       Step {s.step}
                     </span>
-                    {current && (
+                    {isStepRev && (
+                      <span style={{ fontSize: '10px', fontWeight: '700', color: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                        <img src="/exclaimation.png" alt="" style={{ width: '10px', height: '10px' }} /> Revision Needed
+                      </span>
+                    )}
+                    {current && !isStepRev && (
                       <span style={{ fontSize: '10px', fontWeight: '700', background: '#eef2ff', color: accent, border: '1px solid #c7d2fe', borderRadius: '4px', padding: '1px 6px' }}>
                         UP NEXT
                       </span>
@@ -348,15 +548,25 @@ export default function DashboardOverview() {
                 {/* Status badge */}
                 <span style={{
                   fontSize: '11px', fontWeight: '600', borderRadius: '5px', padding: '3px 9px', flexShrink: 0,
-                  background: done ? '#f0fdf4' : current ? '#eef2ff' : '#f8fafc',
-                  color:      done ? '#16a34a' : current ? accent       : '#94a3b8',
-                  border:     `1px solid ${done ? '#bbf7d0' : current ? '#c7d2fe' : '#e2e8f0'}`,
+                  background: isStepRev ? '#fee2e2' : done ? '#f0fdf4' : current ? '#eef2ff' : '#f8fafc',
+                  color:      isStepRev ? '#dc2626' : done ? '#16a34a' : current ? accent       : '#94a3b8',
+                  border:     `1px solid ${isStepRev ? '#fca5a5' : done ? '#bbf7d0' : current ? '#c7d2fe' : '#e2e8f0'}`,
                 }}>
-                  {done ? '✓ Done' : current ? <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={10} /> Pending</span> : 'Locked'}
+                  {isStepRev ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <img src="/exclaimation.png" alt="" style={{ width: '11px', height: '11px' }} /> Revision Needed
+                    </span>
+                  ) : done ? (
+                    '✓ Done'
+                  ) : current ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={10} /> Pending</span>
+                  ) : (
+                    'Locked'
+                  )}
                 </span>
 
                 {/* Arrow */}
-                <ChevronRight size={14} style={{ color: '#cbd5e1', flexShrink: 0 }} />
+                <ChevronRight size={14} style={{ color: isStepRev ? '#f87171' : '#cbd5e1', flexShrink: 0 }} />
               </div>
             );
           })}
@@ -367,7 +577,7 @@ export default function DashboardOverview() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '14px 18px', marginTop: '16px' }}>
             <ShieldCheck size={20} style={{ color: '#16a34a', flexShrink: 0 }} />
             <div>
-              <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#15803d' }}>All 7 Steps Complete</div>
+              <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#15803d' }}>All Steps Complete</div>
               <div style={{ fontSize: '12px', color: '#166534', marginTop: '1px' }}>
                 Course attainment process is complete. Your submission is ready for Programme Coordinator review.
               </div>

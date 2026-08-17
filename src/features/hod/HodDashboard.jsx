@@ -38,14 +38,58 @@ export default function HodDashboard() {
     courses = [],
     hodApprovals = [],
     hodWorkflowProgressStore = {},
+    courseVerificationStore = {},
   } = useAcademic();
 
-  const currentProg = selectedProgramme || masterProgrammes[0] || { id: 'prog-1', name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
-  const totalProgrammes = masterProgrammes.length || 3;
+  const hodProgrammes = masterProgrammes.filter(
+    (p) =>
+      p.departmentId === (user?.departmentId || 'dept-1') ||
+      p.department?.toLowerCase().includes('computer') ||
+      !p.departmentId
+  );
+
+  const currentProg = selectedProgramme || hodProgrammes[0] || masterProgrammes[0] || { id: 'prog-1', name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
+  const totalProgrammes = hodProgrammes.length || masterProgrammes.length || 3;
   const totalCourses = courses.length || 6;
-  const pendingApprovalsCount = hodApprovals.filter(
-    (a) => a.status === 'PENDING' || a.status === 'SUBMITTED'
-  ).length;
+
+  // Exact count of remaining individual approval items for HOD across department programmes:
+  // 1. Course & Coordinator Allocations (allocationStatus)
+  // 2. PO & PSO Target Levels (poPsoTargetsStatus)
+  // 3. Programme ATR (programmeAtrStatus)
+  // 4. Any additional items in hodApprovals store
+  const pendingApprovalsCount = (() => {
+    let count = 0;
+    const countedKeys = new Set();
+
+    hodProgrammes.forEach((p) => {
+      const allocRec = courseVerificationStore[`allocation-${p.id}`] || {};
+      if (allocRec.allocationStatus === 'SUBMITTED' || allocRec.allocationStatus === 'PENDING_APPROVAL' || allocRec.allocationStatus === 'PENDING') {
+        count++;
+        countedKeys.add(`alloc-${p.id}`);
+      }
+
+      const tgtRec = courseVerificationStore[`targets-${p.id}`] || allocRec;
+      if (tgtRec.poPsoTargetsStatus === 'SUBMITTED' || tgtRec.targetsStatus === 'SUBMITTED' || tgtRec.poPsoTargetsStatus === 'PENDING_APPROVAL' || tgtRec.targetsStatus === 'PENDING') {
+        count++;
+        countedKeys.add(`tgt-${p.id}`);
+      }
+
+      const atrRec = courseVerificationStore[`prog-atr-${p.id}`] || allocRec;
+      if (atrRec.programmeAtrStatus === 'SUBMITTED' || atrRec.programmeAtrStatus === 'PENDING_APPROVAL' || atrRec.programmeAtrStatus === 'PENDING') {
+        count++;
+        countedKeys.add(`prog-atr-${p.id}`);
+      }
+    });
+
+    (hodApprovals || []).forEach((a) => {
+      if ((a.status === 'PENDING' || a.status === 'SUBMITTED') && !countedKeys.has(a.id)) {
+        count++;
+      }
+    });
+
+    return count;
+  })();
+
   const activeBatch = selectedBatch?.name?.split(' ')[1] || '2025–29';
 
   // ── Per-step completion tracking ───────────────────────────────────────────
@@ -218,33 +262,6 @@ export default function HodDashboard() {
         </div>
 
       </div>
-
-      {/* ── NEXT STEP ALERT ─────────────────────────────────────────────────── */}
-      {nextStep && (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px',
-          background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px',
-          padding: '14px 18px', marginBottom: '20px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AlertCircle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#92400e' }}>
-                Next step: <strong>Step {nextStep.step} — {nextStep.label}</strong>
-              </div>
-              <div style={{ fontSize: '12px', color: '#b45309', marginTop: '1px' }}>
-                {nextStep.desc}. Complete this to move your departmental governance forward.
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate(`/hod/setup-workflow?step=${targetStepNum}`)}
-            style={{ height: '34px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#d97706', color: '#fff', border: 'none', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit', flexShrink: 0 }}
-          >
-            Continue Step {targetStepNum} ({nextStep.label}) <ChevronRight size={14} />
-          </button>
-        </div>
-      )}
 
       {/* ── QUICK ACTIONS ───────────────────────────────────────────────────── */}
       <div style={{ marginBottom: '20px' }}>

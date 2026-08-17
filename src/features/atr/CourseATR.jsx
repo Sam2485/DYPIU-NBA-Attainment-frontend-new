@@ -16,7 +16,7 @@ const inputStyle = {
   color: ink, width: '100%', outline: 'none', fontFamily: 'inherit',
 };
 
-export default function CourseATR({ hideFooter = false, hideHeader = false, showHistoryProp, readOnly = false, courseId }) {
+export default function CourseATR({ hideFooter = false, hideHeader = false, showHistoryProp, readOnly = false, courseId, batchId = null }) {
   const navigate = useNavigate();
   const { role, user } = useAuth();
   const {
@@ -168,7 +168,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
 
 
       {/* ── APPROVAL / REVISION / SUBMISSION STATUS BANNERS ──────────────── */}
-      {!hideHeader && isRevision && (
+      {!hideHeader && !showHistory && isRevision && (
         <RequestRevisionCard
           title={`Course ATR Revision Requested (${currentCourse?.code || 'Course'})`}
           requestedBy={verifiedBy}
@@ -177,7 +177,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
         />
       )}
 
-      {!hideHeader && isApproved && (
+      {!hideHeader && !showHistory && isApproved && (
         <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', borderRadius: '10px', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
           <CheckCircle2 size={20} style={{ color: '#10b981', flexShrink: 0 }} />
           <div>
@@ -191,7 +191,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
         </div>
       )}
 
-      {!hideHeader && isSubmitted && !isApproved && (
+      {!hideHeader && !showHistory && isSubmitted && !isApproved && (
         <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '10px', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
           <Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} />
           <div>

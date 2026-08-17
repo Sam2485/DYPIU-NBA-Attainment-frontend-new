@@ -46,15 +46,22 @@ export default function ProgrammeCoordinatorDashboard() {
 
   const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === selectedProgramme.id);
 
-  const pendingVerifications = Object.values(courseVerificationStore).filter((rec) => {
-    return (
-      rec.configStatus === 'SUBMITTED' ||
-      rec.coStatus === 'PENDING_APPROVAL' ||
-      rec.coStatus === 'SUBMITTED' ||
-      rec.atrStatus === 'SUBMITTED' ||
-      rec.programmeAtrStatus === 'SUBMITTED'
-    );
-  }).length;
+  // Exact count of remaining individual approval items across all courses under the programme:
+  // Settings (configStatus), CO Outcomes (coStatus), Course ATR (atrStatus)
+  const pendingVerifications = progCourses.reduce((total, c) => {
+    const rec = courseVerificationStore[c.id] || {};
+    let count = 0;
+    if (rec.configStatus === 'SUBMITTED' || rec.configStatus === 'PENDING_APPROVAL' || rec.configStatus === 'PENDING') {
+      count++;
+    }
+    if (rec.coStatus === 'SUBMITTED' || rec.coStatus === 'PENDING_APPROVAL' || rec.coStatus === 'PENDING') {
+      count++;
+    }
+    if (rec.atrStatus === 'SUBMITTED' || rec.atrStatus === 'PENDING_APPROVAL' || rec.atrStatus === 'PENDING') {
+      count++;
+    }
+    return total + count;
+  }, 0);
 
   const activeBatchLabel = selectedBatch?.name?.split(' ')[1] || '2025–29';
 
@@ -88,6 +95,15 @@ export default function ProgrammeCoordinatorDashboard() {
       icon:  Target,
       iconColor: '#7c3aed',
       iconBg: '#f5f3ff',
+    },
+    {
+      id:   'programme-atr',
+      title: 'Programme ATR',
+      desc:  'Formulate PO/PSO gap analysis, observations & Action Taken Report.',
+      path:  '/programme-atr',
+      icon:  Layers,
+      iconColor: '#0284c7',
+      iconBg: '#f0f9ff',
     },
     {
       id:    'verification',
@@ -220,33 +236,6 @@ export default function ProgrammeCoordinatorDashboard() {
         </div>
 
       </div>
-
-      {/* ── NEXT STEP ALERT ─────────────────────────────────────────────────── */}
-      {nextStep && (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px',
-          background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px',
-          padding: '14px 18px', marginBottom: '20px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AlertCircle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#92400e' }}>
-                Next step: <strong>Step {nextStep.step} — {nextStep.label}</strong>
-              </div>
-              <div style={{ fontSize: '12px', color: '#b45309', marginTop: '1px' }}>
-                {nextStep.desc}. Complete this to move your programme framework forward.
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate(`/programme-coordinator/setup-workflow?step=${targetStepNum}`)}
-            style={{ height: '34px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#d97706', color: '#fff', border: 'none', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit', flexShrink: 0 }}
-          >
-            Continue Step {targetStepNum} ({nextStep.label}) <ChevronRight size={14} />
-          </button>
-        </div>
-      )}
 
       {/* ── QUICK ACTIONS ─────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: '20px' }}>

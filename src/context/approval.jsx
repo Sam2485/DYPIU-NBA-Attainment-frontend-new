@@ -95,31 +95,91 @@ export const INITIAL_HOD_APPROVALS_LIST = [
 
 export const INITIAL_COURSE_VERIFICATION_STORE = {
   'crs-1': {
-    configStatus: 'NO_SUBMISSION',
-    coStatus: 'NO_SUBMISSION',
-    atrStatus: 'NO_SUBMISSION',
-    programmeAtrStatus: 'NO_SUBMISSION',
+    configStatus: 'DRAFT',
+    coStatus: 'DRAFT',
+    atrStatus: 'DRAFT',
+    programmeAtrStatus: 'DRAFT',
     verifiedBy: null,
   },
   'crs-2': {
-    configStatus: 'NO_SUBMISSION',
-    coStatus: 'NO_SUBMISSION',
-    atrStatus: 'NO_SUBMISSION',
-    programmeAtrStatus: 'NO_SUBMISSION',
+    configStatus: 'DRAFT',
+    coStatus: 'DRAFT',
+    atrStatus: 'DRAFT',
+    programmeAtrStatus: 'DRAFT',
     verifiedBy: null,
   },
   'crs-3': {
-    configStatus: 'NO_SUBMISSION',
-    coStatus: 'NO_SUBMISSION',
-    atrStatus: 'NO_SUBMISSION',
-    programmeAtrStatus: 'NO_SUBMISSION',
+    configStatus: 'DRAFT',
+    coStatus: 'DRAFT',
+    atrStatus: 'DRAFT',
+    programmeAtrStatus: 'DRAFT',
     verifiedBy: null,
   },
   'crs-4': {
-    configStatus: 'NO_SUBMISSION',
-    coStatus: 'NO_SUBMISSION',
-    atrStatus: 'NO_SUBMISSION',
-    programmeAtrStatus: 'NO_SUBMISSION',
+    configStatus: 'DRAFT',
+    coStatus: 'DRAFT',
+    atrStatus: 'DRAFT',
+    programmeAtrStatus: 'DRAFT',
+    verifiedBy: null,
+  },
+  'allocation-prog-1': {
+    allocationStatus: 'DRAFT',
+    verifiedBy: null,
+  },
+  'allocation-prog-2': {
+    allocationStatus: 'DRAFT',
+    verifiedBy: null,
+  },
+  'allocation-prog-3': {
+    allocationStatus: 'DRAFT',
+    verifiedBy: null,
+  },
+  'allocation-prog-4': {
+    allocationStatus: 'DRAFT',
+    verifiedBy: null,
+  },
+  'allocation-prog-5': {
+    allocationStatus: 'DRAFT',
+    verifiedBy: null,
+  },
+  'targets-prog-1': {
+    poPsoTargetsStatus: 'DRAFT',
+    verifiedBy: null,
+  },
+  'targets-prog-2': {
+    poPsoTargetsStatus: 'DRAFT',
+    verifiedBy: null,
+  },
+  'targets-prog-3': {
+    poPsoTargetsStatus: 'DRAFT',
+    verifiedBy: null,
+  },
+  'targets-prog-4': {
+    poPsoTargetsStatus: 'DRAFT',
+    verifiedBy: null,
+  },
+  'targets-prog-5': {
+    poPsoTargetsStatus: 'DRAFT',
+    verifiedBy: null,
+  },
+  'prog-atr-prog-1': {
+    programmeAtrStatus: 'DRAFT',
+    verifiedBy: null,
+  },
+  'prog-atr-prog-2': {
+    programmeAtrStatus: 'DRAFT',
+    verifiedBy: null,
+  },
+  'prog-atr-prog-3': {
+    programmeAtrStatus: 'DRAFT',
+    verifiedBy: null,
+  },
+  'prog-atr-prog-4': {
+    programmeAtrStatus: 'DRAFT',
+    verifiedBy: null,
+  },
+  'prog-atr-prog-5': {
+    programmeAtrStatus: 'DRAFT',
     verifiedBy: null,
   },
 };
@@ -246,10 +306,12 @@ export function ApprovalProvider({ children }) {
         ...prev,
         [targetCourseId]: {
           ...(prev[targetCourseId] || {
-            configStatus: 'NO_SUBMISSION',
-            coStatus: 'NO_SUBMISSION',
-            atrStatus: 'NO_SUBMISSION',
-            programmeAtrStatus: 'NO_SUBMISSION',
+            configStatus: 'DRAFT',
+            coStatus: 'DRAFT',
+            atrStatus: 'DRAFT',
+            programmeAtrStatus: 'DRAFT',
+            allocationStatus: 'DRAFT',
+            poPsoTargetsStatus: 'DRAFT',
           }),
           [statusType]: statusValue,
           [remarkKey]: remarksValue,

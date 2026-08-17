@@ -181,7 +181,7 @@ export default function CoordinatorReviewHub() {
   const selectedCourse = availableCourses.find((c) => c.id === reviewCourseId) || availableCourses[0];
 
   const courseReview = courseVerificationStore[reviewCourseId] || {
-    configStatus: 'NO_SUBMISSION', coStatus: 'NO_SUBMISSION', atrStatus: 'NO_SUBMISSION', programmeAtrStatus: 'NO_SUBMISSION',
+    configStatus: 'DRAFT', coStatus: 'DRAFT', atrStatus: 'DRAFT', programmeAtrStatus: 'DRAFT',
   };
 
   const attainmentConfig = attainmentConfigs[reviewCourseId] || {
@@ -215,7 +215,7 @@ export default function CoordinatorReviewHub() {
   const activeStatusKey  = activeTab === 'config' ? 'configStatus' : activeTab === 'cos' ? 'coStatus' : 'atrStatus';
   const activeRemarkKey  = activeTab === 'config' ? 'configRemarks' : activeTab === 'cos' ? 'coRemarks' : 'atrRemarks';
 
-  const activeTabStatus  = courseReview[activeStatusKey] || 'NO_SUBMISSION';
+  const activeTabStatus  = courseReview[activeStatusKey] || 'DRAFT';
   const activeTabRemarks = courseReview[activeRemarkKey] || '';
 
   // ── REJECTION REMARKS MODAL STATE ───────────────────────────────────────────

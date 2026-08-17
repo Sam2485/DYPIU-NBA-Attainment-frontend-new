@@ -17,7 +17,7 @@ const inputStyle = {
   color: ink, width: '100%', outline: 'none', fontFamily: 'inherit',
 };
 
-export default function ProgrammeATR({ courseId = null, hideFooter = false, hideHeader = false, readOnly = false }) {
+export default function ProgrammeATR({ courseId = null, programmeId: propProgrammeId = null, hideFooter = false, hideHeader = false, readOnly = false }) {
   const { user, role } = useAuth();
   const {
     selectedCourse,
@@ -25,8 +25,7 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
     selectedBatch,
     masterProgrammes = [],
     setProgrammeId  = () => {},
-    academicYear    = '2025-26',
-    availableYears  = ['2025-26', '2024-25', '2023-24'],
+    batches         = [],
     activePOs       = [],
     activePSOs      = [],
     poPsoTargets    = {},
@@ -45,9 +44,11 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
     { code: 'PSO2', actionPlan: 'Organized industry bootcamps on full-stack testing and secure software development.', impact: 'PSO2 attainment exceeded target with 91.4% achievement rate.' },
   ];
 
+  const activeProgId = propProgrammeId || programmeId || 'prog-1';
+  const currentProg = masterProgrammes.find((p) => p.id === activeProgId) || selectedProgramme || masterProgrammes[0];
   const targetCourseId = courseId || selectedCourse?.id || 'crs-1';
-  const progAtrKey = `prog-atr-${programmeId}`;
-  const vRecord = courseVerificationStore[progAtrKey] || courseVerificationStore[`allocation-${programmeId}`] || courseVerificationStore[targetCourseId] || {};
+  const progAtrKey = `prog-atr-${activeProgId}`;
+  const vRecord = courseVerificationStore[progAtrKey] || courseVerificationStore[`allocation-${activeProgId}`] || courseVerificationStore[targetCourseId] || {};
   const reportStatus = vRecord.programmeAtrStatus || 'DRAFT';
   const verificationRemarks = vRecord.programmeAtrRemarks || '';
   const verifierName = vRecord.verifiedBy || 'Head of Department (HOD)';
@@ -55,12 +56,20 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
   const isFaculty     = role === 'FACULTY';
   const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' || role === 'HOD';
 
-  const [selectedYear, setSelectedYear] = useState(academicYear || '2025-26');
-  const isPreviousYear = selectedYear !== (academicYear || '2025-26');
-  const locked = readOnly || isPreviousYear || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
+  const defaultBatches = [
+    { id: 'batch-2025-29', name: 'Batch 2025–29' },
+    { id: 'batch-2024-28', name: 'Batch 2024–28' },
+    { id: 'batch-2023-27', name: 'Batch 2023–27' },
+    { id: 'batch-2022-26', name: 'Batch 2022–26 (Archived)' },
+  ];
+  const batchList = batches.length > 0 ? batches : defaultBatches;
+  const [selectedBatchId, setSelectedBatchId] = useState('batch-2023-27');
+  const currentBatchObj = batchList.find((b) => b.id === selectedBatchId) || batchList[0];
+  const isPreviousBatch = selectedBatchId === 'batch-2022-26' || currentBatchObj?.name?.includes('Archived') || currentBatchObj?.name?.includes('Graduated');
+  const locked = readOnly || isPreviousBatch || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
 
   // ── Build PO/PSO ATR list ──────────────────────────────────────────
-  const progTargets = poPsoTargets[programmeId] || { poTargets: {}, psoTargets: {} };
+  const progTargets = poPsoTargets[activeProgId] || { poTargets: {}, psoTargets: {} };
 
   const normPOs = activePOs.length > 0 ? activePOs : [
     { code: 'PO1',  statement: 'Apply knowledge of mathematics, science and engineering fundamentals to complex engineering problems.' },
@@ -241,30 +250,32 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
               {/* Programme selector */}
-              <div style={{ position: 'relative', minWidth: '280px' }}>
-                <select
-                  value={programmeId}
-                  onChange={(e) => setProgrammeId(e.target.value)}
-                  style={{
-                    ...inputStyle,
-                    height: '38px',
-                    paddingRight: '32px',
-                    appearance: 'none',
-                    cursor: 'pointer',
-                    fontWeight: '700',
-                    color: accent,
-                    background: '#f5f3ff',
-                    border: '1.5px solid #c7d2fe',
-                  }}
-                >
-                  {masterProgrammes.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.code} — {p.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
-              </div>
+              {!propProgrammeId && (
+                <div style={{ position: 'relative', minWidth: '280px' }}>
+                  <select
+                    value={activeProgId}
+                    onChange={(e) => setProgrammeId(e.target.value)}
+                    style={{
+                      ...inputStyle,
+                      height: '38px',
+                      paddingRight: '32px',
+                      appearance: 'none',
+                      cursor: 'pointer',
+                      fontWeight: '700',
+                      color: accent,
+                      background: '#f5f3ff',
+                      border: '1.5px solid #c7d2fe',
+                    }}
+                  >
+                    {masterProgrammes.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.code} — {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
+                </div>
+              )}
 
               {!locked ? (
                 <button onClick={handleSaveSubmit}
@@ -273,7 +284,7 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
                 </button>
               ) : (
                 <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Lock size={13} /> {isPreviousYear ? `AY ${selectedYear} Archived (Read-Only)` : 'Report Locked'}
+                  <Lock size={13} /> {isPreviousBatch ? `${currentBatchObj.name} (Archived)` : 'Report Locked'}
                 </span>
               )}
             </div>
@@ -298,14 +309,14 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
       {showHistory && (
         <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px', borderColor: '#a5b4fc', borderWidth: '1.5px' }}>
           <div style={{ fontSize: '11px', fontWeight: '700', color: accent, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-            Programme ATR Carry-Forward — Previous Academic Cycle (AY 2024-25) · Verified by Head of Department (HOD)
+            Programme ATR Carry-Forward — Previous Academic Batch · Verified by Head of Department (HOD)
           </div>
           <table className="audit-data-table">
             <thead>
               <tr>
                 <th style={{ width: '90px', textAlign: 'center' }}>Outcome</th>
-                <th>Action Taken (Previous Cycle)</th>
-                <th>Impact Observed in Current Cycle</th>
+                <th>Action Taken (Previous Batch)</th>
+                <th>Impact Observed in Current Batch</th>
               </tr>
             </thead>
             <tbody>
@@ -322,22 +333,22 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
       )}
 
       {/* Archived Year Lock Banner */}
-      {isPreviousYear && (
+      {!showHistory && isPreviousBatch && (
         <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
           <Lock size={20} style={{ color: '#1d4ed8', flexShrink: 0 }} />
           <div>
             <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#1e40af', display: 'block' }}>
-              🔒 Archived Academic Year ({selectedYear}) — Read Only
+              🔒 Archived Academic Batch ({currentBatchObj.name}) — Read Only
             </span>
             <span style={{ fontSize: '12px', color: '#1e3a8a', display: 'block', marginTop: '2px' }}>
-              This Programme Action Taken Report is an archived historical record from AY {selectedYear}. Previous year ATR reports are locked and cannot be edited.
+              This Programme Action Taken Report is an archived historical record from {currentBatchObj.name}. Previous batch ATR reports are locked and cannot be edited.
             </span>
           </div>
         </div>
       )}
 
       {/* ── VERIFICATION APPROVED BANNER ─────────────────────────────────── */}
-      {(reportStatus === 'VERIFIED' || reportStatus === 'APPROVED') && (
+      {!showHistory && (reportStatus === 'VERIFIED' || reportStatus === 'APPROVED') && (
         <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
           <CheckCircle2 size={20} style={{ color: '#16a34a', flexShrink: 0 }} />
           <div>
@@ -352,7 +363,7 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
       )}
 
       {/* ── REVISION REQUESTED BANNER ─────────────────────────────────────── */}
-      {reportStatus === 'REVISION_REQUESTED' && (
+      {!showHistory && reportStatus === 'REVISION_REQUESTED' && (
         <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
           <AlertCircle size={20} style={{ color: '#dc2626', flexShrink: 0 }} />
           <div>
@@ -369,7 +380,7 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
       )}
 
       {/* ── PENDING REVIEW BANNER ─────────────────────────────────────────── */}
-      {reportStatus === 'SUBMITTED' && (
+      {!showHistory && reportStatus === 'SUBMITTED' && (
         <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
           <Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} />
           <div>
