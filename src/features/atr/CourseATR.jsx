@@ -160,20 +160,6 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
         </div>
       )}
 
-      {/* Verification / Rejection Status Banner */}
-      {(atrStatus === 'VERIFIED' || atrStatus === 'APPROVED') && (
-        <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-          <CheckCircle2 size={20} style={{ color: '#16a34a', flexShrink: 0 }} />
-          <div>
-            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#15803d' }}>
-              ✓ Approved by Programme Coordinator
-            </span>
-            <span style={{ fontSize: '12px', color: '#166534', display: 'block', marginTop: '2px' }}>
-              Course ATR has been verified and approved by {courseVerificationStore[activeCourseId]?.verifiedBy || 'Programme Coordinator'}.
-            </span>
-          </div>
-        </div>
-      )}
 
       {!hideHeader && (atrStatus === 'REJECTED' || atrStatus === 'REVISION_REQUESTED' || atrStatus === 'NEEDS_REVISION') && (
         <RequestRevisionCard
@@ -307,12 +293,18 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
       )}
 
       {/* ── FOOTER ────────────────────────────────────────────────────────── */}
-      {!hideFooter && isFaculty && !locked && (
+      {!hideFooter && isFaculty && (
         <div style={{ ...surface, padding: '14px 20px', marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-          <button onClick={handleSaveSubmit}
-            style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
-            <Send size={14} /> Submit ATR for Review
-          </button>
+          {!locked ? (
+            <button onClick={handleSaveSubmit}
+              style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+              <Send size={14} /> Submit ATR for Review
+            </button>
+          ) : (
+            <span style={{ height: '40px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Lock size={14} /> Report Locked
+            </span>
+          )}
         </div>
       )}
     </div>

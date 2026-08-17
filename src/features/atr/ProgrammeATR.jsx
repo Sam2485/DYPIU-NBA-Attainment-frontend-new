@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Save, CheckCircle2, Clock, ShieldCheck, Printer,
-  ChevronDown, AlertCircle, Plus, Lock,
+  ChevronDown, AlertCircle, Plus, Lock, Send,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -243,7 +243,7 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
             {!locked ? (
               <button onClick={handleSaveSubmit}
                 style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-                <Save size={13} /> Save &amp; Submit Programme ATR
+                <Send size={13} /> Submit Report for Review
               </button>
             ) : (
               <span style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
@@ -364,12 +364,18 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
       </div>
 
       {/* ── FOOTER ────────────────────────────────────────────────────────── */}
-      {!hideFooter && isFaculty && !locked && (
+      {!hideFooter && isFaculty && (
         <div style={{ ...surface, padding: '14px 20px', marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-          <button onClick={handleSaveSubmit}
-            style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
-            <Save size={14} /> Save &amp; Submit Programme ATR
-          </button>
+          {!locked ? (
+            <button onClick={handleSaveSubmit}
+              style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+              <Send size={14} /> Submit Report for Review
+            </button>
+          ) : (
+            <span style={{ height: '40px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Lock size={14} /> Report Locked
+            </span>
+          )}
         </div>
       )}
     </div>

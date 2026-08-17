@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Plus, Trash2, Check, Search, ChevronDown, BookOpen, Layers } from 'lucide-react';
+import { Plus, Trash2, Check, Search, ChevronDown, BookOpen, Layers, Send, Lock } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
+import { useAuth } from '../../context/AuthContext';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -20,6 +21,7 @@ const labelStyle = {
 const SEMESTERS = ['Sem III', 'Sem IV', 'Sem V', 'Sem VI', 'Sem VII', 'Sem VIII'];
 
 export default function AcademicSetup() {
+  const { user } = useAuth();
   const {
     masterProgrammes = [],
     programmeId,
@@ -31,12 +33,23 @@ export default function AcademicSetup() {
     assignCourseCoordinator = () => {},
     addCourse    = () => {},
     deleteCourse = () => {},
+    courseVerificationStore = {},
+    updateCourseVerificationStatus = () => {},
   } = useAcademic();
 
   const selectedProgramme =
     masterProgrammes.find((p) => p.id === programmeId) ||
     masterProgrammes[0] ||
     { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
+
+  const allocationKey = `allocation-${programmeId}`;
+  const allocationRecord = courseVerificationStore[allocationKey] || {};
+  const isAllocationApproved = allocationRecord.allocationStatus === 'APPROVED' || allocationRecord.allocationStatus === 'VERIFIED';
+
+  const handleSubmitAllocations = () => {
+    updateCourseVerificationStatus(allocationKey, 'allocationStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
+    alert(`Course Coordinator allocations for ${selectedProgramme?.name} submitted for HOD approval!`);
+  };
 
   const [activeTab,   setActiveTab]   = useState('courses');
   const [searchQuery, setSearchQuery] = useState('');
@@ -90,15 +103,36 @@ export default function AcademicSetup() {
             Manage courses, assign coordinators, and view outcomes for <strong>{selectedProgramme.name}</strong>.
           </p>
         </div>
-        <div style={{ position: 'relative' }}>
-          <select
-            value={programmeId}
-            onChange={(e) => setProgrammeId(e.target.value)}
-            style={{ height: '38px', paddingLeft: '12px', paddingRight: '32px', fontSize: '12.5px', fontWeight: '600', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ffffff', color: ink, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', appearance: 'none', maxWidth: '300px' }}
-          >
-            {masterProgrammes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-          </select>
-          <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative' }}>
+            <select
+              value={programmeId}
+              onChange={(e) => setProgrammeId(e.target.value)}
+              style={{ height: '38px', paddingLeft: '12px', paddingRight: '32px', fontSize: '12.5px', fontWeight: '600', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ffffff', color: ink, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', appearance: 'none', maxWidth: '300px' }}
+            >
+              {masterProgrammes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+            </select>
+            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+          </div>
+
+          {!isAllocationApproved ? (
+            <button
+              type="button"
+              onClick={handleSubmitAllocations}
+              style={{
+                height: '38px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700',
+                background: accent, color: '#ffffff', border: 'none',
+                borderRadius: '8px', cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit'
+              }}
+            >
+              <Send size={14} /> Submit Allocations for HOD Review
+            </button>
+          ) : (
+            <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Lock size={13} /> Course &amp; Coordinator Locked
+            </span>
+          )}
         </div>
       </div>
 

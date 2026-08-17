@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Save, Check, ChevronDown, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Save, Check, ChevronDown, AlertCircle, CheckCircle2, Lock } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
@@ -27,12 +27,17 @@ export default function ProgrammeTargetSettings() {
     activePSOs          = [],
     poPsoTargets        = {},
     updatePoPsoTargets  = () => {},
+    courseVerificationStore = {},
   } = useAcademic();
 
   const selectedProgramme =
     masterProgrammes.find((p) => p.id === programmeId) ||
     masterProgrammes[0] ||
     { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
+
+  const targetsKey = `targets-${programmeId}`;
+  const targetsRecord = courseVerificationStore[targetsKey] || courseVerificationStore[`allocation-${programmeId}`] || {};
+  const isTargetsApproved = targetsRecord.poPsoTargetsStatus === 'APPROVED' || targetsRecord.poPsoTargetsStatus === 'VERIFIED';
 
   const normPSOs = activePSOs.map((p) => ({ ...p, competencies: p.competencies ?? [] }));
 
@@ -105,12 +110,18 @@ export default function ProgrammeTargetSettings() {
           </div>
 
           {/* Save button */}
-          <button
-            onClick={handleSave}
-            style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', background: saved ? '#16a34a' : accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit', transition: 'background .2s' }}
-          >
-            {saved ? <><Check size={14} /> Saved</> : <><Save size={14} /> Save Targets</>}
-          </button>
+          {!isTargetsApproved ? (
+            <button
+              onClick={handleSave}
+              style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', background: saved ? '#16a34a' : accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit', transition: 'background .2s' }}
+            >
+              {saved ? <><Check size={14} /> Saved</> : <><Save size={14} /> Save Targets</>}
+            </button>
+          ) : (
+            <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Lock size={13} /> Targets Locked
+            </span>
+          )}
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Target, Save, CheckCircle2, Sliders, Send } from 'lucide-react';
+import { Target, Save, CheckCircle2, Sliders, Send, Lock } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
@@ -65,10 +65,14 @@ export default function COTargetSettingHub({ hideFooter = false }) {
           </div>
 
           <div style={{ marginLeft: 'auto' }}>
-            {!isApproved && (
+            {!isApproved ? (
               <button className="btn btn-primary" onClick={handleSaveCoTargets} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                 <Send size={15} /> Submit CO for Review
               </button>
+            ) : (
+              <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Lock size={13} /> Outcomes Locked
+              </span>
             )}
           </div>
         </div>

@@ -239,13 +239,18 @@ export default function HodApprovals() {
   const allocationStatus = allocationRecord.allocationStatus || 'DRAFT';
   const allocationRemarks = allocationRecord.allocationRemarks || '';
 
+  const targetsKey = `targets-${selectedProgId}`;
+  const targetsRecord = courseVerificationStore[targetsKey] || courseVerificationStore[allocationKey] || {};
+  const targetsStatus = targetsRecord.poPsoTargetsStatus || targetsRecord.targetsStatus || 'DRAFT';
+  const targetsRemarks = targetsRecord.poPsoTargetsRemarks || targetsRecord.targetsRemarks || '';
+
   const progAtrKey = `prog-atr-${selectedProgId}`;
   const progAtrRecord = courseVerificationStore[progAtrKey] || courseVerificationStore[allocationKey] || courseVerificationStore[selectedProgId] || {};
   const programmeAtrStatus = progAtrRecord.programmeAtrStatus || 'DRAFT';
   const programmeAtrRemarks = progAtrRecord.programmeAtrRemarks || '';
 
   // ── Active Tab (URL-driven) ───────────────────────────────────────────────
-  const TABS = ['allocations', 'programme-atr'];
+  const TABS = ['allocations', 'targets', 'programme-atr'];
   const currentTabParam = searchParams.get('tab') || 'allocations';
   const [activeTab, setActiveTab] = useState(
     TABS.includes(currentTabParam) ? currentTabParam : 'allocations',
@@ -274,7 +279,7 @@ export default function HodApprovals() {
     return true;
   });
 
-  // ── Outcome ATR Rows for Tab 2 ────────────────────────────────────────────
+  // ── Outcome ATR Rows for Tab 3 ────────────────────────────────────────────
   const progTargets = poPsoTargets[selectedProgId] || {};
   const normPSOs = activePSOs.map((p) => ({ ...p, competencies: p.competencies ?? [] }));
   const progAtrRows = [
@@ -308,6 +313,10 @@ export default function HodApprovals() {
 
     if (statusType === 'allocationStatus') {
       updateCourseVerificationStatus(allocationKey, 'allocationStatus', 'REVISION_REQUESTED', finalRemarks, verifierName);
+    } else if (statusType === 'targetsStatus') {
+      updateCourseVerificationStatus(targetsKey, 'poPsoTargetsStatus', 'REVISION_REQUESTED', finalRemarks, verifierName);
+      updateCourseVerificationStatus(allocationKey, 'poPsoTargetsStatus', 'REVISION_REQUESTED', finalRemarks, verifierName);
+      updateCourseVerificationStatus(selectedProgId, 'poPsoTargetsStatus', 'REVISION_REQUESTED', finalRemarks, verifierName);
     } else if (statusType === 'programmeAtrStatus') {
       updateCourseVerificationStatus(progAtrKey, 'programmeAtrStatus', 'REVISION_REQUESTED', finalRemarks, verifierName);
       updateCourseVerificationStatus(allocationKey, 'programmeAtrStatus', 'REVISION_REQUESTED', finalRemarks, verifierName);
@@ -324,6 +333,10 @@ export default function HodApprovals() {
       updateCourseVerificationStatus(allocationKey, 'allocationStatus', 'APPROVED', '', verifierName);
       approveHodSubmission(selectedProgId, verifierName);
       approveHodSubmission('ALL', verifierName);
+    } else if (statusType === 'targetsStatus') {
+      updateCourseVerificationStatus(targetsKey, 'poPsoTargetsStatus', 'APPROVED', '', verifierName);
+      updateCourseVerificationStatus(allocationKey, 'poPsoTargetsStatus', 'APPROVED', '', verifierName);
+      updateCourseVerificationStatus(selectedProgId, 'poPsoTargetsStatus', 'APPROVED', '', verifierName);
     } else if (statusType === 'programmeAtrStatus') {
       updateCourseVerificationStatus(progAtrKey, 'programmeAtrStatus', 'APPROVED', '', verifierName);
       updateCourseVerificationStatus(allocationKey, 'programmeAtrStatus', 'APPROVED', '', verifierName);
@@ -333,7 +346,8 @@ export default function HodApprovals() {
 
   const tabDefs = [
     { id: 'allocations',   label: '1. Courses & Coordinators', icon: Users,  status: allocationStatus   },
-    { id: 'programme-atr', label: '2. Programme ATR',          icon: Layers, status: programmeAtrStatus },
+    { id: 'targets',       label: '2. PO/PSO Targets',         icon: Target, status: targetsStatus      },
+    { id: 'programme-atr', label: '3. Programme ATR',          icon: Layers, status: programmeAtrStatus },
   ];
 
   return (
@@ -559,7 +573,103 @@ export default function HodApprovals() {
         </div>
       )}
 
-      {/* ── TAB 2: PROGRAMME ATR REVIEW ───────────────────────────────────── */}
+      {/* ── TAB 2: PO/PSO TARGETS REVIEW ───────────────────────────────── */}
+      {activeTab === 'targets' && (
+        <div style={{ display: 'grid', gap: '16px' }}>
+          <SectionHeader
+            title="PO &amp; PSO Target Levels"
+            subtitle={`Submitted by Programme Coordinator: ${activeProg.coordinator || 'Dr. A. K. Sharma'}`}
+            status={targetsStatus}
+            onApprove={() => handleApproveSubmission('targetsStatus')}
+            onReject={() => openRejectModal('targetsStatus', `PO/PSO Targets — ${activeProg.code}`, targetsRemarks)}
+            revisionCardTitle={`Revision Requested for PO/PSO Targets (${activeProg.code})`}
+            revisionCardRemarks={targetsRemarks || 'Please review and adjust PO/PSO target levels as per HOD notes.'}
+            revisionCardActionText="The Programme Coordinator has been notified to revise the PO/PSO targets."
+          />
+
+          {/* PO Targets Table Card */}
+          <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Target size={16} style={{ color: accent }} />
+                <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>Programme Outcomes (POs) — Target Levels</span>
+              </div>
+              <span style={{ fontSize: '11.5px', fontWeight: '700', color: accent, background: '#eef2ff', padding: '2px 8px', borderRadius: '5px', border: '1px solid #c7d2fe' }}>
+                {activePOs.length} POs
+              </span>
+            </div>
+
+            <table className="audit-data-table" style={{ margin: 0, border: 'none' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '80px', textAlign: 'center' }}>PO</th>
+                  <th>Statement</th>
+                  <th style={{ width: '180px', textAlign: 'center' }}>Target Level (1.0 – 3.0)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activePOs.length === 0 ? (
+                  <tr><td colSpan={3} style={{ textAlign: 'center', padding: '24px', color: muted }}>No POs configured yet.</td></tr>
+                ) : (
+                  activePOs.map((po) => {
+                    const targetVal = progTargets.poTargets?.[po.code] ?? 2.0;
+                    return (
+                      <tr key={po.code}>
+                        <td style={{ textAlign: 'center', fontWeight: '800', color: accent }}>{po.code}</td>
+                        <td style={{ fontSize: '12.5px', color: ink }}>{po.statement}</td>
+                        <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '13.5px', color: accent }}>
+                          {Number(targetVal).toFixed(1)}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* PSO Targets Table Card */}
+          {normPSOs.length > 0 && (
+            <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Target size={16} style={{ color: '#059669' }} />
+                  <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>Programme Specific Outcomes (PSOs) — Target Levels</span>
+                </div>
+                <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#059669', background: '#ecfdf5', padding: '2px 8px', borderRadius: '5px', border: '1px solid #a7f3d0' }}>
+                  {normPSOs.length} PSOs
+                </span>
+              </div>
+
+              <table className="audit-data-table" style={{ margin: 0, border: 'none' }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: '80px', textAlign: 'center' }}>PSO</th>
+                    <th>Statement</th>
+                    <th style={{ width: '180px', textAlign: 'center' }}>Target Level (1.0 – 3.0)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {normPSOs.map((pso) => {
+                    const targetVal = progTargets.psoTargets?.[pso.code] ?? 2.0;
+                    return (
+                      <tr key={pso.code}>
+                        <td style={{ textAlign: 'center', fontWeight: '800', color: '#059669' }}>{pso.code}</td>
+                        <td style={{ fontSize: '12.5px', color: ink }}>{pso.statement}</td>
+                        <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '13.5px', color: '#059669' }}>
+                          {Number(targetVal).toFixed(1)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB 3: PROGRAMME ATR REVIEW ───────────────────────────────────── */}
       {activeTab === 'programme-atr' && (
         <ProgATRTab
           selectedProgramme={activeProg}

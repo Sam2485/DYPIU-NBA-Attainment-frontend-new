@@ -92,6 +92,22 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     alert(`Course Coordinator allocations for ${selectedProgramme?.name} submitted for HOD approval!`);
   };
 
+  const targetsKey = `targets-${programmeId}`;
+  const targetsRecord = courseVerificationStore[targetsKey] || courseVerificationStore[allocationKey] || {};
+  const targetsStatus = targetsRecord.poPsoTargetsStatus || targetsRecord.targetsStatus || 'DRAFT';
+  const targetsRemarks = targetsRecord.poPsoTargetsRemarks || targetsRecord.targetsRemarks || '';
+
+  const isTargetsApproved = targetsStatus === 'APPROVED' || targetsStatus === 'VERIFIED';
+  const isTargetsSubmitted = targetsStatus === 'SUBMITTED' || targetsStatus === 'PENDING_APPROVAL';
+  const isTargetsRevision = targetsStatus === 'REVISION_REQUESTED' || targetsStatus === 'NEEDS_REVISION';
+
+  const handleSubmitTargets = () => {
+    updatePoPsoTargets(programmeId, poTargetDraft, psoTargetDraft);
+    updateCourseVerificationStatus(targetsKey, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
+    updateCourseVerificationStatus(allocationKey, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
+    alert(`PO & PSO target benchmarks for ${selectedProgramme?.name} submitted for HOD approval!`);
+  };
+
   const durationYears = selectedProgramme?.durationYears || 4;
   const totalSemesters = durationYears * 2;
   const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
@@ -221,23 +237,44 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
               {currentStepMeta.title}
             </h2>
             {/* HOD Verification Status Badge */}
-            {isAllocationApproved ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' }}>
-                <CheckCircle2 size={12} /> HOD: Verified &amp; Approved
-              </span>
-            ) : isAllocationRevision ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' }}>
-                <AlertCircle size={12} /> HOD: Revision Requested
-              </span>
-            ) : isAllocationSubmitted ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' }}>
-                <Clock size={12} /> HOD: Pending Review
-              </span>
-            ) : (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' }}>
-                Draft
-              </span>
-            )}
+            {(() => {
+              const currentStatus =
+                currentStep === 1 ? allocationStatus :
+                currentStep === 2 ? targetsStatus :
+                currentStep === 3 ? (courseVerificationStore[`prog-atr-${programmeId}`]?.programmeAtrStatus || courseVerificationStore[allocationKey]?.programmeAtrStatus || 'DRAFT') :
+                'DRAFT';
+
+              const isApp = currentStatus === 'APPROVED' || currentStatus === 'VERIFIED';
+              const isRev = currentStatus === 'REVISION_REQUESTED' || currentStatus === 'NEEDS_REVISION';
+              const isSub = currentStatus === 'SUBMITTED' || currentStatus === 'PENDING_APPROVAL';
+
+              if (isApp) {
+                return (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' }}>
+                    <CheckCircle2 size={12} /> HOD: Verified &amp; Approved
+                  </span>
+                );
+              }
+              if (isRev) {
+                return (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' }}>
+                    <AlertCircle size={12} /> HOD: Revision Requested
+                  </span>
+                );
+              }
+              if (isSub) {
+                return (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' }}>
+                    <Clock size={12} /> HOD: Pending Review
+                  </span>
+                );
+              }
+              return (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' }}>
+                  Draft
+                </span>
+              );
+            })()}
           </div>
         </div>
 
@@ -515,14 +552,56 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                   Set benchmark target levels (1.0 – 3.0 scale) for each PO and PSO under <strong>{selectedProgramme.name}</strong>.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleSaveTargets}
-                style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
-              >
-                <Save size={14} /> Save Targets
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  disabled={isTargetsApproved}
+                  onClick={handleSaveTargets}
+                  style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: isTargetsApproved ? '#f8fafc' : '#f0fdf4', color: isTargetsApproved ? '#94a3b8' : '#16a34a', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: isTargetsApproved ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
+                >
+                  <Save size={14} /> Save Targets
+                </button>
+                {!isTargetsApproved && (
+                  <button
+                    type="button"
+                    onClick={handleSubmitTargets}
+                    style={{
+                      height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700',
+                      background: accent, color: '#ffffff', border: 'none',
+                      borderRadius: '8px', cursor: 'pointer',
+                      display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit'
+                    }}
+                  >
+                    <Send size={14} /> Submit Targets for HOD Review
+                  </button>
+                )}
+              </div>
             </div>
+
+            {/* HOD Targets Revision Banner */}
+            {isTargetsRevision && (
+              <RequestRevisionCard
+                title="HOD Targets Revision Requested"
+                requestedBy="Head of Department (HOD)"
+                remarks={targetsRemarks || 'Please review and adjust PO/PSO target levels as per HOD notes.'}
+                actionText="Please adjust the target levels below and resubmit for HOD approval."
+              />
+            )}
+
+            {/* Approved Banner */}
+            {isTargetsApproved && (
+              <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', padding: '14px 18px', marginBottom: '18px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <CheckCircle2 size={20} style={{ color: '#10b981', flexShrink: 0 }} />
+                <div>
+                  <strong style={{ fontSize: '13.5px', color: '#15803d', fontWeight: '800' }}>
+                    ✓ ALL PO &amp; PSO TARGET LEVELS VERIFIED &amp; APPROVED BY HOD
+                  </strong>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#166534' }}>
+                    Benchmark target levels for {selectedProgramme.name} have been approved and are now locked.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* PO Targets */}
             {activePOs.length > 0 && (
@@ -547,10 +626,11 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                           <td style={{ textAlign: 'center' }}>
                             <input
                               type="number" min={1} max={3} step={0.1}
+                              disabled={isTargetsApproved}
                               value={poTargetDraft[po.code] ?? 2.0}
                               onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) setPoTargetDraft((prev) => ({ ...prev, [po.code]: v })); }}
                               onBlur={(e) => { const v = Math.min(3, Math.max(1, parseFloat(e.target.value) || 1)); setPoTargetDraft((prev) => ({ ...prev, [po.code]: Math.round(v * 10) / 10 })); }}
-                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: accent, background: '#ffffff' }}
+                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: accent, background: isTargetsApproved ? '#f8fafc' : '#ffffff', cursor: isTargetsApproved ? 'not-allowed' : 'text' }}
                             />
                           </td>
                         </tr>
@@ -584,10 +664,11 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                           <td style={{ textAlign: 'center' }}>
                             <input
                               type="number" min={1} max={3} step={0.1}
+                              disabled={isTargetsApproved}
                               value={psoTargetDraft[pso.code] ?? 2.0}
                               onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) setPsoTargetDraft((prev) => ({ ...prev, [pso.code]: v })); }}
                               onBlur={(e) => { const v = Math.min(3, Math.max(1, parseFloat(e.target.value) || 1)); setPsoTargetDraft((prev) => ({ ...prev, [pso.code]: Math.round(v * 10) / 10 })); }}
-                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: '#059669', background: '#ffffff' }}
+                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: '#059669', background: isTargetsApproved ? '#f8fafc' : '#ffffff', cursor: isTargetsApproved ? 'not-allowed' : 'text' }}
                             />
                           </td>
                         </tr>

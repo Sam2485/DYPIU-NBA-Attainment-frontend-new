@@ -57,6 +57,7 @@ const PROGRAMME_COORDINATOR_NAV = [
   { id: 'dashboard',          path: '/programme-coordinator/dashboard',          icon: 'dashboard', label: 'Dashboard' },
   { id: 'programme-setup',    path: '/academic',                                 icon: 'academic',  label: 'Programme Setup' },
   { id: 'target-settings',    path: '/programme-coordinator/target-settings',    icon: 'config',    label: 'Target Settings' },
+  { id: 'programme-atr',      path: '/programme-atr',                            icon: 'atr',       label: 'Programme ATR' },
   { id: 'verification-panel', path: '/coordinator-review',                       icon: 'poa',       label: 'Approvals' },
   { id: 'reports',            path: '/reports',                                  icon: 'reports',   label: 'Reports' },
 ];
@@ -66,6 +67,7 @@ const PROGRAMME_SETUP_NAV = [
   { id: 'dashboard',     path: '/programme-coordinator/dashboard', icon: 'dashboard', label: 'Dashboard' },
   { id: 'academic',      path: '/academic',      icon: 'academic',  label: 'Academic Setup' },
   { id: 'outcomes',      path: '/programme-coordinator/target-settings', icon: 'outcomes',  label: 'Target Settings' },
+  { id: 'programme-atr', path: '/programme-atr', icon: 'atr',       label: 'Programme ATR' },
   { id: 'reports',       path: '/reports',       icon: 'reports',   label: 'Reports' },
 ];
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck, Send } from 'lucide-react';
+import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck, Send, Lock } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import RowButtons from '../../components/common/RowButtons';
@@ -528,10 +528,14 @@ export default function OutcomesManagement({ hideFooter = false }) {
           </div>
 
           <div style={{ marginLeft: 'auto' }}>
-            {!isCoApproved && (
+            {!isCoApproved ? (
               <button className="btn btn-primary" onClick={handleSubmitCOsForReview} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                 <Send size={15} /> Submit CO for Review
               </button>
+            ) : (
+              <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Lock size={13} /> Outcomes Locked
+              </span>
             )}
           </div>
         </div>

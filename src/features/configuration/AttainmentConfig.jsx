@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Sliders, Save, CheckCircle2, Clock, ShieldCheck, Target, Layers, PieChart, Award, Zap, ChevronDown, AlertCircle } from 'lucide-react';
+import { Sliders, Save, CheckCircle2, Clock, ShieldCheck, Target, Layers, PieChart, Award, Zap, ChevronDown, AlertCircle, Lock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAcademic } from '../../context/AcademicContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
@@ -226,10 +226,14 @@ export default function AttainmentConfig() {
               />
             </div>
 
-            {!isApproved && (
+            {!isApproved ? (
               <button className="btn btn-primary" onClick={handleSaveConfig} style={{ height: '38px' }}>
                 <Save size={15} /> {!isCoordinator ? 'Submit Configuration Proposal for Review' : 'Save Attainment Configurations'}
               </button>
+            ) : (
+              <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Lock size={13} /> Settings Locked
+              </span>
             )}
           </div>
         </div>
