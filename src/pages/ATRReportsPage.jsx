@@ -1,15 +1,15 @@
 import AppHeader from '../components/layout/AppHeader';
 import AppSidebar from '../components/layout/AppSidebar';
-import ATRReportsNavHub from '../features/atr/ATRReportsNavHub';
+import CourseATR from '../features/atr/CourseATR';
 
 export default function ATRReportsPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
       <main className="nba-layout-main">
-        <AppHeader />
+        <AppHeader title="Course Action Taken Report (ATR)" subtitle="Target Gap Analysis & Corrective Actions" />
         <div className="page-container">
-          <ATRReportsNavHub />
+          <CourseATR />
         </div>
       </main>
     </div>

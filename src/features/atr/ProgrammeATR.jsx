@@ -18,7 +18,7 @@ const inputStyle = {
 };
 
 export default function ProgrammeATR({ courseId = null, hideFooter = false, hideHeader = false, readOnly = false }) {
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   const {
     selectedCourse,
     selectedProgramme,
@@ -34,13 +34,14 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
   } = useAcademic();
 
   const targetCourseId = courseId || selectedCourse?.id || 'crs-1';
-  const vRecord = courseVerificationStore[targetCourseId] || {};
+  const progAtrKey = `prog-atr-${programmeId}`;
+  const vRecord = courseVerificationStore[progAtrKey] || courseVerificationStore[`allocation-${programmeId}`] || courseVerificationStore[targetCourseId] || {};
   const reportStatus = vRecord.programmeAtrStatus || 'DRAFT';
   const verificationRemarks = vRecord.programmeAtrRemarks || '';
-  const verifierName = vRecord.verifiedBy || 'Programme Coordinator';
+  const verifierName = vRecord.verifiedBy || 'Head of Department (HOD)';
 
   const isFaculty     = role === 'FACULTY';
-  const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+  const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' || role === 'HOD';
 
   const [selectedYear, setSelectedYear] = useState(academicYear || '2025-26');
   const isPreviousYear = selectedYear !== (academicYear || '2025-26');
@@ -108,8 +109,10 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
   useEffect(() => { setAtrList(buildList()); }, [programmeId, targetCourseId, activePOs.length, activePSOs.length]);
 
   const handleSaveSubmit = () => {
-    updateCourseVerificationStatus(targetCourseId, 'programmeAtrStatus', 'SUBMITTED', '');
-    alert(`🎉 Programme ATR for ${selectedCourse?.code || 'Course'} saved and submitted successfully to ${verifierName}!`);
+    updateCourseVerificationStatus(progAtrKey, 'programmeAtrStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
+    updateCourseVerificationStatus(`allocation-${programmeId}`, 'programmeAtrStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
+    updateCourseVerificationStatus(targetCourseId, 'programmeAtrStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
+    alert(`🎉 Programme ATR for ${selectedProgramme?.name || 'Programme'} saved and submitted successfully to ${verifierName}!`);
   };
 
   const handleUpdateRemark = (idx, v)    => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, remark: v } : c));

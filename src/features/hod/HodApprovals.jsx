@@ -236,12 +236,12 @@ export default function HodApprovals() {
   // ── Verification Keys & Records ───────────────────────────────────────────
   const allocationKey = `allocation-${selectedProgId}`;
   const allocationRecord = courseVerificationStore[allocationKey] || {};
-  const allocationStatus = allocationRecord.allocationStatus || 'PENDING';
+  const allocationStatus = allocationRecord.allocationStatus || 'DRAFT';
   const allocationRemarks = allocationRecord.allocationRemarks || '';
 
   const progAtrKey = `prog-atr-${selectedProgId}`;
   const progAtrRecord = courseVerificationStore[progAtrKey] || courseVerificationStore[allocationKey] || courseVerificationStore[selectedProgId] || {};
-  const programmeAtrStatus = progAtrRecord.programmeAtrStatus || 'PENDING';
+  const programmeAtrStatus = progAtrRecord.programmeAtrStatus || 'DRAFT';
   const programmeAtrRemarks = progAtrRecord.programmeAtrRemarks || '';
 
   // ── Active Tab (URL-driven) ───────────────────────────────────────────────

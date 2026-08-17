@@ -23,9 +23,9 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
     courses = [],
     availableCourses = [],
     selectedCourse,
+    setCourseId = () => {},
     academicYear    = '2025-26',
     selectedBatch,
-    availableYears  = ['2025-26', '2024-25', '2023-24'],
     courseAtrStore  = {},
     updateCourseAtrData          = () => {},
     courseVerificationStore      = {},
@@ -35,10 +35,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   const isFaculty      = role === 'FACULTY';
   const isCoordinator  = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
-  const [selectedYear, setSelectedYear] = useState(academicYear || '2025-26');
-  const [showHistory,  setShowHistory]  = useState(showHistoryProp ?? false);
-
-  const isPreviousYear = selectedYear !== (academicYear || '2025-26');
+  const [showHistory, setShowHistory] = useState(showHistoryProp ?? false);
 
   useEffect(() => {
     if (showHistoryProp !== undefined) setShowHistory(showHistoryProp);
@@ -81,7 +78,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   useEffect(() => { setCoList(buildList()); }, [activeCourseId, currentCourse, activeCOs, courseAtrStore]);
 
   const reportStatus = courseVerificationStore[activeCourseId]?.atrStatus || 'DRAFT';
-  const locked       = readOnly || isPreviousYear || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED' || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+  const locked       = readOnly || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED' || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleSaveSubmit = () => {
@@ -110,58 +107,55 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
 
       {/* ── PAGE HEADER ───────────────────────────────────────────────────── */}
       {!hideHeader && (
-        <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
-              Course ATR
-            </h2>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
-            {/* Year selector */}
-            <div style={{ position: 'relative' }}>
-              <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}
-                style={{ ...inputStyle, width: '130px', paddingRight: '28px', appearance: 'none', cursor: 'pointer', fontWeight: '700', color: accent }}>
-                {availableYears.map((yr) => <option key={yr}>{yr}</option>)}
-              </select>
-              <ChevronDown size={12} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+        <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
+                Course ATR
+              </h2>
             </div>
 
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
+              {/* Course selector */}
+              {!courseId && (
+                <div style={{ position: 'relative', minWidth: '240px' }}>
+                  <select
+                    value={activeCourseId}
+                    onChange={(e) => setCourseId(e.target.value)}
+                    style={{ ...inputStyle, height: '38px', paddingRight: '28px', appearance: 'none', cursor: 'pointer', fontWeight: '700', color: accent }}
+                  >
+                    {allCourses.map((c) => (
+                      <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={12} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+                </div>
+              )}
+
+              {!locked ? (
+                <button onClick={handleSaveSubmit}
+                  style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                  <Send size={14} /> Submit ATR for Review
+                </button>
+              ) : (
+                <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Lock size={13} /> Report Locked
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Action buttons below the title */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <button onClick={() => setShowHistory((v) => !v)}
-              style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-              <History size={13} /> {showHistory ? 'Hide Carry-Forward' : 'View Carry-Forward ATR'}
+              style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+              <History size={13} /> {showHistory ? 'Hide Carry-Forward ATR' : 'View Carry-Forward ATR'}
             </button>
 
             <button onClick={() => window.print()}
-              style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+              style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
               <Printer size={13} /> Print
             </button>
-
-            {!locked ? (
-              <button onClick={handleSaveSubmit}
-                style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-                <Send size={13} /> Submit ATR for Review
-              </button>
-            ) : (
-              <span style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <Lock size={13} /> {isPreviousYear ? `AY ${selectedYear} Archived (Read-Only)` : 'Report Locked'}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Archived Year Lock Banner */}
-      {isPreviousYear && (
-        <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-          <Lock size={20} style={{ color: '#1d4ed8', flexShrink: 0 }} />
-          <div>
-            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#1e40af', display: 'block' }}>
-              🔒 Archived Academic Year ({selectedYear}) — Read Only
-            </span>
-            <span style={{ fontSize: '12px', color: '#1e3a8a', display: 'block', marginTop: '2px' }}>
-              This Course Action Taken Report is an archived historical record from AY {selectedYear}. Previous year ATR reports are locked and cannot be edited.
-            </span>
           </div>
         </div>
       )}
@@ -190,30 +184,6 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
         />
       )}
 
-      {/* ── STATUS BAR ────────────────────────────────────────────────────── */}
-      {!readOnly && !hideHeader && (
-        <div style={{ ...surface, padding: '12px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: locked ? '#f0fdf4' : reportStatus === 'SUBMITTED' ? '#fffbeb' : '#ffffff', borderColor: locked ? '#bbf7d0' : reportStatus === 'SUBMITTED' ? '#fde68a' : '#e2e8f0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {locked ? <CheckCircle2 size={18} style={{ color: '#16a34a' }} /> : <Clock size={18} style={{ color: '#d97706' }} />}
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
-                {locked ? 'Verified & Approved by Programme Coordinator ✓' : reportStatus === 'SUBMITTED' ? 'Submitted — Pending Verification' : 'Draft — Not yet submitted'}
-              </div>
-              <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>
-                {currentCourse?.code} · {currentCourse?.name} · {selectedBatch?.name}
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            {[
-              { label: `${metCount} COs Met`,   bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
-              { label: `${gapCount} COs Gap`,   bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
-            ].map((s) => (
-              <span key={s.label} style={{ fontSize: '12px', fontWeight: '700', background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '6px', padding: '3px 10px' }}>{s.label}</span>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* ── CARRY-FORWARD REFERENCE ───────────────────────────────────────── */}
       {showHistory && (

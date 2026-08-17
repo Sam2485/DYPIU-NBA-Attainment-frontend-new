@@ -1,6 +1,6 @@
 import AppHeader from '../../components/layout/AppHeader';
 import AppSidebar from '../../components/layout/AppSidebar';
-import ATRReportsNavHub from '../../features/atr/ATRReportsNavHub';
+import ProgrammeATR from '../../features/atr/ProgrammeATR';
 
 export default function HodProgrammeATRPage() {
   return (
@@ -9,7 +9,7 @@ export default function HodProgrammeATRPage() {
       <main className="nba-layout-main">
         <AppHeader title="Programme Action Taken Report (ATR)" subtitle="HOD Control & Approvals Portal" />
         <div className="page-container">
-          <ATRReportsNavHub initialTab="programme-atr" />
+          <ProgrammeATR />
         </div>
       </main>
     </div>

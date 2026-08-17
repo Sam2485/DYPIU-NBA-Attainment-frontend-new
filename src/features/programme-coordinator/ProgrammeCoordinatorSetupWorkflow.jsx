@@ -3,9 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   BookOpen, Target, CheckCircle2,
   ArrowRight, ArrowLeft, Check, Plus, Trash2, X,
-  ChevronDown, AlertCircle, Save, Clock, Layers,
+  ChevronDown, AlertCircle, Save, Clock, Layers, Send,
 } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
+import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 import ProgrammeATR from '../atr/ProgrammeATR';
@@ -37,6 +38,7 @@ const STEPS = [
 export default function ProgrammeCoordinatorSetupWorkflow() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
   const {
     masterProgrammes = [],
     programmeId,
@@ -50,6 +52,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     deleteCourse = () => {},
     assignCourseCoordinator = () => {},
     courseVerificationStore = {},
+    updateCourseVerificationStatus = () => {},
     pcWorkflowProgressStore = {},
     markPcWorkflowStepComplete = () => {},
   } = useAcademic();
@@ -77,8 +80,17 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
 
   const allocationKey = `allocation-${programmeId}`;
   const allocationRecord = courseVerificationStore[allocationKey] || {};
-  const allocationStatus = allocationRecord.allocationStatus || 'PENDING';
+  const allocationStatus = allocationRecord.allocationStatus || 'DRAFT';
   const allocationRemarks = allocationRecord.allocationRemarks || '';
+
+  const isAllocationApproved = allocationStatus === 'APPROVED' || allocationStatus === 'VERIFIED';
+  const isAllocationSubmitted = allocationStatus === 'SUBMITTED' || allocationStatus === 'PENDING_APPROVAL';
+  const isAllocationRevision = allocationStatus === 'REVISION_REQUESTED' || allocationStatus === 'NEEDS_REVISION';
+
+  const handleSubmitAllocations = () => {
+    updateCourseVerificationStatus(allocationKey, 'allocationStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
+    alert(`Course Coordinator allocations for ${selectedProgramme?.name} submitted for HOD approval!`);
+  };
 
   const durationYears = selectedProgramme?.durationYears || 4;
   const totalSemesters = durationYears * 2;
@@ -209,17 +221,21 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
               {currentStepMeta.title}
             </h2>
             {/* HOD Verification Status Badge */}
-            {allocationStatus === 'APPROVED' ? (
+            {isAllocationApproved ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' }}>
                 <CheckCircle2 size={12} /> HOD: Verified &amp; Approved
               </span>
-            ) : allocationStatus === 'REVISION_REQUESTED' ? (
+            ) : isAllocationRevision ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' }}>
                 <AlertCircle size={12} /> HOD: Revision Requested
               </span>
-            ) : (
+            ) : isAllocationSubmitted ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' }}>
                 <Clock size={12} /> HOD: Pending Review
+              </span>
+            ) : (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' }}>
+                Draft
               </span>
             )}
           </div>
@@ -349,42 +365,75 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
         {/* ── STEP 1: PROGRAMME SETUP (ADD COURSES) ──────────────────────── */}
         {currentStep === 1 && (
           <div>
-            <div style={{ marginBottom: '16px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>Programme Setup</h3>
-              <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>
-                Add the course roster under <strong>{selectedProgramme.name}</strong> ({selectedProgramme.code}). These will be submitted for HOD verification.
-              </p>
+            <div style={{ marginBottom: '16px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>Programme Setup — Course &amp; Coordinator Roster</h3>
+                <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>
+                  Add the course roster under <strong>{selectedProgramme.name}</strong> ({selectedProgramme.code}). These will be submitted for HOD verification.
+                </p>
+              </div>
+              {!isAllocationApproved && (
+                <button
+                  type="button"
+                  onClick={handleSubmitAllocations}
+                  style={{
+                    height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700',
+                    background: accent, color: '#ffffff', border: 'none',
+                    borderRadius: '8px', cursor: 'pointer',
+                    display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit'
+                  }}
+                >
+                  <Send size={14} /> Submit Allocations for HOD Review
+                </button>
+              )}
             </div>
 
-            {/* Inline add form */}
-            <form onSubmit={handleAddCourse} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '10px' }}>Add Course to Roster</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 120px 200px auto', gap: '10px', alignItems: 'flex-end' }}>
+            {/* Approved Banner */}
+            {isAllocationApproved && (
+              <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', padding: '14px 18px', marginBottom: '18px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <CheckCircle2 size={20} style={{ color: '#10b981', flexShrink: 0 }} />
                 <div>
-                  <label style={labelStyle}>Code *</label>
-                  <input type="text" required placeholder="CS305" value={newCourseCode} onChange={(e) => setNewCourseCode(e.target.value)} style={{ ...inputStyle, fontWeight: '700', color: accent }} />
+                  <strong style={{ fontSize: '13.5px', color: '#15803d', fontWeight: '800' }}>
+                    ✓ ALL COURSE &amp; COORDINATOR ALLOCATIONS VERIFIED &amp; APPROVED BY HOD
+                  </strong>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#166534' }}>
+                    Course list and coordinator assignments for {selectedProgramme.name} are verified and locked.
+                  </p>
                 </div>
-                <div>
-                  <label style={labelStyle}>Course Name *</label>
-                  <input type="text" required placeholder="e.g. Compiler Design" value={newCourseName} onChange={(e) => setNewCourseName(e.target.value)} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Semester</label>
-                  <select value={newCourseSem} onChange={(e) => setNewCourseSem(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-                    {programmeSemesters.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={labelStyle}>Course Coordinator</label>
-                  <select value={newCourseCoord} onChange={(e) => setNewCourseCoord(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', fontWeight: '600', color: accent }}>
-                    {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
-                  </select>
-                </div>
-                <button type="submit" style={{ height: '40px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-                  <Plus size={14} /> Add Course
-                </button>
               </div>
-            </form>
+            )}
+
+            {/* Inline add form */}
+            {!isAllocationApproved && (
+              <form onSubmit={handleAddCourse} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '10px' }}>Add Course to Roster</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 120px 200px auto', gap: '10px', alignItems: 'flex-end' }}>
+                  <div>
+                    <label style={labelStyle}>Code *</label>
+                    <input type="text" required placeholder="CS305" value={newCourseCode} onChange={(e) => setNewCourseCode(e.target.value)} style={{ ...inputStyle, fontWeight: '700', color: accent }} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Course Name *</label>
+                    <input type="text" required placeholder="e.g. Compiler Design" value={newCourseName} onChange={(e) => setNewCourseName(e.target.value)} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Semester</label>
+                    <select value={newCourseSem} onChange={(e) => setNewCourseSem(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                      {programmeSemesters.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Course Coordinator</label>
+                    <select value={newCourseCoord} onChange={(e) => setNewCourseCoord(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', fontWeight: '600', color: accent }}>
+                      {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                  </div>
+                  <button type="submit" style={{ height: '40px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                    <Plus size={14} /> Add Course
+                  </button>
+                </div>
+              </form>
+            )}
 
             {/* Courses table */}
             <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
@@ -395,7 +444,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                     <th>Course Name</th>
                     <th style={{ width: '110px', textAlign: 'center' }}>Semester</th>
                     <th style={{ width: '230px' }}>Course Coordinator</th>
-                    <th style={{ width: '60px', textAlign: 'center' }}>Action</th>
+                    <th style={{ width: '80px', textAlign: 'center' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -412,8 +461,17 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                         <td>
                           <select
                             value={coord}
+                            disabled={isAllocationApproved}
                             onChange={(e) => assignCourseCoordinator(c.id, e.target.value)}
-                            style={{ ...inputStyle, height: '34px', fontSize: '12px', cursor: 'pointer', color: accent, fontWeight: '600' }}
+                            style={{
+                              ...inputStyle,
+                              height: '34px',
+                              fontSize: '12px',
+                              cursor: isAllocationApproved ? 'not-allowed' : 'pointer',
+                              color: accent,
+                              fontWeight: '600',
+                              background: isAllocationApproved ? '#f8fafc' : '#ffffff',
+                            }}
                           >
                             {MASTER_FACULTY_LIST.map((f) => (
                               <option key={f} value={f}>{f}</option>
@@ -421,9 +479,15 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                           </select>
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <button onClick={() => handleOpenDelete(c)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Delete Course">
-                            <Trash2 size={13} />
-                          </button>
+                          {isAllocationApproved ? (
+                            <span style={{ fontSize: '11.5px', color: '#16a34a', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <CheckCircle2 size={12} /> Locked
+                            </span>
+                          ) : (
+                            <button onClick={() => handleOpenDelete(c)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Delete Course">
+                              <Trash2 size={13} />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
