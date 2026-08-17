@@ -2,125 +2,39 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
 
-const saveSessionData = (key, value) => {
-  try {
-    localStorage.setItem(key, value);
-    sessionStorage.setItem(key, value);
-  } catch (e) {}
-};
-
-const getSessionData = (key) => {
-  try {
-    return localStorage.getItem(key) || sessionStorage.getItem(key) || null;
-  } catch (e) {
-    return null;
-  }
-};
-
-const removeSessionData = (key) => {
-  try {
-    localStorage.removeItem(key);
-    sessionStorage.removeItem(key);
-  } catch (e) {}
-};
-
-const clearSessionData = () => {
-  try {
-    localStorage.clear();
-    sessionStorage.clear();
-  } catch (e) {}
+const DEFAULT_USER = {
+  id: 1,
+  name: 'Dr. Raj Shaikh',
+  email: 'raj.shaikh@dypiu.ac.in',
+  role: 'FACULTY', // Options: 'IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY'
+  department: 'Computer Science & Engineering',
+  programme: 'B.Tech CSE',
 };
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const token = getSessionData('accessToken') || getSessionData('authToken') || getSessionData('token');
-    const savedUser = getSessionData('nba_user');
-    if (token && savedUser) {
-      try {
-        return JSON.parse(savedUser);
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
+    const saved = sessionStorage.getItem('nba_user');
+    return saved ? JSON.parse(saved) : DEFAULT_USER;
   });
 
-  const [role, setRole] = useState(() => user?.role || getSessionData('role') || 'FACULTY');
+  const [role, setRole] = useState(() => user.role);
 
   useEffect(() => {
-    if (user) {
-      const updatedUser = { ...user, role };
-      saveSessionData('nba_user', JSON.stringify(updatedUser));
-      saveSessionData('role', role);
-    }
+    sessionStorage.setItem('nba_user', JSON.stringify({ ...user, role }));
+    sessionStorage.setItem('role', role);
   }, [user, role]);
-
-  const loginUser = (profileData, token = '', refreshToken = '') => {
-    const updatedUser = {
-      id: profileData.id || Date.now(),
-      name: profileData.name || profileData.username || 'User',
-      email: profileData.email || profileData.username,
-      username: profileData.username || profileData.email,
-      role: profileData.role || 'FACULTY',
-      department: profileData.department || '—',
-      programme: profileData.programme || '—',
-    };
-
-    if (token) {
-      saveSessionData('authToken', token);
-      saveSessionData('token', token);
-      saveSessionData('accessToken', token);
-    }
-
-    if (refreshToken) {
-      saveSessionData('refreshToken', refreshToken);
-    }
-
-    saveSessionData('nba_user', JSON.stringify(updatedUser));
-    saveSessionData('role', updatedUser.role);
-
-    setUser(updatedUser);
-    setRole(updatedUser.role);
-    return updatedUser;
-  };
-
-  const getAccessToken = () => {
-    return getSessionData('accessToken') || getSessionData('authToken') || getSessionData('token') || '';
-  };
-
-  const getRefreshToken = () => {
-    return getSessionData('refreshToken') || '';
-  };
 
   const switchRole = (newRole) => {
     setRole(newRole);
-    if (user) {
-      const updatedUser = { ...user, role: newRole };
-      setUser(updatedUser);
-      saveSessionData('nba_user', JSON.stringify(updatedUser));
-    }
-    saveSessionData('role', newRole);
   };
 
   const logout = () => {
-    clearSessionData();
-    setUser(null);
-    setRole('FACULTY');
+    sessionStorage.clear();
+    window.location.href = '/login';
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        role,
-        setRole: switchRole,
-        switchRole,
-        loginUser,
-        logout,
-        getAccessToken,
-        getRefreshToken,
-      }}
-    >
+    <AuthContext.Provider value={{ user, role, switchRole, logout }}>
       {children}
     </AuthContext.Provider>
   );

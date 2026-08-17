@@ -1,45 +1,19 @@
-import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
-import { getSchools } from '../../api/academic';
 import AttainmentProgressTracker from './AttainmentProgressTracker';
 
 export default function AppHeader() {
   const location = useLocation();
-  const { user, role } = useAuth();
+  const { role } = useAuth();
   const {
-    schools = [],
-    selectedSchoolId,
+    batches,
+    batchId,
+    setBatchId,
+    academicYear,
+    setAcademicYear,
+    availableYears,
   } = useAcademic();
-
-  const [schoolName, setSchoolName] = useState('');
-
-  useEffect(() => {
-    // 1. Try from context schools
-    if (Array.isArray(schools) && schools.length > 0) {
-      const active = schools.find((s) => s.id === selectedSchoolId) || schools[0];
-      const name = active?.name || active?.schoolName;
-      if (name) {
-        setSchoolName(name);
-        return;
-      }
-    }
-
-    // 2. Fetch directly using user email
-    if (user?.email) {
-      getSchools(user.email)
-        .then((res) => {
-          const list = res?.data?.data || res?.data || res;
-          if (Array.isArray(list) && list.length > 0) {
-            const sch = list[0];
-            const name = sch?.name || sch?.schoolName;
-            if (name) setSchoolName(name);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [schools, selectedSchoolId, user?.email]);
 
   const isFaculty = role === 'FACULTY';
   const isWorkflowRoute = location.pathname.includes('workflow');
@@ -48,8 +22,6 @@ export default function AppHeader() {
   if (isWorkflowRoute) {
     return null;
   }
-
-  const displaySchoolTitle = schoolName || user?.schoolName || user?.school || 'School of Engineering & Technology';
 
   return (
     <div style={{ width: '100%', boxSizing: 'border-box' }}>
@@ -72,13 +44,13 @@ export default function AppHeader() {
             flexWrap: 'wrap',
           }}
         >
-          {/* Left Side: OBE Header Title -> Dynamic School Name */}
+          {/* Left Side: OBE Header Title -> College Name */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '280px' }}>
             <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '950', color: '#111827', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
               NBA Outcome-Based Education (OBE) Attainment System
             </h1>
             <div style={{ fontSize: '14px', fontWeight: '800', color: '#374151', margin: '2px 0 0' }}>
-              {displaySchoolTitle}
+              School of Engineering Management &amp; Research
             </div>
           </div>
 
@@ -86,8 +58,6 @@ export default function AppHeader() {
           <img
             src="/image.png"
             alt="DYPIU"
-            width="74"
-            height="78"
             style={{
               height: '78px',
               width: 'auto',

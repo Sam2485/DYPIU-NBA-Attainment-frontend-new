@@ -85,7 +85,7 @@ const FACULTY_NAV = [
 
 export default function AppSidebar() {
   const { user, role, switchRole, logout } = useAuth();
-  const { batches = [], selectedBatchId = '', setSelectedBatchId = () => {}, selectedBatch = null } = useAcademic();
+  const { academicYear = '2025-26', setAcademicYear = () => {} } = useAcademic();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -97,7 +97,7 @@ export default function AppSidebar() {
   const [navOpenReview, setNavOpenReview] = useState(false);
   const [navOpenFaculty, setNavOpenFaculty] = useState(false);
 
-  const isCoordinatorRole = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR';
+  const isCoordinatorRole = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
   const fullPath = location.pathname + location.search;
 
@@ -117,6 +117,7 @@ export default function AppSidebar() {
   });
 
   const roleText = {
+    IQAC: 'IQAC Admin',
     DIRECTOR: 'School Director',
     HOD: 'Head of Department (HOD)',
     PROGRAMME_COORDINATOR: 'Programme Coordinator',
@@ -147,7 +148,7 @@ export default function AppSidebar() {
       }}
     >
       {/* ── Brand Header ───────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 4px', marginBottom: 4, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 4px', flexShrink: 0 }}>
         <div
           style={{
             width: 38,
@@ -176,10 +177,7 @@ export default function AppSidebar() {
         </div>
       </div>
 
-      {/* ── Grey Divider Line 1 ── */}
-      <div style={{ height: 1, background: 'rgba(148,163,184,0.18)', margin: '4px 0 6px', flexShrink: 0 }} />
-
-      {/* ── Academic Batch Selector with Status Tags ────────────────── */}
+      {/* ── Role Switcher ──────────────────────────────────────────── */}
       <div
         style={{
           background: 'rgba(51, 65, 85, 0.45)',
@@ -188,33 +186,16 @@ export default function AppSidebar() {
           padding: '8px 12px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 5,
-          margin: '2px 0 4px',
+          gap: 4,
           flexShrink: 0,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 9.5, color: '#38bdf8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            Academic Batch
-          </span>
-          <span
-            style={{
-              fontSize: '9px',
-              fontWeight: '800',
-              padding: '1px 6px',
-              borderRadius: '4px',
-              background: selectedBatch?.status === 'COMPLETED' || selectedBatch?.status === 'CLOSED' ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)',
-              color: selectedBatch?.status === 'COMPLETED' || selectedBatch?.status === 'CLOSED' ? '#f87171' : '#4ade80',
-              border: `1px solid ${selectedBatch?.status === 'COMPLETED' || selectedBatch?.status === 'CLOSED' ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'}`,
-            }}
-          >
-            {selectedBatch?.status || 'ACTIVE'}
-          </span>
+        <div style={{ fontSize: 9.5, color: '#60a5fa', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          Active User Role
         </div>
         <select
-          aria-label="Academic Batch"
-          value={selectedBatchId}
-          onChange={(e) => setSelectedBatchId(e.target.value)}
+          value={role}
+          onChange={(e) => switchRole(e.target.value)}
           style={{
             width: '100%',
             height: '32px',
@@ -229,22 +210,67 @@ export default function AppSidebar() {
             outline: 'none',
           }}
         >
-          {batches.length > 0 ? (
-            batches.map((b) => (
-              <option key={b.id} value={b.id} style={{ color: '#0f172a', background: '#ffffff' }}>
-                {b.name}
-              </option>
-            ))
-          ) : (
-            <option value="" style={{ color: '#0f172a', background: '#ffffff' }}>
-              Loading Batches...
-            </option>
-          )}
+          <option value="FACULTY" style={{ color: '#0f172a', background: '#ffffff' }}>Course Coordinator</option>
+          <option value="PROGRAMME_COORDINATOR" style={{ color: '#0f172a', background: '#ffffff' }}>Programme Coordinator</option>
+          <option value="HOD" style={{ color: '#0f172a', background: '#ffffff' }}>Head of Department (HOD)</option>
+          <option value="DIRECTOR" style={{ color: '#0f172a', background: '#ffffff' }}>School Director</option>
+          <option value="IQAC" style={{ color: '#0f172a', background: '#ffffff' }}>IQAC Admin</option>
         </select>
       </div>
 
-      {/* ── Grey Divider Line 2 ── */}
-      <div style={{ height: 1, background: 'rgba(148,163,184,0.18)', margin: '4px 0 6px', flexShrink: 0 }} />
+      {/* ── Academic Year Selector with Status Tags ────────────────── */}
+      <div
+        style={{
+          background: 'rgba(51, 65, 85, 0.45)',
+          border: '1px solid rgba(148,163,184,0.16)',
+          borderRadius: 14,
+          padding: '8px 12px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 5,
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 9.5, color: '#38bdf8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            Academic Year
+          </span>
+          <span
+            style={{
+              fontSize: '9px',
+              fontWeight: '800',
+              padding: '1px 6px',
+              borderRadius: '4px',
+              background: academicYear === '2024-25' ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)',
+              color: academicYear === '2024-25' ? '#f87171' : '#4ade80',
+              border: `1px solid ${academicYear === '2024-25' ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'}`,
+            }}
+          >
+            {academicYear === '2024-25' ? 'CLOSED' : 'ACTIVE'}
+          </span>
+        </div>
+        <select
+          value={academicYear}
+          onChange={(e) => setAcademicYear(e.target.value)}
+          style={{
+            width: '100%',
+            height: '32px',
+            borderRadius: '8px',
+            border: '1px solid rgba(148, 163, 184, 0.25)',
+            background: '#1e293b',
+            color: '#f8fafc',
+            fontSize: '12px',
+            fontWeight: '800',
+            padding: '0 8px',
+            cursor: 'pointer',
+            outline: 'none',
+          }}
+        >
+          <option value="2026-27" style={{ color: '#0f172a', background: '#ffffff' }}>AY 2026-27 (Active)</option>
+          <option value="2025-26" style={{ color: '#0f172a', background: '#ffffff' }}>AY 2025-26 (Active — Current)</option>
+          <option value="2024-25" style={{ color: '#0f172a', background: '#ffffff' }}>AY 2024-25 (Closed / Archived)</option>
+        </select>
+      </div>
 
       {/* ── MAIN NAVIGATION AREA ─────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', paddingRight: 2 }}>
@@ -797,13 +823,12 @@ export default function AppSidebar() {
       <div
         style={{
           display: 'flex',
-          flexDirection: 'row',
           alignItems: 'center',
           gap: 10,
           background: 'rgba(255,255,255,0.055)',
           border: '1px solid rgba(148,163,184,0.16)',
           borderRadius: 16,
-          padding: '10px 12px',
+          padding: 10,
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
           flexShrink: 0,
         }}
@@ -813,27 +838,39 @@ export default function AppSidebar() {
             width: 38,
             height: 38,
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-            border: '1.5px solid rgba(255,255,255,0.25)',
+            background: 'linear-gradient(135deg,#475569,#47556999)',
             color: '#fff',
             fontWeight: 800,
             fontSize: 13,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
-            lineHeight: 1,
+            justify: 'center',
             flexShrink: 0,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
           }}
         >
-          <span style={{ transform: 'translateY(0.5px)' }}>{initials}</span>
+          {initials}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: '#f9fafb', fontSize: 13, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ color: '#f9fafb', fontSize: 12, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {(user?.name || 'Dr. Raj Shaikh').split(' ').slice(0, 3).join(' ')}
           </div>
+          <div style={{ color: '#9ca3af', fontSize: 10.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {roleText}
+          </div>
         </div>
+        <span
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 10,
+            background: 'rgba(148,163,184,0.10)',
+            display: 'grid',
+            placeItems: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <Icon name="profile" size={14} />
+        </span>
       </div>
 
       {/* ── Need Help card ─────────────────────────────────────────── */}

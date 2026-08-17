@@ -1,14 +1,12 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen, Target, BarChart2, FileText, ArrowRight,
   ChevronRight, Check, Clock, AlertCircle, Upload,
   Map, ClipboardList, TrendingUp, Award, ShieldCheck,
-  PlayCircle, Settings, Layers, Loader2,
+  PlayCircle, Settings, Layers,
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 import { useAcademic } from '../../context/AcademicContext';
-import { getCourseCoordinatorSummary, getCourseCoordinatorSetupProgress, getCourseCOs } from '../../api/academic';
+import { useAuth } from '../../context/AuthContext';
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -18,114 +16,55 @@ const accent  = '#4f46e5';
 
 // ── Workflow steps mirroring WORKFLOW_STEPS in AttainmentProgressTracker ─────
 const WORKFLOW_STEPS = [
-  { step: 1, label: 'Add COs & Targets',  desc: 'Define Course Outcomes & Targets',    path: '/outcomes',       icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
-  { step: 2, label: 'CO–PO/PSO Mapping',  desc: 'Map COs to programme outcomes',       path: '/co-mapping',     icon: Map,          color: '#7c3aed', bg: '#f5f3ff' },
-  { step: 3, label: 'Direct Assessment',  desc: 'Upload end-sem marks',                path: '/marks-upload',   icon: Upload,       color: '#0369a1', bg: '#e0f2fe' },
-  { step: 4, label: 'Indirect Assessment',desc: 'Upload course-end survey',            path: '/survey-upload',  icon: ClipboardList, color: '#059669', bg: '#f0fdf4' },
-  { step: 5, label: 'CO Attainment',      desc: 'Compute & view CO attainment',        path: '/co-attainment',  icon: BarChart2,    color: '#d97706', bg: '#fffbeb' },
-  { step: 6, label: 'Course ATR',         desc: 'Fill course action-taken report',     path: '/course-atr',     icon: FileText,     color: '#dc2626', bg: '#fef2f2' },
+  { step: 1, label: 'Add COs',             desc: 'Define Course Outcomes',              path: '/outcomes',       icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
+  { step: 2, label: 'CO Target Setting',   desc: 'Set CO attainment targets',           path: '/co-targets',     icon: Target,       color: '#0284c7', bg: '#f0f9ff' },
+  { step: 3, label: 'CO–PO/PSO Mapping',   desc: 'Map COs to programme outcomes',       path: '/co-mapping',     icon: Map,          color: '#7c3aed', bg: '#f5f3ff' },
+  { step: 4, label: 'Direct Assessment',   desc: 'Upload end-sem marks',                path: '/marks-upload',   icon: Upload,       color: '#0369a1', bg: '#e0f2fe' },
+  { step: 5, label: 'Indirect Assessment', desc: 'Upload course-end survey',            path: '/survey-upload',  icon: ClipboardList, color: '#059669', bg: '#f0fdf4' },
+  { step: 6, label: 'CO Attainment',       desc: 'Compute & view CO attainment',        path: '/co-attainment',  icon: BarChart2,    color: '#d97706', bg: '#fffbeb' },
+  { step: 7, label: 'Course ATR',          desc: 'Fill course action-taken report',     path: '/course-atr',     icon: FileText,     color: '#dc2626', bg: '#fef2f2' },
+  { step: 8, label: 'Programme ATR',       desc: 'Fill PO/PSO action-taken report',     path: '/programme-atr',  icon: Layers,       color: '#059669', bg: '#f0fdf4' },
 ];
 
 export default function DashboardOverview() {
   const navigate = useNavigate();
   const { user }  = useAuth();
+  const {
+    selectedCourse,
+    selectedProgramme,
+    availableCourses = [],
+    academicYear,
+    activePOs        = [],
+    attainmentConfigs = {},
+    workflowProgressStore = {},
+  } = useAcademic();
 
-  const [summaryData, setSummaryData] = useState(null);
-  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
-  const [selectedCourseId, setSelectedCourseId] = useState('');
-  const [liveSetupProgress, setLiveSetupProgress] = useState(null);
-  const [liveCosCount, setLiveCosCount] = useState(null);
+  const course         = selectedCourse || availableCourses[0];
+  const courseCode     = course?.code || '—';
+  const courseName     = course?.name || 'No course selected';
+  const progName       = selectedProgramme?.name || course?.programme || 'Programme';
+  const progCode       = selectedProgramme?.code || '';
+  const courseCOs      = course?.courseOutcomes || [];
+  const config         = course?.id ? (attainmentConfigs[course.id] || {}) : {};
+  const courseProgress = workflowProgressStore[course?.id || 'crs-1'] || {};
 
-  useEffect(() => {
-    let isMounted = true;
-    if (user?.email) {
-      setIsLoadingSummary(true);
-      getCourseCoordinatorSummary(user.email)
-        .then((res) => {
-          if (isMounted) {
-            const data = res?.data?.data || res?.data || res;
-            setSummaryData(data);
-            const coursesList = data?.assignedCourseOfferings || data?.assignedCourses || [];
-            if (coursesList.length > 0) {
-              const activeId = coursesList[0].id || '';
-              setSelectedCourseId(activeId);
-            }
-          }
-        })
-        .catch((err) => console.warn('Failed to load course coordinator summary:', err))
-        .finally(() => {
-          if (isMounted) setIsLoadingSummary(false);
-        });
-    }
-    return () => { isMounted = false; };
-  }, [user?.email]);
-
-  useEffect(() => {
-    let isMounted = true;
-    if (user?.email && selectedCourseId) {
-      Promise.allSettled([
-        getCourseCoordinatorSetupProgress(user.email, selectedCourseId),
-        getCourseCOs(selectedCourseId),
-      ]).then(([progRes, cosRes]) => {
-        if (!isMounted) return;
-        if (progRes.status === 'fulfilled') {
-          const p = progRes.value?.data?.data || progRes.value?.data || progRes.value;
-          if (p) setLiveSetupProgress(p);
-        }
-        if (cosRes.status === 'fulfilled') {
-          const cos = cosRes.value?.data?.outcomes || cosRes.value?.data?.cos || cosRes.value?.data || cosRes.value || [];
-          if (Array.isArray(cos)) setLiveCosCount(cos.length);
-        }
-      }).catch((err) => console.warn('Failed to load course progress / COs:', err));
-    }
-    return () => { isMounted = false; };
-  }, [user?.email, selectedCourseId]);
-
-  const { courseOfferings = [], selectedCourseOffering } = useAcademic();
-  const rawAssigned = summaryData?.assignedCourseOfferings || summaryData?.assignedCourses;
-  const isApiLoaded = summaryData !== null;
-  const assignedCourses = (Array.isArray(rawAssigned) && rawAssigned.length > 0)
-    ? rawAssigned
-    : (Array.isArray(courseOfferings) && courseOfferings.length > 0 ? courseOfferings : []);
-
-  const hasCourses = assignedCourses.length > 0;
-
-  const currentCourse = assignedCourses.find((c) => c.id === selectedCourseId) || assignedCourses[0] || null;
-
-  const courseCode     = currentCourse?.code || currentCourse?.courseCode || '—';
-  const courseName     = currentCourse?.name || currentCourse?.courseName || 'No Course Selected';
-  const progName       = currentCourse?.programme || currentCourse?.programmeName || '—';
-  const progCode       = currentCourse?.programmeCode || '—';
-  const academicYear   = currentCourse?.academicYear || '2025-26';
-  const courseCOsCount = liveCosCount ?? summaryData?.statistics?.cosCount ?? summaryData?.courseOutcomesCount ?? currentCourse?.courseOutcomesCount ?? currentCourse?.courseOutcomes?.length ?? 6;
-  const poCount        = summaryData?.statistics?.poCount || summaryData?.poCount || currentCourse?.poCount || 12;
-  const psoCount       = summaryData?.statistics?.psoCount || summaryData?.psoCount || 2;
-
-  const setupCompletedList = liveSetupProgress?.completedSteps || summaryData?.setupProgress?.completedSteps || [];
-  const setupStepNum       = liveSetupProgress?.currentStep || summaryData?.setupProgress?.currentStep || 1;
-
-  const stepPathMap = {
-    'cos': '/outcomes',
-    'co_mapping': '/co-mapping',
-    'direct': '/marks-upload',
-    'indirect': '/survey-upload',
-    'attainment': '/co-attainment',
-    'course_atr': '/course-atr',
-  };
-
-  const completedPathsFromApi = setupCompletedList.map((s) => stepPathMap[s] || s);
-  const completedPaths = completedPathsFromApi.length > 0 ? completedPathsFromApi : (currentCourse?.completedSteps || []);
-
-  const stepStatus = WORKFLOW_STEPS.map((s, idx) => {
-    if (completedPaths.includes(s.path)) return true;
-    if (idx + 1 < setupStepNum) return true;
+  const stepStatus = WORKFLOW_STEPS.map((s, i) => {
+    if (courseProgress[s.path]) return true;
+    if (i === 0) return courseCOs.length > 0;
+    if (i === 1) return courseCOs.some((c) => c.target);
+    if (i === 2) return courseCOs.some((c) => c.mappings);
+    if (i === 3) return !!config.directUploaded;
+    if (i === 4) return !!config.indirectUploaded;
+    if (i === 5) return !!config.attainmentRun;
+    if (i === 6) return !!config.atrSubmitted;
+    if (i === 7) return !!config.progAtrSubmitted;
     return false;
   });
 
   const completedCount = stepStatus.filter(Boolean).length;
   const progressPct    = Math.round((completedCount / WORKFLOW_STEPS.length) * 100);
   const nextStep       = WORKFLOW_STEPS.find((_, i) => !stepStatus[i]) || null;
-  const targetStepNum  = setupStepNum || (nextStep ? nextStep.step : 1);
+  const targetStepNum  = nextStep ? nextStep.step : 1;
 
   // Quick action cards
   const quickActions = [
@@ -211,32 +150,6 @@ export default function DashboardOverview() {
             {progCode ? <span>{progCode}</span> : progName}
             {academicYear ? <span style={{ color: '#94a3b8' }}> &nbsp;·&nbsp; {academicYear}</span> : null}
           </p>
-          {assignedCourses.length > 1 && (
-            <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <label style={{ fontSize: '12px', fontWeight: '700', color: muted }}>Active Course:</label>
-              <select
-                value={selectedCourseId}
-                onChange={(e) => setSelectedCourseId(e.target.value)}
-                style={{
-                  height: '32px',
-                  padding: '0 10px',
-                  fontSize: '12.5px',
-                  fontWeight: '600',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  background: '#f8fafc',
-                  color: ink,
-                  cursor: 'pointer',
-                }}
-              >
-                {assignedCourses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} — {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
         <div style={{ marginLeft: 'auto' }}>
           <button
@@ -279,7 +192,7 @@ export default function DashboardOverview() {
               <Target size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{courseCOsCount}</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{courseCOs.length}</div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>COs defined</div>
         </div>
 
@@ -291,8 +204,8 @@ export default function DashboardOverview() {
               <Award size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{poCount}</div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>{poCount} POs &amp; {psoCount} PSOs in programme</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{activePOs.length || 12}</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>POs in programme</div>
         </div>
 
         {/* Workflow progress */}

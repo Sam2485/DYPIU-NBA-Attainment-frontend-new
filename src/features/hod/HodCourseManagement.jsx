@@ -1,86 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { BookOpen, Users, UserCheck, CheckCircle2, Search, Plus, Edit2, Trash2, Save, X, GraduationCap } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
-import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
-import { getHodDepartmentSummary, getProgrammes, getCourses, saveCourse as saveCourseApi, deleteCourse as deleteCourseApi } from '../../api/academic';
 
 const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
 export default function HodCourseManagement() {
-  const { user } = useAuth();
   const {
     masterProgrammes = [],
     departments = [],
-    programmeId: contextProgId,
-    setProgrammeId: setContextProgId,
-    courses: contextCourses = [],
+    programmeId,
+    setProgrammeId,
+    updateProgramme = () => {},
+    courses = [],
+    assignCourseCoordinator = () => {},
+    addCourse = () => {},
+    updateCourse = () => {},
+    deleteCourse = () => {},
   } = useAcademic();
 
-  const [programmesList, setProgrammesList] = useState([]);
-  const [programmeId, setProgrammeId] = useState('');
-  const [coursesList, setCoursesList] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
 
   const assignedHods = departments.map((d) => d.hod).filter(Boolean);
 
-  // Load HOD department and programmes
-  useEffect(() => {
-    let isMounted = true;
-    const fetchInitialData = async () => {
-      try {
-        let deptId = '';
-        if (user?.email) {
-          const summaryRes = await getHodDepartmentSummary(user.email);
-          const summaryData = summaryRes?.data?.data || summaryRes?.data || summaryRes;
-          if (summaryData?.deptId) {
-            deptId = summaryData.deptId;
-          }
-        }
-        const progRes = await getProgrammes('', deptId);
-        const progs = progRes?.data?.programmes || progRes?.programmes || progRes?.data?.data || progRes?.data || [];
-        if (isMounted && Array.isArray(progs) && progs.length > 0) {
-          setProgrammesList(progs);
-          setProgrammeId((prev) => prev || progs[0].id);
-        }
-      } catch (err) {
-        console.warn('Failed to load initial data in HodCourseManagement:', err);
-      }
-    };
+  const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP', durationYears: 4 };
 
-    fetchInitialData();
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.email]);
-
-  // Load courses for selected programme
-  useEffect(() => {
-    let isMounted = true;
-    if (!programmeId) return;
-
-    getCourses(programmeId)
-      .then((res) => {
-        const list = res?.data?.courses || res?.courses || res?.data?.data || res?.data || res;
-        if (isMounted && Array.isArray(list)) {
-          setCoursesList(list);
-        }
-      })
-      .catch((err) => console.warn('Could not fetch courses:', err));
-
-    return () => {
-      isMounted = false;
-    };
-  }, [programmeId]);
-
-  const selectedProgramme =
-    programmesList.find((p) => p.id === programmeId) ||
-    masterProgrammes.find((p) => p.id === programmeId) ||
-    programmesList[0] ||
-    masterProgrammes[0] ||
-    null;
-
-  const durationYears = selectedProgramme?.durationYears || 4;
+  const durationYears = selectedProgramme.durationYears || 4;
   const totalSemesters = durationYears * 2;
   const programmeSemesters = Array.from({ length: totalSemesters }, (_, i) => `Sem ${ROMAN_NUMERALS[i] || i + 1}`);
 
@@ -88,7 +33,7 @@ export default function HodCourseManagement() {
   const [newCode, setNewCode] = useState('');
   const [newName, setNewName] = useState('');
   const [newSem, setNewSem] = useState(programmeSemesters[0] || 'Sem I');
-  const [newCoordinator, setNewCoordinator] = useState('');
+  const [newCoordinator, setNewCoordinator] = useState(MASTER_FACULTY_LIST[0] || 'Dr. Raj Shaikh');
 
   // Inline Edit Row State
   const [editingCourseId, setEditingCourseId] = useState(null);
@@ -97,25 +42,23 @@ export default function HodCourseManagement() {
   const [editSem, setEditSem] = useState('');
   const [editCoordinator, setEditCoordinator] = useState('');
 
-  // Active courses list
-  const activeCourses = coursesList.length > 0 ? coursesList : contextCourses;
-
   // Filter courses by selected programme & search query
-  const filteredCourses = activeCourses
+  const filteredCourses = courses
     .filter((c) => !c.programmeId || c.programmeId === programmeId)
     .filter(
       (c) =>
-        (c.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (c.code || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (c.faculty || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (c.coordinator || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-  const handleAddCourse = async (e) => {
+  const handleAddCourse = (e) => {
     e.preventDefault();
     if (!newCode || !newName) return;
 
     const createdCourse = {
+      id: `crs-${Date.now()}`,
       programmeId,
       code: newCode,
       name: newName,
@@ -124,15 +67,8 @@ export default function HodCourseManagement() {
       faculty: newCoordinator,
     };
 
-    try {
-      const res = await saveCourseApi(createdCourse);
-      const saved = res?.data?.data || res?.data || { ...createdCourse, id: `crs-${Date.now()}` };
-      setCoursesList((prev) => [...prev, saved]);
-    } catch (err) {
-      console.warn('Could not save course to backend:', err);
-      setCoursesList((prev) => [...prev, { ...createdCourse, id: `crs-${Date.now()}` }]);
-    }
-
+    addCourse(createdCourse);
+    alert(`🎉 Course ${newCode} - ${newName} added to ${selectedProgramme.name} (${newSem})!`);
     setNewCode('');
     setNewName('');
   };
@@ -145,26 +81,14 @@ export default function HodCourseManagement() {
     setEditCoordinator(course.coordinator || (course.faculty || '').split('/')[0].trim());
   };
 
-  const handleSaveEdit = async (courseId) => {
-    const updatedPayload = {
-      id: courseId,
-      programmeId,
+  const handleSaveEdit = (courseId) => {
+    updateCourse(courseId, {
       code: editCode,
       name: editName,
       semester: editSem,
       coordinator: editCoordinator,
       faculty: editCoordinator,
-    };
-
-    try {
-      await saveCourseApi(updatedPayload);
-    } catch (err) {
-      console.warn('Could not update course in backend:', err);
-    }
-
-    setCoursesList((prev) =>
-      prev.map((c) => (c.id === courseId ? { ...c, ...updatedPayload } : c))
-    );
+    });
     setEditingCourseId(null);
   };
 
@@ -176,14 +100,9 @@ export default function HodCourseManagement() {
     setShowDeleteModal(true);
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = () => {
     if (deletingCourse) {
-      try {
-        await deleteCourseApi(deletingCourse.id);
-      } catch (err) {
-        console.warn('Could not delete course in backend:', err);
-      }
-      setCoursesList((prev) => prev.filter((c) => c.id !== deletingCourse.id));
+      deleteCourse(deletingCourse.id);
       setShowDeleteModal(false);
       setDeletingCourse(null);
     }

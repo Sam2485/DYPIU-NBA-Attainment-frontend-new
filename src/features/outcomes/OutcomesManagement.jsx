@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Target, FileSpreadsheet, Plus, Trash2, Save, Send, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck } from 'lucide-react';
+import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
-import { getCourseCOs, saveCourseCOs } from '../../api/academic';
 import RowButtons from '../../components/common/RowButtons';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
@@ -19,14 +18,10 @@ export default function OutcomesManagement({ hideFooter = false }) {
     programmeId,
     selectedProgramme,
     courseId,
-    setCourseId = () => {},
     selectedCourse,
-    availableCourses = [],
-    courses = [],
-    activePOs = [],
-    activePSOs = [],
-    activePEOs = [],
-    activeCOs = [],
+    activePOs,
+    activePSOs,
+    activeCOs,
     updateProgrammePOs,
     updateProgrammePSOs,
     updateCourseCOs,
@@ -36,11 +31,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
 
-  const [selectedCourseIdState, setSelectedCourseIdState] = useState(null);
-
-  const coursesList = availableCourses.length > 0 ? availableCourses : courses;
-  const targetCourseId = selectedCourseIdState || selectedCourse?.id || availableCourses[0]?.id || courseId || '';
-  const isLimitedUser = role === 'FACULTY';
+  const targetCourseId = selectedCourse?.id || courseId || 'crs-1';
   const currentCoVerificationStatus = courseVerificationStore[targetCourseId]?.coStatus || 'PENDING_APPROVAL';
 
   const [localCoTargets, setLocalCoTargets] = useState({});
@@ -69,14 +60,19 @@ export default function OutcomesManagement({ hideFooter = false }) {
   }, [role, activeOutcomeTab]);
 
   // Multiple Teachers for Course
-  const courseTeachers = selectedCourse?.faculty || selectedCourse?.coordinator || '—';
+  const courseTeachers = selectedCourse?.faculty || 'Dr. Raj Shaikh / Prof. XYZ';
 
-  // ── PEOs (Programme Educational Objectives) ──────────────────────────────────
-  const [peoList, setPeoList] = useState(activePEOs || []);
+  // ── PEOs (Programme Educational Objectives - No Verification Required) ──────
+  const [peoList, setPeoList] = useState([
+    { code: 'PEO1', statement: 'To prepare graduates with strong fundamental knowledge in engineering and mathematical principles to solve real-world problems.' },
+    { code: 'PEO2', statement: 'To foster professional competence, leadership, team working skills, and ethical responsibilities in career.' },
+    { code: 'PEO3', statement: 'To encourage lifelong learning, research, higher education, and adaptation to technological advancements.' },
+    { code: 'PEO4', statement: 'To develop entrepreneurial capabilities and innovative mindset for societal contribution.' },
+  ]);
 
   const handleAddPEO = () => {
     const newNum = peoList.length + 1;
-    setPeoList([...peoList, { code: `PEO${newNum}`, statement: '' }]);
+    setPeoList([...peoList, { code: `PEO${newNum}`, statement: `New Programme Educational Objective ${newNum} Statement...` }]);
   };
 
   const handleUpdatePEOStatement = (index, newStatement) => {
@@ -89,30 +85,46 @@ export default function OutcomesManagement({ hideFooter = false }) {
     setPeoList(updated);
   };
 
-  // ── POs ──────────────────────────────────────────────────────────────────────
-  const [poList, setPoList] = useState(activePOs || []);
+  // ── POs with Director Verification Status ────────────────────────────────────
+  const [poList, setPoList] = useState(() => {
+    return activePOs.map((po, idx) => ({
+      ...po,
+      status: po.status || (idx % 2 === 0 ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION'),
+      submittedBy: po.submittedBy || 'Programme Coordinator',
+      submittedAt: po.submittedAt || '2026-08-04',
+    }));
+  });
 
-  // ── PSOs ─────────────────────────────────────────────────────────────────────
-  const [psoList, setPsoList] = useState(activePSOs || []);
+  // ── PSOs with Director Verification Status ───────────────────────────────────
+  const [psoList, setPsoList] = useState(() => {
+    return activePSOs.map((pso, idx) => ({
+      ...pso,
+      status: pso.status || (idx % 2 === 0 ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION'),
+      submittedBy: pso.submittedBy || 'Programme Coordinator',
+      submittedAt: pso.submittedAt || '2026-08-04',
+    }));
+  });
 
-  // ── COs ──────────────────────────────────────────────────────────────────────
-  const [coList, setCoList] = useState(activeCOs || []);
+  // ── COs with Coordinator Approval Status ─────────────────────────────────────
+  const [coList, setCoList] = useState(() => {
+    return activeCOs.map((co) => ({
+      ...co,
+      status: co.status || (currentCoVerificationStatus === 'APPROVED' ? 'APPROVED' : 'WAITING_FOR_APPROVAL'),
+      submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
+      submittedAt: co.submittedAt || '2026-08-04',
+    }));
+  });
 
   useEffect(() => {
-    setPeoList(activePEOs || []);
-  }, [activePEOs]);
-
-  useEffect(() => {
-    setPoList(activePOs || []);
-  }, [activePOs]);
-
-  useEffect(() => {
-    setPsoList(activePSOs || []);
-  }, [activePSOs]);
-
-  useEffect(() => {
-    setCoList(activeCOs || []);
-  }, [activeCOs]);
+    setPoList(
+      activePOs.map((po, idx) => ({
+        ...po,
+        status: po.status || (idx % 2 === 0 ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION'),
+        submittedBy: po.submittedBy || 'Programme Coordinator',
+        submittedAt: po.submittedAt || '2026-08-04',
+      }))
+    );
+  }, [programmeId, activePOs]);
 
   useEffect(() => {
     setPsoList(
@@ -126,44 +138,27 @@ export default function OutcomesManagement({ hideFooter = false }) {
   }, [programmeId, activePSOs]);
 
   useEffect(() => {
-    let isMounted = true;
-    if (targetCourseId) {
-      getCourseCOs(targetCourseId)
-        .then((res) => {
-          if (isMounted) {
-            const rawCOs = res?.data?.outcomes || res?.data?.cos || res?.outcomes || res?.cos || res?.data?.data || res?.data || [];
-            if (Array.isArray(rawCOs) && rawCOs.length > 0) {
-              const formatted = rawCOs.map((co, idx) => {
-                const targetVal = co.targetLevel !== undefined && co.targetLevel !== null
-                  ? parseFloat(co.targetLevel)
-                  : (co.target !== undefined && co.target !== null ? parseFloat(co.target) : 2.50);
-                return {
-                  id: co.id || `co-${targetCourseId}-${idx + 1}`,
-                  code: co.code || `C321.${idx + 1}`,
-                  statement: co.statement || '',
-                  targetLevel: targetVal,
-                  target: targetVal,
-                  status: co.status || 'APPROVED',
-                  submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
-                  submittedAt: co.submittedAt || '2026-08-04',
-                };
-              });
-              setCoList(formatted);
-              updateCourseCOs(targetCourseId, formatted);
-            } else if (activeCOs && activeCOs.length > 0) {
-              setCoList(activeCOs);
-            }
-          }
-        })
-        .catch((err) => {
-          console.warn('Failed to fetch COs from backend, using activeCOs:', err);
-          if (isMounted && activeCOs && activeCOs.length > 0) {
-            setCoList(activeCOs);
-          }
-        });
-    }
-    return () => { isMounted = false; };
-  }, [targetCourseId]);
+    const targetData = courseVerificationStore[targetCourseId] || {};
+    const globalStatus = targetData.coStatus || currentCoVerificationStatus || 'PENDING_APPROVAL';
+
+    setCoList(
+      activeCOs.map((co) => {
+        const computedStatus =
+          globalStatus === 'APPROVED' || globalStatus === 'VERIFIED'
+            ? 'APPROVED'
+            : globalStatus === 'REJECTED' || globalStatus === 'REVISION_REQUESTED'
+            ? 'REJECTED'
+            : co.status || 'WAITING_FOR_APPROVAL';
+
+        return {
+          ...co,
+          status: computedStatus,
+          submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
+          submittedAt: co.submittedAt || '2026-08-04',
+        };
+      })
+    );
+  }, [targetCourseId, selectedCourse, activeCOs, currentCoVerificationStatus, courseVerificationStore]);
 
   // ── PO Handlers (Programme Coordinator Proposes -> Director Verifies) ─────────
   const handleAddPO = () => {
@@ -171,7 +166,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
     const newPo = {
       code: `PO${newPoNum}`,
       statement: `New proposed Programme Outcome ${newPoNum} Statement...`,
-      status: role === 'DIRECTOR' ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION',
+      status: role === 'DIRECTOR' || role === 'IQAC' ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION',
       submittedBy: user?.name || 'Programme Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
       competencies: [
@@ -280,7 +275,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
     const newPso = {
       code: `PSO${newPsoNum}`,
       statement: `New proposed Programme Specific Outcome ${newPsoNum} Statement...`,
-      status: role === 'DIRECTOR' ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION',
+      status: role === 'DIRECTOR' || role === 'IQAC' ? 'VERIFIED' : 'WAITING_FOR_DIRECTOR_VERIFICATION',
       submittedBy: user?.name || 'Programme Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
       competencies: [
@@ -389,9 +384,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
     const newCo = {
       code: `C321.${newCoNum}`,
       statement: `New proposed Course Outcome statement ${newCoNum}...`,
-      targetLevel: 2.50,
-      target: '2.50',
-      status: role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' ? 'APPROVED' : 'WAITING_FOR_APPROVAL',
+      status: role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' ? 'APPROVED' : 'WAITING_FOR_APPROVAL',
       submittedBy: user?.name || 'Course Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
     };
@@ -419,14 +412,6 @@ export default function OutcomesManagement({ hideFooter = false }) {
     if (isLimitedUser) {
       updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
     }
-  };
-
-  const handleUpdateCOTarget = (index, newTarget) => {
-    const num = parseFloat(newTarget);
-    const validNum = isNaN(num) ? 1.00 : Math.min(3.00, Math.max(1.00, num));
-    const updated = coList.map((c, i) => (i === index ? { ...c, target: newTarget, targetLevel: validNum } : c));
-    setCoList(updated);
-    updateCourseCOs(targetCourseId, updated);
   };
 
   const handleApproveCO = (index) => {
@@ -466,64 +451,12 @@ export default function OutcomesManagement({ hideFooter = false }) {
     }
   };
 
-  const handleSaveChanges = async (entityName) => {
+  const handleSaveChanges = (entityName) => {
     updateCourseCOs(targetCourseId, coList);
-    try {
-      if (targetCourseId && (entityName === 'Course Outcomes' || !entityName)) {
-        const payload = coList.map((co, idx) => {
-          const targetVal = co.targetLevel !== undefined && co.targetLevel !== null
-            ? parseFloat(co.targetLevel)
-            : (co.target !== undefined && co.target !== null ? parseFloat(co.target) : 2.50);
-          return {
-            id: co.id || `co-${targetCourseId}-${idx + 1}`,
-            courseId: targetCourseId,
-            code: co.code || `C321.${idx + 1}`,
-            statement: co.statement || '',
-            targetLevel: targetVal,
-            target: co.target !== undefined && co.target !== null ? co.target : '2.50',
-            status: co.status || 'APPROVED',
-            submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
-            submittedAt: co.submittedAt || new Date().toISOString().split('T')[0],
-          };
-        });
-        await saveCourseCOs(targetCourseId, payload);
-      }
-    } catch (err) {
-      console.warn('Failed to save COs to backend:', err);
-    }
     if (isLimitedUser) {
       updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
     }
-    alert(`Changes to ${entityName || 'Course Outcomes'} saved successfully!`);
-  };
-
-  const handleSubmitForReview = async () => {
-    updateCourseCOs(targetCourseId, coList);
-    try {
-      if (targetCourseId) {
-        const payload = coList.map((co, idx) => {
-          const targetVal = co.targetLevel !== undefined && co.targetLevel !== null
-            ? parseFloat(co.targetLevel)
-            : (co.target !== undefined && co.target !== null ? parseFloat(co.target) : 2.50);
-          return {
-            id: co.id || `co-${targetCourseId}-${idx + 1}`,
-            courseId: targetCourseId,
-            code: co.code || `C321.${idx + 1}`,
-            statement: co.statement || '',
-            targetLevel: targetVal,
-            target: co.target !== undefined && co.target !== null ? co.target : '2.50',
-            status: 'WAITING_FOR_APPROVAL',
-            submittedBy: user?.name || 'Course Coordinator',
-            submittedAt: new Date().toISOString().split('T')[0],
-          };
-        });
-        await saveCourseCOs(targetCourseId, payload);
-      }
-    } catch (err) {
-      console.warn('Failed to submit COs for review:', err);
-    }
-    updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
-    alert('Course Outcomes submitted for Programme Coordinator review & approval successfully!');
+    alert(`Changes to ${entityName} saved successfully!`);
   };
 
   // Pending Counts
@@ -542,30 +475,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
             </h2>
           </div>
 
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              type="button"
-              className="btn btn-success"
-              onClick={handleSubmitForReview}
-              style={{
-                height: '38px',
-                padding: '0 14px',
-                fontSize: '13px',
-                fontWeight: '700',
-                background: '#059669',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontFamily: 'inherit',
-                boxShadow: '0 2px 8px rgba(5,150,105,0.25)',
-              }}
-            >
-              <Send size={15} /> Submit for Review
-            </button>
+          <div style={{ marginLeft: 'auto' }}>
             <button className="btn btn-primary" onClick={() => handleSaveChanges('Course Outcomes')}>
               <Save size={15} /> Save Changes
             </button>
@@ -574,7 +484,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
       </div>
 
       {/* Director Pending Verifications Banner */}
-      {role === 'DIRECTOR' && (pendingPoCount > 0 || pendingPsoCount > 0) && (
+      {(role === 'DIRECTOR' || role === 'IQAC') && (pendingPoCount > 0 || pendingPsoCount > 0) && (
         <div
           className="card"
           style={{
@@ -788,7 +698,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                       </span>
                     )}
 
-                    {role === 'DIRECTOR' && !isVerified && (
+                    {(role === 'DIRECTOR' || role === 'IQAC') && !isVerified && (
                       <button
                         className="btn btn-success"
                         style={{ padding: '5px 10px', fontSize: '11.5px' }}
@@ -798,7 +708,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                       </button>
                     )}
 
-                    {role === 'DIRECTOR' && isPendingVerification && (
+                    {(role === 'DIRECTOR' || role === 'IQAC') && isPendingVerification && (
                       <button
                         className="btn btn-danger"
                         style={{ padding: '5px 10px', fontSize: '11.5px' }}
@@ -961,7 +871,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                       </span>
                     )}
 
-                    {role === 'DIRECTOR' && !isVerified && (
+                    {(role === 'DIRECTOR' || role === 'IQAC') && !isVerified && (
                       <button
                         className="btn btn-success"
                         style={{ padding: '5px 10px', fontSize: '11.5px' }}
@@ -971,7 +881,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                       </button>
                     )}
 
-                    {role === 'DIRECTOR' && isPendingVerification && (
+                    {(role === 'DIRECTOR' || role === 'IQAC') && isPendingVerification && (
                       <button
                         className="btn btn-danger"
                         style={{ padding: '5px 10px', fontSize: '11.5px' }}
@@ -1060,56 +970,16 @@ export default function OutcomesManagement({ hideFooter = false }) {
           {/* Programme Coordinator Status & Rejection Remarks Banner */}
           {(() => {
             const targetData = courseVerificationStore[targetCourseId] || {};
-            const status = targetData.coStatus;
+            const status = targetData.coStatus || currentCoVerificationStatus || 'PENDING_APPROVAL';
             const remarks = targetData.coRemarks || '';
             const verifier = targetData.verifiedBy || 'Dr. Raj Shaikh (Programme Coordinator)';
 
-            // 1. Initial State / Not Submitted / Draft -> Show nothing
-            if (!status || status === 'DRAFT' || status === 'NOT_SUBMITTED') {
-              return null;
-            }
+            const isApproved = status === 'APPROVED' || status === 'VERIFIED';
+            const isRejected = status === 'REJECTED' || status === 'REVISION_REQUESTED';
 
-            // 2. Pending Approval / Submitted State -> Show Waiting for Approval banner
-            if (status === 'SUBMITTED' || status === 'PENDING_APPROVAL' || status === 'WAITING_FOR_APPROVAL') {
+            if (isApproved) {
               return (
-                <div style={{
-                  background: '#fffbeb',
-                  border: '1.5px solid #fde68a',
-                  borderLeft: '5px solid #d97706',
-                  padding: '14px 18px',
-                  marginBottom: '18px',
-                  borderRadius: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}>
-                  <Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} />
-                  <div>
-                    <strong style={{ fontSize: '13.5px', color: '#92400e', fontWeight: '800' }}>
-                      ⏳ SUBMITTED — WAITING FOR PROGRAMME COORDINATOR APPROVAL
-                    </strong>
-                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#b45309' }}>
-                      Course outcome statements for {selectedCourse?.code || targetCourseId} have been submitted and are pending review by <strong>{verifier}</strong>.
-                    </p>
-                  </div>
-                </div>
-              );
-            }
-
-            // 3. Approved / Verified State -> Show Green Approval banner
-            if (status === 'APPROVED' || status === 'VERIFIED') {
-              return (
-                <div style={{
-                  background: '#f0fdf4',
-                  border: '1.5px solid #a7f3d0',
-                  borderLeft: '5px solid #10b981',
-                  padding: '14px 18px',
-                  marginBottom: '18px',
-                  borderRadius: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}>
+                <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', padding: '14px 18px', marginBottom: '18px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <CheckCircle2 size={20} style={{ color: '#10b981', flexShrink: 0 }} />
                   <div>
                     <strong style={{ fontSize: '13.5px', color: '#15803d', fontWeight: '800' }}>
@@ -1123,14 +993,13 @@ export default function OutcomesManagement({ hideFooter = false }) {
               );
             }
 
-            // 4. Rejected / Revision Requested State -> Show Revision card with remarks
-            if (status === 'REJECTED' || status === 'REVISION_REQUESTED') {
+            if (isRejected) {
               return (
                 <RequestRevisionCard
                   title="Course Outcomes Revision Requested"
                   requestedBy={verifier}
                   remarks={remarks || 'Please review and update Course Outcome statements as per coordinator notes.'}
-                  actionText="Modify the statements below and click 'Save Changes' to re-submit for Programme Coordinator approval."
+                  actionText="Modify the statements below and click 'Save COs' to re-submit for Programme Coordinator approval."
                 />
               );
             }
@@ -1146,7 +1015,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                     <th style={{ width: '50px', textAlign: 'center' }}>#</th>
                     <th style={{ width: '90px', minWidth: '90px', maxWidth: '100px', textAlign: 'center' }}>CO Code</th>
                     <th style={{ width: '100%' }}>Course Outcome Statement</th>
-                    <th style={{ width: '140px', textAlign: 'center' }}>Target Level (1.0–3.0)</th>
+                    <th style={{ width: '150px' }}>Proposed By</th>
                     <th style={{ width: '180px', textAlign: 'center' }}>Approval Status</th>
                     <th style={{ width: '150px', textAlign: 'center' }}>Actions</th>
                   </tr>
@@ -1188,17 +1057,9 @@ export default function OutcomesManagement({ hideFooter = false }) {
                               style={{ fontSize: '13px', width: '100%', minWidth: '500px', boxSizing: 'border-box', padding: '8px 12px' }}
                             />
                           </td>
-                          <td style={{ textAlign: 'center' }}>
-                            <input
-                              type="number"
-                              step="0.05"
-                              min="1.00"
-                              max="3.00"
-                              className="form-control"
-                              style={{ width: '85px', textAlign: 'center', margin: '0 auto', fontWeight: '700', color: '#0369a1', padding: '6px' }}
-                              value={co.target !== undefined && co.target !== null ? co.target : '2.50'}
-                              onChange={(e) => handleUpdateCOTarget(index, e.target.value)}
-                            />
+                          <td style={{ fontSize: '11.5px', color: '#475569' }}>
+                            <strong>{co.submittedBy}</strong>
+                            <div style={{ fontSize: '10px', color: '#94a3b8' }}>{co.submittedAt}</div>
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             {isApproved ? (
@@ -1217,7 +1078,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
-                              {(role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR') && (
+                              {(role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC') && (
                                 <>
                                   {!isApproved && (
                                     <button

@@ -1,26 +1,37 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import AuditTable from '../../components/tables/AuditTable';
 import { Shield, Plus } from 'lucide-react';
-import { getUsers, extractUserList } from '../../api/academic';
 
 export default function UserManagement() {
-  const [users, setUsers] = useState([]);
-
-  useEffect(() => {
-    let isMounted = true;
-    getUsers()
-      .then((res) => {
-        const list = extractUserList(res);
-        if (isMounted && Array.isArray(list) && list.length > 0) {
-          setUsers(list);
-        }
-      })
-      .catch((err) => console.warn('Could not fetch users in UserManagement:', err));
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const [users, setUsers] = useState([
+    {
+      id: '1',
+      name: 'Dr. Raj Shaikh',
+      email: 'raj.shaikh@dypiu.ac.in',
+      role: 'SUPER_ADMIN',
+      department: 'School of Computer Science',
+      programme: 'B.Tech CSE',
+      status: 'ACTIVE',
+    },
+    {
+      id: '2',
+      name: 'Prof. Ananya Roy',
+      email: 'ananya.roy@dypiu.ac.in',
+      role: 'HOD',
+      department: 'School of Computer Science',
+      programme: 'B.Tech CSE',
+      status: 'ACTIVE',
+    },
+    {
+      id: '3',
+      name: 'Dr. Sameer Khan',
+      email: 'sameer.khan@dypiu.ac.in',
+      role: 'FACULTY',
+      department: 'School of Computer Science',
+      programme: 'B.Tech CSE',
+      status: 'ACTIVE',
+    },
+  ]);
 
   const handleAddUser = () => {
     setUsers([

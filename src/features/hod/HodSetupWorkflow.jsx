@@ -1,101 +1,34 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  UserCheck,
-  Calendar,
-  Layers,
-  CheckCircle2,
-  ArrowRight,
-  ArrowLeft,
-  Save,
-  Check,
-  Plus,
-  Trash2,
-  Edit3,
-  X as CloseIcon,
-  ChevronDown,
-  GraduationCap,
-  LogOut,
-} from 'lucide-react';
-import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
+import { UserCheck, Calendar, Layers, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, Trash2, Edit3, X, AlertCircle, ChevronDown, GraduationCap } from 'lucide-react';
+import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
-import {
-  getHodSetupProgress,
-  updateHodSetupProgress,
-  completeHodSetup,
-  saveProgramme,
-  saveProgrammeCoordinator,
-  getProgrammes,
-  getHodDepartmentSummary,
-  getUsersByRole,
-  getUsers,
-  getBatches,
-  saveBatch,
-  deleteBatch,
-  getProgrammePOs,
-  saveProgrammePOs,
-  getProgrammePSOs,
-  saveProgrammePSOs,
-  getProgrammePEOs,
-  saveProgrammePEOs,
-} from '../../api/academic';
-
-const surface = {
-  background: '#ffffff',
-  border: '1px solid #e2e8f0',
-  borderRadius: '14px',
-  boxShadow: '0 4px 20px rgba(15, 23, 42, 0.05)',
-};
-
-const inputStyle = {
-  width: '100%',
-  height: '38px',
-  padding: '0 11px',
-  border: '1px solid #cbd5e1',
-  borderRadius: '8px',
-  background: '#ffffff',
-  color: '#0f172a',
-  fontSize: '13px',
-  outline: 'none',
-  fontFamily: 'inherit',
-  boxSizing: 'border-box',
-};
-
-const labelStyle = {
-  display: 'block',
-  marginBottom: '6px',
-  fontSize: '11.5px',
-  fontWeight: '700',
-  color: '#475569',
-};
-
-const accent = '#4f46e5';
-const ink = '#0f172a';
-const muted = '#64748b';
+import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
 export default function HodSetupWorkflow() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const {
+    masterProgrammes = [],
+    programmeId,
+    setProgrammeId,
+    updateProgramme = () => {},
+    departments = [],
+    batches = [],
+    batchId,
+    setBatchId,
+    addBatch = () => {},
+    updateBatch = () => {},
+    deleteBatch = () => {},
+    activePOs = [],
+    activePSOs = [],
+    activePEOs = [],
+    updateProgrammePOs = () => {},
+    updateProgrammePSOs = () => {},
+    updateProgrammePEOs = () => {},
+  } = useAcademic();
 
-  const [hodProgrammes, setHodProgrammes] = useState([]);
-  const [departmentInfo, setDepartmentInfo] = useState(null);
-  const [coordinatorsList, setCoordinatorsList] = useState([]);
-
-  const [departments] = useState([]);
-  const [batches, setBatches] = useState([]);
-  const [activePOs, setActivePOs] = useState([]);
-  const [activePSOs, setActivePSOs] = useState([]);
-  const [activePEOs, setActivePEOs] = useState([]);
-
-  const [programmeId, setProgrammeId] = useState('');
-  const [batchId, setBatchId] = useState('');
   const [currentStep, setCurrentStep] = useState(1);
-  const [outcomeTab, setOutcomeTab] = useState('PO');
-  const [isSaving, setIsSaving] = useState(false);
-  const [isSavingCoordinator, setIsSavingCoordinator] = useState(false);
-  const [isSavingOutcomes, setIsSavingOutcomes] = useState(false);
-  const [, setSetupCompleted] = useState(false);
-
   const [deleteModalConfig, setDeleteModalConfig] = useState({
     isOpen: false,
     title: '',
@@ -103,272 +36,6 @@ export default function HodSetupWorkflow() {
     description: '',
     onConfirm: () => {},
   });
-
-  const [selectedCoordinator, setSelectedCoordinator] = useState('');
-  const [selectedCoordinatorEmail, setSelectedCoordinatorEmail] = useState('');
-
-  const [startYearInput, setStartYearInput] = useState('2025');
-  const [endYearInput, setEndYearInput] = useState('2029');
-  const [batchValidationError, setBatchValidationError] = useState('');
-
-  const [editingBatchId, setEditingBatchId] = useState(null);
-  const [editBatchName, setEditBatchName] = useState('');
-  const [editStartYear, setEditStartYear] = useState('');
-  const [editEndYear, setEditEndYear] = useState('');
-  const [editStatus, setEditStatus] = useState('ACTIVE');
-
-  // Non-blocking toast notification state
-  const [workflowToast, setWorkflowToast] = useState(null);
-
-  const showToast = (message, isError = false) => {
-    setWorkflowToast({ message, isError });
-    setTimeout(() => {
-      setWorkflowToast((curr) => (curr?.message === message ? null : curr));
-    }, 4000);
-  };
-
-  // Derived state properly declared after base state
-  const availableProgrammes = hodProgrammes;
-
-  const selectedProgramme =
-    availableProgrammes.find((p) => p.id === programmeId) ||
-    availableProgrammes[0] ||
-    null;
-
-  const currentDept =
-    departments.find((d) => d.id === selectedProgramme?.departmentId) ||
-    departments[0] ||
-    null;
-
-  const targetDeptId =
-    departmentInfo?.deptId ||
-    selectedProgramme?.departmentId ||
-    '';
-
-  const assignedHods = departments
-    .map((d) => d.hod)
-    .filter(Boolean);
-
-  const durationYears =
-    selectedProgramme?.durationYears || 4;
-
-  const programmeBatches = batches.filter(
-    (b) =>
-      !b.programmeId ||
-      b.programmeId === programmeId ||
-      b.programmeId === selectedProgramme?.id ||
-      b.programmeCode === selectedProgramme?.code ||
-      b.programmeName === selectedProgramme?.name
-  );
-
-  const activeBatchObj =
-    batches.find((b) => b.id === batchId) ||
-    programmeBatches[0] ||
-    null;
-
-  const resolvedDeptId = targetDeptId;
-  const isLocalStorageHodDone = Boolean(localStorage.getItem(`hod_setup_completed_${resolvedDeptId}`)) ||
-                                Boolean(localStorage.getItem(`hod_setup_completed_${user?.email}`));
-  const isCoordDone = Boolean(
-    selectedCoordinator ||
-    selectedProgramme?.coordinator ||
-    selectedProgramme?.coordinatorName
-  );
-  const isBatchDone = batches.length > 0;
-  const isOutcomesDone = activePOs.length > 0;
-  const isHodReviewDone = isLocalStorageHodDone || currentStep === 4 || (isCoordDone && isBatchDone && isOutcomesDone);
-
-  const steps = [
-    {
-      number: 1,
-      title: 'Programme Coordinator',
-      desc: isCoordDone ? `${selectedCoordinator || selectedProgramme?.coordinator || 'Assigned'}` : 'Assign coordinator',
-      icon: UserCheck,
-      isDone: isCoordDone,
-    },
-    {
-      number: 2,
-      title: 'Batch Setup',
-      desc: isBatchDone ? `${batches.length} batch${batches.length !== 1 ? 'es' : ''} active` : 'Initialize batches',
-      icon: Calendar,
-      isDone: isBatchDone,
-    },
-    {
-      number: 3,
-      title: 'PO / PSO / PEO',
-      desc: isOutcomesDone ? `${activePOs.length} POs defined` : 'Outcomes & competencies',
-      icon: Layers,
-      isDone: isOutcomesDone,
-    },
-    {
-      number: 4,
-      title: 'Review & Confirm',
-      desc: isHodReviewDone ? 'Ready to finish' : 'Verify & finish',
-      icon: CheckCircle2,
-      isDone: isHodReviewDone,
-    },
-  ];
-
-  const completedCount = steps.filter((s) => s.isDone).length;
-  const progressPct = Math.round((completedCount / steps.length) * 100);
-
-  // Load department summary, programmes, and setup progress
-  useEffect(() => {
-    let isMounted = true;
-    const fetchInitialData = async () => {
-      try {
-        let deptId = '';
-        if (user?.email) {
-          const summaryRes = await getHodDepartmentSummary(user.email);
-          const summaryData = summaryRes?.data?.data || summaryRes?.data || summaryRes;
-          if (summaryData?.deptId) {
-            deptId = summaryData.deptId;
-            if (isMounted) setDepartmentInfo(summaryData);
-          }
-        }
-        const progRes = await getProgrammes('', deptId);
-        const progList = progRes?.data?.programmes || progRes?.programmes || progRes?.data?.data || progRes?.data || [];
-        if (isMounted && Array.isArray(progList) && progList.length > 0) {
-          setHodProgrammes(progList);
-          setProgrammeId((prev) => prev || progList[0].id);
-        }
-
-        const targetDept = deptId || 'dept-1';
-        const progressRes = await getHodSetupProgress(targetDept, user?.email || '');
-        const progressData = progressRes?.data?.data || progressRes?.data || progressRes;
-        if (isMounted && progressData?.currentStep) {
-          setCurrentStep(progressData.currentStep);
-        }
-      } catch (err) {
-        console.warn('Failed to load initial setup workflow data:', err);
-      }
-    };
-
-    fetchInitialData();
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.email]);
-
-  // Fetch users with role programme-coordinator (with fallback to all faculty)
-  useEffect(() => {
-    let isMounted = true;
-    const loadCoordinators = async () => {
-      try {
-        const res = await getUsersByRole('programme-coordinator');
-        let list = Array.isArray(res) ? res : (res?.data?.users || res?.users || res?.data?.data || res?.data || []);
-        if (!Array.isArray(list) || list.length === 0) {
-          const allRes = await getUsers();
-          list = Array.isArray(allRes) ? allRes : (allRes?.data?.users || allRes?.users || allRes?.data?.data || allRes?.data || []);
-        }
-        if (isMounted && Array.isArray(list) && list.length > 0) {
-          setCoordinatorsList(list);
-        }
-      } catch (err) {
-        console.warn('Could not fetch programme coordinators list:', err);
-      }
-    };
-    loadCoordinators();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Fetch batches belonging to the selected programme
-  useEffect(() => {
-    let isMounted = true;
-    const fetchProgrammeBatches = async () => {
-      if (!selectedProgramme?.id) return;
-      try {
-        const res = await getBatches(selectedProgramme.id);
-        const batchList = Array.isArray(res) ? res : (res?.data?.batches || res?.batches || res?.data?.data || res?.data || []);
-        if (isMounted && Array.isArray(batchList)) {
-          setBatches(batchList);
-          if (batchList.length > 0) {
-            setBatchId(batchList[0].id);
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to load programme batches:', err);
-      }
-    };
-
-    fetchProgrammeBatches();
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedProgramme?.id, programmeId]);
-
-  // Fetch POs, PSOs, and PEOs for the selected programme
-  useEffect(() => {
-    let isMounted = true;
-    const fetchOutcomes = async () => {
-      if (!selectedProgramme?.id) return;
-      try {
-        const [poRes, psoRes, peoRes] = await Promise.allSettled([
-          getProgrammePOs(selectedProgramme.id),
-          getProgrammePSOs(selectedProgramme.id),
-          getProgrammePEOs(selectedProgramme.id),
-        ]);
-
-        if (!isMounted) return;
-
-        if (poRes.status === 'fulfilled') {
-          const pos = poRes.value?.data?.pos || poRes.value?.pos || poRes.value?.data?.data || poRes.value?.data || [];
-          if (Array.isArray(pos) && pos.length > 0) setActivePOs(pos);
-        }
-
-        if (psoRes.status === 'fulfilled') {
-          const psos = psoRes.value?.data?.psos || psoRes.value?.psos || psoRes.value?.data?.data || psoRes.value?.data || [];
-          if (Array.isArray(psos) && psos.length > 0) setActivePSOs(psos);
-        }
-
-        if (peoRes.status === 'fulfilled') {
-          const peos = peoRes.value?.data?.peos || peoRes.value?.peos || peoRes.value?.data?.data || peoRes.value?.data || [];
-          if (Array.isArray(peos) && peos.length > 0) setActivePEOs(peos);
-        }
-      } catch (err) {
-        console.warn('Failed to load programme outcomes:', err);
-      }
-    };
-
-    fetchOutcomes();
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedProgramme?.id, programmeId]);
-
-  const handleSaveOutcomes = async () => {
-    if (!selectedProgramme?.id) return;
-    setIsSaving(true);
-    try {
-      await Promise.all([
-        saveProgrammePOs(selectedProgramme.id, activePOs),
-        saveProgrammePSOs(selectedProgramme.id, activePSOs),
-        saveProgrammePEOs(selectedProgramme.id, activePEOs),
-      ]);
-      showToast(`✅ Outcomes (POs, PSOs, PEOs) saved successfully for ${selectedProgramme.name}!`);
-    } catch (err) {
-      console.warn('Failed to save outcomes to backend:', err);
-      showToast(`Outcomes saved locally for ${selectedProgramme.name}`);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Sync local coordinator selection state when selectedProgramme changes
-  useEffect(() => {
-    if (selectedProgramme) {
-      const coord = (selectedProgramme.coordinator && !['Pending HOD Assignment', 'No coordinator assigned yet', 'Unassigned'].includes(selectedProgramme.coordinator))
-        ? selectedProgramme.coordinator
-        : '';
-      const email = selectedProgramme.coordinatorEmail || '';
-      setSelectedCoordinator(coord);
-      setSelectedCoordinatorEmail(email);
-      const matchingBatch = batches.find((b) => b.programmeId === selectedProgramme.id);
-      if (matchingBatch) setBatchId(matchingBatch.id);
-    }
-  }, [selectedProgramme?.id, programmeId]);
 
   const triggerDeleteConfirm = ({ title, itemName, description, onConfirm }) => {
     setDeleteModalConfig({
@@ -383,140 +50,25 @@ export default function HodSetupWorkflow() {
     });
   };
 
-  const handleSaveCoordinator = async () => {
-    const targetProg = selectedProgramme || availableProgrammes[0];
-    console.log('[HodSetupWorkflow] handleSaveCoordinator clicked | targetProg:', targetProg, '| selectedCoordinator:', selectedCoordinator, '| email:', selectedCoordinatorEmail);
-    if (!targetProg?.id) {
-      console.warn('[HodSetupWorkflow] No target programme ID found.');
-      showToast('Please select or add a programme first.', true);
-      return;
-    }
+  const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || { id: 'prog-1', name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
 
-    if (!selectedCoordinator && !selectedCoordinatorEmail) {
-      console.warn('[HodSetupWorkflow] No coordinator selected.');
-      showToast('Please choose a Programme Coordinator from the dropdown.', true);
-      return;
-    }
+  const currentDept = departments.find((d) => d.id === selectedProgramme.departmentId || d.name === selectedProgramme.department) || departments[0];
+  const assignedHods = departments.map((d) => d.hod).filter(Boolean);
 
-    setIsSavingCoordinator(true);
+  // Step 1: Coordinator State
+  const [selectedCoordinator, setSelectedCoordinator] = useState(() => selectedProgramme?.coordinator || MASTER_FACULTY_LIST[0] || '');
 
-    try {
-      const foundUser = coordinatorsList.find(
-        (c) =>
-          (selectedCoordinatorEmail && c.email && c.email.toLowerCase() === selectedCoordinatorEmail.toLowerCase()) ||
-          (selectedCoordinator && c.name && c.name.toLowerCase() === selectedCoordinator.toLowerCase()) ||
-          (selectedCoordinator && c.email && c.email.toLowerCase() === selectedCoordinator.toLowerCase()) ||
-          (c.id != null && (String(c.id) === String(selectedCoordinator) || String(c.id) === String(selectedCoordinatorEmail)))
-      );
+  // Step 2: Batch State
+  const [startYearInput, setStartYearInput] = useState('2025');
+  const [endYearInput, setEndYearInput] = useState('2029');
+  const [batchValidationError, setBatchValidationError] = useState('');
 
-      const coordName = foundUser?.name || selectedCoordinator || 'Unassigned';
-      const coordEmail = foundUser?.email || selectedCoordinatorEmail || '';
-
-      const updatedProgrammeObj = {
-        ...targetProg,
-        coordinator: coordName,
-        coordinatorEmail: coordEmail,
-      };
-
-      console.log('[HodSetupWorkflow] Submitting Programme Coordinator assignment to backend:', updatedProgrammeObj);
-
-      try {
-        const res = await saveProgramme(updatedProgrammeObj);
-        console.log('[HodSetupWorkflow] saveProgramme response:', res);
-      } catch (backendErr) {
-        console.warn('[HodSetupWorkflow] Backend saveProgramme warning (falling back to coordinator endpoint):', backendErr);
-        try {
-          const res2 = await saveProgrammeCoordinator(targetProg.id, foundUser?.id || coordName);
-          console.log('[HodSetupWorkflow] saveProgrammeCoordinator response:', res2);
-        } catch (e2) {
-          console.warn('[HodSetupWorkflow] saveProgrammeCoordinator warning:', e2);
-        }
-      }
-
-      setHodProgrammes((prev) =>
-        prev.map((p) =>
-          p.id === targetProg.id
-            ? { ...p, ...updatedProgrammeObj, coordinator: coordName, coordinatorEmail: coordEmail }
-            : p
-        )
-      );
-
-      setSelectedCoordinator(coordName);
-      setSelectedCoordinatorEmail(coordEmail);
-
-      updateHodSetupProgress(targetDeptId, 1, user?.email || '').catch((e) => console.warn('[HodSetupWorkflow] Progress update warning:', e));
-
-      console.log(`[HodSetupWorkflow] Successfully assigned coordinator "${coordName}" (${coordEmail}) to programme ${targetProg.code}`);
-      showToast(`🎉 Programme Coordinator assigned: ${coordName}${coordEmail ? ` (${coordEmail})` : ''}`);
-    } catch (err) {
-      console.error('[HodSetupWorkflow] Failed to save programme coordinator:', err);
-      showToast(`Coordinator assignment updated locally.`);
-    } finally {
-      setIsSavingCoordinator(false);
-    }
-  };
-
-  const handleStartYearChange = (val) => {
-    const v = val.replace(/\D/g, '').slice(0, 4);
-    setStartYearInput(v);
-
-    if (v.length === 4) {
-      const n = parseInt(v, 10);
-      setBatchValidationError(
-        n <= 2020 ? 'Start year must be greater than 2020.' : ''
-      );
-      if (n > 2020) {
-        setEndYearInput(String(n + durationYears));
-      }
-    } else {
-      setBatchValidationError('');
-    }
-  };
-
-  const handleEndYearChange = (val) => {
-    setEndYearInput(val.replace(/\D/g, '').slice(0, 4));
-  };
-
-  const handleCreateBatch = async (e) => {
-    e.preventDefault();
-
-    const s = parseInt(startYearInput, 10);
-    const en = parseInt(endYearInput, 10);
-
-    if (!s || s <= 2020 || !en || en <= s) {
-      setBatchValidationError('Please enter a valid start and graduation year.');
-      return;
-    }
-
-    const startAY = `${s}-${String(s + 1).slice(-2)}`;
-    const endAY = `${en - 1}-${String(en).slice(-2)}`;
-
-    const newBatchObj = {
-      programmeId: selectedProgramme?.id || programmeId,
-      programmeName: selectedProgramme?.name || '',
-      programmeCode: selectedProgramme?.code || '',
-      name: `Batch ${s}-${String(en).slice(-2)} (${selectedProgramme?.code || ''}) — AY ${startAY} to ${endAY}`,
-      startYear: startAY,
-      endYear: endAY,
-      status: 'INITIALIZED',
-    };
-
-    try {
-      const res = await saveBatch(newBatchObj);
-      const savedBatch = res?.data?.data || res?.data || newBatchObj;
-      setBatches((prev) => [...prev, savedBatch]);
-      setBatchId(savedBatch.id);
-      setBatchValidationError('');
-      showToast(`✅ Batch (${savedBatch.name}) created successfully!`);
-    } catch (err) {
-      console.warn('Batch creation offline fallback:', err);
-      const offlineBatch = { ...newBatchObj, id: `batch-${Date.now()}` };
-      setBatches((prev) => [...prev, offlineBatch]);
-      setBatchId(offlineBatch.id);
-      setBatchValidationError('');
-      showToast(`Batch (${offlineBatch.name}) created locally`);
-    }
-  };
+  // Step 2: Batch Edit State
+  const [editingBatchId, setEditingBatchId] = useState(null);
+  const [editBatchName, setEditBatchName] = useState('');
+  const [editStartYear, setEditStartYear] = useState('');
+  const [editEndYear, setEditEndYear] = useState('');
+  const [editStatus, setEditStatus] = useState('ACTIVE');
 
   const handleStartEditBatch = (b) => {
     setEditingBatchId(b.id);
@@ -526,400 +78,223 @@ export default function HodSetupWorkflow() {
     setEditStatus(b.status || 'ACTIVE');
   };
 
-  const handleSaveEditBatch = async (bId) => {
-    const existingBatch = batches.find((b) => b.id === bId);
-    if (!existingBatch) return;
-
-    const updatedBatchObj = {
-      ...existingBatch,
+  const handleSaveEditBatch = (bId) => {
+    updateBatch(bId, {
       name: editBatchName,
       startYear: editStartYear,
       endYear: editEndYear,
       status: editStatus,
-    };
-
-    try {
-      const res = await saveBatch(updatedBatchObj);
-      const savedBatch = res?.data?.data || res?.data || updatedBatchObj;
-      setBatches((prev) =>
-        prev.map((b) => (b.id === bId ? savedBatch : b))
-      );
-      setEditingBatchId(null);
-      showToast(`✅ Batch (${savedBatch.name}) updated successfully!`);
-    } catch (err) {
-      console.warn('Failed to update batch on server:', err);
-      setBatches((prev) =>
-        prev.map((b) => (b.id === bId ? updatedBatchObj : b))
-      );
-      setEditingBatchId(null);
-      showToast(`Batch (${updatedBatchObj.name}) updated locally`);
-    }
+    });
+    setEditingBatchId(null);
   };
 
   const handleDeleteBatchItem = (b) => {
     triggerDeleteConfirm({
       title: 'Delete Batch?',
       itemName: b.name,
-      description:
-        'This action cannot be undone. All data associated with this batch will be permanently removed.',
-      onConfirm: async () => {
-        try {
-          await deleteBatch(b.id);
-          setBatches((prev) => prev.filter((item) => item.id !== b.id));
-          if (batchId === b.id) setBatchId('');
-          showToast(`✅ Batch (${b.name}) deleted successfully!`);
-        } catch (err) {
-          console.warn('Failed to delete batch on server:', err);
-          setBatches((prev) => prev.filter((item) => item.id !== b.id));
-          if (batchId === b.id) setBatchId('');
-          showToast(`Batch (${b.name}) deleted locally`);
-        }
-      },
+      description: 'This action cannot be undone. All data associated with this batch will be permanently removed.',
+      onConfirm: () => deleteBatch(b.id),
     });
   };
 
-  // PO handlers
+  const programmeBatches = batches.filter(
+    (b) =>
+      b.programmeId === programmeId ||
+      b.programmeCode === selectedProgramme.code ||
+      b.name.includes(selectedProgramme.code) ||
+      b.programmeName === selectedProgramme.name
+  );
+
+  // Step 3: Outcomes State
+  const [outcomeTab, setOutcomeTab] = useState('PO');
+
+  const steps = [
+    { number: 1, title: 'Programme Coordinator', desc: 'Assign coordinator for programme', icon: UserCheck },
+    { number: 2, title: 'Batch Setup',          desc: 'Initialize student batch year',     icon: Calendar },
+    { number: 3, title: 'PO / PSO / PEO',       desc: 'Outcomes & competencies',          icon: Layers },
+    { number: 4, title: 'Review & Confirm',     desc: 'Verify setup summary & finish',     icon: CheckCircle2 },
+  ];
+
+  const durationYears = selectedProgramme?.durationYears || 4;
+
+  const handleSaveCoordinator = () => {
+    updateProgramme(selectedProgramme.id, { coordinator: selectedCoordinator });
+  };
+
+  const handleStartYearChange = (val) => {
+    const v = val.replace(/\D/g, '').slice(0, 4);
+    setStartYearInput(v);
+    if (v.length === 4) {
+      const n = parseInt(v, 10);
+      setBatchValidationError(n <= 2020 ? 'Start year must be greater than 2020.' : '');
+      if (n > 2020) setEndYearInput(String(n + durationYears));
+    } else { setBatchValidationError(''); }
+  };
+  const handleEndYearChange = (val) => setEndYearInput(val.replace(/\D/g, '').slice(0, 4));
+
+  const handleCreateBatch = (e) => {
+    e.preventDefault();
+    const s = parseInt(startYearInput, 10), en = parseInt(endYearInput, 10);
+    if (!s || s <= 2020 || !en || en <= s) return;
+    const startAY = `${s}-${String(s + 1).slice(-2)}`, endAY = `${en - 1}-${String(en).slice(-2)}`;
+    const nb = { id: `batch-${selectedProgramme.code.toLowerCase()}-${s}-${String(en).slice(-2)}`, programmeId, programmeName: selectedProgramme.name, programmeCode: selectedProgramme.code, name: `Batch ${s}-${String(en).slice(-2)} (${selectedProgramme.code}) — AY ${startAY} to ${endAY}`, startYear: startAY, endYear: endAY, status: 'INITIALIZED' };
+    addBatch(nb); setBatchId(nb.id);
+  };
+
+  // ── PO HANDLERS ─────────────────────────────────────────────────────────────
   const handleAddPO = () => {
     const n = activePOs.length + 1;
-    setActivePOs((prev) => [
-      ...prev,
-      {
-        code: `PO${n}`,
-        statement: `New Programme Outcome ${n}...`,
-        status: 'VERIFIED',
-        competencies: [
-          {
-            id: `comp-PO${n}-1`,
-            order: 1,
-            statement: `Competency 1 for PO${n}`,
-          },
-        ],
-      },
-    ]);
+    const newPo = {
+      code: `PO${n}`,
+      statement: `New Programme Outcome ${n}...`,
+      status: 'VERIFIED',
+      competencies: [{ id: `comp-PO${n}-1`, order: 1, statement: `Competency 1 for PO${n}` }],
+    };
+    updateProgrammePOs(programmeId, [...activePOs, newPo]);
   };
-
   const handleUpdatePOCode = (i, v) => {
-    setActivePOs((prev) =>
-      prev.map((p, idx) => (idx === i ? { ...p, code: v } : p))
-    );
+    updateProgrammePOs(programmeId, activePOs.map((p, idx) => (idx === i ? { ...p, code: v } : p)));
   };
-
   const handleUpdatePOStatement = (i, v) => {
-    setActivePOs((prev) =>
-      prev.map((p, idx) => (idx === i ? { ...p, statement: v } : p))
-    );
+    updateProgrammePOs(programmeId, activePOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
   };
-
   const handleDeletePO = (i) => {
     const item = activePOs[i];
     triggerDeleteConfirm({
       title: 'Delete Programme Outcome?',
       itemName: item?.code,
-      description:
-        'This action cannot be undone. This PO mapping will be permanently removed.',
-      onConfirm: () =>
-        setActivePOs((prev) => prev.filter((_, idx) => idx !== i)),
+      description: 'This action cannot be undone. This PO mapping will be permanently removed.',
+      onConfirm: () => updateProgrammePOs(programmeId, activePOs.filter((_, idx) => idx !== i)),
     });
   };
-
   const handleAddPOCompetency = (pi) => {
-    setActivePOs((prev) =>
-      prev.map((p, i) => {
+    updateProgrammePOs(
+      programmeId,
+      activePOs.map((p, i) => {
         if (i !== pi) return p;
         const comps = p.competencies || [];
         const n = comps.length + 1;
-        return {
-          ...p,
-          competencies: [
-            ...comps,
-            {
-              id: `comp-${p.code}-${n}`,
-              order: n,
-              statement: `Competency ${n} for ${p.code}`,
-            },
-          ],
-        };
-      })
+        return { ...p, competencies: [...comps, { id: `comp-${p.code}-${n}`, order: n, statement: `Competency ${n} for ${p.code}` }] };
+      }),
     );
   };
-
   const handleUpdatePOCompetency = (pi, ci, v) => {
-    setActivePOs((prev) =>
-      prev.map((p, i) => {
+    updateProgrammePOs(
+      programmeId,
+      activePOs.map((p, i) => {
         if (i !== pi) return p;
         const comps = [...(p.competencies || [])];
         comps[ci] = { ...comps[ci], statement: v };
         return { ...p, competencies: comps };
-      })
+      }),
     );
   };
-
   const handleDeletePOCompetency = (pi, ci) => {
-    setActivePOs((prev) =>
-      prev.map((p, i) => {
+    updateProgrammePOs(
+      programmeId,
+      activePOs.map((p, i) => {
         if (i !== pi) return p;
-        const comps = (p.competencies || [])
-          .filter((_, c) => c !== ci)
-          .map((c, idx) => ({ ...c, order: idx + 1 }));
+        const comps = (p.competencies || []).filter((_, c) => c !== ci).map((c, idx) => ({ ...c, order: idx + 1 }));
         return { ...p, competencies: comps };
-      })
+      }),
     );
   };
 
-  // PSO handlers
+  // ── PSO HANDLERS ────────────────────────────────────────────────────────────
   const normalisedPSOs = activePSOs.map((pso) => ({
     ...pso,
     competencies: pso.competencies || [
-      {
-        id: `psocomp-${pso.code}-1`,
-        order: 1,
-        statement: `Demonstrate specialized competency for ${pso.code}`,
-      },
+      { id: `psocomp-${pso.code}-1`, order: 1, statement: `Demonstrate specialized competency for ${pso.code}` },
     ],
   }));
 
   const handleAddPSO = () => {
     const n = normalisedPSOs.length + 1;
-    setActivePSOs((prev) => [
-      ...prev,
-      {
-        code: `PSO${n}`,
-        statement: `New Programme Specific Outcome ${n}...`,
-        competencies: [
-          {
-            id: `psocomp-PSO${n}-1`,
-            order: 1,
-            statement: `Competency 1 for PSO${n}`,
-          },
-        ],
-      },
-    ]);
+    const newPso = {
+      code: `PSO${n}`,
+      statement: `New Programme Specific Outcome ${n}...`,
+      competencies: [{ id: `psocomp-PSO${n}-1`, order: 1, statement: `Competency 1 for PSO${n}` }],
+    };
+    updateProgrammePSOs(programmeId, [...normalisedPSOs, newPso]);
   };
-
   const handleUpdatePSOCode = (i, v) => {
-    setActivePSOs((prev) =>
-      prev.map((p, idx) => (idx === i ? { ...p, code: v } : p))
-    );
+    updateProgrammePSOs(programmeId, normalisedPSOs.map((p, idx) => (idx === i ? { ...p, code: v } : p)));
   };
-
   const handleUpdatePSOStatement = (i, v) => {
-    setActivePSOs((prev) =>
-      prev.map((p, idx) => (idx === i ? { ...p, statement: v } : p))
-    );
+    updateProgrammePSOs(programmeId, normalisedPSOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
   };
-
   const handleDeletePSO = (i) => {
     const item = normalisedPSOs[i];
     triggerDeleteConfirm({
       title: 'Delete Programme Specific Outcome?',
       itemName: item?.code,
-      description:
-        'This action cannot be undone. This PSO mapping will be permanently removed.',
-      onConfirm: () =>
-        setActivePSOs((prev) => prev.filter((_, idx) => idx !== i)),
+      description: 'This action cannot be undone. This PSO mapping will be permanently removed.',
+      onConfirm: () => updateProgrammePSOs(programmeId, normalisedPSOs.filter((_, idx) => idx !== i)),
     });
   };
-
   const handleAddPSOCompetency = (pi) => {
-    setActivePSOs((prev) =>
-      prev.map((p, i) => {
+    updateProgrammePSOs(
+      programmeId,
+      normalisedPSOs.map((p, i) => {
         if (i !== pi) return p;
         const comps = p.competencies || [];
         const n = comps.length + 1;
-        return {
-          ...p,
-          competencies: [
-            ...comps,
-            {
-              id: `psocomp-${p.code}-${n}`,
-              order: n,
-              statement: `Competency ${n} for ${p.code}`,
-            },
-          ],
-        };
-      })
+        return { ...p, competencies: [...comps, { id: `psocomp-${p.code}-${n}`, order: n, statement: `Competency ${n} for ${p.code}` }] };
+      }),
     );
   };
-
   const handleUpdatePSOCompetency = (pi, ci, v) => {
-    setActivePSOs((prev) =>
-      prev.map((p, i) => {
+    updateProgrammePSOs(
+      programmeId,
+      normalisedPSOs.map((p, i) => {
         if (i !== pi) return p;
         const comps = [...(p.competencies || [])];
         comps[ci] = { ...comps[ci], statement: v };
         return { ...p, competencies: comps };
-      })
+      }),
     );
   };
-
   const handleDeletePSOCompetency = (pi, ci) => {
-    setActivePSOs((prev) =>
-      prev.map((p, i) => {
+    updateProgrammePSOs(
+      programmeId,
+      normalisedPSOs.map((p, i) => {
         if (i !== pi) return p;
-        const comps = (p.competencies || [])
-          .filter((_, c) => c !== ci)
-          .map((c, idx) => ({ ...c, order: idx + 1 }));
+        const comps = (p.competencies || []).filter((_, c) => c !== ci).map((c, idx) => ({ ...c, order: idx + 1 }));
         return { ...p, competencies: comps };
-      })
+      }),
     );
   };
 
-  // PEO handlers
+  // ── PEO HANDLERS ────────────────────────────────────────────────────────────
   const handleAddPEO = () => {
     const n = activePEOs.length + 1;
-    setActivePEOs((prev) => [
-      ...prev,
-      {
-        code: `PEO${n}`,
-        statement: `New Programme Educational Objective ${n}...`,
-      },
-    ]);
+    updateProgrammePEOs(programmeId, [...activePEOs, { code: `PEO${n}`, statement: `New Programme Educational Objective ${n}...` }]);
   };
-
   const handleUpdatePEOStatement = (i, v) => {
-    setActivePEOs((prev) =>
-      prev.map((p, idx) => (idx === i ? { ...p, statement: v } : p))
-    );
+    updateProgrammePEOs(programmeId, activePEOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
   };
-
   const handleDeletePEO = (i) => {
     const item = activePEOs[i];
     triggerDeleteConfirm({
       title: 'Delete Programme Educational Objective?',
       itemName: item?.code,
-      description:
-        'This action cannot be undone. This PEO mapping will be permanently removed.',
-      onConfirm: () =>
-        setActivePEOs((prev) => prev.filter((_, idx) => idx !== i)),
+      description: 'This action cannot be undone. This PEO mapping will be permanently removed.',
+      onConfirm: () => updateProgrammePEOs(programmeId, activePEOs.filter((_, idx) => idx !== i)),
     });
   };
 
-  const handleSaveAndNext = async () => {
-    setIsSaving(true);
+  const handleNext = () => { if (currentStep < 4) { setCurrentStep((p) => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
+  const handlePrev = () => { if (currentStep > 1) { setCurrentStep((p) => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
+  const handleFinish = () => navigate('/hod/dashboard');
 
-    try {
-      if (currentStep === 1) {
-        const targetProg = selectedProgramme || availableProgrammes[0];
-        console.log('[HodSetupWorkflow] handleSaveAndNext Step 1 | targetProg:', targetProg, '| coordinator:', selectedCoordinator, '| email:', selectedCoordinatorEmail);
-        if (targetProg?.id && (selectedCoordinator || selectedCoordinatorEmail)) {
-          const foundUser = coordinatorsList.find(
-            (c) =>
-              (selectedCoordinatorEmail && c.email && c.email.toLowerCase() === selectedCoordinatorEmail.toLowerCase()) ||
-              (selectedCoordinator && c.name && c.name.toLowerCase() === selectedCoordinator.toLowerCase()) ||
-              (selectedCoordinator && c.email && c.email.toLowerCase() === selectedCoordinator.toLowerCase()) ||
-              (c.id != null && (String(c.id) === String(selectedCoordinator) || String(c.id) === String(selectedCoordinatorEmail)))
-          );
+  const activeBatchObj = batches.find((b) => b.id === batchId) || batches[0];
 
-          const coordName = foundUser?.name || selectedCoordinator || 'Unassigned';
-          const coordEmail = foundUser?.email || selectedCoordinatorEmail || '';
-
-          const updatedProgrammeObj = {
-            ...targetProg,
-            coordinator: coordName,
-            coordinatorEmail: coordEmail,
-          };
-
-          console.log('[HodSetupWorkflow] handleSaveAndNext saving coordinator:', updatedProgrammeObj);
-
-          try {
-            const res = await saveProgramme(updatedProgrammeObj);
-            console.log('[HodSetupWorkflow] handleSaveAndNext saveProgramme result:', res);
-          } catch (backendErr) {
-            console.warn('[HodSetupWorkflow] Backend saveProgramme warning during step next:', backendErr);
-            try {
-              const res2 = await saveProgrammeCoordinator(targetProg.id, foundUser?.id || coordName);
-              console.log('[HodSetupWorkflow] handleSaveAndNext saveProgrammeCoordinator result:', res2);
-            } catch (e2) {
-              console.warn('[HodSetupWorkflow] saveProgrammeCoordinator warning during step next:', e2);
-            }
-          }
-
-          setHodProgrammes((prev) =>
-            prev.map((p) =>
-              p.id === targetProg.id
-                ? { ...p, ...updatedProgrammeObj, coordinator: coordName, coordinatorEmail: coordEmail }
-                : p
-            )
-          );
-
-          setSelectedCoordinator(coordName);
-          setSelectedCoordinatorEmail(coordEmail);
-        }
-
-        try {
-          await updateHodSetupProgress(targetDeptId, 2, user?.email || '');
-        } catch (progErr) {
-          console.warn('updateHodSetupProgress step 2 error:', progErr);
-        }
-        setCurrentStep(2);
-      } else if (currentStep === 2) {
-        try {
-          await updateHodSetupProgress(targetDeptId, 3, user?.email || '');
-        } catch (progErr) {
-          console.warn('updateHodSetupProgress step 3 error:', progErr);
-        }
-        setCurrentStep(3);
-      } else if (currentStep === 3) {
-        if (selectedProgramme?.id) {
-          try {
-            await Promise.all([
-              saveProgrammePOs(selectedProgramme.id, activePOs),
-              saveProgrammePSOs(selectedProgramme.id, activePSOs),
-              saveProgrammePEOs(selectedProgramme.id, activePEOs),
-            ]);
-          } catch (outcomesErr) {
-            console.warn('saveProgrammeOutcomes warning:', outcomesErr);
-          }
-        }
-        try {
-          await updateHodSetupProgress(targetDeptId, 4, user?.email || '');
-        } catch (progErr) {
-          console.warn('updateHodSetupProgress step 4 error:', progErr);
-        }
-        setCurrentStep(4);
-      } else if (currentStep === 4) {
-        if (targetDeptId) {
-          localStorage.setItem(`hod_setup_completed_${targetDeptId}`, 'true');
-        }
-        if (user?.email) {
-          localStorage.setItem(`hod_setup_completed_${user.email}`, 'true');
-        }
-        try {
-          await completeHodSetup(targetDeptId, user?.email || '');
-        } catch (compErr) {
-          console.warn('completeHodSetup warning:', compErr);
-        }
-        setSetupCompleted(true);
-        navigate('/hod/dashboard');
-        return;
-      }
-
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth',
-      });
-    } catch (err) {
-      console.error('HOD setup operation next step:', err);
-      if (currentStep < 4) {
-        setCurrentStep((prev) => prev + 1);
-      } else {
-        navigate('/hod/dashboard');
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentStep > 1) {
-      setCurrentStep((prev) => prev - 1);
-
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth',
-      });
-    }
-  };
+  const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
+  const ink = '#0f172a';
+  const muted = '#64748b';
+  const accent = '#4f46e5';
+  const inputStyle = { height: '38px', fontSize: '13px', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0 12px', background: '#ffffff', color: ink, width: '100%', outline: 'none', fontFamily: 'inherit' };
+  const labelStyle = { display: 'block', fontSize: '11.5px', fontWeight: '600', color: muted, marginBottom: '4px' };
 
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
@@ -947,127 +322,60 @@ export default function HodSetupWorkflow() {
             Programme Setup
           </h2>
           <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
-            {selectedProgramme ? `${selectedProgramme.code} — ${selectedProgramme.name}` : 'No programmes added yet'}
+            {selectedProgramme.code} &nbsp;—&nbsp; {selectedProgramme.name}
           </p>
         </div>
 
-        {/* Target Programme Selector & Exit Button */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <GraduationCap size={18} style={{ color: '#64748b' }} />
-            <select
-              value={programmeId}
-              onChange={(e) => setProgrammeId(e.target.value)}
-              disabled={availableProgrammes.length === 0}
-              style={{
-                height: '38px',
-                fontSize: '13px',
-                borderRadius: '8px',
-                padding: '0 12px',
-                background: '#ffffff',
-                color: '#0f172a',
-                border: '1px solid #cbd5e1',
-                width: 'auto',
-                minWidth: '260px',
-                fontWeight: '800',
-                cursor: availableProgrammes.length === 0 ? 'not-allowed' : 'pointer',
-                outline: 'none',
-                fontFamily: 'inherit',
-              }}
-            >
-              {availableProgrammes.length === 0 ? (
-                <option value="">No programmes added yet</option>
-              ) : (
-                availableProgrammes.map((p) => (
-                  <option key={p.id} value={p.id} style={{ color: '#0f172a', background: '#ffffff' }}>
-                    {p.code} — {p.name}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => navigate('/hod/dashboard')}
-            title="Exit Setup & Go to Dashboard"
+        {/* Target Programme Selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <GraduationCap size={18} style={{ color: '#64748b' }} />
+          <select
+            value={programmeId}
+            onChange={(e) => setProgrammeId(e.target.value)}
             style={{
               height: '38px',
-              padding: '0 16px',
               fontSize: '13px',
-              fontWeight: '700',
-              background: '#ffffff',
-              color: '#475569',
-              border: '1px solid #cbd5e1',
               borderRadius: '8px',
+              padding: '0 12px',
+              background: '#ffffff',
+              color: '#0f172a',
+              border: '1px solid #cbd5e1',
+              width: 'auto',
+              minWidth: '280px',
+              fontWeight: '800',
               cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease',
+              outline: 'none',
+              fontFamily: 'inherit',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#475569'; }}
           >
-            <LogOut size={15} /> Exit
-          </button>
+            {masterProgrammes.map((p) => (
+              <option key={p.id} value={p.id} style={{ color: '#0f172a', background: '#ffffff' }}>
+                {p.code} — {p.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* Workflow Toast Alert */}
-      {workflowToast && (
-        <div
-          style={{
-            background: workflowToast.isError ? '#fef2f2' : '#ecfdf5',
-            border: `1.5px solid ${workflowToast.isError ? '#fca5a5' : '#6ee7b7'}`,
-            color: workflowToast.isError ? '#991b1b' : '#065f46',
-            padding: '12px 18px',
-            borderRadius: '10px',
-            fontWeight: '700',
-            fontSize: '13px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            marginBottom: '16px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
-            animation: 'fadeIn 0.2s ease',
-          }}
-        >
-          <CheckCircle2 size={18} style={{ color: workflowToast.isError ? '#dc2626' : '#059669', flexShrink: 0 }} />
-          <span>{workflowToast.message}</span>
-        </div>
-      )}
-
-      {/* ── STEPPER ───────────────────────────────────────────────────────────── */}
+      {/* ── STEPPER PROGRESS BAR ─────────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '16px 20px', marginBottom: '24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', position: 'relative' }}>
           <div style={{ position: 'absolute', top: '18px', left: '12.5%', right: '12.5%', height: '1px', background: '#e2e8f0', zIndex: 0 }} />
           {steps.map((s) => {
-            const done   = s.isDone;
+            const done   = currentStep > s.number;
             const active = currentStep === s.number;
             const Icon   = s.icon;
             return (
               <div
                 key={s.number}
                 onClick={() => setCurrentStep(s.number)}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', position: 'relative', zIndex: 1, opacity: (active || done) ? 1 : 0.5, transition: 'all .2s' }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', position: 'relative', zIndex: 1, opacity: currentStep >= s.number ? 1 : 0.45, transition: 'opacity .2s' }}
               >
-                <div style={{
-                  width: '36px', height: '36px', borderRadius: '50%',
-                  background: done ? '#dcfce7' : active ? '#eef2ff' : '#f8fafc',
-                  border: `1.5px solid ${done ? '#16a34a' : active ? '#a5b4fc' : '#e2e8f0'}`,
-                  color: done ? '#16a34a' : active ? accent : muted,
-                  display: 'grid', placeItems: 'center', marginBottom: '8px',
-                  transition: 'all .2s ease',
-                }}>
-                  {done ? <Check size={16} strokeWidth={2.5} /> : <Icon size={15} />}
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: done ? '#f0fdf4' : active ? '#eef2ff' : '#f8fafc', border: `1.5px solid ${done ? '#86efac' : active ? '#a5b4fc' : '#e2e8f0'}`, color: done ? '#16a34a' : active ? accent : muted, display: 'grid', placeItems: 'center', marginBottom: '8px', transition: 'all .2s' }}>
+                  {done ? <Check size={15} /> : <Icon size={15} />}
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: active || done ? '700' : '600', color: done ? '#16a34a' : active ? ink : muted, textAlign: 'center' }}>
-                  {s.title}
-                </div>
-                <div style={{ fontSize: '10.5px', color: done ? '#16a34a' : '#94a3b8', textAlign: 'center', marginTop: '1px' }}>
-                  {s.desc}
-                </div>
+                <div style={{ fontSize: '12px', fontWeight: active ? '700' : '600', color: active ? ink : muted, textAlign: 'center' }}>{s.title}</div>
+                <div style={{ fontSize: '10.5px', color: '#94a3b8', textAlign: 'center', marginTop: '1px' }}>{s.desc}</div>
               </div>
             );
           })}
@@ -1086,92 +394,63 @@ export default function HodSetupWorkflow() {
             </p>
           </div>
 
-          {!selectedProgramme ? (
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '32px', textAlign: 'center', color: '#64748b', fontSize: '13.5px', fontWeight: '600' }}>
-              No programmes added yet for your department. Please contact the Director to assign degree programmes to your department first.
+          {/* Chosen Programme Info Card */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px 18px', maxWidth: '680px', marginBottom: '18px' }}>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Chosen Programme</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+              <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '8px', padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '13.5px', fontWeight: '800', color: accent }}>{selectedProgramme.code}</span>
+              </div>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{selectedProgramme.name}</div>
+                <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>{currentDept?.name || selectedProgramme.department}</div>
+              </div>
             </div>
-          ) : (
-            <>
-              {/* Chosen Programme Info Card */}
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px 18px', maxWidth: '680px', marginBottom: '18px' }}>
-                <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Chosen Programme</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                  <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '8px', padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '13.5px', fontWeight: '800', color: accent }}>{selectedProgramme.code}</span>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{selectedProgramme.name}</div>
-                    <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>{currentDept?.name || selectedProgramme.department || 'Department'}</div>
-                  </div>
-                </div>
-              </div>
+          </div>
 
-              {/* Programme Coordinator Selector */}
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', maxWidth: '680px' }}>
-                <div style={{ fontSize: '13px', fontWeight: '800', color: ink, marginBottom: '12px' }}>Assign Programme Coordinator</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'flex-end' }}>
-                  <div>
-                    <label style={labelStyle}>Choose Programme Coordinator *</label>
-                    <div style={{ position: 'relative' }}>
-                      <select
-                        value={selectedCoordinatorEmail || selectedCoordinator}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          const found = coordinatorsList.find((c) => c.email === val || c.name === val);
-                          if (found) {
-                            setSelectedCoordinator(found.name);
-                            setSelectedCoordinatorEmail(found.email);
-                          } else {
-                            setSelectedCoordinator(val);
-                            setSelectedCoordinatorEmail('');
-                          }
-                        }}
-                        style={{ ...inputStyle, cursor: 'pointer', fontWeight: '700', paddingRight: '32px', appearance: 'none', border: '1.5px solid #4f46e5', color: accent }}
-                      >
-                        <option value="" disabled style={{ color: '#94a3b8' }}>
-                          -- Select Programme Coordinator --
-                        </option>
-                        {coordinatorsList.map((u) => {
-                          const isHod = assignedHods.includes(u.name);
-                          return (
-                            <option
-                              key={u.email || u.id}
-                              value={u.email || u.name}
-                              disabled={isHod}
-                              style={{ color: isHod ? '#94a3b8' : '#0f172a' }}
-                            >
-                              {u.name} ({u.email}) {isHod ? '(Disabled — Is HOD)' : ''}
-                            </option>
-                          );
-                        })}
-                      </select>
-                      <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleSaveCoordinator}
-                    disabled={isSavingCoordinator}
-                    className="btn btn-primary"
-                    style={{ height: '38px', padding: '0 20px', fontSize: '13px', fontWeight: '800', opacity: isSavingCoordinator ? 0.7 : 1 }}
+          {/* Programme Coordinator Selector */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', maxWidth: '680px' }}>
+            <div style={{ fontSize: '13px', fontWeight: '800', color: ink, marginBottom: '12px' }}>Assign Programme Coordinator</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'flex-end' }}>
+              <div>
+                <label style={labelStyle}>Choose Programme Coordinator *</label>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={selectedCoordinator}
+                    onChange={(e) => setSelectedCoordinator(e.target.value)}
+                    style={{ ...inputStyle, cursor: 'pointer', fontWeight: '700', paddingRight: '32px', appearance: 'none', border: '1.5px solid #4f46e5', color: accent }}
                   >
-                    {isSavingCoordinator ? 'Saving...' : 'Save Assignment'}
-                  </button>
+                    {MASTER_FACULTY_LIST.map((fac) => {
+                      const isHod = assignedHods.includes(fac);
+                      return (
+                        <option key={fac} value={fac} disabled={isHod} style={{ color: isHod ? '#94a3b8' : '#0f172a' }}>
+                          {fac} {isHod ? '(Disabled — Is HOD)' : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={handleSaveCoordinator}
+                className="btn btn-primary"
+                style={{ height: '38px', padding: '0 20px', fontSize: '13px', fontWeight: '800' }}
+              >
+                Save Assignment
+              </button>
+            </div>
+          </div>
 
-              {/* Current Assigned Status Confirmation */}
-              {selectedProgramme.coordinator && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '14px 16px', maxWidth: '680px', marginTop: '16px' }}>
-                  <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
-                  <div style={{ fontSize: '13px', color: '#166534' }}>
-                    Active Programme Coordinator: <strong style={{ color: '#15803d', fontWeight: '800' }}>
-                      {coordinatorsList.find((f) => f.id === selectedProgramme.coordinator || f.email === selectedProgramme.coordinatorEmail || f.name === selectedProgramme.coordinator)?.name || selectedProgramme.coordinator}
-                    </strong> {selectedProgramme.coordinatorEmail ? `(${selectedProgramme.coordinatorEmail})` : ''}
-                  </div>
-                </div>
-              )}
-            </>
+          {/* Current Assigned Status Confirmation */}
+          {selectedProgramme.coordinator && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '14px 16px', maxWidth: '680px', marginTop: '16px' }}>
+              <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
+              <div style={{ fontSize: '13px', color: '#166534' }}>
+                Active Programme Coordinator: <strong style={{ color: '#15803d', fontWeight: '800' }}>{selectedProgramme.coordinator}</strong>
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -1298,7 +577,7 @@ export default function HodSetupWorkflow() {
                             style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#f8fafc', color: muted, cursor: 'pointer', display: 'grid', placeItems: 'center' }}
                             title="Cancel"
                           >
-                            <CloseIcon size={14} />
+                            <X size={14} />
                           </button>
                         </div>
                       ) : (
@@ -1344,46 +623,33 @@ export default function HodSetupWorkflow() {
               </p>
             </div>
 
-            {/* Tab strip & Save Outcomes Button */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px' }}>
-                {[
-                  ['PO',  `POs (${activePOs.length})`],
-                  ['PSO', `PSOs (${normalisedPSOs.length})`],
-                  ['PEO', `PEOs (${activePEOs.length})`],
-                ].map(([tab, label]) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setOutcomeTab(tab)}
-                    style={{
-                      padding: '7px 18px',
-                      borderRadius: '7px',
-                      border: 'none',
-                      fontSize: '12.5px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      background: outcomeTab === tab ? '#ffffff' : 'transparent',
-                      color: outcomeTab === tab ? accent : muted,
-                      boxShadow: outcomeTab === tab ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={handleSaveOutcomes}
-                disabled={isSavingOutcomes}
-                className="btn btn-primary"
-                style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: isSavingOutcomes ? 0.7 : 1 }}
-              >
-                <Save size={14} />
-                {isSavingOutcomes ? 'Saving...' : 'Save Outcomes'}
-              </button>
+            {/* Tab strip */}
+            <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px' }}>
+              {[
+                ['PO',  `POs (${activePOs.length})`],
+                ['PSO', `PSOs (${normalisedPSOs.length})`],
+                ['PEO', `PEOs (${activePEOs.length})`],
+              ].map(([tab, label]) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setOutcomeTab(tab)}
+                  style={{
+                    padding: '7px 18px',
+                    borderRadius: '7px',
+                    border: 'none',
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    background: outcomeTab === tab ? '#ffffff' : 'transparent',
+                    color: outcomeTab === tab ? accent : muted,
+                    boxShadow: outcomeTab === tab ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -1454,7 +720,7 @@ export default function HodSetupWorkflow() {
                                   onClick={() => handleDeletePOCompetency(idx, ci)}
                                   style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
                                 >
-                                  <CloseIcon size={12} />
+                                  <X size={12} />
                                 </button>
                               </td>
                             </tr>
@@ -1543,7 +809,7 @@ export default function HodSetupWorkflow() {
                                   onClick={() => handleDeletePSOCompetency(idx, ci)}
                                   style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
                                 >
-                                  <CloseIcon size={12} />
+                                  <X size={12} />
                                 </button>
                               </td>
                             </tr>
@@ -1664,20 +930,18 @@ export default function HodSetupWorkflow() {
           <button
             type="button"
             className="btn btn-primary"
-            onClick={handleSaveAndNext}
-            disabled={isSaving}
+            onClick={handleNext}
             style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '800', gap: '8px', display: 'inline-flex', alignItems: 'center' }}
           >
-            <Save size={15} /> {isSaving ? 'Saving...' : 'Save & Next'} <ArrowRight size={15} />
+            Next Step <ArrowRight size={15} />
           </button>
         ) : (
           <button
             type="button"
-            onClick={handleSaveAndNext}
-            disabled={isSaving}
-            style={{ background: '#22c55e', color: '#ffffff', border: 'none', height: '40px', padding: '0 22px', fontSize: '13.5px', fontWeight: '800', gap: '8px', display: 'inline-flex', alignItems: 'center', borderRadius: '8px', cursor: isSaving ? 'not-allowed' : 'pointer', boxShadow: '0 2px 6px rgba(34,197,94,0.3)' }}
+            onClick={handleFinish}
+            style={{ background: '#22c55e', color: '#ffffff', border: 'none', height: '40px', padding: '0 22px', fontSize: '13.5px', fontWeight: '800', gap: '8px', display: 'inline-flex', alignItems: 'center', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 6px rgba(34,197,94,0.3)' }}
           >
-            <Check size={16} /> {isSaving ? 'Saving...' : 'Save & Finish Setup'}
+            <Check size={16} /> Finish Setup &amp; Go to Dashboard
           </button>
         )}
       </div>

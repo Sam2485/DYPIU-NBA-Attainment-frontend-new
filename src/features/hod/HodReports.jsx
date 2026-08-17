@@ -4,13 +4,9 @@ import { useAcademic } from '../../context/AcademicContext';
 
 export default function HodReports() {
   const {
-    selectedProgramme = null,
-    selectedBatch = null,
+    selectedProgramme = { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' },
+    selectedBatch = { name: 'Batch 2024-28' },
   } = useAcademic();
-
-  const progName = selectedProgramme?.name || 'No Programme Added Yet';
-  const progCode = selectedProgramme?.code || '—';
-  const batchName = selectedBatch?.name || 'No Batch Initialized';
 
   const handleDownload = (type, title) => {
     alert(`📥 Downloading ${title} (${type})... Export started!`);

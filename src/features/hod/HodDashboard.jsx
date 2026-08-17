@@ -1,9 +1,7 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GraduationCap, CheckCircle2, ArrowRight, ShieldCheck, Layers, FileText, Calendar, Users, ChevronRight, Check, Clock, UserCheck } from 'lucide-react';
+import { GraduationCap, CheckCircle2, ArrowRight, ShieldCheck, Layers, FileText, Calendar, Users, ChevronRight, Check, Clock } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
-import { getHodDepartmentSummary, getBatches, getProgrammes, getPendingApprovals } from '../../api/academic';
 
 export default function HodDashboard() {
   const navigate = useNavigate();
@@ -16,61 +14,12 @@ export default function HodDashboard() {
     hodApprovals = [],
   } = useAcademic();
 
-  const [deptSummary, setDeptSummary] = useState(null);
-  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
-  const [liveBatchesCount, setLiveBatchesCount] = useState(0);
-  const [liveProgrammesCount, setLiveProgrammesCount] = useState(0);
-
-  useEffect(() => {
-    let isMounted = true;
-    const fetchHodDashboardData = async () => {
-      try {
-        const [sumRes, appRes, batchRes, progRes] = await Promise.allSettled([
-          getHodDepartmentSummary(user?.email || ''),
-          getPendingApprovals({ role: 'HOD' }),
-          getBatches(),
-          getProgrammes(),
-        ]);
-
-        if (!isMounted) return;
-
-        if (sumRes.status === 'fulfilled') {
-          const data = sumRes.value?.data?.data || sumRes.value?.data || sumRes.value;
-          if (data) setDeptSummary(data);
-        }
-
-        if (appRes.status === 'fulfilled') {
-          const list = appRes.value?.data?.approvals || appRes.value?.approvals || appRes.value?.data || appRes.value || [];
-          if (Array.isArray(list)) setPendingApprovalsCount(list.length);
-        }
-
-        if (batchRes.status === 'fulfilled') {
-          const bList = batchRes.value?.data?.batches || batchRes.value?.batches || batchRes.value?.data || batchRes.value || [];
-          if (Array.isArray(bList)) setLiveBatchesCount(bList.length);
-        }
-
-        if (progRes.status === 'fulfilled') {
-          const pList = progRes.value?.data?.programmes || progRes.value?.programmes || progRes.value?.data || progRes.value || [];
-          if (Array.isArray(pList)) setLiveProgrammesCount(pList.length);
-        }
-      } catch (err) {
-        console.warn('Could not fetch HOD dashboard data:', err);
-      }
-    };
-
-    fetchHodDashboardData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.email]);
-
-  const deptName = deptSummary?.department?.name || deptSummary?.deptName || 'Computer Engineering';
-  const totalProgrammes = deptSummary?.statistics?.programmes ?? (liveProgrammesCount > 0 ? liveProgrammesCount : masterProgrammes.length);
-  const totalCourses = deptSummary?.statistics?.courseOfferings ?? deptSummary?.courseCount ?? 150;
-  const assignedCoordinatorsCount = deptSummary?.assignedCoordinatorsCount ?? masterProgrammes.filter(
-    (p) => p.coordinator && p.coordinator !== 'Unassigned' && p.coordinator !== 'No coordinator assigned yet' && p.coordinator !== 'Pending HOD Assignment'
+  const totalProgrammes = masterProgrammes.length || 3;
+  const totalCourses = courses.length || 6;
+  const pendingApprovalsCount = hodApprovals.filter(
+    (a) => a.status === 'PENDING' || a.status === 'SUBMITTED'
   ).length;
+  const activeBatch = selectedBatch?.name?.split(' ')[1] || '2025–29';
 
   const quickActions = [
     {
@@ -112,35 +61,15 @@ export default function HodDashboard() {
     },
   ];
 
-  const completedList = deptSummary?.setupProgress?.completedSteps || [];
-  const isCompleted = deptSummary?.setupProgress?.overallStatus === 'COMPLETED';
-  const isBatchActive = isCompleted || completedList.includes('batch') || (batches.length > 0 && batches.some((b) => b.status === 'ACTIVE' || b.status === 'INITIALIZED'));
-
   const setupSteps = [
-    {
-      title: 'Programme Coordinators Assigned',
-      done: isCompleted || completedList.includes('coordinators') || (totalProgrammes > 0 && assignedCoordinatorsCount >= totalProgrammes),
-      desc: totalProgrammes > 0 ? `${assignedCoordinatorsCount} of ${totalProgrammes} coordinator(s) assigned` : 'No programmes available yet',
-    },
-    {
-      title: 'Batch Initialized',
-      done: isBatchActive,
-      desc: isBatchActive ? 'Batch cycle active' : 'No batch created yet',
-    },
-    {
-      title: 'PO, PSO & PEO Defined',
-      done: isCompleted || completedList.includes('outcomes'),
-      desc: totalProgrammes > 0 ? `${totalProgrammes} programme(s) configured` : 'No outcomes configured yet',
-    },
-    {
-      title: 'Reviewed & Confirmed',
-      done: isCompleted || completedList.includes('review'),
-      desc: (isCompleted || completedList.includes('review')) ? 'Setup review completed & confirmed' : 'Final setup review pending',
-    },
+    { title: 'Batch Initialized', done: batches.length > 0, desc: batches.length > 0 ? `${batches.length} batch(es) active` : 'No batch created yet' },
+    { title: 'PO, PSO & PEO Defined', done: totalProgrammes > 0, desc: `${totalProgrammes} programme(s) configured` },
+    { title: 'Programme Coordinators Assigned', done: totalProgrammes > 0, desc: 'Coordinator allocation complete' },
+    { title: 'Approvals Cleared', done: pendingApprovalsCount === 0, desc: pendingApprovalsCount > 0 ? `${pendingApprovalsCount} item(s) pending` : 'All submissions reviewed' },
   ];
 
   const completedCount = setupSteps.filter((s) => s.done).length;
-  const progressPct = isCompleted ? 100 : Math.round((completedCount / setupSteps.length) * 100);
+  const progressPct = Math.round((completedCount / setupSteps.length) * 100);
 
   // ─── Style tokens ─────────────────────────────────────────────────────────
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -161,7 +90,7 @@ export default function HodDashboard() {
             Welcome, {user?.name || 'Head of Department'}
           </h1>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            {deptName}
+            Department of Computer Science &amp; Engineering
           </p>
         </div>
         <button
@@ -176,7 +105,21 @@ export default function HodDashboard() {
       {/* ── STAT CARDS ──────────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '20px' }}>
 
-        {/* 1. Programmes */}
+        {/* Active Batch */}
+        <div style={{ ...surface, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Active Batch</span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#eef2ff', display: 'grid', placeItems: 'center', color: accent }}>
+              <Calendar size={16} />
+            </div>
+          </div>
+          <div style={{ fontSize: '20px', fontWeight: '800', color: ink, lineHeight: 1 }}>{activeBatch}</div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: '#16a34a', fontWeight: '600', marginTop: '6px' }}>
+            <Check size={11} /> Active cycle
+          </div>
+        </div>
+
+        {/* Programmes */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Programmes</span>
@@ -188,23 +131,7 @@ export default function HodDashboard() {
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>Degree programmes</div>
         </div>
 
-        {/* 2. Programme Coordinators */}
-        <div style={{ ...surface, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Programme Coordinators</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#eef2ff', display: 'grid', placeItems: 'center', color: accent }}>
-              <UserCheck size={16} />
-            </div>
-          </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>
-            {assignedCoordinatorsCount} <span style={{ fontSize: '15px', fontWeight: '600', color: muted }}>/ {totalProgrammes}</span>
-          </div>
-          <div style={{ fontSize: '11.5px', color: '#16a34a', fontWeight: '600', marginTop: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-            <Check size={11} /> {assignedCoordinatorsCount} assigned for programmes
-          </div>
-        </div>
-
-        {/* 3. Courses */}
+        {/* Courses */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Courses</span>
@@ -216,7 +143,7 @@ export default function HodDashboard() {
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>Under department</div>
         </div>
 
-        {/* 4. Approvals */}
+        {/* Approvals */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Approvals</span>

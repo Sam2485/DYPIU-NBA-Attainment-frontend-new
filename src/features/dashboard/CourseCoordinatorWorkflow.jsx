@@ -6,13 +6,6 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
-import { useAuth } from '../../context/AuthContext';
-import {
-  getCourseCoordinatorSummary,
-  getCourseCoordinatorSetupProgress,
-  updateCourseCoordinatorSetupProgress,
-  completeCourseCoordinatorSetup,
-} from '../../api/academic';
 
 // ── Inline step components ─────────────────────────────────────────────────────
 import OutcomesManagement from '../outcomes/OutcomesManagement';
@@ -22,6 +15,7 @@ import EndSemMarksHub from '../marks/EndSemMarksHub';
 import CourseEndSurveyHub from '../survey/CourseEndSurveyHub';
 import COAttainmentEngine from '../coAttainment/COAttainmentEngine';
 import CourseATR from '../atr/CourseATR';
+import ProgrammeATR from '../atr/ProgrammeATR';
 
 // ── Style tokens ───────────────────────────────────────────────────────────────
 const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -31,18 +25,19 @@ const accent  = '#4f46e5';
 
 // ── Step definitions ───────────────────────────────────────────────────────────
 const STEPS = [
-  { number: 1, title: 'Add COs & Targets',  desc: 'Define Outcomes & Targets',       path: '/outcomes',      icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
-  { number: 2, title: 'CO–PO/PSO Mapping',  desc: 'Map COs to programme outcomes',   path: '/co-mapping',    icon: Map,          color: '#7c3aed', bg: '#f5f3ff' },
-  { number: 3, title: 'Direct Assessment',  desc: 'Upload end-semester marks',       path: '/marks-upload',  icon: Upload,       color: '#0369a1', bg: '#e0f2fe' },
-  { number: 4, title: 'Indirect Assessment',desc: 'Upload course-end survey',        path: '/survey-upload', icon: ClipboardList,color: '#059669', bg: '#f0fdf4' },
-  { number: 5, title: 'CO Attainment',      desc: 'Compute & review attainment',     path: '/co-attainment', icon: BarChart2,    color: '#d97706', bg: '#fffbeb' },
-  { number: 6, title: 'Course ATR',         desc: 'Fill Course Action Taken Report', path: '/course-atr',    icon: FileText,     color: '#dc2626', bg: '#fef2f2' },
+  { number: 1, title: 'Add COs',            desc: 'Define Course Outcomes',          path: '/outcomes',      icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
+  { number: 2, title: 'CO Targets',         desc: 'Set attainment benchmarks',       path: '/co-targets',    icon: Target,       color: '#0284c7', bg: '#f0f9ff' },
+  { number: 3, title: 'CO–PO/PSO Mapping',  desc: 'Map COs to programme outcomes',   path: '/co-mapping',    icon: Map,          color: '#7c3aed', bg: '#f5f3ff' },
+  { number: 4, title: 'Direct Assessment',  desc: 'Upload end-semester marks',       path: '/marks-upload',  icon: Upload,       color: '#0369a1', bg: '#e0f2fe' },
+  { number: 5, title: 'Indirect Assessment',desc: 'Upload course-end survey',        path: '/survey-upload', icon: ClipboardList,color: '#059669', bg: '#f0fdf4' },
+  { number: 6, title: 'CO Attainment',      desc: 'Compute & review attainment',     path: '/co-attainment', icon: BarChart2,    color: '#d97706', bg: '#fffbeb' },
+  { number: 7, title: 'Course ATR',         desc: 'Fill Course Action Taken Report', path: '/course-atr',    icon: FileText,     color: '#dc2626', bg: '#fef2f2' },
+  { number: 8, title: 'Programme ATR',      desc: 'Fill PO/PSO Action Taken Report', path: '/programme-atr', icon: Layers,       color: '#059669', bg: '#f0fdf4' },
 ];
 
 export default function CourseCoordinatorWorkflow() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuth();
 
   const {
     availableCourses          = [],
@@ -56,65 +51,20 @@ export default function CourseCoordinatorWorkflow() {
     markWorkflowStepComplete  = () => {},
   } = useAcademic();
 
-  const [coordinatorCourses, setCoordinatorCourses] = useState([]);
-  const [selectedCourseId, setSelectedCourseId] = useState('');
-
-  useEffect(() => {
-    let isMounted = true;
-    if (user?.email) {
-      getCourseCoordinatorSummary(user.email)
-        .then((res) => {
-          if (isMounted) {
-            const data = res?.data?.data || res?.data || res;
-            const fetched = data?.assignedCourseOfferings || data?.assignedCourses;
-            if (Array.isArray(fetched) && fetched.length > 0) {
-              setCoordinatorCourses(fetched);
-              setSelectedCourseId((prev) => prev || fetched[0].id);
-              setCourseId(fetched[0].id);
-            }
-          }
-        })
-        .catch((err) => console.warn('Failed to fetch coordinator summary in workflow:', err));
-    }
-    return () => { isMounted = false; };
-  }, [user?.email]);
-
-  const displayCourses = coordinatorCourses.length > 0
-    ? coordinatorCourses
-    : (availableCourses.length > 0 ? availableCourses : courses);
-
-  const activeCourseId = selectedCourseId || selectedCourse?.id || displayCourses[0]?.id || '';
-  const course         = displayCourses.find((c) => c.id === activeCourseId) || selectedCourse || displayCourses[0] || null;
-  const config         = course?.id ? (attainmentConfigs[course.id] || {}) : {};
-  const courseCOs      = course?.courseOutcomes || activeCOs || [];
-  const courseProgress = course?.id ? (workflowProgressStore[course.id] || {}) : {};
+  const course     = selectedCourse || availableCourses[0];
+  const config     = course?.id ? (attainmentConfigs[course.id] || {}) : {};
+  const courseCOs  = course?.courseOutcomes || activeCOs || [];
+  const courseProgress = workflowProgressStore[course?.id || 'crs-1'] || {};
 
   // ── URL ↔ state sync ────────────────────────────────────────────────────────
   const initialStep = parseInt(searchParams.get('step'), 10);
   const [currentStep, setCurrentStep] = useState(
-    initialStep >= 1 && initialStep <= 6 ? initialStep : 1
+    initialStep >= 1 && initialStep <= 8 ? initialStep : 1
   );
 
   useEffect(() => {
-    let isMounted = true;
-    if (user?.email && course?.id) {
-      getCourseCoordinatorSetupProgress(user.email, course.id)
-        .then((res) => {
-          if (isMounted) {
-            const data = res?.data?.data || res?.data;
-            if (data?.currentStep && data.currentStep >= 1 && data.currentStep <= 6 && !searchParams.get('step')) {
-              setCurrentStep(data.currentStep);
-            }
-          }
-        })
-        .catch((err) => console.warn('Failed to load course coordinator setup progress:', err));
-    }
-    return () => { isMounted = false; };
-  }, [user?.email, course?.id]);
-
-  useEffect(() => {
     const s = parseInt(searchParams.get('step'), 10);
-    if (!s || isNaN(s) || s < 1 || s > 6) {
+    if (!s || isNaN(s) || s < 1 || s > 8) {
       setSearchParams({ step: 1 }, { replace: true });
       setCurrentStep(1);
     } else if (s !== currentStep) {
@@ -132,11 +82,13 @@ export default function CourseCoordinatorWorkflow() {
   const stepDone = STEPS.map((s, idx) => {
     if (courseProgress[s.path]) return true;
     if (idx === 0) return courseCOs.length > 0;
-    if (idx === 1) return courseCOs.some((c) => c.mappings);
-    if (idx === 2) return !!config.directUploaded;
-    if (idx === 3) return !!config.indirectUploaded;
-    if (idx === 4) return !!config.attainmentRun;
-    if (idx === 5) return !!config.atrSubmitted;
+    if (idx === 1) return courseCOs.some((c) => c.target);
+    if (idx === 2) return courseCOs.some((c) => c.mappings);
+    if (idx === 3) return !!config.directUploaded;
+    if (idx === 4) return !!config.indirectUploaded;
+    if (idx === 5) return !!config.attainmentRun;
+    if (idx === 6) return !!config.atrSubmitted;
+    if (idx === 7) return !!config.progAtrSubmitted;
     return false;
   });
 
@@ -144,28 +96,13 @@ export default function CourseCoordinatorWorkflow() {
   const progressPct    = Math.round((completedCount / STEPS.length) * 100);
 
   // ── Save & Next ──────────────────────────────────────────────────────────────
-  const handleSaveAndNext = async () => {
+  const handleSaveAndNext = () => {
     markWorkflowStepComplete(course?.id, STEPS[currentStep - 1].path);
-    const nextStep = currentStep < STEPS.length ? currentStep + 1 : currentStep;
-    try {
-      if (course?.id) {
-        await updateCourseCoordinatorSetupProgress(user?.email, course.id, nextStep);
-      }
-    } catch (err) {
-      console.warn('Failed to update course coordinator progress:', err);
-    }
-    if (currentStep < STEPS.length) goToStep(nextStep);
+    if (currentStep < STEPS.length) goToStep(currentStep + 1);
   };
 
-  const handleFinish = async () => {
+  const handleFinish = () => {
     markWorkflowStepComplete(course?.id, STEPS[STEPS.length - 1].path);
-    try {
-      if (course?.id) {
-        await completeCourseCoordinatorSetup(user?.email, course.id);
-      }
-    } catch (err) {
-      console.warn('Failed to mark course coordinator setup completed:', err);
-    }
     navigate('/dashboard');
   };
 
@@ -209,12 +146,9 @@ export default function CourseCoordinatorWorkflow() {
           {/* Course Selector */}
           <div style={{ position: 'relative' }}>
             <select
-              aria-label="Select Course"
-              value={activeCourseId}
+              value={course?.id || ''}
               onChange={(e) => {
-                const newId = e.target.value;
-                setSelectedCourseId(newId);
-                setCourseId(newId);
+                setCourseId(e.target.value);
                 goToStep(1);
               }}
               style={{
@@ -225,13 +159,9 @@ export default function CourseCoordinatorWorkflow() {
                 cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
-              {displayCourses.length > 0 ? (
-                displayCourses.map((c) => (
-                  <option key={c.id} value={c.id}>{c.code || c.courseCode} — {c.name || c.courseName}</option>
-                ))
-              ) : (
-                <option value="">No courses assigned yet</option>
-              )}
+              {(availableCourses.length > 0 ? availableCourses : courses).map((c) => (
+                <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+              ))}
             </select>
             <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
           </div>
@@ -260,7 +190,7 @@ export default function CourseCoordinatorWorkflow() {
             position: 'absolute', top: '18px',
             left: `${100 / (STEPS.length * 2)}%`,
             right: `${100 / (STEPS.length * 2)}%`,
-            height: '1px', background: '#cbd5e1', zIndex: 0,
+            height: '1px', background: '#e2e8f0', zIndex: 0,
           }} />
           <div style={{
             display: 'grid',
@@ -279,24 +209,24 @@ export default function CourseCoordinatorWorkflow() {
                   style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
                     background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px',
-                    opacity: 1, transition: 'opacity .2s',
+                    opacity: active || done ? 1 : 0.55, transition: 'opacity .2s',
                     fontFamily: 'inherit',
                   }}
                 >
                   <div style={{
                     width: '36px', height: '36px', borderRadius: '50%',
                     background: done ? '#f0fdf4' : active ? s.bg : '#f8fafc',
-                    border: `2px solid ${done ? '#4ade80' : active ? s.color : '#cbd5e1'}`,
-                    color: done ? '#15803d' : active ? s.color : '#475569',
+                    border: `2px solid ${done ? '#86efac' : active ? s.color : '#e2e8f0'}`,
+                    color: done ? '#16a34a' : active ? s.color : muted,
                     display: 'grid', placeItems: 'center', transition: 'all .2s',
                     boxShadow: active ? `0 4px 12px ${s.color}33` : 'none',
                   }}>
-                    {done ? <Check size={14} style={{ color: '#15803d' }} /> : <Icon size={14} />}
+                    {done ? <Check size={14} style={{ color: '#16a34a' }} /> : <Icon size={14} />}
                   </div>
                   <div style={{
-                    fontSize: '10.5px', fontWeight: active ? '800' : done ? '700' : '600',
-                    color: done ? '#15803d' : active ? ink : '#334155',
-                    textAlign: 'center', lineHeight: 1.3, maxWidth: '68px',
+                    fontSize: '10px', fontWeight: active ? '800' : done ? '700' : '600',
+                    color: done ? '#16a34a' : active ? ink : muted,
+                    textAlign: 'center', lineHeight: 1.3, maxWidth: '64px',
                   }}>
                     {s.title}
                   </div>
@@ -309,56 +239,33 @@ export default function CourseCoordinatorWorkflow() {
 
       {/* ── STEP CONTENT ──────────────────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '0', marginBottom: '20px', overflow: 'hidden' }}>
-        {currentStep === 1 && (
-          <OutcomesManagement
-            key={course?.id || activeCourseId}
-            selectedCourseId={course?.id || activeCourseId}
-            hideFooter
-            isWorkflow
-          />
-        )}
-        {currentStep === 2 && (
-          <COMappingMatrix
-            key={course?.id || activeCourseId}
-            courseId={course?.id || activeCourseId}
-            hideFooter
-          />
-        )}
-        {currentStep === 3 && (
-          <EndSemMarksHub
-            key={course?.id || activeCourseId}
-            courseId={course?.id || activeCourseId}
-            hideFooter
-          />
-        )}
-        {currentStep === 4 && (
-          <CourseEndSurveyHub
-            key={course?.id || activeCourseId}
-            courseId={course?.id || activeCourseId}
-            hideFooter
-          />
-        )}
-        {currentStep === 5 && (
-          <COAttainmentEngine
-            key={course?.id || activeCourseId}
-            courseId={course?.id || activeCourseId}
-            hideFooter
-          />
-        )}
-        {currentStep === 6 && (
-          <div key={course?.id || activeCourseId}>
+        {currentStep === 1 && <OutcomesManagement hideFooter />}
+        {currentStep === 2 && <COTargetSettingHub hideFooter />}
+        {currentStep === 3 && <COMappingMatrix hideFooter />}
+        {currentStep === 4 && <EndSemMarksHub hideFooter />}
+        {currentStep === 5 && <CourseEndSurveyHub hideFooter />}
+        {currentStep === 6 && <COAttainmentEngine hideFooter />}
+        {currentStep === 7 && (
+          <div>
             <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 24px' }}>
               <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>
-                Course ATR {course?.code ? `— ${course.code}` : ''}
+                Course ATR
               </h3>
             </div>
             <div style={{ padding: '20px' }}>
-              <CourseATR
-                key={course?.id || activeCourseId}
-                courseId={course?.id || activeCourseId}
-                hideFooter
-                hideHeader
-              />
+              <CourseATR hideFooter hideHeader />
+            </div>
+          </div>
+        )}
+        {currentStep === 8 && (
+          <div>
+            <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 24px' }}>
+              <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>
+                Programme ATR
+              </h3>
+            </div>
+            <div style={{ padding: '20px' }}>
+              <ProgrammeATR hideFooter hideHeader />
             </div>
           </div>
         )}

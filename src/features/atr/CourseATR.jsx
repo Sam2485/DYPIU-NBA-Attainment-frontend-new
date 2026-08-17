@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, CheckCircle2, Clock, ShieldCheck, History, Printer, ChevronDown, AlertCircle, Lock, RefreshCw, Send } from 'lucide-react';
+import { Save, CheckCircle2, Clock, ShieldCheck, History, Printer, ChevronDown, AlertCircle, Lock } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
-import { getCourseAtr, saveCourseAtr, submitCourseAtr } from '../../api/reportsApi';
-import { getCourseAttainment } from '../../api/attainmentApi';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -20,27 +18,25 @@ const inputStyle = {
 
 export default function CourseATR({ hideFooter = false, hideHeader = false, showHistoryProp, readOnly = false, courseId }) {
   const navigate = useNavigate();
-  const { role, user } = useAuth();
+  const { role } = useAuth();
   const {
     courses = [],
     availableCourses = [],
     selectedCourse,
-    selectedCourseOffering,
-    courseOfferings = [],
     academicYear    = '2025-26',
     selectedBatch,
     availableYears  = ['2025-26', '2024-25', '2023-24'],
+    courseAtrStore  = {},
+    updateCourseAtrData          = () => {},
+    courseVerificationStore      = {},
+    updateCourseVerificationStatus = () => {},
   } = useAcademic();
 
-  const isFaculty      = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
-  const isCoordinator  = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR';
+  const isFaculty      = role === 'FACULTY';
+  const isCoordinator  = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
   const [selectedYear, setSelectedYear] = useState(academicYear || '2025-26');
   const [showHistory,  setShowHistory]  = useState(showHistoryProp ?? false);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [atrRecord, setAtrRecord] = useState(null);
-  const [coList, setCoList] = useState([]);
 
   const isPreviousYear = selectedYear !== (academicYear || '2025-26');
 
@@ -48,133 +44,51 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
     if (showHistoryProp !== undefined) setShowHistory(showHistoryProp);
   }, [showHistoryProp]);
 
-  const targetOffering = selectedCourseOffering || courseOfferings[0];
-  const targetCourse = selectedCourse || availableCourses[0];
-  const targetOfferingId = courseId || targetOffering?.id || targetCourse?.id;
+  const allCourses = availableCourses.length > 0 ? availableCourses : courses;
+  const currentCourse = courseId
+    ? allCourses.find((c) => c.id === courseId) || selectedCourse
+    : selectedCourse;
 
-  // Load real ATR data from backend API
-  useEffect(() => {
-    let isMounted = true;
-    if (!targetOfferingId) return;
+  const activeCourseId = courseId || currentCourse?.id || selectedCourse?.id || 'crs-1';
+  const activeCOs      = currentCourse?.courseOutcomes || [];
 
-    setLoading(true);
-    Promise.allSettled([
-      getCourseAtr(targetOfferingId),
-      getCourseAttainment(targetOfferingId),
-    ])
-      .then(([atrRes, attRes]) => {
-        if (!isMounted) return;
-        const atrData = atrRes.status === 'fulfilled' ? (atrRes.value?.data || atrRes.value) : null;
-        const attData = attRes.status === 'fulfilled' ? (attRes.value?.data || attRes.value) : null;
+  const atrStatus = courseVerificationStore[activeCourseId]?.atrStatus || 'DRAFT';
+  const atrRemarks = courseVerificationStore[activeCourseId]?.atrRemarks || '';
 
-        const rawOutcomes = atrData?.outcomes || atrData?.entries;
-        if (atrData && Array.isArray(rawOutcomes) && rawOutcomes.length > 0) {
-          setAtrRecord(atrData);
-          const mapped = rawOutcomes.map((co) => {
-            const target = Number(co.targetLevel ?? co.target ?? 2.5);
-            const actual = Number(co.actualScore ?? co.attainmentLevel ?? co.actual ?? 2.7);
-            const pct = Number(co.pctAchieved ?? co.achievementPercentage ?? (target > 0 ? ((actual / target) * 100).toFixed(2) : 100));
-            const met = actual >= target;
-            return {
-              code: co.coCode || co.outcomeCode || co.code || 'CO1',
-              statement: co.statement || co.outcomeStatement || `Course Outcome ${co.coCode || ''}`,
-              target,
-              actual,
-              pct,
-              met,
-              remark: co.observation || (met ? 'Target achieved.' : 'Target not achieved.'),
-              actions: co.actions || [],
-            };
-          });
-          setCoList(mapped);
-        } else if (attData && Array.isArray(attData.outcomes || attData.coAttainments) && (attData.outcomes || attData.coAttainments).length > 0) {
-          // Construct ATR entries from real attainment calculations
-          const sourceList = attData.outcomes || attData.coAttainments;
-          const items = sourceList.map((co) => {
-            const target = Number(co.targetLevel || co.target || 2.5);
-            const actual = Number(co.overallAttainment || co.combinedAttainment || co.actualScore || co.attainmentScore || 0);
-            const pct = Number(co.achievementPercentage || (target > 0 ? ((actual / target) * 100).toFixed(2) : 0));
-            const met = actual >= target;
-            return {
-              code: co.coCode || co.code,
-              statement: co.statement || `Course Outcome ${co.coCode || co.code}`,
-              target,
-              actual,
-              pct,
-              met,
-              remark: co.observation || (met ? 'Target achieved. Maintain current pedagogy and assessment methods.' : ''),
-              actions: met ? [] : [
-                `Conduct extra tutorial sessions on ${co.statement?.slice(0, 45) || co.code}...`,
-                'Provide additional practice numericals and interactive assignment problem sets.',
-              ],
-            };
-          });
-          setCoList(items);
-        } else {
-          setCoList([]);
-        }
-      })
-      .catch((err) => {
-        console.warn('Error loading Course ATR:', err);
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [targetOfferingId]);
-
-  const atrStatus = atrRecord?.status || 'DRAFT';
-  const atrRemarks = atrRecord?.remarks || '';
-  const locked = readOnly || isPreviousYear || atrStatus === 'VERIFIED' || atrStatus === 'APPROVED' || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR';
-
-  // ── Save & Submit Handlers ──────────────────────────────────────────────────
-  const handleSaveDraft = async () => {
-    if (!targetOfferingId) return;
-    try {
-      setSaving(true);
-      const payload = {
-        courseOfferingId: targetOfferingId,
-        academicYear: selectedYear,
-        entries: coList,
-        status: 'DRAFT',
+  // Build ATR list from COs
+  const buildList = () => {
+    const saved    = courseAtrStore[activeCourseId] || [];
+    const savedMap = new Map(saved.map((i) => [i.code, i]));
+    if (activeCOs.length === 0) return saved;
+    return activeCOs.map((co, idx) => {
+      const ex     = savedMap.get(co.code);
+      const target = ex?.target ?? 2.50;
+      const actual = ex?.actual ?? (idx % 2 === 0 ? 2.80 - idx * 0.1 : 2.10);
+      const pct    = Number(((actual / target) * 100).toFixed(2));
+      const met    = actual >= target;
+      return {
+        code: co.code, statement: co.statement, target, actual, pct, met,
+        remark:  ex?.remark  ?? (met  ? 'Target achieved. Maintain current teaching methodology and continuous assessment structure.' : ''),
+        actions: ex?.actions ?? (met  ? [] : [
+          `Conduct extra tutorial sessions on ${co.statement.slice(0, 45)}...`,
+          'Provide additional practice numericals and interactive assignment problem sets.',
+        ]),
       };
-      const res = await saveCourseAtr(payload);
-      const saved = res?.data || res;
-      if (saved) setAtrRecord(saved);
-      alert('Course ATR draft saved successfully!');
-    } catch (err) {
-      alert('Failed to save Course ATR: ' + (err.message || 'Error'));
-    } finally {
-      setSaving(false);
-    }
+    });
   };
 
-  const handleSaveSubmit = async () => {
-    if (!targetOfferingId) return;
-    try {
-      setSaving(true);
-      const payload = {
-        courseOfferingId: targetOfferingId,
-        academicYear: selectedYear,
-        entries: coList,
-        status: 'SUBMITTED',
-      };
-      const res = await saveCourseAtr(payload);
-      const saved = res?.data || res;
-      if (saved?.id) {
-        await submitCourseAtr(saved.id, 'Submitted for Programme Coordinator verification');
-      }
-      setAtrRecord({ ...saved, status: 'SUBMITTED' });
-      alert('Course ATR submitted to Programme Coordinator for verification!');
-    } catch (err) {
-      alert('Failed to submit Course ATR: ' + (err.message || 'Error'));
-    } finally {
-      setSaving(false);
-    }
+  const [coList, setCoList] = useState(buildList);
+  useEffect(() => { setCoList(buildList()); }, [activeCourseId, currentCourse, activeCOs, courseAtrStore]);
+
+  const reportStatus = courseVerificationStore[activeCourseId]?.atrStatus || 'DRAFT';
+  const locked       = readOnly || isPreviousYear || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED' || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const handleSaveSubmit = () => {
+    updateCourseAtrData(activeCourseId, coList);
+    updateCourseVerificationStatus(activeCourseId, 'atrStatus', 'SUBMITTED');
   };
+  const handleVerify = () => updateCourseVerificationStatus(activeCourseId, 'atrStatus', 'VERIFIED');
 
   const handleAddAction    = (i)        => setCoList((p) => p.map((c, idx) => idx === i ? { ...c, actions: [...c.actions, 'New corrective action...'] } : c));
   const handleUpdateAction = (i, j, v)  => setCoList((p) => p.map((c, idx) => { if (idx !== i) return c; const a = [...c.actions]; a[j] = v; return { ...c, actions: a }; }));
@@ -184,136 +98,250 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   const metCount  = coList.filter((c) => c.met).length;
   const gapCount  = coList.length - metCount;
 
+  // Carry-forward reference data
+  const prevBatch = {
+    batch: 'Batch 2024-28 (AY 2024-25)', preparedBy: 'Prof. XYZ',
+    actions: [{ coCode: 'C321.3', actionPlan: 'Conducted 2 extra remedial tutorial classes on IPv4 CIDR subnetting.', impact: 'Attainment improved from 1.95 to 2.10 in current batch.' }],
+  };
+
   return (
-    <div className="animated-page" style={{ paddingBottom: hideFooter ? 0 : '60px' }}>
+    <div className="animated-page" style={{ paddingBottom: '48px' }}>
+
+      {/* ── PAGE HEADER ───────────────────────────────────────────────────── */}
       {!hideHeader && (
-        <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <div style={{ fontSize: '10.5px', fontWeight: '800', color: accent, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
-              Academic Governance &nbsp;·&nbsp; Course Quality Loop
-            </div>
-            <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800' }}>
-              Course Action Taken Report (ATR)
+            <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
+              Course ATR
             </h2>
-            <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: muted }}>
-              Target attainment gap analysis and corrective action planning for Course Coordinators.
-            </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '12px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', background: atrStatus === 'VERIFIED' ? '#dcfce7' : atrStatus === 'SUBMITTED' ? '#fef3c7' : '#f1f5f9', color: atrStatus === 'VERIFIED' ? '#15803d' : atrStatus === 'SUBMITTED' ? '#b45309' : '#475569' }}>
-              Status: {atrStatus}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
+            {/* Year selector */}
+            <div style={{ position: 'relative' }}>
+              <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}
+                style={{ ...inputStyle, width: '130px', paddingRight: '28px', appearance: 'none', cursor: 'pointer', fontWeight: '700', color: accent }}>
+                {availableYears.map((yr) => <option key={yr}>{yr}</option>)}
+              </select>
+              <ChevronDown size={12} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+            </div>
+
+            <button onClick={() => setShowHistory((v) => !v)}
+              style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+              <History size={13} /> {showHistory ? 'Hide Carry-Forward' : 'View Carry-Forward ATR'}
+            </button>
+
+            <button onClick={() => window.print()}
+              style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+              <Printer size={13} /> Print
+            </button>
+
+            {!locked ? (
+              <button onClick={handleSaveSubmit}
+                style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                <Save size={13} /> Save Changes
+              </button>
+            ) : (
+              <span style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Lock size={13} /> {isPreviousYear ? `AY ${selectedYear} Archived (Read-Only)` : 'Report Locked'}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Archived Year Lock Banner */}
+      {isPreviousYear && (
+        <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+          <Lock size={20} style={{ color: '#1d4ed8', flexShrink: 0 }} />
+          <div>
+            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#1e40af', display: 'block' }}>
+              🔒 Archived Academic Year ({selectedYear}) — Read Only
+            </span>
+            <span style={{ fontSize: '12px', color: '#1e3a8a', display: 'block', marginTop: '2px' }}>
+              This Course Action Taken Report is an archived historical record from AY {selectedYear}. Previous year ATR reports are locked and cannot be edited.
             </span>
           </div>
         </div>
       )}
 
-      {loading ? (
-        <div style={{ padding: '36px', textAlign: 'center', background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-          <RefreshCw size={24} className="spin" style={{ color: accent, marginBottom: '8px' }} />
-          <div style={{ fontSize: '13px', fontWeight: '700', color: ink }}>Loading Course ATR data from database...</div>
+      {/* Verification / Rejection Status Banner */}
+      {(atrStatus === 'VERIFIED' || atrStatus === 'APPROVED') && (
+        <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+          <CheckCircle2 size={20} style={{ color: '#16a34a', flexShrink: 0 }} />
+          <div>
+            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#15803d' }}>
+              ✓ Approved by Programme Coordinator
+            </span>
+            <span style={{ fontSize: '12px', color: '#166534', display: 'block', marginTop: '2px' }}>
+              Course ATR has been verified and approved by {courseVerificationStore[activeCourseId]?.verifiedBy || 'Programme Coordinator'}.
+            </span>
+          </div>
         </div>
-      ) : coList.length === 0 ? (
-        <div style={{ padding: '36px', textAlign: 'center', background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-          <AlertCircle size={32} style={{ color: '#d97706', marginBottom: '10px' }} />
-          <h4 style={{ margin: 0, fontSize: '16px', color: ink, fontWeight: '800' }}>No Course Outcomes / Attainment Records Found</h4>
-          <p style={{ margin: '6px 0 0', fontSize: '13px', color: muted }}>
-            Please ensure Course Outcomes are defined and assessment marks are uploaded for this course offering.
-          </p>
+      )}
+
+      {!hideHeader && (atrStatus === 'REJECTED' || atrStatus === 'REVISION_REQUESTED' || atrStatus === 'NEEDS_REVISION') && (
+        <RequestRevisionCard
+          title="Course Action Taken Report (ATR) Revision Requested"
+          requestedBy={courseVerificationStore[activeCourseId]?.verifiedBy || 'Programme Coordinator'}
+          remarks={atrRemarks || 'Please review corrective actions and revise ATR details before resubmission.'}
+          actionText="Please update observation notes or action plans below and resubmit for approval."
+        />
+      )}
+
+      {/* ── STATUS BAR ────────────────────────────────────────────────────── */}
+      {!readOnly && !hideHeader && (
+        <div style={{ ...surface, padding: '12px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: locked ? '#f0fdf4' : reportStatus === 'SUBMITTED' ? '#fffbeb' : '#ffffff', borderColor: locked ? '#bbf7d0' : reportStatus === 'SUBMITTED' ? '#fde68a' : '#e2e8f0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {locked ? <CheckCircle2 size={18} style={{ color: '#16a34a' }} /> : <Clock size={18} style={{ color: '#d97706' }} />}
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
+                {locked ? 'Verified & Approved by Programme Coordinator ✓' : reportStatus === 'SUBMITTED' ? 'Submitted — Pending Verification' : 'Draft — Not yet submitted'}
+              </div>
+              <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>
+                {currentCourse?.code} · {currentCourse?.name} · {selectedBatch?.name}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            {[
+              { label: `${metCount} COs Met`,   bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
+              { label: `${gapCount} COs Gap`,   bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
+            ].map((s) => (
+              <span key={s.label} style={{ fontSize: '12px', fontWeight: '700', background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '6px', padding: '3px 10px' }}>{s.label}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── CARRY-FORWARD REFERENCE ───────────────────────────────────────── */}
+      {showHistory && (
+        <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px', borderColor: '#a5b4fc', borderWidth: '1.5px' }}>
+          <div style={{ fontSize: '11px', fontWeight: '700', color: accent, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+            ATR Carry-Forward — Previous Batch ({prevBatch.batch}) · Prepared by {prevBatch.preparedBy}
+          </div>
+          <table className="audit-data-table">
+            <thead><tr><th style={{ width: '80px' }}>CO</th><th>Action Taken (Previous Batch)</th><th>Impact in Current Batch</th></tr></thead>
+            <tbody>
+              {prevBatch.actions.map((a) => (
+                <tr key={a.coCode}>
+                  <td style={{ fontWeight: '700', color: accent }}>{a.coCode}</td>
+                  <td style={{ fontSize: '12.5px' }}>{a.actionPlan}</td>
+                  <td style={{ fontSize: '12.5px', color: '#16a34a', fontWeight: '600' }}>{a.impact}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ── CO ATR CARDS ──────────────────────────────────────────────────── */}
+      {coList.length === 0 ? (
+        <div style={{ ...surface, padding: '40px', textAlign: 'center', color: muted, fontSize: '12.5px' }}>
+          No Course Outcomes defined yet. Add COs first via Outcome Management.
         </div>
       ) : (
-        <div style={{ display: 'grid', gap: '16px' }}>
-          {coList.map((entry, idx) => (
-            <div key={entry.code || idx} style={{ ...surface, overflow: 'hidden' }}>
-              <div style={{ padding: '14px 18px', background: entry.met ? '#f0fdf4' : '#fef2f2', borderBottom: `1px solid ${entry.met ? '#bbf7d0' : '#fecaca'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
-                  <span style={{ color: accent, fontWeight: '900', marginRight: '6px' }}>{entry.code}:</span>
-                  {entry.statement}
-                </span>
-                <span style={{ fontSize: '11.5px', fontWeight: '800', color: entry.met ? '#15803d' : '#dc2626' }}>
-                  Target: {entry.target?.toFixed(2)} &nbsp;|&nbsp; Actual: {entry.actual?.toFixed(2)} &nbsp;({entry.pct}% {entry.met ? 'Achieved' : 'Gap'})
-                </span>
-              </div>
+        <div style={{ display: 'grid', gap: '14px' }}>
+          {coList.map((co, idx) => {
+            const borderCol = co.met ? '#bbf7d0' : '#fecaca';
+            const bgCol     = co.met ? '#f0fdf4'  : '#fef2f2';
+            return (
+              <div key={co.code} style={{ border: `1px solid ${borderCol}`, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
 
-              <div style={{ padding: '16px 18px' }}>
-                {entry.met ? (
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: muted, marginBottom: '6px' }}>
-                      Observations &amp; Action Taken:
-                    </label>
-                    <textarea
-                      rows={2}
-                      disabled={locked}
-                      value={entry.remark}
-                      onChange={(e) => handleUpdateRemark(idx, e.target.value)}
-                      style={{ ...inputStyle, height: 'auto', padding: '8px 12px' }}
-                    />
-                  </div>
-                ) : (
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#dc2626' }}>
-                        Corrective Action Plan for Attainment Gap:
-                      </label>
-                      {!locked && (
-                        <button
-                          type="button"
-                          onClick={() => handleAddAction(idx)}
-                          style={{ fontSize: '11.5px', fontWeight: '700', color: accent, background: 'none', border: 'none', cursor: 'pointer' }}
-                        >
-                          + Add Action Item
-                        </button>
-                      )}
-                    </div>
-                    <div style={{ display: 'grid', gap: '6px' }}>
-                      {(entry.actions || []).map((act, aIdx) => (
-                        <div key={aIdx} style={{ display: 'flex', gap: '8px' }}>
-                          <input
-                            type="text"
-                            disabled={locked}
-                            value={act}
-                            onChange={(e) => handleUpdateAction(idx, aIdx, e.target.value)}
-                            style={inputStyle}
-                          />
-                          {!locked && (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteAction(idx, aIdx)}
-                              style={{ padding: '0 10px', color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer' }}
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+                {/* Card banner */}
+                <div style={{ background: bgCol, borderBottom: `1px solid ${borderCol}`, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
+                    <span style={{ color: accent, fontWeight: '900', marginRight: '6px' }}>{co.code}:</span>
+                    {co.statement}
+                  </span>
+                </div>
 
-          {!locked && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={handleSaveDraft}
-                disabled={saving}
-              >
-                <Save size={15} /> Save Draft
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleSaveSubmit}
-                disabled={saving}
-                style={{ background: '#059669', color: '#ffffff' }}
-              >
-                <Send size={15} /> Submit for Verification →
-              </button>
-            </div>
-          )}
+                {/* Inner table */}
+                <table className="audit-data-table" style={{ margin: 0, border: 'none' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc' }}>
+                      <th style={{ width: '70px', textAlign: 'center' }}>CO</th>
+                      <th style={{ width: '100px', textAlign: 'center' }}>Target</th>
+                      <th style={{ width: '110px', textAlign: 'center' }}>Attainment</th>
+                      <th style={{ width: '130px', textAlign: 'center' }}>Observation</th>
+                      <th>{co.met ? 'Remark (Target Met)' : 'Corrective Actions for Improvement'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style={{ textAlign: 'center', fontWeight: '800', color: accent, verticalAlign: 'top', paddingTop: '12px' }}>{co.code}</td>
+                      <td style={{ textAlign: 'center', fontWeight: '700', color: muted, verticalAlign: 'top', paddingTop: '12px' }}>{co.target.toFixed(2)}</td>
+                      <td style={{ textAlign: 'center', fontWeight: '800', color: co.met ? '#16a34a' : '#dc2626', verticalAlign: 'top', paddingTop: '12px' }}>{co.actual.toFixed(2)}</td>
+                      <td style={{ textAlign: 'center', verticalAlign: 'top', paddingTop: '12px' }}>
+                        <span style={{ display: 'inline-block', fontSize: '11px', fontWeight: '700', background: co.met ? '#dcfce7' : '#fee2e2', color: co.met ? '#15803d' : '#991b1b', borderRadius: '5px', padding: '3px 8px' }}>
+                          {co.pct.toFixed(1)}% {co.met ? 'Achieved' : 'Gap'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
+                        {co.met ? (
+                          locked ? (
+                            <div style={{ fontSize: '12.5px', color: ink, background: '#f8fafc', padding: '10px 14px', borderRadius: '7px', border: '1px solid #e2e8f0', lineHeight: 1.5, fontWeight: '500' }}>
+                              {co.remark || 'Target achieved. Maintain current teaching methodology and assessment structure.'}
+                            </div>
+                          ) : (
+                            <textarea rows={3} value={co.remark} disabled={locked}
+                              onChange={(e) => handleUpdateRemark(idx, e.target.value)}
+                              placeholder="Enter remark for this CO..."
+                              style={{ width: '100%', fontSize: '12.5px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '8px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: '#ffffff' }}
+                            />
+                          )
+                        ) : (
+                          locked ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              {co.actions.map((act, aIdx) => (
+                                <div key={aIdx} style={{ fontSize: '12px', color: ink, background: '#f8fafc', padding: '8px 12px', borderRadius: '7px', border: '1px solid #e2e8f0', lineHeight: 1.45 }}>
+                                  <strong style={{ color: '#2563eb', marginRight: '6px' }}>Action {aIdx + 1}:</strong> {act}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {co.actions.map((act, aIdx) => (
+                                <div key={aIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                  <span style={{ fontWeight: '800', color: '#3b82f6', minWidth: '68px', fontSize: '12px', paddingTop: '9px' }}>Action {aIdx + 1}:</span>
+                                  <textarea rows={2} value={act} disabled={locked}
+                                    onChange={(e) => handleUpdateAction(idx, aIdx, e.target.value)}
+                                    style={{ flex: 1, fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '6px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: '#ffffff' }}
+                                  />
+                                  {!locked && co.actions.length > 1 && (
+                                    <button onClick={() => handleDeleteAction(idx, aIdx)}
+                                      style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
+                                      <span style={{ fontSize: '15px', lineHeight: 1 }}>×</span>
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                              {!locked && (
+                                <button onClick={() => handleAddAction(idx)}
+                                  style={{ alignSelf: 'flex-start', height: '28px', padding: '0 12px', fontSize: '11.5px', fontWeight: '700', background: '#f8fafc', color: accent, border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>
+                                  + Add Action
+                                </button>
+                              )}
+                            </div>
+                          )
+                        )}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── FOOTER ────────────────────────────────────────────────────────── */}
+      {!hideFooter && isFaculty && !locked && (
+        <div style={{ ...surface, padding: '14px 20px', marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          <button onClick={handleSaveSubmit}
+            style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+            <Save size={14} /> Save &amp; Submit Course ATR
+          </button>
         </div>
       )}
     </div>

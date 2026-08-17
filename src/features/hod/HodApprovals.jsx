@@ -8,7 +8,6 @@ import { useAcademic } from '../../context/AcademicContext';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 import ApprovalHeaderControls from '../../components/common/ApprovalHeaderControls';
 import { useAuth } from '../../context/AuthContext';
-import { approveItem, requestRevision } from '../../api/approvalApi';
 
 /* ─── tiny style helpers ─────────────────────────────────────────── */
 const surface = {
@@ -70,18 +69,20 @@ export default function HodApprovals() {
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
 
-  const verifierName = user?.name || 'HOD';
+  const verifierName = user?.name || 'Dr. Raj Shaikh (HOD)';
 
   const currentDept =
-    departments.find((d) => d.hod === user?.name || d.hodEmail === user?.email) || null;
+    departments.find((d) => d.hod === user?.name || d.hodEmail === user?.email) ||
+    departments[0];
 
   const hodProgrammes = masterProgrammes.filter(
     (p) =>
       p.departmentId === currentDept?.id ||
-      p.department === currentDept?.name
+      p.department === currentDept?.name ||
+      p.departmentId === 'dept-1'
   );
 
-  const [selectedProgId, setSelectedProgId] = useState(hodProgrammes[0]?.id || '');
+  const [selectedProgId, setSelectedProgId] = useState(hodProgrammes[0]?.id || 'prog-1');
   const [showRejectModal, setShowRejectModal]   = useState(false);
   const [rejectRemarks, setRejectRemarks]       = useState('');
   const [filterStatus, setFilterStatus]         = useState('ALL');
@@ -89,10 +90,11 @@ export default function HodApprovals() {
 
   const activeProg =
     masterProgrammes.find((p) => p.id === selectedProgId) ||
-    hodProgrammes[0] || null;
+    hodProgrammes[0] ||
+    masterProgrammes[0];
 
   const progCourses = courses.filter(
-    (c) => c.programmeId === selectedProgId
+    (c) => c.programmeId === selectedProgId || (!c.programmeId && selectedProgId === 'prog-1')
   );
 
   const allocationKey    = `allocation-${selectedProgId}`;
@@ -112,39 +114,24 @@ export default function HodApprovals() {
   });
 
   /* ── actions ───────────────────────────────────────────────────── */
-  const handleApprove = async () => {
-    try {
-      updateCourseVerificationStatus(allocationKey, 'allocationStatus', 'APPROVED', '', verifierName);
-      approveHodSubmission(selectedProgId, verifierName);
-      approveHodSubmission('ALL', verifierName);
-      if (allocationRecord.id) {
-        await approveItem(allocationRecord.id, 'Approved by Head of Department (HOD)');
-      }
-      alert(`🎉 Course Coordinator allocations for ${activeProg?.code || 'programme'} approved by HOD!`);
-    } catch (err) {
-      console.warn('Backend approval call info:', err.message);
-    }
+  const handleApprove = () => {
+    updateCourseVerificationStatus(allocationKey, 'allocationStatus', 'APPROVED', '', verifierName);
+    approveHodSubmission(selectedProgId, verifierName);
+    approveHodSubmission('ALL', verifierName);
+    alert(`🎉 Course Coordinator allocations for ${activeProg?.code || 'programme'} approved by HOD!`);
   };
 
-  const handleConfirmReject = async () => {
-    try {
-      const finalRemarks = rejectRemarks.trim() || 'Please review and re-assign Course Coordinators as per HOD notes.';
-      updateCourseVerificationStatus(
-        allocationKey,
-        'allocationStatus',
-        'REVISION_REQUESTED',
-        finalRemarks,
-        verifierName
-      );
-      if (allocationRecord.id) {
-        await requestRevision(allocationRecord.id, finalRemarks);
-      }
-      setShowRejectModal(false);
-      alert(`⚠️ Revision request sent to Programme Coordinator for ${activeProg?.code || 'programme'}!`);
-    } catch (err) {
-      console.warn('Backend revision call info:', err.message);
-      setShowRejectModal(false);
-    }
+  const handleConfirmReject = () => {
+    const finalRemarks = rejectRemarks.trim() || 'Please review and re-assign Course Coordinators as per HOD notes.';
+    updateCourseVerificationStatus(
+      allocationKey,
+      'allocationStatus',
+      'REVISION_REQUESTED',
+      finalRemarks,
+      verifierName
+    );
+    setShowRejectModal(false);
+    alert(`⚠️ Revision request sent to Programme Coordinator for ${activeProg?.code || 'programme'}!`);
   };
 
   /* ═══════════════════════════════════════════════════════════════

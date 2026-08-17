@@ -1,20 +1,10 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen, ShieldCheck, FileText, ArrowRight,
-  ChevronRight, Check, Clock, Target, BarChart2, AlertCircle, ChevronDown, Layers,
+  ChevronRight, Check, Clock, Target, BarChart2, AlertCircle,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
-import {
-  getProgrammeCoordinatorSummary,
-  getProgrammes,
-  getCourses,
-  getProgrammePOs,
-  getProgrammePSOs,
-  getProgrammeTargets,
-  getProgrammeCoordinatorSetupProgress,
-} from '../../api/academic';
 
 // ── Style tokens (identical to HodDashboard) ─────────────────────────────────
 const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -27,7 +17,7 @@ export default function ProgrammeCoordinatorDashboard() {
   const { user } = useAuth();
   const {
     masterProgrammes = [],
-    programmeId      = '',
+    programmeId      = 'prog-1',
     courses          = [],
     selectedBatch    = { name: 'Batch 2025-29' },
     activePOs        = [],
@@ -35,110 +25,14 @@ export default function ProgrammeCoordinatorDashboard() {
     courseVerificationStore = {},
   } = useAcademic();
 
-  const [summaryData, setSummaryData] = useState(null);
-  const [programmesList, setProgrammesList] = useState([]);
-  const [selectedProgId, setSelectedProgId] = useState('');
-  const [setupProgress, setSetupProgress] = useState(null);
-  const [progDetails, setProgDetails] = useState({
-    coursesCount: 0,
-    posCount: 0,
-    psosCount: 0,
-  });
-
-  // 1. Fetch available programmes for coordinator
-  useEffect(() => {
-    let isMounted = true;
-    const fetchProgrammes = async () => {
-      try {
-        const progRes = await getProgrammes('', '', user?.email);
-        const rawProgs = progRes?.data?.programmes || progRes?.programmes || progRes?.data?.data || progRes?.data || [];
-        if (isMounted && Array.isArray(rawProgs) && rawProgs.length > 0) {
-          setProgrammesList(rawProgs);
-        }
-      } catch (err) {
-        console.warn('Failed to load programmes list:', err);
-      }
-    };
-    fetchProgrammes();
-    return () => { isMounted = false; };
-  }, [user?.email]);
-
-  // 2. Fetch summary & detail counts when selected programme changes
-  useEffect(() => {
-    let isMounted = true;
-    const targetProgId = selectedProgId || summaryData?.programmeId || programmeId;
-
-    const fetchSummaryAndDetails = async () => {
-      try {
-        const [sumRes, crsRes, poRes, psoRes, progStateRes] = await Promise.allSettled([
-          getProgrammeCoordinatorSummary(user?.email, targetProgId || ''),
-          targetProgId ? getCourses(targetProgId) : Promise.resolve(null),
-          targetProgId ? getProgrammePOs(targetProgId) : Promise.resolve(null),
-          targetProgId ? getProgrammePSOs(targetProgId) : Promise.resolve(null),
-          targetProgId ? getProgrammeCoordinatorSetupProgress(user?.email || '', targetProgId) : Promise.resolve(null),
-        ]);
-
-        if (isMounted) {
-          if (sumRes.status === 'fulfilled') {
-            const data = sumRes.value?.data?.data || sumRes.value?.data || sumRes.value;
-            if (data) {
-              setSummaryData(data);
-              const assignedProgs = data.assignedProgrammes || (data.programme ? [data.programme] : []);
-              if (Array.isArray(assignedProgs) && assignedProgs.length > 0) {
-                setProgrammesList(assignedProgs);
-              }
-              if (!selectedProgId && (data.programmeId || data.programme?.id)) {
-                setSelectedProgId(data.programmeId || data.programme?.id);
-              }
-            }
-          }
-
-          if (progStateRes.status === 'fulfilled' && progStateRes.value) {
-            const pData = progStateRes.value?.data?.data || progStateRes.value?.data || progStateRes.value;
-            if (pData) setSetupProgress(pData);
-          }
-
-          const crsList = crsRes.status === 'fulfilled' && crsRes.value ? (crsRes.value?.data?.courses || crsRes.value?.courses || crsRes.value?.data?.data || crsRes.value?.data || []) : [];
-          const poList = poRes.status === 'fulfilled' && poRes.value ? (poRes.value?.data?.pos || poRes.value?.pos || poRes.value?.data?.data || poRes.value?.data || []) : [];
-          const psoList = psoRes.status === 'fulfilled' && psoRes.value ? (psoRes.value?.data?.psos || psoRes.value?.psos || psoRes.value?.data?.data || psoRes.value?.data || []) : [];
-
-          setProgDetails({
-            coursesCount: Array.isArray(crsList) ? crsList.length : 0,
-            posCount: Array.isArray(poList) ? poList.length : 0,
-            psosCount: Array.isArray(psoList) ? psoList.length : 0,
-          });
-        }
-      } catch (err) {
-        console.warn('Failed to load Programme Coordinator summary/details:', err);
-      }
-    };
-    fetchSummaryAndDetails();
-    return () => { isMounted = false; };
-  }, [user?.email, selectedProgId]);
-
-  const availableProgrammes = (summaryData?.assignedProgrammes && summaryData.assignedProgrammes.length > 0)
-    ? summaryData.assignedProgrammes
-    : (programmesList.length > 0 ? programmesList : masterProgrammes);
-
-  const pcName = summaryData?.coordinatorName || user?.name || 'Programme Coordinator';
-  const pcEmail = summaryData?.coordinatorEmail || user?.email || '';
-
   const selectedProgramme =
-    summaryData?.programmeName
-      ? { name: summaryData.programmeName, code: summaryData.programmeCode || '—' }
-      : availableProgrammes.find((p) => p.id === (selectedProgId || programmeId)) ||
-        availableProgrammes[0] ||
-        masterProgrammes[0] ||
-        { name: 'No Programme Assigned Yet', code: '—' };
+    masterProgrammes.find((p) => p.id === programmeId) ||
+    masterProgrammes[0] ||
+    { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
 
-  const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === (selectedProgId || summaryData?.programmeId || programmeId));
+  const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === programmeId);
 
-  const totalProgrammes = availableProgrammes.length;
-  const totalCourses = summaryData?.courseCount ?? progDetails.coursesCount ?? progCourses.length;
-  const totalPOs = summaryData?.activePOsCount ?? progDetails.posCount ?? activePOs.length;
-  const totalPSOs = summaryData?.activePSOsCount ?? progDetails.psosCount ?? activePSOs.length;
-
-  const pendingVerifications = summaryData?.pendingVerificationsCount ?? Object.values(courseVerificationStore).filter((rec) => {
+  const pendingVerifications = Object.values(courseVerificationStore).filter((rec) => {
     return (
       rec.configStatus === 'SUBMITTED' ||
       rec.coStatus === 'PENDING_APPROVAL' ||
@@ -156,7 +50,7 @@ export default function ProgrammeCoordinatorDashboard() {
       id:    'setup',
       title: 'Programme Setup',
       desc:  'Add courses, assign coordinators, and view PO/PSO/PEO outcomes.',
-      path:  '/programme-coordinator/setup-workflow',
+      path:  '/academic',
       icon:  BookOpen,
     },
     {
@@ -165,13 +59,6 @@ export default function ProgrammeCoordinatorDashboard() {
       desc:  'Set PO and PSO benchmark target levels (1.0 – 3.0 scale).',
       path:  '/programme-coordinator/target-settings',
       icon:  Target,
-    },
-    {
-      id:    'programme-atr',
-      title: 'Programme ATR',
-      desc:  'Prepare and submit Programme Action Taken Report for HOD review.',
-      path:  '/programme-atr',
-      icon:  FileText,
     },
     {
       id:    'verification',
@@ -192,30 +79,36 @@ export default function ProgrammeCoordinatorDashboard() {
   ];
 
   // ── Setup checklist ───────────────────────────────────────────────────────
-  const rawCompleted = (summaryData?.setupProgress?.completedSteps || []).map((s) => s.toLowerCase().trim());
-  const currentStep = summaryData?.setupProgress?.currentStep || 1;
-  const overallStatus = summaryData?.setupProgress?.overallStatus || 'IN_PROGRESS';
-
   const setupSteps = [
     {
-      title: 'Programme Setup',
-      done:  rawCompleted.includes('programme setup') || rawCompleted.includes('courses') || totalCourses > 0 || currentStep > 1,
-      desc:  totalCourses > 0 ? `${totalCourses} course(s) configured under programme` : 'No courses added yet',
+      title: 'Programme Courses Added',
+      done:  progCourses.length > 0,
+      desc:  progCourses.length > 0 ? `${progCourses.length} course(s) under programme` : 'No courses added yet',
     },
     {
-      title: 'PO / PSO Target',
-      done:  rawCompleted.includes('po/pso target') || rawCompleted.includes('targets') || (totalPOs > 0 && totalPSOs > 0) || currentStep > 2,
-      desc:  (totalPOs > 0 || totalPSOs > 0) ? `${totalPOs} POs, ${totalPSOs} PSOs target levels benchmarked` : 'Targets pending configuration',
+      title: 'PO & PSO Targets Set',
+      done:  activePOs.length > 0,
+      desc:  activePOs.length > 0 ? `${activePOs.length} POs, ${activePSOs.length} PSOs configured` : 'Targets not configured yet',
     },
     {
-      title: 'Programme ATR',
-      done:  rawCompleted.includes('programme atr') || rawCompleted.includes('atr'),
-      desc:  'Prepare and submit Programme ATR for HOD approval',
+      title: 'Faculty Allocated',
+      done:  progCourses.length > 0,
+      desc:  progCourses.length > 0 ? 'Course Coordinators assigned' : 'Allocation pending',
     },
     {
-      title: 'Verify & Finish',
-      done:  rawCompleted.includes('verify&finish') || rawCompleted.includes('review') || overallStatus === 'COMPLETED' || currentStep >= 4,
-      desc:  (rawCompleted.includes('verify&finish') || overallStatus === 'COMPLETED' || currentStep >= 4) ? 'Programme setup review completed' : 'Complete setup steps to verify',
+      title: 'Course Verifications Cleared',
+      done:  pendingVerifications === 0,
+      desc:  pendingVerifications > 0 ? `${pendingVerifications} submission(s) awaiting review` : 'All course submissions reviewed',
+    },
+    {
+      title: 'Attainment Data Available',
+      done:  progCourses.length > 0,
+      desc:  progCourses.length > 0 ? 'CO attainment data from coordinators' : 'Pending course coordinator submissions',
+    },
+    {
+      title: 'Programme ATR Submitted',
+      done:  false,
+      desc:  'Prepare and submit ATR for HOD approval',
     },
   ];
 
@@ -232,68 +125,35 @@ export default function ProgrammeCoordinatorDashboard() {
             Programme Coordinator Dashboard
           </div>
           <h1 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
-            Welcome, {pcName}
+            Welcome, {user?.name || 'Programme Coordinator'}
           </h1>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            {selectedProgramme.name} &nbsp;·&nbsp; {selectedProgramme.code} {pcEmail ? `(${pcEmail})` : ''}
+            {selectedProgramme.name} &nbsp;·&nbsp; {selectedProgramme.code}
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative' }}>
-            <select
-              value={selectedProgId || ''}
-              onChange={(e) => setSelectedProgId(e.target.value)}
-              disabled={availableProgrammes.length === 0}
-              style={{
-                height: '40px',
-                paddingLeft: '12px',
-                paddingRight: '32px',
-                fontSize: '13px',
-                fontWeight: '700',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                background: '#ffffff',
-                color: ink,
-                cursor: availableProgrammes.length === 0 ? 'not-allowed' : 'pointer',
-                outline: 'none',
-                fontFamily: 'inherit',
-                appearance: 'none',
-                minWidth: '220px',
-              }}
-            >
-              {availableProgrammes.length === 0 ? (
-                <option value="">No programmes assigned yet</option>
-              ) : (
-                availableProgrammes.map((p) => (
-                  <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-                ))
-              )}
-            </select>
-            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
-          </div>
-
-          <button
-            onClick={() => navigate('/programme-coordinator/setup-workflow')}
-            style={{ height: '40px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px' }}
-          >
-            Start / Continue Process <ArrowRight size={14} />
-          </button>
-        </div>
+        <button
+          onClick={() => navigate('/programme-coordinator/setup-workflow')}
+          style={{ height: '40px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px' }}
+        >
+          Start / Continue Process <ArrowRight size={14} />
+        </button>
       </div>
 
       {/* ── STAT CARDS ────────────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '20px' }}>
 
-        {/* Total Programmes */}
+        {/* Active Batch */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Programmes</span>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Active Batch</span>
             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#eef2ff', display: 'grid', placeItems: 'center', color: accent }}>
-              <Layers size={16} />
+              <BookOpen size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{programmesList.length}</div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>Assigned to coordinator</div>
+          <div style={{ fontSize: '20px', fontWeight: '800', color: ink, lineHeight: 1 }}>{activeBatchLabel}</div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: '#16a34a', fontWeight: '600', marginTop: '6px' }}>
+            <Check size={11} /> Active cycle
+          </div>
         </div>
 
         {/* Total Courses */}
@@ -304,7 +164,7 @@ export default function ProgrammeCoordinatorDashboard() {
               <BookOpen size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalCourses}</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{progCourses.length}</div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>Under programme</div>
         </div>
 
@@ -316,7 +176,7 @@ export default function ProgrammeCoordinatorDashboard() {
               <Target size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalPOs} / {totalPSOs}</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{activePOs.length} / {activePSOs.length}</div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '6px' }}>POs &amp; PSOs configured</div>
         </div>
 
@@ -338,21 +198,21 @@ export default function ProgrammeCoordinatorDashboard() {
 
       {/* ── PENDING ALERT ─────────────────────────────────────────────────────── */}
       {pendingVerifications > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: '10px', padding: '14px 18px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '14px 18px', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AlertCircle size={18} style={{ color: '#b45309', flexShrink: 0 }} />
+            <AlertCircle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
             <div>
-              <div style={{ fontSize: '13px', fontWeight: '800', color: '#78350f' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#92400e' }}>
                 {pendingVerifications} course submission{pendingVerifications > 1 ? 's' : ''} awaiting your verification
               </div>
-              <div style={{ fontSize: '12px', color: '#78350f', marginTop: '1px', fontWeight: '600' }}>
+              <div style={{ fontSize: '12px', color: '#b45309', marginTop: '1px' }}>
                 CO mapping, attainment data, and Course ATRs submitted by Course Coordinators.
               </div>
             </div>
           </div>
           <button
             onClick={() => navigate('/coordinator-review')}
-            style={{ height: '34px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#b45309', color: '#ffffff', border: 'none', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
+            style={{ height: '34px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#d97706', color: '#fff', border: 'none', borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
           >
             Go to Verification <ChevronRight size={14} />
           </button>
@@ -420,16 +280,16 @@ export default function ProgrammeCoordinatorDashboard() {
           {setupSteps.map((step, idx) => (
             <div
               key={idx}
-              style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '8px', background: step.done ? '#fafafa' : '#ffffff', border: `1px solid ${step.done ? '#e2e8f0' : '#cbd5e1'}` }}
+              style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '8px', background: step.done ? '#fafafa' : '#ffffff', border: `1px solid ${step.done ? '#e2e8f0' : '#f1f5f9'}` }}
             >
-              <div style={{ width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', background: step.done ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${step.done ? '#4ade80' : '#cbd5e1'}`, color: step.done ? '#15803d' : '#475569' }}>
+              <div style={{ width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', background: step.done ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${step.done ? '#86efac' : '#e2e8f0'}`, color: step.done ? '#16a34a' : '#94a3b8' }}>
                 {step.done ? <Check size={12} /> : <Clock size={11} />}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '13px', fontWeight: '700', color: step.done ? ink : '#334155' }}>{step.title}</div>
-                <div style={{ fontSize: '11.5px', color: '#475569', marginTop: '1px' }}>{step.desc}</div>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: step.done ? ink : muted }}>{step.title}</div>
+                <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '1px' }}>{step.desc}</div>
               </div>
-              <span style={{ fontSize: '11px', fontWeight: '700', borderRadius: '5px', padding: '2px 8px', flexShrink: 0, background: step.done ? '#f0fdf4' : '#f8fafc', color: step.done ? '#15803d' : '#475569', border: `1px solid ${step.done ? '#86efac' : '#cbd5e1'}` }}>
+              <span style={{ fontSize: '11px', fontWeight: '600', borderRadius: '5px', padding: '2px 8px', flexShrink: 0, background: step.done ? '#f0fdf4' : '#f8fafc', color: step.done ? '#16a34a' : '#94a3b8', border: `1px solid ${step.done ? '#bbf7d0' : '#e2e8f0'}` }}>
                 {step.done ? 'Done' : 'Pending'}
               </span>
             </div>

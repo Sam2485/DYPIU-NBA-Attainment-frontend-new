@@ -81,7 +81,6 @@ export default function AuditTable({
                       return (
                         <td key={col.key}>
                           <select
-                            aria-label={col.label || "Select Option"}
                             className="form-select"
                             style={{ width: '100%', padding: '6px 8px' }}
                             value={value}

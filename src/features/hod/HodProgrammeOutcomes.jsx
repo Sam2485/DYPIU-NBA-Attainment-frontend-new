@@ -1,19 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Plus, Trash2, X, CheckCircle2, ChevronDown, Save, Loader2 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useState } from 'react';
+import { Plus, Trash2, X, CheckCircle2, ChevronDown } from 'lucide-react';
+import { useAcademic } from '../../context/AcademicContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
-import {
-  getHodDepartmentSummary,
-  getProgrammes,
-  getProgrammePOs,
-  saveProgrammePOs,
-  getProgrammePSOs,
-  saveProgrammePSOs,
-  getProgrammePEOs,
-  saveProgrammePEOs,
-} from '../../api/academic';
 
-// ── Style tokens ─────────────────────────────────────────────────────────────
+// ── Style tokens (identical to HodSetupWorkflow) ─────────────────────────────
 const surface  = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
 const ink      = '#0f172a';
 const muted    = '#64748b';
@@ -30,24 +20,33 @@ const inputStyle = {
   outline: 'none',
   fontFamily: 'inherit',
 };
-
-const DEFAULT_POS = [];
-const DEFAULT_PSOS = [];
-const DEFAULT_PEOS = [];
+const labelStyle = {
+  display: 'block',
+  fontSize: '11.5px',
+  fontWeight: '600',
+  color: muted,
+  marginBottom: '5px',
+};
 
 export default function HodProgrammeOutcomes() {
-  const { user } = useAuth();
+  const {
+    masterProgrammes = [],
+    programmeId,
+    setProgrammeId,
+    activePOs = [],
+    activePSOs = [],
+    activePEOs = [],
+    updateProgrammePOs  = () => {},
+    updateProgrammePSOs = () => {},
+    updateProgrammePEOs = () => {},
+  } = useAcademic();
 
-  const [programmesList, setProgrammesList] = useState([]);
-  const [programmeId, setProgrammeId] = useState('');
-  const [activePOs, setActivePOs] = useState([]);
-  const [activePSOs, setActivePSOs] = useState([]);
-  const [activePEOs, setActivePEOs] = useState([]);
+  const selectedProgramme =
+    masterProgrammes.find((p) => p.id === programmeId) ||
+    masterProgrammes[0] ||
+    { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
 
   const [activeTab, setActiveTab] = useState('PO');
-  const [isSaving, setIsSaving] = useState(false);
-  const [toastMessage, setToastMessage] = useState(null);
-
   const [deleteModalConfig, setDeleteModalConfig] = useState({
     isOpen: false,
     title: '',
@@ -55,110 +54,6 @@ export default function HodProgrammeOutcomes() {
     description: '',
     onConfirm: () => {},
   });
-
-  const selectedProgramme =
-    programmesList.find((p) => p.id === programmeId) ||
-    programmesList[0] ||
-    null;
-
-  // Load HOD department and programmes
-  useEffect(() => {
-    let isMounted = true;
-    const fetchInitialData = async () => {
-      try {
-        let deptId = '';
-        if (user?.email) {
-          const summaryRes = await getHodDepartmentSummary(user.email);
-          const summaryData = summaryRes?.data?.data || summaryRes?.data || summaryRes;
-          if (summaryData?.deptId) {
-            deptId = summaryData.deptId;
-          }
-        }
-        const progRes = await getProgrammes('', deptId);
-        const progList = progRes?.data?.programmes || progRes?.programmes || progRes?.data?.data || progRes?.data || [];
-        if (isMounted && Array.isArray(progList) && progList.length > 0) {
-          setProgrammesList(progList);
-          setProgrammeId((prev) => prev || progList[0].id);
-        }
-      } catch (err) {
-        console.warn('Failed to load initial programmes for Programme Outcomes:', err);
-      }
-    };
-
-    fetchInitialData();
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.email]);
-
-const sortOutcomesNaturally = (list) => {
-  if (!Array.isArray(list)) return [];
-  return [...list]
-    .map((item) => {
-      if (item.competencies && Array.isArray(item.competencies)) {
-        return {
-          ...item,
-          competencies: [...item.competencies].sort((c1, c2) =>
-            (c1.code || '').localeCompare(c2.code || '', undefined, { numeric: true, sensitivity: 'base' })
-          ),
-        };
-      }
-      return item;
-    })
-    .sort((a, b) => (a.code || '').localeCompare(b.code || '', undefined, { numeric: true, sensitivity: 'base' }));
-};
-
-  // Fetch POs, PSOs, PEOs for selected programme
-  useEffect(() => {
-    let isMounted = true;
-    const fetchProgrammeOutcomes = async () => {
-      if (!programmeId) return;
-      try {
-        const [poRes, psoRes, peoRes] = await Promise.allSettled([
-          getProgrammePOs(programmeId),
-          getProgrammePSOs(programmeId),
-          getProgrammePEOs(programmeId),
-        ]);
-
-        if (isMounted) {
-          const poList = poRes.status === 'fulfilled' ? (poRes.value?.data?.pos || poRes.value?.pos || poRes.value?.data?.data || poRes.value?.data || []) : [];
-          setActivePOs(sortOutcomesNaturally(Array.isArray(poList) ? poList : []));
-
-          const psoList = psoRes.status === 'fulfilled' ? (psoRes.value?.data?.psos || psoRes.value?.psos || psoRes.value?.data?.data || psoRes.value?.data || []) : [];
-          setActivePSOs(sortOutcomesNaturally(Array.isArray(psoList) ? psoList : []));
-
-          const peoList = peoRes.status === 'fulfilled' ? (peoRes.value?.data?.peos || peoRes.value?.peos || peoRes.value?.data?.data || peoRes.value?.data || []) : [];
-          setActivePEOs(sortOutcomesNaturally(Array.isArray(peoList) ? peoList : []));
-        }
-      } catch (err) {
-        console.warn('Failed to fetch outcome framework data:', err);
-      }
-    };
-
-    fetchProgrammeOutcomes();
-    return () => {
-      isMounted = false;
-    };
-  }, [programmeId]);
-
-  const handleSaveOutcomes = async () => {
-    if (!programmeId) return;
-    setIsSaving(true);
-    try {
-      await Promise.all([
-        saveProgrammePOs(programmeId, activePOs),
-        saveProgrammePSOs(programmeId, activePSOs),
-        saveProgrammePEOs(programmeId, activePEOs),
-      ]);
-      setToastMessage(`🎉 Outcomes (POs, PSOs, PEOs) saved successfully for ${selectedProgramme.name}!`);
-      setTimeout(() => setToastMessage(null), 3500);
-    } catch (err) {
-      console.error('Failed to save outcomes:', err);
-      alert('Failed to save outcomes to server. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const triggerDeleteConfirm = ({ title, itemName, description, onConfirm }) => {
     setDeleteModalConfig({
@@ -180,16 +75,16 @@ const sortOutcomesNaturally = (list) => {
       code: `PO${n}`,
       statement: `New Programme Outcome ${n}...`,
       status: 'VERIFIED',
-      competencies: [{ id: `comp-PO${n}-1`, statement: `Competency 1 for PO${n}` }],
+      competencies: [{ id: `comp-PO${n}-1`, order: 1, statement: `Competency 1 for PO${n}` }],
     };
-    setActivePOs([...activePOs, newPo]);
+    updateProgrammePOs(programmeId, [...activePOs, newPo]);
   };
 
   const handleUpdatePOCode = (i, v) => {
-    setActivePOs(activePOs.map((p, idx) => (idx === i ? { ...p, code: v } : p)));
+    updateProgrammePOs(programmeId, activePOs.map((p, idx) => (idx === i ? { ...p, code: v } : p)));
   };
   const handleUpdatePOStatement = (i, v) => {
-    setActivePOs(activePOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
+    updateProgrammePOs(programmeId, activePOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
   };
   const handleDeletePO = (i) => {
     const item = activePOs[i];
@@ -197,21 +92,23 @@ const sortOutcomesNaturally = (list) => {
       title: 'Delete Programme Outcome?',
       itemName: item?.code,
       description: 'This action cannot be undone. This PO mapping will be permanently removed.',
-      onConfirm: () => setActivePOs(activePOs.filter((_, idx) => idx !== i)),
+      onConfirm: () => updateProgrammePOs(programmeId, activePOs.filter((_, idx) => idx !== i)),
     });
   };
   const handleAddPOCompetency = (pi) => {
-    setActivePOs(
+    updateProgrammePOs(
+      programmeId,
       activePOs.map((p, i) => {
         if (i !== pi) return p;
         const comps = p.competencies || [];
         const n = comps.length + 1;
-        return { ...p, competencies: [...comps, { id: `comp-${p.code}-${n}`, statement: `Competency ${n} for ${p.code}` }] };
+        return { ...p, competencies: [...comps, { id: `comp-${p.code}-${n}`, order: n, statement: `Competency ${n} for ${p.code}` }] };
       }),
     );
   };
   const handleUpdatePOCompetency = (pi, ci, v) => {
-    setActivePOs(
+    updateProgrammePOs(
+      programmeId,
       activePOs.map((p, i) => {
         if (i !== pi) return p;
         const comps = [...(p.competencies || [])];
@@ -221,16 +118,18 @@ const sortOutcomesNaturally = (list) => {
     );
   };
   const handleDeletePOCompetency = (pi, ci) => {
-    setActivePOs(
+    updateProgrammePOs(
+      programmeId,
       activePOs.map((p, i) => {
         if (i !== pi) return p;
-        const comps = (p.competencies || []).filter((_, c) => c !== ci);
+        const comps = (p.competencies || []).filter((_, c) => c !== ci).map((c, idx) => ({ ...c, order: idx + 1 }));
         return { ...p, competencies: comps };
       }),
     );
   };
 
   // ── PSO HANDLERS ────────────────────────────────────────────────────────────
+  // Normalise: ensure every PSO has a competencies array (context seed data may omit it)
   const normalisedPSOs = activePSOs.map((pso) => ({
     ...pso,
     competencies: pso.competencies ?? [],
@@ -241,16 +140,16 @@ const sortOutcomesNaturally = (list) => {
     const newPso = {
       code: `PSO${n}`,
       statement: `New Programme Specific Outcome ${n}...`,
-      competencies: [{ id: `psocomp-PSO${n}-1`, statement: `Competency 1 for PSO${n}` }],
+      competencies: [{ id: `psocomp-PSO${n}-1`, order: 1, statement: `Competency 1 for PSO${n}` }],
     };
-    setActivePSOs([...normalisedPSOs, newPso]);
+    updateProgrammePSOs(programmeId, [...normalisedPSOs, newPso]);
   };
 
   const handleUpdatePSOCode = (i, v) => {
-    setActivePSOs(normalisedPSOs.map((p, idx) => (idx === i ? { ...p, code: v } : p)));
+    updateProgrammePSOs(programmeId, normalisedPSOs.map((p, idx) => (idx === i ? { ...p, code: v } : p)));
   };
   const handleUpdatePSOStatement = (i, v) => {
-    setActivePSOs(normalisedPSOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
+    updateProgrammePSOs(programmeId, normalisedPSOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
   };
   const handleDeletePSO = (i) => {
     const item = normalisedPSOs[i];
@@ -258,21 +157,23 @@ const sortOutcomesNaturally = (list) => {
       title: 'Delete Programme Specific Outcome?',
       itemName: item?.code,
       description: 'This action cannot be undone. This PSO mapping will be permanently removed.',
-      onConfirm: () => setActivePSOs(normalisedPSOs.filter((_, idx) => idx !== i)),
+      onConfirm: () => updateProgrammePSOs(programmeId, normalisedPSOs.filter((_, idx) => idx !== i)),
     });
   };
   const handleAddPSOCompetency = (pi) => {
-    setActivePSOs(
+    updateProgrammePSOs(
+      programmeId,
       normalisedPSOs.map((p, i) => {
         if (i !== pi) return p;
         const comps = p.competencies || [];
         const n = comps.length + 1;
-        return { ...p, competencies: [...comps, { id: `psocomp-${p.code}-${n}`, statement: `Competency ${n} for ${p.code}` }] };
+        return { ...p, competencies: [...comps, { id: `psocomp-${p.code}-${n}`, order: n, statement: `Competency ${n} for ${p.code}` }] };
       }),
     );
   };
   const handleUpdatePSOCompetency = (pi, ci, v) => {
-    setActivePSOs(
+    updateProgrammePSOs(
+      programmeId,
       normalisedPSOs.map((p, i) => {
         if (i !== pi) return p;
         const comps = [...(p.competencies || [])];
@@ -282,10 +183,11 @@ const sortOutcomesNaturally = (list) => {
     );
   };
   const handleDeletePSOCompetency = (pi, ci) => {
-    setActivePSOs(
+    updateProgrammePSOs(
+      programmeId,
       normalisedPSOs.map((p, i) => {
         if (i !== pi) return p;
-        const comps = (p.competencies || []).filter((_, c) => c !== ci);
+        const comps = (p.competencies || []).filter((_, c) => c !== ci).map((c, idx) => ({ ...c, order: idx + 1 }));
         return { ...p, competencies: comps };
       }),
     );
@@ -294,10 +196,10 @@ const sortOutcomesNaturally = (list) => {
   // ── PEO HANDLERS ────────────────────────────────────────────────────────────
   const handleAddPEO = () => {
     const n = activePEOs.length + 1;
-    setActivePEOs([...activePEOs, { code: `PEO${n}`, statement: `New Programme Educational Objective ${n}...` }]);
+    updateProgrammePEOs(programmeId, [...activePEOs, { code: `PEO${n}`, statement: `New Programme Educational Objective ${n}...` }]);
   };
   const handleUpdatePEOStatement = (i, v) => {
-    setActivePEOs(activePEOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
+    updateProgrammePEOs(programmeId, activePEOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
   };
   const handleDeletePEO = (i) => {
     const item = activePEOs[i];
@@ -305,37 +207,15 @@ const sortOutcomesNaturally = (list) => {
       title: 'Delete Programme Educational Objective?',
       itemName: item?.code,
       description: 'This action cannot be undone. This PEO mapping will be permanently removed.',
-      onConfirm: () => setActivePEOs(activePEOs.filter((_, idx) => idx !== i)),
+      onConfirm: () => updateProgrammePEOs(programmeId, activePEOs.filter((_, idx) => idx !== i)),
     });
   };
 
   return (
-    <div className="animated-page" style={{ paddingBottom: '48px', display: 'grid', gap: '16px' }}>
-
-      {/* Toast Alert */}
-      {toastMessage && (
-        <div
-          style={{
-            background: '#ecfdf5',
-            border: '1.5px solid #6ee7b7',
-            color: '#065f46',
-            padding: '12px 18px',
-            borderRadius: '10px',
-            fontWeight: '700',
-            fontSize: '13px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.12)',
-          }}
-        >
-          <CheckCircle2 size={18} style={{ color: '#059669' }} />
-          <span>{toastMessage}</span>
-        </div>
-      )}
+    <div className="animated-page" style={{ paddingBottom: '48px' }}>
 
       {/* ── PAGE HEADER ───────────────────────────────────────────────────────── */}
-      <div className="banner-dark-gradient" style={{ padding: '22px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', borderRadius: '14px' }}>
+      <div className="banner-dark-gradient" style={{ padding: '22px 28px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', borderRadius: '14px' }}>
         <div>
           <div style={{ fontSize: '10.5px', fontWeight: '800', color: accent, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>
             HOD Portal &nbsp;·&nbsp; Programme Outcomes
@@ -344,75 +224,42 @@ const sortOutcomesNaturally = (list) => {
             Programme Outcomes
           </h2>
           <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
-            {selectedProgramme ? `${selectedProgramme.code} — ${selectedProgramme.name}` : 'No programmes added yet'}
+            {selectedProgramme.code} &nbsp;—&nbsp; {selectedProgramme.name}
           </p>
         </div>
 
-        {/* Programme selector & Save Button */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative' }}>
-            <select
-              value={programmeId}
-              onChange={(e) => setProgrammeId(e.target.value)}
-              disabled={programmesList.length === 0}
-              style={{
-                height: '40px',
-                paddingLeft: '12px',
-                paddingRight: '32px',
-                fontSize: '13px',
-                fontWeight: '700',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                background: '#ffffff',
-                color: ink,
-                cursor: programmesList.length === 0 ? 'not-allowed' : 'pointer',
-                outline: 'none',
-                fontFamily: 'inherit',
-                appearance: 'none',
-                minWidth: '240px',
-              }}
-            >
-              {programmesList.length === 0 ? (
-                <option value="">No programmes added yet</option>
-              ) : (
-                programmesList.map((p) => (
-                  <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-                ))
-              )}
-            </select>
-            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
-          </div>
-
-          <button
-            type="button"
-            onClick={handleSaveOutcomes}
-            disabled={isSaving}
+        {/* Programme selector */}
+        <div style={{ position: 'relative' }}>
+          <select
+            value={programmeId}
+            onChange={(e) => setProgrammeId(e.target.value)}
             style={{
-              height: '40px',
-              padding: '0 20px',
-              borderRadius: '9px',
-              border: 'none',
-              background: '#4f46e5',
-              color: '#ffffff',
-              fontSize: '13px',
-              fontWeight: '800',
-              cursor: isSaving ? 'not-allowed' : 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '7px',
-              boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
+              height: '38px',
+              paddingLeft: '12px',
+              paddingRight: '32px',
+              fontSize: '12.5px',
+              fontWeight: '600',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              background: '#ffffff',
+              color: ink,
+              cursor: 'pointer',
+              outline: 'none',
               fontFamily: 'inherit',
-              opacity: isSaving ? 0.7 : 1,
+              appearance: 'none',
+              maxWidth: '300px',
             }}
           >
-            {isSaving ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
-            {isSaving ? 'Saving...' : 'Save Outcomes'}
-          </button>
+            {masterProgrammes.map((p) => (
+              <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+            ))}
+          </select>
+          <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
         </div>
       </div>
 
       {/* ── SECTION HEADER + TAB STRIP + ADD BUTTON ──────────────────────────── */}
-      <div style={{ ...surface, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+      <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         {/* Tab strip */}
         <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px' }}>
           {[

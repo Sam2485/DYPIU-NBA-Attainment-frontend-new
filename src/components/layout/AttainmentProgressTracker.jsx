@@ -6,14 +6,15 @@ import {
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 
-// Exact 6-Step Course Coordinator Workflow Sequence
+// Exact 7-Step Course Coordinator Workflow Sequence
 export const WORKFLOW_STEPS = [
-  { step: 1, label: 'Add COs & Targets',   path: '/outcomes',     icon: BookOpen    },
-  { step: 2, label: 'CO Mapping',           path: '/co-mapping',   icon: Map         },
-  { step: 3, label: 'Direct Assessment',    path: '/marks-upload', icon: Upload      },
-  { step: 4, label: 'Indirect Assessment',  path: '/survey-upload',icon: ClipboardList },
-  { step: 5, label: 'CO Attainment',        path: '/co-attainment',icon: BarChart2   },
-  { step: 6, label: 'Course ATR',           path: '/course-atr',   icon: FileText    },
+  { step: 1, label: 'Add COs',             path: '/outcomes',     icon: BookOpen    },
+  { step: 2, label: 'Target Setting',       path: '/co-targets',   icon: Target      },
+  { step: 3, label: 'CO Mapping',           path: '/co-mapping',   icon: Map         },
+  { step: 4, label: 'Direct Assessment',    path: '/marks-upload', icon: Upload      },
+  { step: 5, label: 'Indirect Assessment',  path: '/survey-upload',icon: ClipboardList },
+  { step: 6, label: 'CO Attainment',        path: '/co-attainment',icon: BarChart2   },
+  { step: 7, label: 'Course ATR',           path: '/course-atr',   icon: FileText    },
 ];
 
 const accent = '#4f46e5';
@@ -25,10 +26,27 @@ export default function AttainmentProgressTracker() {
   const location = useLocation();
   const navigate = useNavigate();
   const { selectedCourse, availableCourses = [], academicYear, workflowProgressStore = {} } = useAcademic();
-  const courseProgress = selectedCourse?.id ? (workflowProgressStore[selectedCourse.id] || {}) : {};
+  const courseProgress = workflowProgressStore[selectedCourse?.id || 'crs-1'] || {};
 
   // Only Course Coordinator role sees this tracker
   if (role !== 'FACULTY') return null;
+
+  // No course assigned
+  if (availableCourses.length === 0) {
+    return (
+      <div style={{ padding: '16px 28px 0', width: '100%', boxSizing: 'border-box' }}>
+        <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderLeft: '6px solid #e11d48', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px', width: '100%', boxSizing: 'border-box' }}>
+          <BookX size={28} style={{ color: '#e11d48', flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: '14px', color: '#9f1239', fontWeight: '800', marginBottom: '2px' }}>No Course Assigned Yet</div>
+            <p style={{ margin: 0, fontSize: '12px', color: '#be123c' }}>
+              You have no courses allocated. Contact your Programme Coordinator for course allocation.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const currentPath       = location.pathname;
   const currentStepIndex  = WORKFLOW_STEPS.findIndex((s) => s.path === currentPath);

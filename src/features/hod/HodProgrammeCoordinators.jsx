@@ -1,217 +1,83 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Users,
   Edit2,
   CheckCircle2,
   UserCheck,
   BookOpen,
-  X as CloseIcon,
+  X,
   Save,
   Search,
   Sparkles,
-  Loader2,
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import {
-  getHodDepartmentSummary,
-  getProgrammes,
-  getUsersByRole,
-  getUsers,
-  saveProgramme,
-  saveProgrammeCoordinator,
-} from '../../api/academic';
-
-const FALLBACK_FACULTY = [];
+import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 
 export default function HodProgrammeCoordinators() {
-  const { user } = useAuth();
-
-  const [programmesList, setProgrammesList] = useState([]);
-  const [coordinatorsList, setCoordinatorsList] = useState([]);
+  const {
+    masterProgrammes = [],
+    updateProgramme = () => {},
+    assignProgrammeCoordinator = () => {},
+  } = useAcademic();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [editingProg, setEditingProg] = useState(null);
-  const [selectedCoordinatorId, setSelectedCoordinatorId] = useState('');
-  const [customCoordinatorName, setCustomCoordinatorName] = useState('');
-  const [customCoordinatorEmail, setCustomCoordinatorEmail] = useState('');
+  const [selectedCoordinator, setSelectedCoordinator] = useState('');
+  const [customCoordinator, setCustomCoordinator] = useState('');
   const [isCustomMode, setIsCustomMode] = useState(false);
-
-  const [isSaving, setIsSaving] = useState(false);
   const [successToast, setSuccessToast] = useState(null);
 
-  // Fetch HOD department, programmes, and registered programme coordinators
-  useEffect(() => {
-    let isMounted = true;
-    const fetchInitialData = async () => {
-      try {
-        let deptId = '';
-        if (user?.email) {
-          const summaryRes = await getHodDepartmentSummary(user.email);
-          const summaryData = summaryRes?.data?.data || summaryRes?.data || summaryRes;
-          if (summaryData?.deptId) {
-            deptId = summaryData.deptId;
-          }
-        }
-        const progRes = await getProgrammes('', deptId);
-        const progList = progRes?.data?.programmes || progRes?.programmes || progRes?.data?.data || progRes?.data || [];
-        if (isMounted && Array.isArray(progList)) {
-          setProgrammesList(progList);
-        }
-
-        const userRes = await getUsersByRole('programme-coordinator');
-        let userList = Array.isArray(userRes) ? userRes : (userRes?.data?.users || userRes?.users || userRes?.data?.data || userRes?.data || []);
-        if (!Array.isArray(userList) || userList.length === 0) {
-          const allRes = await getUsers();
-          userList = Array.isArray(allRes) ? allRes : (allRes?.data?.users || allRes?.users || allRes?.data?.data || allRes?.data || []);
-        }
-        if (isMounted && Array.isArray(userList)) {
-          setCoordinatorsList(userList);
-        }
-      } catch (err) {
-        console.warn('Failed to load initial data for Programme Coordinators screen:', err);
-      }
-    };
-
-    fetchInitialData();
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.email]);
-
-  const availableFaculty = coordinatorsList;
-
-  const getCoordinatorDisplayName = (coordVal, coordEmail) => {
-    if (
-      !coordVal ||
-      coordVal === 'Pending HOD Assignment' ||
-      coordVal === 'No coordinator assigned yet'
-    ) {
-      return null;
-    }
-
-    const match = availableFaculty.find((f) => {
-      return (
-        (coordEmail && f.email && f.email.toLowerCase() === coordEmail.toLowerCase()) ||
-        (f.id != null && String(f.id) === String(coordVal)) ||
-        (f.email && f.email.toLowerCase() === String(coordVal).toLowerCase()) ||
-        (f.name && f.name.toLowerCase() === String(coordVal).toLowerCase())
-      );
-    });
-
-    return match ? match.name : coordVal;
-  };
-
   // Filter programmes for display
-  const filteredProgrammes = programmesList.filter(
-    (p) => {
-      const dispName = getCoordinatorDisplayName(p.coordinator, p.coordinatorEmail) || '';
-      const query = searchQuery.toLowerCase();
-      return (
-        (p.name && p.name.toLowerCase().includes(query)) ||
-        (p.code && p.code.toLowerCase().includes(query)) ||
-        (p.coordinator && p.coordinator.toLowerCase().includes(query)) ||
-        dispName.toLowerCase().includes(query)
-      );
-    }
+  const filteredProgrammes = masterProgrammes.filter(
+    (p) =>
+      p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.coordinator?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const assignedCount = programmesList.filter(
+  const assignedCount = masterProgrammes.filter(
     (p) => p.coordinator && p.coordinator !== 'Pending HOD Assignment' && p.coordinator !== 'No coordinator assigned yet'
   ).length;
 
-  const unassignedCount = programmesList.length - assignedCount;
+  const unassignedCount = masterProgrammes.length - assignedCount;
 
   const handleOpenEditModal = (prog) => {
     setEditingProg(prog);
-    const existingName = prog.coordinator || '';
-    const match = availableFaculty.find(
-      (f) =>
-        f.name === existingName ||
-        (f.id != null && String(f.id) === String(existingName)) ||
-        (prog.coordinatorEmail && f.email && f.email.toLowerCase() === prog.coordinatorEmail.toLowerCase())
-    );
-
-    if (match) {
-      setSelectedCoordinatorId(String(match.id || match.name));
+    const existing = prog.coordinator || '';
+    if (MASTER_FACULTY_LIST.includes(existing)) {
+      setSelectedCoordinator(existing);
       setIsCustomMode(false);
-      setCustomCoordinatorName('');
-      setCustomCoordinatorEmail('');
-    } else if (existingName && existingName !== 'Pending HOD Assignment' && existingName !== 'No coordinator assigned yet') {
-      setSelectedCoordinatorId('CUSTOM');
+      setCustomCoordinator('');
+    } else if (existing && existing !== 'Pending HOD Assignment' && existing !== 'No coordinator assigned yet') {
+      setSelectedCoordinator('CUSTOM');
       setIsCustomMode(true);
-      setCustomCoordinatorName(existingName);
-      setCustomCoordinatorEmail(prog.coordinatorEmail || '');
+      setCustomCoordinator(existing);
     } else {
-      setSelectedCoordinatorId(String(availableFaculty[0]?.id || availableFaculty[0]?.name || ''));
+      setSelectedCoordinator(MASTER_FACULTY_LIST[0] || '');
       setIsCustomMode(false);
-      setCustomCoordinatorName('');
-      setCustomCoordinatorEmail('');
+      setCustomCoordinator('');
     }
   };
 
-  const handleSaveCoordinator = async () => {
+  const handleSaveCoordinator = () => {
     if (!editingProg) return;
 
-    let finalName = '';
-    let finalEmail = '';
-
-    if (isCustomMode) {
-      finalName = customCoordinatorName.trim();
-      finalEmail = customCoordinatorEmail.trim();
-    } else {
-      const match = availableFaculty.find(
-        (c) => String(c.id) === String(selectedCoordinatorId) || c.name === selectedCoordinatorId
-      );
-      if (match) {
-        finalName = match.name;
-        finalEmail = match.email || '';
-      } else if (selectedCoordinatorId) {
-        finalName = selectedCoordinatorId;
-      }
-    }
-
+    const finalName = isCustomMode ? customCoordinator.trim() : selectedCoordinator;
     if (!finalName) {
-      setSuccessToast('Please select or enter a valid faculty name for Programme Coordinator.');
+      alert('Please select or enter a valid faculty name for Programme Coordinator.');
       return;
     }
 
-    setIsSaving(true);
-    try {
-      const updatedPayload = {
-        ...editingProg,
-        coordinator: finalName,
-        coordinatorEmail: finalEmail,
-      };
-
-      try {
-        await saveProgramme(updatedPayload);
-      } catch (err1) {
-        console.warn('saveProgramme warning (falling back to coordinator endpoint):', err1);
-        try {
-          await saveProgrammeCoordinator(editingProg.id, finalName);
-        } catch (err2) {
-          console.warn('saveProgrammeCoordinator warning:', err2);
-        }
-      }
-
-      setProgrammesList((prev) =>
-        prev.map((p) => (p.id === editingProg.id ? { ...p, ...updatedPayload } : p))
-      );
-      setSuccessToast(`🎉 Programme Coordinator for ${editingProg.code} updated to "${finalName}"!`);
-      setEditingProg(null);
-
-      setTimeout(() => {
-        setSuccessToast(null);
-      }, 4000);
-    } catch (err) {
-      console.error('Failed to assign programme coordinator:', err);
-      setProgrammesList((prev) =>
-        prev.map((p) => (p.id === editingProg.id ? { ...p, coordinator: finalName, coordinatorEmail: finalEmail } : p))
-      );
-      setEditingProg(null);
-    } finally {
-      setIsSaving(false);
+    if (assignProgrammeCoordinator && typeof assignProgrammeCoordinator === 'function') {
+      assignProgrammeCoordinator(editingProg.id, finalName);
     }
+    updateProgramme(editingProg.id, { coordinator: finalName });
+
+    setSuccessToast(`🎉 Programme Coordinator for ${editingProg.code} updated to "${finalName}"!`);
+    setEditingProg(null);
+
+    setTimeout(() => {
+      setSuccessToast(null);
+    }, 4000);
   };
 
   return (
@@ -249,7 +115,7 @@ export default function HodProgrammeCoordinators() {
               <BookOpen size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a' }}>{programmesList.length}</div>
+          <div style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a' }}>{masterProgrammes.length}</div>
         </div>
 
         <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px' }}>
@@ -330,9 +196,7 @@ export default function HodProgrammeCoordinators() {
                 </tr>
               ) : (
                 filteredProgrammes.map((prog, idx) => {
-                  const coordinatorDisplayName = getCoordinatorDisplayName(prog.coordinator, prog.coordinatorEmail);
-                  const isAssigned = Boolean(coordinatorDisplayName);
-
+                  const isAssigned = prog.coordinator && prog.coordinator !== 'Pending HOD Assignment' && prog.coordinator !== 'No coordinator assigned yet';
                   return (
                     <tr key={prog.id}>
                       <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>{idx + 1}</td>
@@ -349,9 +213,7 @@ export default function HodProgrammeCoordinators() {
                         {isAssigned ? (
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 12px', borderRadius: '8px' }}>
                             <UserCheck size={14} style={{ color: '#059669' }} />
-                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>
-                              {coordinatorDisplayName}
-                            </span>
+                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>{prog.coordinator}</span>
                           </div>
                         ) : (
                           <span style={{ fontSize: '12px', fontWeight: '700', color: '#d97706', background: '#fffbeb', border: '1px solid #fde68a', padding: '3px 10px', borderRadius: '6px' }}>
@@ -437,7 +299,7 @@ export default function HodProgrammeCoordinators() {
                 onClick={() => setEditingProg(null)}
                 style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
               >
-                <CloseIcon size={18} />
+                <X size={18} />
               </button>
             </div>
 
@@ -449,14 +311,14 @@ export default function HodProgrammeCoordinators() {
                   Select Faculty Member
                 </label>
                 <select
-                  value={isCustomMode ? 'CUSTOM' : selectedCoordinatorId}
+                  value={isCustomMode ? 'CUSTOM' : selectedCoordinator}
                   onChange={(e) => {
                     if (e.target.value === 'CUSTOM') {
                       setIsCustomMode(true);
-                      setSelectedCoordinatorId('CUSTOM');
+                      setSelectedCoordinator('CUSTOM');
                     } else {
                       setIsCustomMode(false);
-                      setSelectedCoordinatorId(e.target.value);
+                      setSelectedCoordinator(e.target.value);
                     }
                   }}
                   style={{
@@ -472,9 +334,9 @@ export default function HodProgrammeCoordinators() {
                     background: '#ffffff',
                   }}
                 >
-                  {availableFaculty.map((fac) => (
-                    <option key={fac.id || fac.name} value={String(fac.id || fac.name)}>
-                      {fac.name} {fac.email ? `(${fac.email})` : ''}
+                  {MASTER_FACULTY_LIST.map((fac) => (
+                    <option key={fac} value={fac}>
+                      {fac}
                     </option>
                   ))}
                   <option value="CUSTOM">+ Enter Custom Faculty Name</option>
@@ -482,47 +344,25 @@ export default function HodProgrammeCoordinators() {
               </div>
 
               {isCustomMode && (
-                <div style={{ display: 'grid', gap: '12px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
-                      Custom Faculty Name & Designation *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Dr. Strategic Coordinator"
-                      value={customCoordinatorName}
-                      onChange={(e) => setCustomCoordinatorName(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '9px 12px',
-                        borderRadius: '8px',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '13px',
-                        outline: 'none',
-                        fontFamily: 'inherit',
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
-                      Institutional Email Address
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="e.g. coordinator@dypiu.edu.in"
-                      value={customCoordinatorEmail}
-                      onChange={(e) => setCustomCoordinatorEmail(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '9px 12px',
-                        borderRadius: '8px',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '13px',
-                        outline: 'none',
-                        fontFamily: 'inherit',
-                      }}
-                    />
-                  </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                    Custom Faculty Name & Designation
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Dr. Strategic Coordinator"
+                    value={customCoordinator}
+                    onChange={(e) => setCustomCoordinator(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '13px',
+                      outline: 'none',
+                      fontFamily: 'inherit',
+                    }}
+                  />
                 </div>
               )}
 
@@ -554,7 +394,6 @@ export default function HodProgrammeCoordinators() {
               <button
                 type="button"
                 onClick={handleSaveCoordinator}
-                disabled={isSaving}
                 style={{
                   padding: '8px 18px',
                   borderRadius: '8px',
@@ -563,17 +402,15 @@ export default function HodProgrammeCoordinators() {
                   color: '#ffffff',
                   fontSize: '12.5px',
                   fontWeight: '800',
-                  cursor: isSaving ? 'not-allowed' : 'pointer',
+                  cursor: 'pointer',
                   fontFamily: 'inherit',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
                   boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)',
-                  opacity: isSaving ? 0.7 : 1,
                 }}
               >
-                {isSaving ? <Loader2 size={15} className="spin" /> : <Save size={15} />}
-                {isSaving ? 'Saving...' : 'Save Assignment'}
+                <Save size={15} /> Save Assignment
               </button>
             </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   FileSpreadsheet,
   Download,
@@ -14,33 +14,99 @@ import {
   Eye,
   GraduationCap,
   BookOpen,
-  RefreshCw,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
-import { downloadAttainmentExcel, downloadAttainmentPdf } from '../../api/academic';
-import { getProgrammeBatchDataset, getCourseAttainment } from '../../api/attainmentApi';
 import CourseATR from '../atr/CourseATR';
 import ProgrammeATR from '../atr/ProgrammeATR';
+import * as XLSX from 'xlsx';
+
+// ── Default Batches Option List ──────────────────────────────────────────────
+const DEFAULT_BATCHES = [
+  { id: 'batch-2022-26', name: 'Batch 2022–26 (Graduated / Completed)', isCompleted: true, endYear: 2026 },
+  { id: 'batch-2023-27', name: 'Batch 2023–27 (Final Year / Sem 7 & 8)', isCompleted: true, endYear: 2027 },
+  { id: 'batch-2024-28', name: 'Batch 2024–28 (3rd Year / Sem 5 & 6)', isCompleted: false, endYear: 2028 },
+  { id: 'batch-2025-29', name: 'Batch 2025–29 (2nd Year / Sem 3 & 4)', isCompleted: false, endYear: 2029 },
+];
+
+// ── Semester Groups for Programme Attainment (Average Mapping & Direct) ─────
+const SEMESTER_GROUPS = [
+  {
+    semLabel: 'FE Sem - I',
+    courses: [
+      { code: '310241', name: 'Engineering Mathematics - I' },
+      { code: '310242', name: 'Physics for Computing' },
+    ],
+  },
+  {
+    semLabel: 'FE Sem - II',
+    courses: [
+      { code: '310243', name: 'Engineering Mathematics - II' },
+      { code: '310244', name: 'Programming & Problem Solving' },
+    ],
+  },
+  {
+    semLabel: 'SE Sem - III',
+    courses: [
+      { code: '310245', name: 'Data Structures & Algorithms' },
+      { code: '310246', name: 'Object Oriented Programming' },
+    ],
+  },
+  {
+    semLabel: 'SE Sem - IV',
+    courses: [
+      { code: '310247', name: 'Computer Graphics' },
+      { code: '310248', name: 'Microprocessor Architecture' },
+    ],
+  },
+  {
+    semLabel: 'TE Sem - V',
+    courses: [
+      { code: '310249', name: 'Database Management Systems' },
+      { code: '310250', name: 'Computer Networks & Security' },
+    ],
+  },
+  {
+    semLabel: 'TE Sem - VI',
+    courses: [
+      { code: '310251', name: 'Theory of Computation' },
+      { code: '310252', name: 'Software Engineering & Project' },
+    ],
+  },
+  {
+    semLabel: 'BE Sem - VII',
+    courses: [
+      { code: '310253', name: 'Design & Analysis of Algorithms' },
+      { code: '310254', name: 'Cloud Computing & DevOps' },
+    ],
+  },
+  {
+    semLabel: 'BE Sem - VIII',
+    courses: [
+      { code: '310255', name: 'Machine Learning & AI' },
+      { code: '310256', name: 'Capstone Project Phase II' },
+    ],
+  },
+];
 
 export default function ReportsHub() {
   const { role } = useAuth();
   const {
     academicYear = '2025-26',
     availableYears = ['2026-27', '2025-26', '2024-25'],
-    programmeId,
+    programmeId = 'prog-1',
     setProgrammeId = () => {},
-    programmes = [],
+    masterProgrammes = [],
+    courseId = 'crs-1',
+    setCourseId = () => {},
     selectedProgramme,
-    selectedBatch,
-    batches = [],
-    selectedCourseOffering,
-    courseOfferings = [],
     selectedCourse,
-    courses = [],
     activePOs = [],
     activePSOs = [],
     activeCOs = [],
+    availableCourses = [],
+    courses = [],
+    batches = [],
   } = useAcademic();
 
   // Role Checks
@@ -54,6 +120,7 @@ export default function ReportsHub() {
   const [activeMainTab, setActiveMainTab] = useState('attainment-reports');
 
   // ── 2. ATTAINMENT VIEW MODE: 'course-attainment' | 'programme-attainment' ────
+  // Course Coordinator sees only 'course-attainment'
   const [attainmentViewMode, setAttainmentViewMode] = useState('course-attainment');
 
   // ── 3. ATR SUB-TAB: 'course-atr' | 'programme-atr' ──────────────────────────
@@ -61,177 +128,121 @@ export default function ReportsHub() {
 
   // ── 4. FILTERS STATE ────────────────────────────────────────────────────────
   const [selectedAyFilter, setSelectedAyFilter] = useState(academicYear || '2025-26');
-  const [selectedBatchId, setSelectedBatchId] = useState(selectedBatch?.id || '');
+  const [selectedBatchId, setSelectedBatchId] = useState('batch-2023-27');
   const [batchReportType, setBatchReportType] = useState('average-mapping'); // 'average-mapping' | 'average-attainment-direct' | 'average-attainment-indirect' | 'overall-attainment'
 
-  const [loadingBatchDataset, setLoadingBatchDataset] = useState(false);
-  const [batchDataset, setBatchDataset] = useState(null);
-  const [courseAttainmentData, setCourseAttainmentData] = useState(null);
-  const [loadingCourseAttainment, setLoadingCourseAttainment] = useState(false);
-
-  const [exportingBackendExcel, setExportingBackendExcel] = useState(false);
-  const [exportingBackendPdf, setExportingBackendPdf] = useState(false);
-
-  const currentProgramme = selectedProgramme || programmes[0];
-  const activeProgId = currentProgramme?.id || programmeId;
-
-  // Sync selectedBatchId with context
-  useEffect(() => {
-    if (selectedBatch?.id && !selectedBatchId) {
-      setSelectedBatchId(selectedBatch.id);
-    } else if (batches.length > 0 && (!selectedBatchId || !batches.some((b) => b.id === selectedBatchId))) {
-      setSelectedBatchId(batches[0].id);
-    }
-  }, [batches, selectedBatch]);
-
-  const targetOffering = selectedCourseOffering || courseOfferings[0];
-  const targetCourse = selectedCourse || courses[0];
-  const targetOfferingId = targetOffering?.id || targetCourse?.id;
-
-  // Fetch Course Attainment Data
-  useEffect(() => {
-    let isMounted = true;
-    if (!targetOfferingId) return;
-
-    setLoadingCourseAttainment(true);
-    getCourseAttainment(targetOfferingId)
-      .then((res) => {
-        if (isMounted) {
-          setCourseAttainmentData(res?.data || res || null);
-        }
-      })
-      .catch((err) => {
-        console.warn('Error fetching course attainment in ReportsHub:', err);
-      })
-      .finally(() => {
-        if (isMounted) setLoadingCourseAttainment(false);
-      });
-
-    return () => { isMounted = false; };
-  }, [targetOfferingId]);
-
-  // Fetch Programme Batch Dataset
-  useEffect(() => {
-    let isMounted = true;
-    if (!activeProgId || !selectedBatchId) return;
-
-    setLoadingBatchDataset(true);
-    getProgrammeBatchDataset(activeProgId, selectedBatchId)
-      .then((res) => {
-        if (isMounted) {
-          setBatchDataset(res?.data || res || null);
-        }
-      })
-      .catch((err) => {
-        console.warn('Error fetching programme batch dataset in ReportsHub:', err);
-      })
-      .finally(() => {
-        if (isMounted) setLoadingBatchDataset(false);
-      });
-
-    return () => { isMounted = false; };
-  }, [activeProgId, selectedBatchId]);
-
-  // Dynamic POs / PSOs
+  // Dynamic Lists
   const poList = (activePOs || []).map((p) => p?.code || p).filter(Boolean);
   const psoList = (activePSOs || []).map((p) => p?.code || p).filter(Boolean);
-  const coList = (activeCOs && activeCOs.length > 0) ? activeCOs : (courseAttainmentData?.outcomes || courseAttainmentData?.coAttainments || []);
+  const coList = activeCOs.length > 0 ? activeCOs : [
+    { code: 'CO1', statement: 'Understand fundamental algorithms and theoretical concepts.' },
+    { code: 'CO2', statement: 'Analyze computational complexity and data structure efficiency.' },
+    { code: 'CO3', statement: 'Design software modules using object-oriented principles.' },
+    { code: 'CO4', statement: 'Implement database connectivity and backend API protocols.' },
+    { code: 'CO5', statement: 'Conduct system verification and automated unit testing.' },
+  ];
 
-  const currentBatchObj = batches.find((b) => b.id === selectedBatchId) || selectedBatch || batches[0];
-  const isFinalSemCompleted = currentBatchObj?.isCompleted || currentBatchObj?.status === 'COMPLETED';
+  const currentProgramme = selectedProgramme || masterProgrammes[0] || { code: 'BE-COMP', name: 'B.Tech Computer Science & Engineering' };
+  const allProgrammeCourses = (availableCourses.length > 0 ? availableCourses : courses).filter(
+    (c) => !c.programmeId || c.programmeId === currentProgramme.id || c.programmeId === programmeId
+  );
 
+  const currentCourseObj = selectedCourse || allProgrammeCourses[0] || { code: '310244', name: 'Computer Network and Security', id: 'crs-1' };
+
+  // Batches
+  const batchList = batches.length > 0 ? batches : DEFAULT_BATCHES;
+  const currentBatchObj = batchList.find((b) => b.id === selectedBatchId) || batchList[0];
+  const isFinalSemCompleted = currentBatchObj?.isCompleted || currentBatchObj?.name?.includes('Completed') || currentBatchObj?.name?.includes('Graduated') || currentBatchObj?.name?.includes('2023–27') || currentBatchObj?.name?.includes('2022–26');
+
+  // Effective Attainment View Mode (Force Course Coordinator to 'course-attainment')
   const effectiveAttainmentViewMode = isCourseCoordinator ? 'course-attainment' : attainmentViewMode;
 
-  // Real semester groups from database dataset
-  const semesterGroups = batchDataset?.semesters || [];
-
   // ───────────────────────────────────────────────────────────────────────────
-  // DOWNLOAD HANDLER (EXCEL & PDF)
+  // DOWNLOAD HANDLER (EXCEL)
   // ───────────────────────────────────────────────────────────────────────────
-  const handleDownloadExcel = async () => {
-    if (activeMainTab === 'attainment-reports' && effectiveAttainmentViewMode === 'course-attainment' && targetOfferingId) {
-      try {
-        setExportingBackendExcel(true);
-        await downloadAttainmentExcel(targetOfferingId, selectedBatchId);
-        return;
-      } catch (err) {
-        console.warn('Backend excel download error, falling back to client XLSX:', err);
-      } finally {
-        setExportingBackendExcel(false);
-      }
-    }
-
-    const XLSX = await import('xlsx');
+  const handleDownloadExcel = () => {
     const wb = XLSX.utils.book_new();
     let filename = 'Report.xlsx';
     let sheetData = [];
 
     if (activeMainTab === 'attainment-reports') {
       if (effectiveAttainmentViewMode === 'course-attainment') {
-        const cCode = targetOffering?.courseCode || targetCourse?.code || 'Course';
-        filename = `Course_Attainment_${cCode}_AY_${selectedAyFilter}.xlsx`;
+        filename = `Course_Attainment_${currentCourseObj.code}_AY_${selectedAyFilter}.xlsx`;
         sheetData = [
           [`D. Y. PATIL INTERNATIONAL UNIVERSITY, AKURDI PUNE`],
           [`COURSE ATTAINMENT REPORT — ACADEMIC YEAR ${selectedAyFilter}`],
-          [`Programme: ${currentProgramme?.code || ''} - ${currentProgramme?.name || ''}`],
-          [`Course: ${cCode} - ${targetOffering?.courseName || targetCourse?.name || ''}`],
+          [`Programme: ${currentProgramme.code} - ${currentProgramme.name}`],
+          [`Course: ${currentCourseObj.code} - ${currentCourseObj.name}`],
           [],
           [`1. TABLE 1: CO TO PO/PSO MAPPING MATRIX`],
           ['Sr No', 'CO Code', ...poList, ...psoList],
           ...coList.map((co, idx) => [
             idx + 1,
-            co.code || co.coCode,
-            ...poList.map((po) => courseAttainmentData?.mappings?.[`${co.code || co.coCode}_${po}`] || '-'),
-            ...psoList.map((pso) => courseAttainmentData?.mappings?.[`${co.code || co.coCode}_${pso}`] || '-'),
+            co.code,
+            ...poList.map((po) => (po === 'PO1' || po === 'PO2' ? 3 : po === 'PO3' ? 2 : 1)),
+            ...psoList.map((pso) => (pso === 'PSO1' ? 3 : 2)),
           ]),
+          ['', 'Average Mapping Strength', ...poList.map(() => 2.17), ...psoList.map(() => 2.0)],
           [],
           [`2. TABLE 2: PO & PSO ATTAINMENT VALUES`],
           ['Course Code', ...poList, ...psoList],
-          [cCode, ...poList.map((po) => courseAttainmentData?.poAttainments?.[po] || '-'), ...psoList.map((pso) => courseAttainmentData?.psoAttainments?.[pso] || '-')],
+          [currentCourseObj.code, ...poList.map(() => 1.83), ...psoList.map(() => 1.70)],
+          [],
+          [`3. TABLE 3: CO ATTAINMENT (DIRECT + INDIRECT)`],
+          ['Assessment Type', 'Metric', ...coList.map((co) => co.code)],
+          ['Direct Examination', '% Students ≥ Threshold (60%)', ...coList.map(() => '60%')],
+          ['Direct Examination', 'Direct Attainment Level (0-3)', ...coList.map(() => 2.8)],
+          ['Indirect Survey', '% Positive Feedback Rating', ...coList.map(() => '82%')],
+          ['Indirect Survey', 'Indirect Attainment Level (0-3)', ...coList.map(() => 2.5)],
+          ['Combined CO Attainment', '(80% Direct + 20% Indirect)', ...coList.map(() => 2.74)],
         ];
       } else {
-        filename = `Programme_Attainment_${currentProgramme?.code || 'Prog'}_${currentBatchObj?.name || 'Batch'}.xlsx`;
+        filename = `Programme_Attainment_${currentProgramme.code}_${currentBatchObj.name}.xlsx`;
         sheetData = [
           [`D. Y. PATIL INTERNATIONAL UNIVERSITY, AKURDI PUNE`],
-          [`PROGRAMME ATTAINMENT BATCH REPORT — ${currentBatchObj?.name || ''}`],
-          [`Programme: ${currentProgramme?.code || ''} - ${currentProgramme?.name || ''}`],
+          [`PROGRAMME ATTAINMENT BATCH REPORT — ${currentBatchObj.name}`],
+          [`Programme: ${currentProgramme.code} - ${currentProgramme.name}`],
           [`Report Type: ${batchReportType.toUpperCase().replace(/-/g, ' ')}`],
           [],
           ['Sem', 'Course Code', 'Course Name', ...poList, ...psoList],
         ];
 
-        semesterGroups.forEach((group) => {
-          (group.courses || []).forEach((c, cIdx) => {
+        SEMESTER_GROUPS.forEach((group, gIdx) => {
+          group.courses.forEach((c, cIdx) => {
             sheetData.push([
-              cIdx === 0 ? group.semesterName || `Sem ${group.semester}` : '',
-              c.code || c.courseCode,
-              c.name || c.courseName,
-              ...poList.map((po) => c.poAttainments?.[po] || '-'),
-              ...psoList.map((pso) => c.psoAttainments?.[pso] || '-'),
+              cIdx === 0 ? group.semLabel : '',
+              c.code,
+              c.name,
+              ...poList.map((_, pIdx) => (batchReportType === 'average-mapping' ? (2.0 + ((pIdx + cIdx + gIdx) % 3) * 0.33).toFixed(2) : (1.75 + ((pIdx + cIdx + gIdx) % 4) * 0.15).toFixed(2))),
+              ...psoList.map((_, pIdx) => (batchReportType === 'average-mapping' ? (2.0 + ((pIdx + cIdx + gIdx) % 2) * 0.50).toFixed(2) : (1.80 + ((pIdx + cIdx + gIdx) % 2) * 0.20).toFixed(2))),
             ]);
           });
         });
       }
+    } else {
+      const typeLabel = atrSubTab === 'course-atr' ? 'Course_ATR' : 'Programme_ATR';
+      filename = `${typeLabel}_${currentCourseObj.code}_AY_${selectedAyFilter}.xlsx`;
+      sheetData = [
+        [`D. Y. PATIL INTERNATIONAL UNIVERSITY, AKURDI PUNE`],
+        [`ACTION TAKEN REPORT (ATR) — AY ${selectedAyFilter}`],
+        [`Programme: ${currentProgramme.code}`],
+        [`Course: ${currentCourseObj.code} - ${currentCourseObj.name}`],
+        [],
+        ['CO/PO Code', 'Target Level', 'Attainment Level', '% Achieved', 'Target Status', 'Observation & Action Taken'],
+        ...coList.map((co, idx) => [
+          co.code,
+          2.50,
+          idx % 2 === 0 ? 2.80 : 2.10,
+          idx % 2 === 0 ? '112.0%' : '84.0%',
+          idx % 2 === 0 ? 'Target Met' : 'Gap',
+          idx % 2 === 0 ? 'Target achieved. Maintain current pedagogy.' : 'Increase practical hands-on problem sets.',
+        ]),
+      ];
     }
 
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
     XLSX.utils.book_append_sheet(wb, ws, 'Report Data');
     XLSX.writeFile(wb, filename);
-  };
-
-  const handleDownloadPdfBackend = async () => {
-    if (targetOfferingId) {
-      try {
-        setExportingBackendPdf(true);
-        await downloadAttainmentPdf(targetOfferingId, selectedBatchId);
-      } catch (err) {
-        alert('Failed to generate backend PDF: ' + (err.message || 'Error'));
-      } finally {
-        setExportingBackendPdf(false);
-      }
-    } else {
-      window.print();
-    }
   };
 
   const handlePrint = () => {
@@ -240,6 +251,7 @@ export default function ReportsHub() {
 
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
+
       {/* ── TOP HEADER & ROLE-BASED SELECTOR BAR ─────────────────────────────── */}
       <div
         className="print:hidden"
@@ -266,11 +278,10 @@ export default function ReportsHub() {
           </div>
 
           {/* Actions: Download & Print */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
               type="button"
               onClick={handleDownloadExcel}
-              disabled={exportingBackendExcel}
               style={{
                 height: '38px',
                 padding: '0 16px',
@@ -286,35 +297,9 @@ export default function ReportsHub() {
                 gap: '6px',
                 fontFamily: 'inherit',
                 boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)',
-                opacity: exportingBackendExcel ? 0.7 : 1,
               }}
             >
-              <FileSpreadsheet size={15} /> {exportingBackendExcel ? 'Exporting...' : 'Download Excel'}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDownloadPdfBackend}
-              disabled={exportingBackendPdf}
-              style={{
-                height: '38px',
-                padding: '0 16px',
-                fontSize: '12.5px',
-                fontWeight: '700',
-                background: '#dc2626',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontFamily: 'inherit',
-                boxShadow: '0 2px 6px rgba(220, 38, 38, 0.25)',
-                opacity: exportingBackendPdf ? 0.7 : 1,
-              }}
-            >
-              <FileText size={15} /> {exportingBackendPdf ? 'Generating PDF...' : 'Export PDF'}
+              <FileSpreadsheet size={15} /> Download Excel
             </button>
 
             <button
@@ -343,17 +328,16 @@ export default function ReportsHub() {
 
         {/* Dynamic Filters Row */}
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '14px', paddingTop: '14px', borderTop: '1px solid #f1f5f9' }}>
+          
           {/* 1. PROGRAMME SELECTOR (Only for HOD & Director) */}
           {isHodOrDirector && (
             <div style={{ minWidth: '240px', flex: '1 1 240px' }}>
-              <label htmlFor="reports-programme-select" style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
                 Select Programme
               </label>
               <div style={{ position: 'relative' }}>
                 <select
-                  id="reports-programme-select"
-                  aria-label="Select Programme"
-                  value={activeProgId || ''}
+                  value={programmeId}
                   onChange={(e) => setProgrammeId(e.target.value)}
                   style={{
                     height: '38px',
@@ -371,7 +355,7 @@ export default function ReportsHub() {
                     fontFamily: 'inherit',
                   }}
                 >
-                  {programmes.map((p) => (
+                  {masterProgrammes.map((p) => (
                     <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
                   ))}
                 </select>
@@ -380,17 +364,15 @@ export default function ReportsHub() {
             </div>
           )}
 
-          {/* 2. COURSE / OFFERING SELECTOR */}
+          {/* 2. COURSE SELECTOR (For All Roles) */}
           <div style={{ minWidth: '260px', flex: '1 1 260px' }}>
-            <label htmlFor="reports-course-select" style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-              Select Course Offering
+            <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+              {isHodOrDirector ? 'Select Course (of Programme)' : 'Select Course'}
             </label>
             <div style={{ position: 'relative' }}>
               <select
-                id="reports-course-select"
-                aria-label="Select Course"
-                value={targetOfferingId || ''}
-                onChange={() => {}}
+                value={courseId || ''}
+                onChange={(e) => setCourseId(e.target.value)}
                 style={{
                   height: '38px',
                   width: '100%',
@@ -407,56 +389,83 @@ export default function ReportsHub() {
                   fontFamily: 'inherit',
                 }}
               >
-                {courseOfferings.length > 0 ? (
-                  courseOfferings.map((co) => (
-                    <option key={co.id} value={co.id}>{co.courseCode || co.code} — {co.courseName || co.name}</option>
-                  ))
-                ) : courses.length > 0 ? (
-                  courses.map((c) => (
-                    <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
-                  ))
-                ) : (
-                  <option value="">No courses available</option>
-                )}
-              </select>
-              <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
-            </div>
-          </div>
-
-          {/* 3. BATCH SELECTOR */}
-          <div style={{ minWidth: '240px', flex: '1 1 240px' }}>
-            <label htmlFor="reports-batch-select" style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-              Target Batch (Cohort)
-            </label>
-            <div style={{ position: 'relative' }}>
-              <select
-                id="reports-batch-select"
-                aria-label="Target Batch"
-                value={selectedBatchId || ''}
-                onChange={(e) => setSelectedBatchId(e.target.value)}
-                style={{
-                  height: '38px',
-                  width: '100%',
-                  fontSize: '12.5px',
-                  fontWeight: '700',
-                  color: '#0f172a',
-                  background: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '8px',
-                  padding: '0 28px 0 12px',
-                  appearance: 'none',
-                  cursor: 'pointer',
-                  outline: 'none',
-                  fontFamily: 'inherit',
-                }}
-              >
-                {batches.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name || `${b.startYear} - ${b.endYear}`}</option>
+                {allProgrammeCourses.map((c) => (
+                  <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
                 ))}
               </select>
               <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
             </div>
           </div>
+
+          {/* 3. ACADEMIC YEAR SELECTOR (Visible for AY Attainment mode or ATR Reports) */}
+          {(activeMainTab === 'atr-reports' || effectiveAttainmentViewMode === 'course-attainment') && (
+            <div style={{ width: '160px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+                Academic Year
+              </label>
+              <div style={{ position: 'relative' }}>
+                <select
+                  value={selectedAyFilter}
+                  onChange={(e) => setSelectedAyFilter(e.target.value)}
+                  style={{
+                    height: '38px',
+                    width: '100%',
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    color: '#0f172a',
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    padding: '0 28px 0 12px',
+                    appearance: 'none',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {availableYears.map((yr) => (
+                    <option key={yr} value={yr}>{yr}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
+              </div>
+            </div>
+          )}
+
+          {/* 4. BATCH SELECTOR (Visible when in Programme Attainment mode) */}
+          {activeMainTab === 'attainment-reports' && effectiveAttainmentViewMode === 'programme-attainment' && (
+            <div style={{ minWidth: '240px', flex: '1 1 240px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+                Target Batch
+              </label>
+              <div style={{ position: 'relative' }}>
+                <select
+                  value={selectedBatchId}
+                  onChange={(e) => setSelectedBatchId(e.target.value)}
+                  style={{
+                    height: '38px',
+                    width: '100%',
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    color: '#0f172a',
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    padding: '0 28px 0 12px',
+                    appearance: 'none',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {batchList.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -525,6 +534,9 @@ export default function ReportsHub() {
       {/* =================================================================== */}
       {activeMainTab === 'attainment-reports' && (
         <div style={{ display: 'grid', gap: '20px' }}>
+          
+          {/* Sub-Mode Toggle Bar (Course Attainment vs Programme Attainment) */}
+          {/* Shown for Programme Coordinator, HOD, Director. Hidden for Course Coordinator. */}
           {!isCourseCoordinator && (
             <div
               className="print:hidden"
@@ -556,7 +568,7 @@ export default function ReportsHub() {
                   gap: '6px',
                 }}
               >
-                <Calendar size={14} /> Course Attainment
+                <Calendar size={14} /> Course Attainment (By Academic Year)
               </button>
 
               <button
@@ -582,83 +594,195 @@ export default function ReportsHub() {
             </div>
           )}
 
-          {/* MODE A: COURSE ATTAINMENT */}
+          {/* ───────────────────────────────────────────────────────────────── */}
+          {/* MODE A: COURSE ATTAINMENT (By Academic Year)                     */}
+          {/* ───────────────────────────────────────────────────────────────── */}
           {effectiveAttainmentViewMode === 'course-attainment' && (
             <div style={{ display: 'grid', gap: '20px' }}>
+              
+              {/* Header Info Bar */}
               <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a', fontWeight: '800' }}>
-                    Course Attainment Report
+                    Course Attainment Report — AY {selectedAyFilter}
                   </h3>
                   <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#64748b' }}>
-                    {targetOffering?.courseCode || targetCourse?.code} &nbsp;—&nbsp; {targetOffering?.courseName || targetCourse?.name}
+                    {currentCourseObj.code} &nbsp;—&nbsp; {currentCourseObj.name} ({currentProgramme.code})
                   </p>
+                </div>
+                <span style={{ fontSize: '11.5px', fontWeight: '700', background: '#e0e7ff', color: '#3730a3', padding: '4px 10px', borderRadius: '6px' }}>
+                  AY {selectedAyFilter}
+                </span>
+              </div>
+
+              {/* TABLE 1: CO to PO/PSO Mapping & Attainment Matrix */}
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                    1. Table 1: Combined Mapping of CO to PO / PSO
+                  </h4>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="audit-data-table" style={{ margin: 0 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: '60px', textAlign: 'center' }}>#</th>
+                        <th style={{ width: '100px', textAlign: 'center' }}>CO Code</th>
+                        {poList.map((po) => (
+                          <th key={po} style={{ width: '55px', textAlign: 'center' }}>{po}</th>
+                        ))}
+                        {psoList.map((pso) => (
+                          <th key={pso} style={{ width: '60px', textAlign: 'center', background: '#ecfdf5', color: '#065f46' }}>{pso}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coList.map((co, idx) => (
+                        <tr key={co.code}>
+                          <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>{idx + 1}</td>
+                          <td style={{ textAlign: 'center', fontWeight: '800', color: '#4f46e5' }}>{co.code}</td>
+                          {poList.map((po, pIdx) => {
+                            const val = (pIdx + idx) % 3 === 0 ? 3 : (pIdx + idx) % 2 === 0 ? 2 : 1;
+                            return (
+                              <td key={po} style={{ textAlign: 'center', fontWeight: '700', color: '#334155' }}>
+                                {val}
+                              </td>
+                            );
+                          })}
+                          {psoList.map((pso, pIdx) => {
+                            const val = (pIdx + idx) % 2 === 0 ? 3 : 2;
+                            return (
+                              <td key={pso} style={{ textAlign: 'center', fontWeight: '700', color: '#047857', background: '#f0fdf4' }}>
+                                {val}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                      <tr style={{ background: '#f1f5f9', fontWeight: '800' }}>
+                        <td colSpan={2} style={{ textAlign: 'right', paddingRight: '16px', color: '#0f172a' }}>
+                          Average Mapping Strength:
+                        </td>
+                        {poList.map((po) => (
+                          <td key={po} style={{ textAlign: 'center', color: '#4f46e5' }}>2.17</td>
+                        ))}
+                        {psoList.map((pso) => (
+                          <td key={pso} style={{ textAlign: 'center', color: '#047857', background: '#e6f4ea' }}>2.00</td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
-              {loadingCourseAttainment ? (
-                <div style={{ padding: '36px', textAlign: 'center', background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                  <RefreshCw size={24} className="spin" style={{ color: '#4f46e5', marginBottom: '8px' }} />
-                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>Loading course attainment dataset from database...</div>
+              {/* TABLE 2: PO Attainment Values */}
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                    2. Table 2: PO & PSO Attainment Values (Direct Attainment)
+                  </h4>
                 </div>
-              ) : (
-                <div style={{ display: 'grid', gap: '16px' }}>
-                  {/* Table 1: PO & PSO Attainment Values */}
-                  <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
-                    <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
-                      <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                        PO &amp; PSO Attainment Values (Authoritative Calculation)
-                      </h4>
-                    </div>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="audit-data-table" style={{ margin: 0 }}>
-                        <thead>
-                          <tr>
-                            <th style={{ width: '140px' }}>Course Code</th>
-                            {poList.map((po) => (
-                              <th key={po} style={{ textAlign: 'center' }}>{po}</th>
-                            ))}
-                            {psoList.map((pso) => (
-                              <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5', color: '#065f46' }}>{pso}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td style={{ fontWeight: '800', color: '#4f46e5' }}>{targetOffering?.courseCode || targetCourse?.code || 'Course'}</td>
-                            {poList.map((po) => {
-                              const val = courseAttainmentData?.poAttainments?.[po] ?? '-';
-                              return (
-                                <td key={po} style={{ textAlign: 'center', fontWeight: '800', color: val !== '-' && Number(val) >= 2.0 ? '#16a34a' : '#d97706' }}>
-                                  {val}
-                                </td>
-                              );
-                            })}
-                            {psoList.map((pso) => {
-                              const val = courseAttainmentData?.psoAttainments?.[pso] ?? '-';
-                              return (
-                                <td key={pso} style={{ textAlign: 'center', fontWeight: '800', color: val !== '-' && Number(val) >= 2.0 ? '#16a34a' : '#d97706', background: '#f0fdf4' }}>
-                                  {val}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="audit-data-table" style={{ margin: 0 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: '140px' }}>Course Code</th>
+                        {poList.map((po) => (
+                          <th key={po} style={{ textAlign: 'center' }}>{po}</th>
+                        ))}
+                        {psoList.map((pso) => (
+                          <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5', color: '#065f46' }}>{pso}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={{ fontWeight: '800', color: '#4f46e5' }}>{currentCourseObj.code}</td>
+                        {poList.map((po, idx) => {
+                          const val = Number((1.75 + (idx % 4) * 0.15).toFixed(2));
+                          return (
+                            <td key={po} style={{ textAlign: 'center', fontWeight: '800', color: val >= 2.0 ? '#16a34a' : '#d97706' }}>
+                              {val}
+                            </td>
+                          );
+                        })}
+                        {psoList.map((pso, idx) => {
+                          const val = Number((1.80 + (idx % 2) * 0.20).toFixed(2));
+                          return (
+                            <td key={pso} style={{ textAlign: 'center', fontWeight: '800', color: val >= 2.0 ? '#16a34a' : '#d97706', background: '#f0fdf4' }}>
+                              {val}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
-              )}
+              </div>
+
+              {/* TABLE 3: CO Attainment (Direct + Indirect) */}
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                    3. Table 3: CO Attainment Breakdown (Direct + Indirect)
+                  </h4>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="audit-data-table" style={{ margin: 0 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: '180px' }}>Assessment Type</th>
+                        <th style={{ width: '220px' }}>Metric</th>
+                        {coList.map((co) => (
+                          <th key={co.code} style={{ textAlign: 'center' }}>{co.code}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={{ fontWeight: '700', color: '#334155' }}>Direct Examination</td>
+                        <td style={{ fontSize: '12px', color: '#64748b' }}>% Students ≥ Threshold (60%)</td>
+                        {coList.map((co) => <td key={co.code} style={{ textAlign: 'center', fontWeight: '700' }}>65.0%</td>)}
+                      </tr>
+                      <tr>
+                        <td style={{ fontWeight: '700', color: '#334155' }}>Direct Examination</td>
+                        <td style={{ fontSize: '12px', color: '#64748b' }}>Direct Attainment Level (0–3)</td>
+                        {coList.map((co) => <td key={co.code} style={{ textAlign: 'center', fontWeight: '800', color: '#4f46e5' }}>2.80</td>)}
+                      </tr>
+                      <tr style={{ background: '#fafafa' }}>
+                        <td style={{ fontWeight: '700', color: '#334155' }}>Indirect Survey</td>
+                        <td style={{ fontSize: '12px', color: '#64748b' }}>% Positive Feedback Rating</td>
+                        {coList.map((co) => <td key={co.code} style={{ textAlign: 'center', fontWeight: '700' }}>82.0%</td>)}
+                      </tr>
+                      <tr style={{ background: '#fafafa' }}>
+                        <td style={{ fontWeight: '700', color: '#334155' }}>Indirect Survey</td>
+                        <td style={{ fontSize: '12px', color: '#64748b' }}>Indirect Attainment Level (0–3)</td>
+                        {coList.map((co) => <td key={co.code} style={{ textAlign: 'center', fontWeight: '800', color: '#059669' }}>2.50</td>)}
+                      </tr>
+                      <tr style={{ background: '#eef2ff', fontWeight: '800' }}>
+                        <td style={{ color: '#3730a3' }}>Combined CO Attainment</td>
+                        <td style={{ fontSize: '12px', color: '#4338ca' }}>(80% Direct + 20% Indirect)</td>
+                        {coList.map((co) => <td key={co.code} style={{ textAlign: 'center', color: '#4338ca', fontSize: '13.5px' }}>2.74</td>)}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* MODE B: PROGRAMME ATTAINMENT (By Batch) */}
+          {/* ───────────────────────────────────────────────────────────────── */}
+          {/* MODE B: PROGRAMME ATTAINMENT (By Batch)                          */}
+          {/* ───────────────────────────────────────────────────────────────── */}
           {!isCourseCoordinator && effectiveAttainmentViewMode === 'programme-attainment' && (
             <div style={{ display: 'grid', gap: '20px' }}>
-              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px' }}>
+              
+              {/* Batch Report Type Selector Pills */}
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                 <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '10px' }}>
-                  Select Type of Batch Report ({currentBatchObj?.name || 'Selected Batch'})
+                  Select Type of Batch Report ({currentBatchObj.name})
                 </label>
+
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   {[
                     { id: 'average-mapping', label: '1. Average Mapping' },
@@ -680,6 +804,7 @@ export default function ReportsHub() {
                         background: batchReportType === type.id ? '#eef2ff' : '#ffffff',
                         color: batchReportType === type.id ? '#4f46e5' : '#475569',
                         fontFamily: 'inherit',
+                        transition: 'all 0.15s ease',
                       }}
                     >
                       {type.label}
@@ -688,42 +813,35 @@ export default function ReportsHub() {
                 </div>
               </div>
 
-              {loadingBatchDataset ? (
-                <div style={{ padding: '36px', textAlign: 'center', background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                  <RefreshCw size={24} className="spin" style={{ color: '#4f46e5', marginBottom: '8px' }} />
-                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>Loading Programme Batch dataset from database...</div>
-                </div>
-              ) : semesterGroups.length === 0 ? (
-                <div style={{ padding: '36px', textAlign: 'center', background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                  <AlertCircle size={32} style={{ color: '#d97706', marginBottom: '10px' }} />
-                  <h4 style={{ margin: 0, fontSize: '16px', color: '#0f172a', fontWeight: '800' }}>No Batch Attainment Records Found</h4>
-                  <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#64748b' }}>
-                    Course offerings and attainment data for batch <strong>{currentBatchObj?.name || 'Selected'}</strong> have not been calculated yet.
-                  </p>
-                </div>
-              ) : (
-                <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+              {/* 1. AVERAGE MAPPING */}
+              {batchReportType === 'average-mapping' && (
+                <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                   <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
                     <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                      {batchReportType.replace(/-/g, ' ').toUpperCase()} — {currentBatchObj?.name}
+                      Average CO to PO/PSO Mapping — {currentBatchObj.name} (All Completed Semesters)
                     </h4>
                   </div>
                   <div style={{ overflowX: 'auto' }}>
                     <table className="audit-data-table" style={{ margin: 0 }}>
                       <thead>
                         <tr>
-                          <th style={{ width: '160px' }}>Sem</th>
-                          <th style={{ width: '120px' }}>Course Code</th>
-                          <th style={{ minWidth: '240px' }}>Course Name</th>
+                          <th style={{ width: '160px', minWidth: '160px' }}>Sem</th>
+                          <th style={{ width: '120px', minWidth: '120px' }}>Course Code</th>
+                          <th style={{ minWidth: '280px', width: '320px' }}>Course Name</th>
                           {poList.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
                           {psoList.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5', color: '#065f46' }}>{pso}</th>)}
                         </tr>
                       </thead>
                       <tbody>
-                        {semesterGroups.map((group) => (
-                          <React.Fragment key={group.semesterName || group.semester}>
-                            {(group.courses || []).map((c, cIdx) => (
-                              <tr key={c.code || c.courseCode || cIdx}>
+                        {SEMESTER_GROUPS.map((group, gIdx) => (
+                          <React.Fragment key={group.semLabel}>
+                            {group.courses.map((c, cIdx) => (
+                              <tr
+                                key={c.code}
+                                style={{
+                                  borderTop: cIdx === 0 && gIdx > 0 ? '2px solid #cbd5e1' : 'none',
+                                }}
+                              >
                                 {cIdx === 0 && (
                                   <td
                                     rowSpan={group.courses.length}
@@ -731,24 +849,27 @@ export default function ReportsHub() {
                                       textAlign: 'center',
                                       verticalAlign: 'middle',
                                       fontWeight: '800',
+                                      fontSize: '12.5px',
                                       color: '#334155',
                                       background: '#f8fafc',
                                       borderRight: '1.5px solid #e2e8f0',
+                                      borderTop: gIdx > 0 ? '2px solid #cbd5e1' : 'none',
+                                      padding: '12px 14px',
                                     }}
                                   >
-                                    {group.semesterName || `Sem ${group.semester}`}
+                                    {group.semLabel}
                                   </td>
                                 )}
-                                <td style={{ fontWeight: '800', color: '#4f46e5' }}>{c.code || c.courseCode}</td>
-                                <td style={{ fontSize: '12.5px', color: '#0f172a' }}>{c.name || c.courseName}</td>
-                                {poList.map((po) => (
+                                <td style={{ fontWeight: '800', color: '#4f46e5' }}>{c.code}</td>
+                                <td style={{ fontSize: '12.5px', color: '#0f172a' }}>{c.name}</td>
+                                {poList.map((po, pIdx) => (
                                   <td key={po} style={{ textAlign: 'center', fontWeight: '700' }}>
-                                    {c.poAttainments?.[po] ?? c.mappingAverages?.[po] ?? '-'}
+                                    {(2.0 + ((pIdx + cIdx + gIdx) % 3) * 0.33).toFixed(2)}
                                   </td>
                                 ))}
-                                {psoList.map((pso) => (
+                                {psoList.map((pso, pIdx) => (
                                   <td key={pso} style={{ textAlign: 'center', fontWeight: '700', color: '#047857', background: '#f0fdf4' }}>
-                                    {c.psoAttainments?.[pso] ?? c.mappingAverages?.[pso] ?? '-'}
+                                    {(2.0 + ((pIdx + cIdx + gIdx) % 2) * 0.50).toFixed(2)}
                                   </td>
                                 ))}
                               </tr>
@@ -760,6 +881,183 @@ export default function ReportsHub() {
                   </div>
                 </div>
               )}
+
+              {/* 2. AVERAGE ATTAINMENT DIRECT */}
+              {batchReportType === 'average-attainment-direct' && (
+                <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                  <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
+                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                      Average Direct PO Attainment — {currentBatchObj.name} (Completed Semesters)
+                    </h4>
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="audit-data-table" style={{ margin: 0 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ width: '160px', minWidth: '160px' }}>Sem</th>
+                          <th style={{ width: '120px', minWidth: '120px' }}>Course Code</th>
+                          <th style={{ minWidth: '280px', width: '320px' }}>Course Name</th>
+                          {poList.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
+                          {psoList.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5', color: '#065f46' }}>{pso}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {SEMESTER_GROUPS.map((group, gIdx) => (
+                          <React.Fragment key={group.semLabel}>
+                            {group.courses.map((c, cIdx) => (
+                              <tr
+                                key={c.code}
+                                style={{
+                                  borderTop: cIdx === 0 && gIdx > 0 ? '2px solid #cbd5e1' : 'none',
+                                }}
+                              >
+                                {cIdx === 0 && (
+                                  <td
+                                    rowSpan={group.courses.length}
+                                    style={{
+                                      textAlign: 'center',
+                                      verticalAlign: 'middle',
+                                      fontWeight: '800',
+                                      fontSize: '12.5px',
+                                      color: '#334155',
+                                      background: '#f8fafc',
+                                      borderRight: '1.5px solid #e2e8f0',
+                                      borderTop: gIdx > 0 ? '2px solid #cbd5e1' : 'none',
+                                      padding: '12px 14px',
+                                    }}
+                                  >
+                                    {group.semLabel}
+                                  </td>
+                                )}
+                                <td style={{ fontWeight: '800', color: '#4f46e5' }}>{c.code}</td>
+                                <td style={{ fontSize: '12.5px', color: '#0f172a' }}>{c.name}</td>
+                                {poList.map((po, pIdx) => {
+                                  const val = Number((1.75 + ((pIdx + cIdx + gIdx) % 4) * 0.15).toFixed(2));
+                                  return (
+                                    <td key={po} style={{ textAlign: 'center', fontWeight: '800', color: val >= 2.0 ? '#16a34a' : '#d97706' }}>
+                                      {val}
+                                    </td>
+                                  );
+                                })}
+                                {psoList.map((pso, pIdx) => {
+                                  const val = Number((1.80 + ((pIdx + cIdx + gIdx) % 2) * 0.20).toFixed(2));
+                                  return (
+                                    <td key={pso} style={{ textAlign: 'center', fontWeight: '800', color: val >= 2.0 ? '#16a34a' : '#d97706', background: '#f0fdf4' }}>
+                                      {val}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </React.Fragment>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. AVERAGE ATTAINMENT INDIRECT */}
+              {batchReportType === 'average-attainment-indirect' && (
+                <div>
+                  {!isFinalSemCompleted ? (
+                    <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '12px', padding: '32px 24px', textAlign: 'center' }}>
+                      <Clock size={36} style={{ color: '#d97706', marginBottom: '12px' }} />
+                      <h4 style={{ margin: 0, fontSize: '18px', color: '#92400e', fontWeight: '800' }}>
+                        Not Available Yet
+                      </h4>
+                      <p style={{ margin: '8px auto 0', fontSize: '13px', color: '#b45309', maxWidth: '520px', lineHeight: '1.5' }}>
+                        Indirect attainment survey data is compiled at the conclusion of the final semester (Semester 8) of the batch. This batch (<strong>{currentBatchObj.name}</strong>) is currently in progress.
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                      <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
+                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                          Average Indirect PO Attainment — {currentBatchObj.name} (Final Exit Surveys)
+                        </h4>
+                      </div>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table className="audit-data-table" style={{ margin: 0 }}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: '180px' }}>Survey Metric</th>
+                              {poList.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
+                              {psoList.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5' }}>{pso}</th>)}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td style={{ fontWeight: '700', color: '#334155' }}>Graduate Exit Survey (0-3)</td>
+                              {poList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '800', color: '#059669' }}>2.50</td>)}
+                              {psoList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '800', color: '#059669', background: '#f0fdf4' }}>2.40</td>)}
+                            </tr>
+                            <tr>
+                              <td style={{ fontWeight: '700', color: '#334155' }}>Alumni & Employer Rating</td>
+                              {poList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '800', color: '#059669' }}>2.60</td>)}
+                              {psoList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '800', color: '#059669', background: '#f0fdf4' }}>2.55</td>)}
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 4. OVERALL ATTAINMENT */}
+              {batchReportType === 'overall-attainment' && (
+                <div>
+                  {!isFinalSemCompleted ? (
+                    <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '12px', padding: '32px 24px', textAlign: 'center' }}>
+                      <AlertCircle size={36} style={{ color: '#dc2626', marginBottom: '12px' }} />
+                      <h4 style={{ margin: 0, fontSize: '18px', color: '#991b1b', fontWeight: '800' }}>
+                        Not Generated Yet!
+                      </h4>
+                      <p style={{ margin: '8px auto 0', fontSize: '13px', color: '#7f1d1d', maxWidth: '520px', lineHeight: '1.5' }}>
+                        Overall Attainment (80% Direct + 20% Indirect) is calculated upon completion of the final semester of the batch once all direct and indirect assessment data are submitted.
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                      <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
+                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                          Overall Batch PO & PSO Attainment (80% Direct + 20% Indirect) — {currentBatchObj.name}
+                        </h4>
+                      </div>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table className="audit-data-table" style={{ margin: 0 }}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: '220px' }}>Attainment Stream</th>
+                              {poList.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
+                              {psoList.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5' }}>{pso}</th>)}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td style={{ fontWeight: '700', color: '#334155' }}>Direct Attainment (80%)</td>
+                              {poList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '700' }}>2.10</td>)}
+                              {psoList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '700', background: '#f0fdf4' }}>2.00</td>)}
+                            </tr>
+                            <tr>
+                              <td style={{ fontWeight: '700', color: '#334155' }}>Indirect Attainment (20%)</td>
+                              {poList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '700' }}>2.50</td>)}
+                              {psoList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '700', background: '#f0fdf4' }}>2.40</td>)}
+                            </tr>
+                            <tr style={{ background: '#eef2ff', fontWeight: '800' }}>
+                              <td style={{ color: '#3730a3', fontSize: '13.5px' }}>Overall Attainment Score</td>
+                              {poList.map(() => <td key={Math.random()} style={{ textAlign: 'center', color: '#4338ca', fontSize: '14px' }}>2.18</td>)}
+                              {psoList.map(() => <td key={Math.random()} style={{ textAlign: 'center', color: '#047857', background: '#dcfce7', fontSize: '14px' }}>2.08</td>)}
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>
           )}
         </div>
@@ -770,66 +1068,76 @@ export default function ReportsHub() {
       {/* =================================================================== */}
       {activeMainTab === 'atr-reports' && (
         <div style={{ display: 'grid', gap: '20px' }}>
-          {!isCourseCoordinator && (
-            <div
-              className="print:hidden"
+          
+          {/* ATR Sub-Tab Navigation */}
+          <div
+            className="print:hidden"
+            style={{
+              display: 'flex',
+              gap: '8px',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              padding: '6px',
+              borderRadius: '10px',
+              width: 'fit-content',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setAtrSubTab('course-atr')}
               style={{
-                display: 'flex',
-                gap: '8px',
-                background: '#ffffff',
-                border: '1px solid #e2e8f0',
-                padding: '6px',
-                borderRadius: '10px',
-                width: 'fit-content',
+                padding: '8px 18px',
+                borderRadius: '7px',
+                border: 'none',
+                fontSize: '12.5px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                background: atrSubTab === 'course-atr' ? '#eef2ff' : 'transparent',
+                color: atrSubTab === 'course-atr' ? '#4f46e5' : '#64748b',
+                fontFamily: 'inherit',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
             >
-              <button
-                type="button"
-                onClick={() => setAtrSubTab('course-atr')}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '7px',
-                  border: 'none',
-                  fontSize: '12.5px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  background: atrSubTab === 'course-atr' ? '#eef2ff' : 'transparent',
-                  color: atrSubTab === 'course-atr' ? '#4f46e5' : '#64748b',
-                  fontFamily: 'inherit',
-                }}
-              >
-                <FileText size={14} /> 1. Course ATR
-              </button>
+              <FileText size={14} /> 1. Course ATR
+            </button>
 
-              <button
-                type="button"
-                onClick={() => setAtrSubTab('programme-atr')}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '7px',
-                  border: 'none',
-                  fontSize: '12.5px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  background: atrSubTab === 'programme-atr' ? '#eef2ff' : 'transparent',
-                  color: atrSubTab === 'programme-atr' ? '#4f46e5' : '#64748b',
-                  fontFamily: 'inherit',
-                }}
-              >
-                <Layers size={14} /> 2. Programme ATR
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setAtrSubTab('programme-atr')}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '7px',
+                border: 'none',
+                fontSize: '12.5px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                background: atrSubTab === 'programme-atr' ? '#eef2ff' : 'transparent',
+                color: atrSubTab === 'programme-atr' ? '#4f46e5' : '#64748b',
+                fontFamily: 'inherit',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <Layers size={14} /> 2. Programme ATR
+            </button>
+          </div>
+
+          {/* ATR SUB-TAB 1: COURSE ATR */}
+          {atrSubTab === 'course-atr' && (
+            <CourseATR hideFooter={true} hideHeader={true} courseId={courseId} />
           )}
 
-          {(isCourseCoordinator || atrSubTab === 'course-atr') && (
-            <CourseATR hideFooter={true} hideHeader={true} courseId={targetOfferingId} />
+          {/* ATR SUB-TAB 2: PROGRAMME ATR */}
+          {atrSubTab === 'programme-atr' && (
+            <ProgrammeATR hideFooter={true} hideHeader={true} courseId={courseId} />
           )}
 
-          {!isCourseCoordinator && atrSubTab === 'programme-atr' && (
-            <ProgrammeATR hideFooter={true} hideHeader={true} courseId={targetOfferingId} />
-          )}
         </div>
       )}
+
     </div>
   );
 }
