@@ -140,6 +140,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
   useEffect(() => {
     const targetData = courseVerificationStore[targetCourseId] || {};
     const globalStatus = targetData.coStatus || currentCoVerificationStatus || 'PENDING_APPROVAL';
+    const courseTargets = coTargets[targetCourseId] || {};
 
     setCoList(
       activeCOs.map((co) => {
@@ -150,15 +151,26 @@ export default function OutcomesManagement({ hideFooter = false }) {
             ? 'REJECTED'
             : co.status || 'WAITING_FOR_APPROVAL';
 
+        const tVal =
+          co.targetLevel !== undefined
+            ? co.targetLevel
+            : courseTargets[co.code] !== undefined
+            ? courseTargets[co.code]
+            : co.target !== undefined
+            ? co.target
+            : 2.5;
+
         return {
           ...co,
+          targetLevel: tVal,
+          target: tVal,
           status: computedStatus,
           submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
           submittedAt: co.submittedAt || '2026-08-04',
         };
       })
     );
-  }, [targetCourseId, selectedCourse, activeCOs, currentCoVerificationStatus, courseVerificationStore]);
+  }, [targetCourseId, selectedCourse, activeCOs, currentCoVerificationStatus, courseVerificationStore, coTargets]);
 
   // ── PO Handlers (Programme Coordinator Proposes -> Director Verifies) ─────────
   const handleAddPO = () => {
@@ -384,6 +396,8 @@ export default function OutcomesManagement({ hideFooter = false }) {
     const newCo = {
       code: `C321.${newCoNum}`,
       statement: `New proposed Course Outcome statement ${newCoNum}...`,
+      targetLevel: 2.5,
+      target: 2.5,
       status: role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' ? 'APPROVED' : 'WAITING_FOR_APPROVAL',
       submittedBy: user?.name || 'Course Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
@@ -391,6 +405,12 @@ export default function OutcomesManagement({ hideFooter = false }) {
     const updated = [...coList, newCo];
     setCoList(updated);
     updateCourseCOs(targetCourseId, updated);
+    if (selectedCourse?.id) {
+      updateCourseCoTargets(selectedCourse.id, {
+        ...(coTargets[selectedCourse.id] || {}),
+        [newCo.code]: 2.5,
+      });
+    }
     if (isLimitedUser) {
       updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
     }
@@ -400,6 +420,28 @@ export default function OutcomesManagement({ hideFooter = false }) {
     const updated = coList.map((c, i) => (i === index ? { ...c, code: newCode, status: isLimitedUser ? 'WAITING_FOR_APPROVAL' : c.status } : c));
     setCoList(updated);
     updateCourseCOs(targetCourseId, updated);
+    if (isLimitedUser) {
+      updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
+    }
+  };
+
+  const handleUpdateCOTarget = (index, val) => {
+    const num = parseFloat(val);
+    const validVal = isNaN(num) ? val : Math.min(3.0, Math.max(1.0, num));
+    const targetNum = isNaN(num) ? 2.5 : validVal;
+    const updated = coList.map((c, i) =>
+      i === index ? { ...c, targetLevel: validVal, target: validVal } : c
+    );
+    setCoList(updated);
+    updateCourseCOs(targetCourseId, updated);
+
+    const coCode = coList[index]?.code;
+    if (coCode && targetCourseId) {
+      updateCourseCoTargets(targetCourseId, {
+        ...(coTargets[targetCourseId] || {}),
+        [coCode]: targetNum,
+      });
+    }
     if (isLimitedUser) {
       updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
     }
@@ -1015,7 +1057,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                     <th style={{ width: '50px', textAlign: 'center' }}>#</th>
                     <th style={{ width: '90px', minWidth: '90px', maxWidth: '100px', textAlign: 'center' }}>CO Code</th>
                     <th style={{ width: '100%' }}>Course Outcome Statement</th>
-                    <th style={{ width: '150px' }}>Proposed By</th>
+                    <th style={{ width: '110px', textAlign: 'center' }}>Target</th>
                     <th style={{ width: '180px', textAlign: 'center' }}>Approval Status</th>
                     <th style={{ width: '150px', textAlign: 'center' }}>Actions</th>
                   </tr>
@@ -1035,6 +1077,8 @@ export default function OutcomesManagement({ hideFooter = false }) {
                       const isApproved = co.status === 'APPROVED' || co.status === 'VERIFIED' || globalStatus === 'APPROVED' || globalStatus === 'VERIFIED';
                       const isRejected = co.status === 'REJECTED' || co.status === 'REVISION_REQUESTED' || globalStatus === 'REJECTED' || globalStatus === 'REVISION_REQUESTED';
                       const isPending = !isApproved && !isRejected;
+
+                      const targetVal = co.targetLevel !== undefined ? co.targetLevel : (co.target !== undefined ? co.target : 2.5);
 
                       return (
                         <tr key={index}>
@@ -1057,9 +1101,26 @@ export default function OutcomesManagement({ hideFooter = false }) {
                               style={{ fontSize: '13px', width: '100%', minWidth: '500px', boxSizing: 'border-box', padding: '8px 12px' }}
                             />
                           </td>
-                          <td style={{ fontSize: '11.5px', color: '#475569' }}>
-                            <strong>{co.submittedBy}</strong>
-                            <div style={{ fontSize: '10px', color: '#94a3b8' }}>{co.submittedAt}</div>
+                          <td style={{ textAlign: 'center', width: '110px' }}>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="1.0"
+                              max="3.0"
+                              className="form-control"
+                              style={{
+                                width: '70px',
+                                textAlign: 'center',
+                                fontWeight: '800',
+                                fontSize: '13px',
+                                color: '#0f172a',
+                                padding: '6px 8px',
+                                margin: '0 auto',
+                              }}
+                              value={targetVal}
+                              onChange={(e) => handleUpdateCOTarget(index, e.target.value)}
+                              title="Target attainment benchmark (1.0 to 3.0 scale)"
+                            />
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             {isApproved ? (
@@ -1133,8 +1194,8 @@ export default function OutcomesManagement({ hideFooter = false }) {
         <SectionSaveFooter
           label="Outcome Management"
           prevPath="/dashboard"
-          nextPath="/co-targets"
-          nextLabel="Save COs & Proceed to Step 2: Target Setting →"
+          nextPath="/co-mapping"
+          nextLabel="Save COs & Proceed to Step 2: CO–PO/PSO Mapping →"
           onSave={() => handleSaveChanges('Course Outcomes')}
         />
       )}

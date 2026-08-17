@@ -6,15 +6,14 @@ import {
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 
-// Exact 7-Step Course Coordinator Workflow Sequence
+// Exact 6-Step Course Coordinator Workflow Sequence
 export const WORKFLOW_STEPS = [
   { step: 1, label: 'Add COs',             path: '/outcomes',      icon: BookOpen      },
-  { step: 2, label: 'Target Setting',      path: '/co-targets',    icon: Target        },
-  { step: 3, label: 'CO Mapping',          path: '/co-mapping',    icon: Map           },
-  { step: 4, label: 'Direct Assessment',   path: '/marks-upload',  icon: Upload        },
-  { step: 5, label: 'Indirect Assessment', path: '/survey-upload', icon: ClipboardList  },
-  { step: 6, label: 'CO Attainment',       path: '/co-attainment', icon: BarChart2     },
-  { step: 7, label: 'Course ATR',          path: '/course-atr',    icon: FileText      },
+  { step: 2, label: 'CO Mapping',          path: '/co-mapping',    icon: Map           },
+  { step: 3, label: 'Direct Assessment',   path: '/marks-upload',  icon: Upload        },
+  { step: 4, label: 'Indirect Assessment', path: '/survey-upload', icon: ClipboardList  },
+  { step: 5, label: 'CO Attainment',       path: '/co-attainment', icon: BarChart2     },
+  { step: 6, label: 'Course ATR',          path: '/course-atr',    icon: FileText      },
 ];
 
 const accent = '#4f46e5';

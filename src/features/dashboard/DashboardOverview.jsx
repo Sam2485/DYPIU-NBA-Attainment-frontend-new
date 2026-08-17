@@ -16,13 +16,12 @@ const accent  = '#4f46e5';
 
 // ── Workflow steps mirroring WORKFLOW_STEPS in AttainmentProgressTracker ─────
 const WORKFLOW_STEPS = [
-  { step: 1, label: 'Add COs',             desc: 'Define Course Outcomes',              path: '/outcomes',       icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
-  { step: 2, label: 'CO Target Setting',   desc: 'Set CO attainment targets',           path: '/co-targets',     icon: Target,       color: '#0284c7', bg: '#f0f9ff' },
-  { step: 3, label: 'CO–PO/PSO Mapping',   desc: 'Map COs to programme outcomes',       path: '/co-mapping',     icon: Map,          color: '#7c3aed', bg: '#f5f3ff' },
-  { step: 4, label: 'Direct Assessment',   desc: 'Upload end-sem marks',                path: '/marks-upload',   icon: Upload,       color: '#0369a1', bg: '#e0f2fe' },
-  { step: 5, label: 'Indirect Assessment', desc: 'Upload course-end survey',            path: '/survey-upload',  icon: ClipboardList, color: '#059669', bg: '#f0fdf4' },
-  { step: 6, label: 'CO Attainment',       desc: 'Compute & view CO attainment',        path: '/co-attainment',  icon: BarChart2,    color: '#d97706', bg: '#fffbeb' },
-  { step: 7, label: 'Course ATR',          desc: 'Fill course action-taken report',     path: '/course-atr',     icon: FileText,     color: '#dc2626', bg: '#fef2f2' },
+  { step: 1, label: 'Add COs',             desc: 'Define Course Outcomes & Targets',    path: '/outcomes',       icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
+  { step: 2, label: 'CO–PO/PSO Mapping',   desc: 'Map COs to programme outcomes',       path: '/co-mapping',     icon: Map,          color: '#7c3aed', bg: '#f5f3ff' },
+  { step: 3, label: 'Direct Assessment',   desc: 'Upload end-sem marks',                path: '/marks-upload',   icon: Upload,       color: '#0369a1', bg: '#e0f2fe' },
+  { step: 4, label: 'Indirect Assessment', desc: 'Upload course-end survey',            path: '/survey-upload',  icon: ClipboardList, color: '#059669', bg: '#f0fdf4' },
+  { step: 5, label: 'CO Attainment',       desc: 'Compute & view CO attainment',        path: '/co-attainment',  icon: BarChart2,    color: '#d97706', bg: '#fffbeb' },
+  { step: 6, label: 'Course ATR',          desc: 'Fill course action-taken report',     path: '/course-atr',     icon: FileText,     color: '#dc2626', bg: '#fef2f2' },
 ];
 
 export default function DashboardOverview() {

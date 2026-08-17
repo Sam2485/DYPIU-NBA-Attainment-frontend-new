@@ -1,16 +1,13 @@
 import { BrowserRouter } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { AcademicProvider } from './context/AcademicContext';
+import { AppProvider } from './context';
 import AppRoutes from './routes/AppRoutes';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AcademicProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </AcademicProvider>
-    </AuthProvider>
+    <AppProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AppProvider>
   );
 }
