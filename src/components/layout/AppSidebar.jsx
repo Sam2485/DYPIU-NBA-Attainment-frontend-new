@@ -23,6 +23,7 @@ function Icon({ name, active = false, size = 16 }) {
   if (name === 'survey')     return <svg {...p}><path d="M7 3h7l3 3v15H7V3Z"/><path d="M14 3v4h4"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>;
   if (name === 'coa')        return <svg {...p}><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>;
   if (name === 'poa')        return <svg {...p}><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>;
+  if (name === 'atr')        return <svg {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>;
   if (name === 'reports')    return <svg {...p}><path d="M4 19.5V5a2 2 0 0 1 2-2h5v18H6a2 2 0 0 1-2-1.5Z"/><path d="M13 3h5a2 2 0 0 1 2 2v14.5A2 2 0 0 0 18 18h-5V3Z"/></svg>;
   if (name === 'chevron')    return <svg {...p}><path d="m6 9 6 6 6-6"/></svg>;
   if (name === 'profile')    return <svg {...p}><path d="M19 21a7 7 0 0 0-14 0"/><circle cx="12" cy="8" r="4"/></svg>;
@@ -80,6 +81,7 @@ const FACULTY_NAV = [
   { id: 'dashboard',           path: '/dashboard',                icon: 'dashboard', label: 'Dashboard' },
   { id: 'outcomes',            path: '/outcomes?mode=standalone', icon: 'outcomes',  label: 'Outcomes' },
   { id: 'configurations',      path: '/configurations',           icon: 'config',    label: 'Attainment Settings' },
+  { id: 'course-atr',          path: '/course-atr?mode=standalone', icon: 'atr',     label: 'Course ATR' },
   { id: 'reports',             path: '/reports',                  icon: 'reports',   label: 'Reports' },
 ];
 

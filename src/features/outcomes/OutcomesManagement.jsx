@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck } from 'lucide-react';
+import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck, Send } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import RowButtons from '../../components/common/RowButtons';
@@ -32,7 +32,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
   } = useAcademic();
 
   const targetCourseId = selectedCourse?.id || courseId || 'crs-1';
-  const currentCoVerificationStatus = courseVerificationStore[targetCourseId]?.coStatus || 'PENDING_APPROVAL';
+  const currentCoVerificationStatus = courseVerificationStore[targetCourseId]?.coStatus || 'DRAFT';
 
   const [localCoTargets, setLocalCoTargets] = useState({});
 
@@ -109,7 +109,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
   const [coList, setCoList] = useState(() => {
     return activeCOs.map((co) => ({
       ...co,
-      status: co.status || (currentCoVerificationStatus === 'APPROVED' ? 'APPROVED' : 'WAITING_FOR_APPROVAL'),
+      status: co.status || (currentCoVerificationStatus === 'APPROVED' ? 'APPROVED' : 'DRAFT'),
       submittedBy: co.submittedBy || user?.name || 'Course Coordinator',
       submittedAt: co.submittedAt || '2026-08-04',
     }));
@@ -139,7 +139,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
 
   useEffect(() => {
     const targetData = courseVerificationStore[targetCourseId] || {};
-    const globalStatus = targetData.coStatus || currentCoVerificationStatus || 'PENDING_APPROVAL';
+    const globalStatus = targetData.coStatus || currentCoVerificationStatus || 'DRAFT';
     const courseTargets = coTargets[targetCourseId] || {};
 
     setCoList(
@@ -149,7 +149,9 @@ export default function OutcomesManagement({ hideFooter = false }) {
             ? 'APPROVED'
             : globalStatus === 'REJECTED' || globalStatus === 'REVISION_REQUESTED'
             ? 'REJECTED'
-            : co.status || 'WAITING_FOR_APPROVAL';
+            : globalStatus === 'SUBMITTED' || globalStatus === 'PENDING_APPROVAL' || globalStatus === 'WAITING_FOR_APPROVAL'
+            ? 'SUBMITTED'
+            : co.status || 'DRAFT';
 
         const tVal =
           co.targetLevel !== undefined
@@ -398,7 +400,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
       statement: `New proposed Course Outcome statement ${newCoNum}...`,
       targetLevel: 2.5,
       target: 2.5,
-      status: role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' ? 'APPROVED' : 'WAITING_FOR_APPROVAL',
+      status: role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' ? 'APPROVED' : 'DRAFT',
       submittedBy: user?.name || 'Course Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
     };
@@ -411,18 +413,12 @@ export default function OutcomesManagement({ hideFooter = false }) {
         [newCo.code]: 2.5,
       });
     }
-    if (isLimitedUser) {
-      updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
-    }
   };
 
   const handleUpdateCOCode = (index, newCode) => {
-    const updated = coList.map((c, i) => (i === index ? { ...c, code: newCode, status: isLimitedUser ? 'WAITING_FOR_APPROVAL' : c.status } : c));
+    const updated = coList.map((c, i) => (i === index ? { ...c, code: newCode } : c));
     setCoList(updated);
     updateCourseCOs(targetCourseId, updated);
-    if (isLimitedUser) {
-      updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
-    }
   };
 
   const handleUpdateCOTarget = (index, val) => {
@@ -442,18 +438,12 @@ export default function OutcomesManagement({ hideFooter = false }) {
         [coCode]: targetNum,
       });
     }
-    if (isLimitedUser) {
-      updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
-    }
   };
 
   const handleUpdateCOStatement = (index, newStatement) => {
-    const updated = coList.map((c, i) => (i === index ? { ...c, statement: newStatement, status: isLimitedUser ? 'WAITING_FOR_APPROVAL' : c.status } : c));
+    const updated = coList.map((c, i) => (i === index ? { ...c, statement: newStatement } : c));
     setCoList(updated);
     updateCourseCOs(targetCourseId, updated);
-    if (isLimitedUser) {
-      updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
-    }
   };
 
   const handleApproveCO = (index) => {
@@ -493,18 +483,38 @@ export default function OutcomesManagement({ hideFooter = false }) {
     }
   };
 
+  const handleSubmitCOsForReview = () => {
+    const updated = coList.map((c) => ({
+      ...c,
+      status: 'SUBMITTED',
+      submittedBy: user?.name || 'Course Coordinator',
+      submittedAt: new Date().toISOString().split('T')[0],
+    }));
+    setCoList(updated);
+    updateCourseCOs(targetCourseId, updated);
+
+    const targetsMap = {};
+    updated.forEach((co) => {
+      targetsMap[co.code] = co.targetLevel !== undefined ? co.targetLevel : (co.target !== undefined ? co.target : 2.5);
+    });
+    updateCourseCoTargets(targetCourseId, targetsMap);
+
+    updateCourseVerificationStatus(targetCourseId, 'coStatus', 'SUBMITTED', '', user?.name || 'Course Coordinator');
+    alert(`Course Outcomes for ${selectedCourse?.code || 'this course'} have been submitted for review to the Programme Coordinator!`);
+  };
+
   const handleSaveChanges = (entityName) => {
     updateCourseCOs(targetCourseId, coList);
-    if (isLimitedUser) {
-      updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
-    }
     alert(`Changes to ${entityName} saved successfully!`);
   };
 
   // Pending Counts
   const pendingPoCount = poList.filter((p) => p.status === 'WAITING_FOR_DIRECTOR_VERIFICATION').length;
   const pendingPsoCount = psoList.filter((p) => p.status === 'WAITING_FOR_DIRECTOR_VERIFICATION').length;
-  const pendingCoCount = coList.filter((c) => c.status === 'WAITING_FOR_APPROVAL').length;
+  const pendingCoCount = coList.filter((c) => c.status === 'WAITING_FOR_APPROVAL' || c.status === 'SUBMITTED').length;
+
+  const targetData = courseVerificationStore[targetCourseId] || {};
+  const isCoApproved = currentCoVerificationStatus === 'APPROVED' || currentCoVerificationStatus === 'VERIFIED' || targetData.coStatus === 'APPROVED' || targetData.coStatus === 'VERIFIED';
 
   return (
     <div className="animated-page">
@@ -518,9 +528,11 @@ export default function OutcomesManagement({ hideFooter = false }) {
           </div>
 
           <div style={{ marginLeft: 'auto' }}>
-            <button className="btn btn-primary" onClick={() => handleSaveChanges('Course Outcomes')}>
-              <Save size={15} /> Save Changes
-            </button>
+            {!isCoApproved && (
+              <button className="btn btn-primary" onClick={handleSubmitCOsForReview} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <Send size={15} /> Submit CO for Review
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1072,11 +1084,12 @@ export default function OutcomesManagement({ hideFooter = false }) {
                   ) : (
                     coList.map((co, index) => {
                       const targetData = courseVerificationStore[targetCourseId] || {};
-                      const globalStatus = targetData.coStatus || currentCoVerificationStatus || 'PENDING_APPROVAL';
+                      const globalStatus = targetData.coStatus || currentCoVerificationStatus || 'DRAFT';
 
                       const isApproved = co.status === 'APPROVED' || co.status === 'VERIFIED' || globalStatus === 'APPROVED' || globalStatus === 'VERIFIED';
                       const isRejected = co.status === 'REJECTED' || co.status === 'REVISION_REQUESTED' || globalStatus === 'REJECTED' || globalStatus === 'REVISION_REQUESTED';
-                      const isPending = !isApproved && !isRejected;
+                      const isSubmitted = co.status === 'SUBMITTED' || co.status === 'PENDING_APPROVAL' || co.status === 'WAITING_FOR_APPROVAL' || globalStatus === 'SUBMITTED' || globalStatus === 'PENDING_APPROVAL' || globalStatus === 'WAITING_FOR_APPROVAL';
+                      const isDraft = !isApproved && !isRejected && !isSubmitted;
 
                       const targetVal = co.targetLevel !== undefined ? co.targetLevel : (co.target !== undefined ? co.target : 2.5);
 
@@ -1087,7 +1100,15 @@ export default function OutcomesManagement({ hideFooter = false }) {
                             <input
                               type="text"
                               className="form-control"
-                              style={{ fontWeight: '800', textAlign: 'center', width: '80px', color: isApproved ? '#10b981' : '#d97706' }}
+                              disabled={isApproved}
+                              style={{
+                                fontWeight: '800',
+                                textAlign: 'center',
+                                width: '80px',
+                                color: isApproved ? '#10b981' : '#d97706',
+                                background: isApproved ? '#f8fafc' : '#ffffff',
+                                cursor: isApproved ? 'not-allowed' : 'text',
+                              }}
                               value={co.code}
                               onChange={(e) => handleUpdateCOCode(index, e.target.value)}
                             />
@@ -1096,9 +1117,19 @@ export default function OutcomesManagement({ hideFooter = false }) {
                             <input
                               type="text"
                               className="form-control"
+                              disabled={isApproved}
                               value={co.statement}
                               onChange={(e) => handleUpdateCOStatement(index, e.target.value)}
-                              style={{ fontSize: '13px', width: '100%', minWidth: '500px', boxSizing: 'border-box', padding: '8px 12px' }}
+                              style={{
+                                fontSize: '13px',
+                                width: '100%',
+                                minWidth: '500px',
+                                boxSizing: 'border-box',
+                                padding: '8px 12px',
+                                background: isApproved ? '#f8fafc' : '#ffffff',
+                                cursor: isApproved ? 'not-allowed' : 'text',
+                                color: isApproved ? '#334155' : '#0f172a',
+                              }}
                             />
                           </td>
                           <td style={{ textAlign: 'center', width: '110px' }}>
@@ -1107,6 +1138,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                               step="0.1"
                               min="1.0"
                               max="3.0"
+                              disabled={isApproved}
                               className="form-control"
                               style={{
                                 width: '70px',
@@ -1116,6 +1148,8 @@ export default function OutcomesManagement({ hideFooter = false }) {
                                 color: '#0f172a',
                                 padding: '6px 8px',
                                 margin: '0 auto',
+                                background: isApproved ? '#f8fafc' : '#ffffff',
+                                cursor: isApproved ? 'not-allowed' : 'text',
                               }}
                               value={targetVal}
                               onChange={(e) => handleUpdateCOTarget(index, e.target.value)}
@@ -1127,51 +1161,61 @@ export default function OutcomesManagement({ hideFooter = false }) {
                               <span className="badge badge-success" style={{ gap: '4px' }}>
                                 <CheckCircle2 size={12} /> Approved
                               </span>
-                            ) : isPending ? (
+                            ) : isSubmitted ? (
                               <span className="badge badge-pending" style={{ gap: '4px', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
                                 <Clock size={12} /> Pending Approval
                               </span>
-                            ) : (
+                            ) : isRejected ? (
                               <span className="badge" style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', gap: '4px' }}>
                                 <XCircle size={12} /> Needs Revision
+                              </span>
+                            ) : (
+                              <span className="badge" style={{ background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1', gap: '4px' }}>
+                                Draft
                               </span>
                             )}
                           </td>
                           <td style={{ textAlign: 'center' }}>
-                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
-                              {(role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC') && (
-                                <>
-                                  {!isApproved && (
-                                    <button
-                                      className="btn btn-success"
-                                      style={{ padding: '4px 8px', fontSize: '11px' }}
-                                      onClick={() => handleApproveCO(index)}
-                                      title="Approve CO"
-                                    >
-                                      <CheckCircle2 size={13} /> Approve
-                                    </button>
-                                  )}
-                                  {isPending && (
-                                    <button
-                                      className="btn btn-danger"
-                                      style={{ padding: '4px 8px', fontSize: '11px' }}
-                                      onClick={() => handleRejectCO(index)}
-                                      title="Reject CO"
-                                    >
-                                      <XCircle size={13} /> Reject
-                                    </button>
-                                  )}
-                                </>
-                              )}
-                              <button
-                                type="button"
-                                style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
-                                onClick={() => handleOpenDeleteCO(index)}
-                                title="Delete Course Outcome"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
+                            {isApproved ? (
+                              <span style={{ fontSize: '11.5px', color: '#16a34a', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                <CheckCircle2 size={12} /> Locked
+                              </span>
+                            ) : (
+                              <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
+                                {(role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC') && (
+                                  <>
+                                    {!isApproved && (
+                                      <button
+                                        className="btn btn-success"
+                                        style={{ padding: '4px 8px', fontSize: '11px' }}
+                                        onClick={() => handleApproveCO(index)}
+                                        title="Approve CO"
+                                      >
+                                        <CheckCircle2 size={13} /> Approve
+                                      </button>
+                                    )}
+                                    {isPending && (
+                                      <button
+                                        className="btn btn-danger"
+                                        style={{ padding: '4px 8px', fontSize: '11px' }}
+                                        onClick={() => handleRejectCO(index)}
+                                        title="Reject CO"
+                                      >
+                                        <XCircle size={13} /> Reject
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                                <button
+                                  type="button"
+                                  style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                                  onClick={() => handleOpenDeleteCO(index)}
+                                  title="Delete Course Outcome"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );
@@ -1179,11 +1223,13 @@ export default function OutcomesManagement({ hideFooter = false }) {
                   )}
                 </tbody>
               </table>
-              <RowButtons
-                onAdd={handleAddCO}
-                canDel={false}
-                addLabel="+ Add CO Row"
-              />
+              {!isCoApproved && (
+                <RowButtons
+                  onAdd={handleAddCO}
+                  canDel={false}
+                  addLabel="+ Add CO Row"
+                />
+              )}
             </div>
           </div>
         </div>
@@ -1196,7 +1242,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
           prevPath="/dashboard"
           nextPath="/co-mapping"
           nextLabel="Save COs & Proceed to Step 2: CO–PO/PSO Mapping →"
-          onSave={() => handleSaveChanges('Course Outcomes')}
+          onSave={handleSubmitCOsForReview}
         />
       )}
       {/* Delete Confirmation Modal for Course Outcomes */}

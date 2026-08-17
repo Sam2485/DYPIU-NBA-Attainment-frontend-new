@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, CheckCircle2, Clock, ShieldCheck, History, Printer, ChevronDown, AlertCircle, Lock } from 'lucide-react';
+import { Save, CheckCircle2, Clock, ShieldCheck, History, Printer, ChevronDown, AlertCircle, Lock, Send } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
@@ -18,7 +18,7 @@ const inputStyle = {
 
 export default function CourseATR({ hideFooter = false, hideHeader = false, showHistoryProp, readOnly = false, courseId }) {
   const navigate = useNavigate();
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const {
     courses = [],
     availableCourses = [],
@@ -86,7 +86,8 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleSaveSubmit = () => {
     updateCourseAtrData(activeCourseId, coList);
-    updateCourseVerificationStatus(activeCourseId, 'atrStatus', 'SUBMITTED');
+    updateCourseVerificationStatus(activeCourseId, 'atrStatus', 'SUBMITTED', '', user?.name || 'Course Coordinator');
+    alert(`Course ATR for ${currentCourse?.code || 'this course'} has been submitted for review to the Programme Coordinator!`);
   };
   const handleVerify = () => updateCourseVerificationStatus(activeCourseId, 'atrStatus', 'VERIFIED');
 
@@ -139,7 +140,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
             {!locked ? (
               <button onClick={handleSaveSubmit}
                 style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-                <Save size={13} /> Save Changes
+                <Send size={13} /> Submit ATR for Review
               </button>
             ) : (
               <span style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
@@ -340,7 +341,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
         <div style={{ ...surface, padding: '14px 20px', marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           <button onClick={handleSaveSubmit}
             style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
-            <Save size={14} /> Save &amp; Submit Course ATR
+            <Send size={14} /> Submit ATR for Review
           </button>
         </div>
       )}

@@ -49,6 +49,49 @@ function StatusBadge({ status, size = 'md' }) {
   );
 }
 
+function NoSubmissionsEmptyState({ itemTitle, courseCode }) {
+  return (
+    <div
+      style={{
+        ...surface,
+        padding: '60px 24px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '12px',
+        background: '#ffffff',
+        border: '1.5px dashed #cbd5e1',
+        borderRadius: '16px',
+        margin: '8px 0',
+      }}
+    >
+      <div
+        style={{
+          width: '56px',
+          height: '56px',
+          borderRadius: '14px',
+          background: '#f8fafc',
+          border: '1px solid #e2e8f0',
+          display: 'grid',
+          placeItems: 'center',
+          color: '#64748b',
+          marginBottom: '4px',
+        }}
+      >
+        <Clock size={28} style={{ color: '#94a3b8' }} />
+      </div>
+      <h3 style={{ margin: 0, fontSize: '18px', color: '#0f172a', fontWeight: '800' }}>
+        No Submissions Yet
+      </h3>
+      <p style={{ margin: 0, fontSize: '13px', color: '#64748b', maxWidth: '440px', lineHeight: 1.5 }}>
+        The Course Coordinator has not submitted <strong>{itemTitle}</strong> for <strong>{courseCode}</strong> yet. Once submitted for review, it will appear here for verification and approval.
+      </p>
+    </div>
+  );
+}
+
 function SectionHeader({
   title,
   subtitle,
@@ -60,36 +103,26 @@ function SectionHeader({
   revisionCardActionText = 'The Course Coordinator has been notified to revise the submission.',
 }) {
   const isNeedsRevision = status === 'REJECTED' || status === 'REVISION_REQUESTED' || status === 'NEEDS_REVISION';
-  const hasNoSubmission = !status || status === 'NO_SUBMISSION' || status === 'DRAFT' || status === 'NOT_SUBMITTED';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <div style={{ ...surface, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <div style={{ fontSize: '14px', fontWeight: '800', color: ink }}>{title}</div>
-            <StatusBadge status={status} />
-          </div>
+          <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{title}</div>
           {subtitle && <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>{subtitle}</div>}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {hasNoSubmission ? (
-            <span style={{ fontSize: '12px', fontWeight: '700', color: '#94a3b8', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '6px 14px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <Clock size={13} style={{ color: '#94a3b8' }} /> No Submissions Yet
-            </span>
-          ) : (
-            <ApprovalHeaderControls
-              status={status}
-              onApprove={onApprove}
-              onRequestRevision={onReject}
-              approveText="Approve & Verify"
-              approvedText="Verified & Approved"
-              requestRevisionText="Request Revision"
-              editRevisionText="Edit Revision Request"
-              showButtonsOnly={true}
-            />
-          )}
+          <ApprovalHeaderControls
+            status={status}
+            onApprove={onApprove}
+            onRequestRevision={onReject}
+            approveText="Approve & Verify"
+            approvedText="Verified & Approved"
+            requestRevisionText="Request Revision"
+            editRevisionText="Edit Revision Request"
+            showButtonsOnly={true}
+          />
         </div>
       </div>
 
@@ -262,210 +295,224 @@ export default function CoordinatorReviewHub() {
       {/* ── TAB STRIP ─────────────────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '8px 12px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px', flexWrap: 'wrap' }}>
-          {tabDefs.map(({ id, label, icon: Icon, status }) => {
-            const done     = status === 'VERIFIED' || status === 'APPROVED';
-            const rejected = status === 'REJECTED' || status === 'REVISION_REQUESTED' || status === 'NEEDS_REVISION';
-            const pending  = status === 'SUBMITTED' || status === 'PENDING' || status === 'PENDING_APPROVAL' || status === 'WAITING_FOR_APPROVAL';
-            const noSub    = !status || status === 'NO_SUBMISSION' || status === 'DRAFT' || status === 'NOT_SUBMITTED';
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => handleTabChange(id)}
-                style={{ padding: '7px 16px', borderRadius: '7px', border: 'none', fontSize: '12.5px', fontWeight: '700', cursor: 'pointer', background: activeTab === id ? '#ffffff' : 'transparent', color: activeTab === id ? accent : muted, boxShadow: activeTab === id ? '0 1px 4px rgba(0,0,0,0.08)' : 'none', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Icon size={13} />
-                {label}
-                {done     && <Check size={12} style={{ color: '#16a34a' }} />}
-                {rejected && <XCircle size={12} style={{ color: '#dc2626' }} />}
-                {pending  && <Clock size={12} style={{ color: '#d97706' }} />}
-                {noSub    && <span style={{ fontSize: '10px', color: '#94a3b8', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '1px 6px', borderRadius: '4px', fontWeight: '600' }}>No Submissions Yet</span>}
-              </button>
-            );
-          })}
+          {tabDefs.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => handleTabChange(id)}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '7px',
+                border: 'none',
+                fontSize: '12.5px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                background: activeTab === id ? '#ffffff' : 'transparent',
+                color: activeTab === id ? accent : muted,
+                boxShadow: activeTab === id ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                fontFamily: 'inherit',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <Icon size={14} />
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
-
-
       {/* ── TAB 1: ATTAINMENT SETTINGS ─────────────────────────────────────── */}
       {activeTab === 'config' && (
-        <div style={{ display: 'grid', gap: '16px' }}>
-          <SectionHeader
-            title="Attainment Settings"
-            subtitle={`Submitted by Course Coordinator: ${selectedCourse?.coordinator || selectedCourse?.faculty || 'Course Coordinator'}`}
-            status={courseReview.configStatus}
-            onApprove={() => handleApproveSubmission('configStatus')}
-            onReject={() => openRejectModal('configStatus', `Attainment Settings — ${selectedCourse?.code}`)}
-            revisionCardTitle={`Revision Requested for Attainment Settings (${selectedCourse?.code})`}
-            revisionCardRemarks={courseReview.configRemarks || 'Please review direct/indirect weightages and percentage level bands.'}
-            revisionCardActionText="The Course Coordinator has been notified to revise threshold levels and assessment weightages."
-          />
+        !courseReview.configStatus || courseReview.configStatus === 'NO_SUBMISSION' || courseReview.configStatus === 'DRAFT' || courseReview.configStatus === 'NOT_SUBMITTED' ? (
+          <NoSubmissionsEmptyState itemTitle="Attainment Settings" courseCode={selectedCourse?.code || 'this course'} />
+        ) : (
+          <div style={{ display: 'grid', gap: '16px' }}>
+            <SectionHeader
+              title="Attainment Settings"
+              subtitle={`Submitted by Course Coordinator: ${selectedCourse?.coordinator || selectedCourse?.faculty || 'Course Coordinator'}`}
+              status={courseReview.configStatus}
+              onApprove={() => handleApproveSubmission('configStatus')}
+              onReject={() => openRejectModal('configStatus', `Attainment Settings — ${selectedCourse?.code}`)}
+              revisionCardTitle={`Revision Requested for Attainment Settings (${selectedCourse?.code})`}
+              revisionCardRemarks={courseReview.configRemarks || 'Please review direct/indirect weightages and percentage level bands.'}
+              revisionCardActionText="The Course Coordinator has been notified to revise threshold levels and assessment weightages."
+            />
 
-          {/* Weight + threshold cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div style={{ ...surface, padding: '16px 20px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Assessment Weightage</div>
-              <div style={{ display: 'flex', gap: '24px' }}>
-                <div><div style={{ fontSize: '24px', fontWeight: '800', color: accent }}>{attainmentConfig.directWeight}%</div><div style={{ fontSize: '11.5px', color: muted }}>Direct Assessment</div></div>
-                <div><div style={{ fontSize: '24px', fontWeight: '800', color: '#0284c7' }}>{attainmentConfig.indirectWeight}%</div><div style={{ fontSize: '11.5px', color: muted }}>Indirect Assessment</div></div>
+            {/* Weight + threshold cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ ...surface, padding: '16px 20px' }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Assessment Weightage</div>
+                <div style={{ display: 'flex', gap: '24px' }}>
+                  <div><div style={{ fontSize: '24px', fontWeight: '800', color: accent }}>{attainmentConfig.directWeight}%</div><div style={{ fontSize: '11.5px', color: muted }}>Direct Assessment</div></div>
+                  <div><div style={{ fontSize: '24px', fontWeight: '800', color: '#0284c7' }}>{attainmentConfig.indirectWeight}%</div><div style={{ fontSize: '11.5px', color: muted }}>Indirect Assessment</div></div>
+                </div>
+              </div>
+              <div style={{ ...surface, padding: '16px 20px' }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>CO Target Attainment Threshold</div>
+                <div style={{ fontSize: '24px', fontWeight: '800', color: '#059669' }}>{attainmentConfig.directThreshold}%</div>
+                <div style={{ fontSize: '11.5px', color: muted }}>Students scoring ≥ {attainmentConfig.directThreshold}% marks meet CO benchmark</div>
               </div>
             </div>
-            <div style={{ ...surface, padding: '16px 20px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>CO Target Attainment Threshold</div>
-              <div style={{ fontSize: '24px', fontWeight: '800', color: '#059669' }}>{attainmentConfig.directThreshold}%</div>
-              <div style={{ fontSize: '11.5px', color: muted }}>Students scoring ≥ {attainmentConfig.directThreshold}% marks meet CO benchmark</div>
-            </div>
-          </div>
 
-          {/* Direct Level Bands Table */}
-          <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc' }}>
-              <Layers size={15} style={{ color: accent }} />
-              <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>Direct Assessment Level Percentage Bands (Configured by Course Coordinator)</span>
-            </div>
-            <table className="audit-data-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '90px', textAlign: 'center' }}>Level</th>
-                  <th style={{ textAlign: 'center' }}>Min % Marks</th>
-                  <th style={{ textAlign: 'center' }}>Max % Marks</th>
-                  <th style={{ textAlign: 'center' }}>Attainment Score</th>
-                  <th>Description / Target Standard</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(attainmentConfig.directLevels || []).map((lvl) => (
-                  <tr key={lvl.level}>
-                    <td style={{ textAlign: 'center', fontWeight: '800', color: accent }}>Level {lvl.level}</td>
-                    <td style={{ textAlign: 'center', fontWeight: '700', color: ink }}>{lvl.minPercentage}%</td>
-                    <td style={{ textAlign: 'center', fontWeight: '700', color: ink }}>{lvl.maxPercentage}%</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span style={{ fontWeight: '800', color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: '5px' }}>
-                        {lvl.level}.0 / 3.0
-                      </span>
-                    </td>
-                    <td style={{ fontSize: '12px', color: muted }}>
-                      {lvl.level === 1 ? 'Low Direct Attainment (Students scoring within minimum threshold)' : lvl.level === 2 ? 'Moderate Direct Attainment (Students scoring within target threshold)' : 'High Direct Attainment (Students exceeding target benchmark)'}
-                    </td>
+            {/* Direct Level Bands Table */}
+            <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc' }}>
+                <Layers size={15} style={{ color: accent }} />
+                <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>Direct Assessment Level Percentage Bands (Configured by Course Coordinator)</span>
+              </div>
+              <table className="audit-data-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '90px', textAlign: 'center' }}>Level</th>
+                    <th style={{ textAlign: 'center' }}>Min % Marks</th>
+                    <th style={{ textAlign: 'center' }}>Max % Marks</th>
+                    <th style={{ textAlign: 'center' }}>Attainment Score</th>
+                    <th>Description / Target Standard</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {(attainmentConfig.directLevels || []).map((lvl) => (
+                    <tr key={lvl.level}>
+                      <td style={{ textAlign: 'center', fontWeight: '800', color: accent }}>Level {lvl.level}</td>
+                      <td style={{ textAlign: 'center', fontWeight: '700', color: ink }}>{lvl.minPercentage}%</td>
+                      <td style={{ textAlign: 'center', fontWeight: '700', color: ink }}>{lvl.maxPercentage}%</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span style={{ fontWeight: '800', color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: '5px' }}>
+                          {lvl.level}.0 / 3.0
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '12px', color: muted }}>
+                        {lvl.level === 1 ? 'Low Direct Attainment (Students scoring within minimum threshold)' : lvl.level === 2 ? 'Moderate Direct Attainment (Students scoring within target threshold)' : 'High Direct Attainment (Students exceeding target benchmark)'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          {/* Indirect Level Bands Table */}
-          <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc' }}>
-              <Layers size={15} style={{ color: '#0284c7' }} />
-              <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>Indirect Assessment Level Percentage Bands (Configured by Course Coordinator)</span>
-            </div>
-            <table className="audit-data-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '90px', textAlign: 'center' }}>Level</th>
-                  <th style={{ textAlign: 'center' }}>Min % Survey Rating</th>
-                  <th style={{ textAlign: 'center' }}>Max % Survey Rating</th>
-                  <th style={{ textAlign: 'center' }}>Attainment Score</th>
-                  <th>Description / Survey Standard</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(attainmentConfig.indirectLevels || []).map((lvl) => (
-                  <tr key={lvl.level}>
-                    <td style={{ textAlign: 'center', fontWeight: '800', color: '#0284c7' }}>Level {lvl.level}</td>
-                    <td style={{ textAlign: 'center', fontWeight: '700', color: ink }}>{lvl.minPercentage}%</td>
-                    <td style={{ textAlign: 'center', fontWeight: '700', color: ink }}>{lvl.maxPercentage}%</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span style={{ fontWeight: '800', color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '2px 8px', borderRadius: '5px' }}>
-                        {lvl.level}.0 / 3.0
-                      </span>
-                    </td>
-                    <td style={{ fontSize: '12px', color: muted }}>
-                      {lvl.level === 1 ? 'Low Indirect Rating (Below 50% positive survey feedback)' : lvl.level === 2 ? 'Moderate Indirect Rating (50% to 70% positive survey feedback)' : 'High Indirect Rating (Above 70% positive survey feedback)'}
-                    </td>
+            {/* Indirect Level Bands Table */}
+            <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc' }}>
+                <Layers size={15} style={{ color: '#0284c7' }} />
+                <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>Indirect Assessment Level Percentage Bands (Configured by Course Coordinator)</span>
+              </div>
+              <table className="audit-data-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '90px', textAlign: 'center' }}>Level</th>
+                    <th style={{ textAlign: 'center' }}>Min % Survey Rating</th>
+                    <th style={{ textAlign: 'center' }}>Max % Survey Rating</th>
+                    <th style={{ textAlign: 'center' }}>Attainment Score</th>
+                    <th>Description / Survey Standard</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {(attainmentConfig.indirectLevels || []).map((lvl) => (
+                    <tr key={lvl.level}>
+                      <td style={{ textAlign: 'center', fontWeight: '800', color: '#0284c7' }}>Level {lvl.level}</td>
+                      <td style={{ textAlign: 'center', fontWeight: '700', color: ink }}>{lvl.minPercentage}%</td>
+                      <td style={{ textAlign: 'center', fontWeight: '700', color: ink }}>{lvl.maxPercentage}%</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span style={{ fontWeight: '800', color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '2px 8px', borderRadius: '5px' }}>
+                          {lvl.level}.0 / 3.0
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '12px', color: muted }}>
+                        {lvl.level === 1 ? 'Low Indirect Rating (Below 50% positive survey feedback)' : lvl.level === 2 ? 'Moderate Indirect Rating (50% to 70% positive survey feedback)' : 'High Indirect Rating (Above 70% positive survey feedback)'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )
       )}
 
       {/* ── TAB 2: CO APPROVALS ───────────────────────────────────────────── */}
       {activeTab === 'cos' && (
-        <div style={{ display: 'grid', gap: '16px' }}>
-          <SectionHeader
-            title="CO Approvals"
-            subtitle={`Submitted by Course Coordinator: ${selectedCourse?.coordinator || selectedCourse?.faculty || 'Course Coordinator'}`}
-            status={courseReview.coStatus}
-            onApprove={() => handleApproveSubmission('coStatus')}
-            onReject={() => openRejectModal('coStatus', `CO Approvals — ${selectedCourse?.code}`)}
-            revisionCardTitle={`Revision Requested for CO Approvals (${selectedCourse?.code})`}
-            revisionCardRemarks={courseReview.coRemarks || 'Please review and update Course Outcome statements.'}
-            revisionCardActionText="The Course Coordinator has been notified to revise Course Outcome statements."
-          />
+        !courseReview.coStatus || courseReview.coStatus === 'NO_SUBMISSION' || courseReview.coStatus === 'DRAFT' || courseReview.coStatus === 'NOT_SUBMITTED' ? (
+          <NoSubmissionsEmptyState itemTitle="Course Outcomes" courseCode={selectedCourse?.code || 'this course'} />
+        ) : (
+          <div style={{ display: 'grid', gap: '16px' }}>
+            <SectionHeader
+              title="CO Approvals"
+              subtitle={`Submitted by Course Coordinator: ${selectedCourse?.coordinator || selectedCourse?.faculty || 'Course Coordinator'}`}
+              status={courseReview.coStatus}
+              onApprove={() => handleApproveSubmission('coStatus')}
+              onReject={() => openRejectModal('coStatus', `CO Approvals — ${selectedCourse?.code}`)}
+              revisionCardTitle={`Revision Requested for CO Approvals (${selectedCourse?.code})`}
+              revisionCardRemarks={courseReview.coRemarks || 'Please review and update Course Outcome statements.'}
+              revisionCardActionText="The Course Coordinator has been notified to revise Course Outcome statements."
+            />
 
-          <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
-            <table className="audit-data-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '80px', textAlign: 'center' }}>Code</th>
-                  <th>Statement</th>
-                  <th style={{ width: '140px', textAlign: 'center' }}>Target Level</th>
-                  <th style={{ width: '140px', textAlign: 'center' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {courseCOs.map((co) => {
-                  const courseCoTargets = coTargets[reviewCourseId] || {};
-                  const targetVal = courseCoTargets[co.code] || co.target || 2.50;
-                  const rowStatus =
-                    courseReview.coStatus === 'VERIFIED' || courseReview.coStatus === 'APPROVED'
-                      ? 'VERIFIED'
-                      : courseReview.coStatus === 'REJECTED' || courseReview.coStatus === 'REVISION_REQUESTED' || courseReview.coStatus === 'NEEDS_REVISION'
-                      ? 'REJECTED'
-                      : courseReview.coStatus === 'SUBMITTED' || courseReview.coStatus === 'PENDING_APPROVAL' || courseReview.coStatus === 'PENDING'
-                      ? 'PENDING_APPROVAL'
-                      : 'NO_SUBMISSION';
+            <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
+              <table className="audit-data-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '80px', textAlign: 'center' }}>Code</th>
+                    <th>Statement</th>
+                    <th style={{ width: '140px', textAlign: 'center' }}>Target Level</th>
+                    <th style={{ width: '140px', textAlign: 'center' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {courseCOs.map((co) => {
+                    const courseCoTargets = coTargets[reviewCourseId] || {};
+                    const targetVal = courseCoTargets[co.code] || co.target || 2.50;
+                    const rowStatus =
+                      courseReview.coStatus === 'VERIFIED' || courseReview.coStatus === 'APPROVED'
+                        ? 'VERIFIED'
+                        : courseReview.coStatus === 'REJECTED' || courseReview.coStatus === 'REVISION_REQUESTED' || courseReview.coStatus === 'NEEDS_REVISION'
+                        ? 'REJECTED'
+                        : courseReview.coStatus === 'SUBMITTED' || courseReview.coStatus === 'PENDING_APPROVAL' || courseReview.coStatus === 'PENDING'
+                        ? 'PENDING_APPROVAL'
+                        : 'NO_SUBMISSION';
 
-                  return (
-                    <tr key={co.code}>
-                      <td style={{ textAlign: 'center', fontWeight: '700', color: accent }}>{co.code}</td>
-                      <td style={{ fontSize: '12.5px', color: ink }}>{co.statement}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <span style={{ fontWeight: '800', color: '#0284c7', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '3px 10px', borderRadius: '6px', fontSize: '12px' }}>
-                          {Number(targetVal).toFixed(2)} / 3.00
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <StatusBadge status={rowStatus} size="sm" />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                    return (
+                      <tr key={co.code}>
+                        <td style={{ textAlign: 'center', fontWeight: '700', color: accent }}>{co.code}</td>
+                        <td style={{ fontSize: '12.5px', color: ink }}>{co.statement}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span style={{ fontWeight: '800', color: '#0284c7', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '3px 10px', borderRadius: '6px', fontSize: '12px' }}>
+                            {Number(targetVal).toFixed(2)} / 3.00
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <StatusBadge status={rowStatus} size="sm" />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )
       )}
 
       {/* ── TAB 3: COURSE ATR REVIEW ──────────────────────────────────────── */}
       {activeTab === 'atr' && (
-        <div style={{ display: 'grid', gap: '16px' }}>
-          <SectionHeader
-            title="Course ATR"
-            subtitle={`Submitted by Course Coordinator: ${selectedCourse?.coordinator || selectedCourse?.faculty || 'Course Coordinator'}`}
-            status={courseReview.atrStatus}
-            onApprove={() => handleApproveSubmission('atrStatus')}
-            onReject={() => openRejectModal('atrStatus', `Course ATR — ${selectedCourse?.code}`)}
-            revisionCardTitle={`Revision Requested for Course ATR (${selectedCourse?.code})`}
-            revisionCardRemarks={courseReview.atrRemarks || 'Please review gap analysis observations and action plans.'}
-            revisionCardActionText="The Course Coordinator has been notified to revise the Action Taken Report."
-          />
+        !courseReview.atrStatus || courseReview.atrStatus === 'NO_SUBMISSION' || courseReview.atrStatus === 'DRAFT' || courseReview.atrStatus === 'NOT_SUBMITTED' ? (
+          <NoSubmissionsEmptyState itemTitle="Course Action Taken Report (ATR)" courseCode={selectedCourse?.code || 'this course'} />
+        ) : (
+          <div style={{ display: 'grid', gap: '16px' }}>
+            <SectionHeader
+              title="Course ATR"
+              subtitle={`Submitted by Course Coordinator: ${selectedCourse?.coordinator || selectedCourse?.faculty || 'Course Coordinator'}`}
+              status={courseReview.atrStatus}
+              onApprove={() => handleApproveSubmission('atrStatus')}
+              onReject={() => openRejectModal('atrStatus', `Course ATR — ${selectedCourse?.code}`)}
+              revisionCardTitle={`Revision Requested for Course ATR (${selectedCourse?.code})`}
+              revisionCardRemarks={courseReview.atrRemarks || 'Please review gap analysis observations and action plans.'}
+              revisionCardActionText="The Course Coordinator has been notified to revise the Action Taken Report."
+            />
 
-          <CourseATR courseId={reviewCourseId} hideHeader={true} hideFooter={true} readOnly={true} />
-        </div>
+            <CourseATR courseId={reviewCourseId} hideHeader={true} hideFooter={true} readOnly={true} />
+          </div>
+        )
       )}
 
       {/* ── REJECTION REMARKS MODAL DIALOG ──────────────────────────────────── */}

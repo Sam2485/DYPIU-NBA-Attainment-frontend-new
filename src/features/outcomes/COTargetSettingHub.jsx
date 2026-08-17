@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Target, Save, CheckCircle2, Sliders } from 'lucide-react';
+import { Target, Save, CheckCircle2, Sliders, Send } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 
 export default function COTargetSettingHub({ hideFooter = false }) {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const {
+    courseId,
     selectedCourse,
     activeCOs,
     coTargets,
     updateCourseCoTargets,
+    updateCourseVerificationStatus = () => {},
     courseVerificationStore = {},
   } = useAcademic();
 
@@ -37,14 +39,16 @@ export default function COTargetSettingHub({ hideFooter = false }) {
     }));
   };
 
+  const targetCourseId = selectedCourse?.id || courseId || 'crs-1';
+
   const handleSaveCoTargets = () => {
     if (selectedCourse?.id) {
       updateCourseCoTargets(selectedCourse.id, localCoTargets);
-      alert(`CO Target Levels (1.00 - 3.00 scale) for ${selectedCourse?.code} saved successfully!`);
+      updateCourseVerificationStatus(targetCourseId, 'coStatus', 'SUBMITTED', '', user?.name || 'Course Coordinator');
+      alert(`CO Target Levels for ${selectedCourse?.code} submitted for Programme Coordinator review!`);
     }
   };
 
-  const targetCourseId = selectedCourse?.id || courseId || 'crs-1';
   const targetData = courseVerificationStore[targetCourseId] || {};
   const isApproved = targetData.coStatus === 'APPROVED' || targetData.coStatus === 'VERIFIED';
   const isNeedsRevision = targetData.coStatus === 'REJECTED' || targetData.coStatus === 'REVISION_REQUESTED' || targetData.coStatus === 'NEEDS_REVISION';
@@ -61,9 +65,11 @@ export default function COTargetSettingHub({ hideFooter = false }) {
           </div>
 
           <div style={{ marginLeft: 'auto' }}>
-            <button className="btn btn-primary" onClick={handleSaveCoTargets}>
-              <Save size={15} /> Save Changes
-            </button>
+            {!isApproved && (
+              <button className="btn btn-primary" onClick={handleSaveCoTargets} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <Send size={15} /> Submit CO for Review
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -85,7 +91,7 @@ export default function COTargetSettingHub({ hideFooter = false }) {
               ✓ ALL CO TARGET LEVELS VERIFIED &amp; APPROVED BY PROGRAMME COORDINATOR
             </strong>
             <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#166534' }}>
-              Target attainment levels (1.00 to 3.00 scale) for {selectedCourse?.code || 'CS301'} - {selectedCourse?.name || 'Data Structures & Algorithms'} have been set and verified.
+              Target attainment levels (1.00 to 3.00 scale) for {selectedCourse?.code || 'CS301'} - {selectedCourse?.name || 'Data Structures & Algorithms'} have been set and verified. Benchmarks are now locked.
             </p>
           </div>
         </div>
@@ -133,8 +139,17 @@ export default function COTargetSettingHub({ hideFooter = false }) {
                             step="0.1"
                             min="1.0"
                             max="3.0"
+                            disabled={isApproved}
                             className="form-control"
-                            style={{ width: '90px', textAlign: 'center', fontWeight: '800', fontSize: '14px', color: '#0f172a' }}
+                            style={{
+                              width: '90px',
+                              textAlign: 'center',
+                              fontWeight: '800',
+                              fontSize: '14px',
+                              color: '#0f172a',
+                              background: isApproved ? '#f8fafc' : '#ffffff',
+                              cursor: isApproved ? 'not-allowed' : 'text',
+                            }}
                             value={currentVal}
                             onChange={(e) => handleTargetChange(co.code, e.target.value)}
                           />

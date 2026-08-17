@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import { useAcademic } from './academic';
 
 export const AttainmentContext = createContext(null);
@@ -158,9 +158,51 @@ export const INITIAL_COURSE_ATR_STORE = {
 export function AttainmentProvider({ children }) {
   const { selectedCourse, academicYear } = useAcademic();
 
-  const [attainmentConfigs, setAttainmentConfigs] = useState(INITIAL_ATTAINMENT_CONFIGS);
-  const [courseAtrStore, setCourseAtrStore] = useState(INITIAL_COURSE_ATR_STORE);
-  const [programmeAtrStore, setProgrammeAtrStore] = useState(INITIAL_PROGRAMME_ATR_LIST);
+  const [attainmentConfigs, setAttainmentConfigs] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dypiu_attainment_configs');
+      return saved ? JSON.parse(saved) : INITIAL_ATTAINMENT_CONFIGS;
+    } catch {
+      return INITIAL_ATTAINMENT_CONFIGS;
+    }
+  });
+
+  const [courseAtrStore, setCourseAtrStore] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dypiu_course_atr_store');
+      return saved ? JSON.parse(saved) : INITIAL_COURSE_ATR_STORE;
+    } catch {
+      return INITIAL_COURSE_ATR_STORE;
+    }
+  });
+
+  const [programmeAtrStore, setProgrammeAtrStore] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dypiu_programme_atr_store');
+      return saved ? JSON.parse(saved) : INITIAL_PROGRAMME_ATR_LIST;
+    } catch {
+      return INITIAL_PROGRAMME_ATR_LIST;
+    }
+  });
+
+  // Cross-tab synchronization via storage event listener
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      try {
+        if (e.key === 'dypiu_attainment_configs' && e.newValue) {
+          setAttainmentConfigs(JSON.parse(e.newValue));
+        } else if (e.key === 'dypiu_course_atr_store' && e.newValue) {
+          setCourseAtrStore(JSON.parse(e.newValue));
+        } else if (e.key === 'dypiu_programme_atr_store' && e.newValue) {
+          setProgrammeAtrStore(JSON.parse(e.newValue));
+        }
+      } catch (err) {
+        console.error('Storage sync error in AttainmentContext:', err);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const [courseAttainmentStore, setCourseAttainmentStore] = useState({
     'crs-1': {
@@ -192,43 +234,59 @@ export function AttainmentProvider({ children }) {
   };
 
   const updateCourseAttainmentConfig = (targetCourseId, newConfig) => {
-    setAttainmentConfigs((prev) => ({
-      ...prev,
-      [targetCourseId]: {
-        ...(prev[targetCourseId] || defaultLevels),
-        ...newConfig,
-        thresholdPct: `${newConfig.directThreshold || 60}%`,
-      },
-    }));
+    setAttainmentConfigs((prev) => {
+      const updated = {
+        ...prev,
+        [targetCourseId]: {
+          ...(prev[targetCourseId] || defaultLevels),
+          ...newConfig,
+          thresholdPct: `${newConfig.directThreshold || 60}%`,
+        },
+      };
+      try { localStorage.setItem('dypiu_attainment_configs', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const updateCourseAtrData = (targetCourseId, newAtrList) => {
-    setCourseAtrStore((prev) => ({
-      ...prev,
-      [targetCourseId]: newAtrList,
-    }));
+    setCourseAtrStore((prev) => {
+      const updated = {
+        ...prev,
+        [targetCourseId]: newAtrList,
+      };
+      try { localStorage.setItem('dypiu_course_atr_store', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const approveProgrammeAtr = (targetProgId, hodName) => {
-    setProgrammeAtrStore((prev) => ({
-      ...prev,
-      [targetProgId]: {
-        ...(prev[targetProgId] || INITIAL_PROGRAMME_ATR_LIST['prog-1']),
-        status: 'APPROVED',
-        approvedBy: hodName || 'Head of Department (HOD)',
-        approvedAt: new Date().toISOString().split('T')[0],
-      },
-    }));
+    setProgrammeAtrStore((prev) => {
+      const updated = {
+        ...prev,
+        [targetProgId]: {
+          ...(prev[targetProgId] || INITIAL_PROGRAMME_ATR_LIST['prog-1']),
+          status: 'APPROVED',
+          approvedBy: hodName || 'Head of Department (HOD)',
+          approvedAt: new Date().toISOString().split('T')[0],
+        },
+      };
+      try { localStorage.setItem('dypiu_programme_atr_store', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const updateProgrammeAtrObservations = (targetProgId, newObservations) => {
-    setProgrammeAtrStore((prev) => ({
-      ...prev,
-      [targetProgId]: {
-        ...(prev[targetProgId] || INITIAL_PROGRAMME_ATR_LIST['prog-1']),
-        observations: newObservations,
-      },
-    }));
+    setProgrammeAtrStore((prev) => {
+      const updated = {
+        ...prev,
+        [targetProgId]: {
+          ...(prev[targetProgId] || INITIAL_PROGRAMME_ATR_LIST['prog-1']),
+          observations: newObservations,
+        },
+      };
+      try { localStorage.setItem('dypiu_programme_atr_store', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const updateCourseAttainment = (courseId, attainmentData) => {

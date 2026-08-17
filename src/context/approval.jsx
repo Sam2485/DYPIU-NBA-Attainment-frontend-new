@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './auth';
 
 export const ApprovalContext = createContext(null);
@@ -127,13 +127,55 @@ export const INITIAL_COURSE_VERIFICATION_STORE = {
 export function ApprovalProvider({ children }) {
   const { user } = useAuth();
 
-  const [directorApprovalsStore, setDirectorApprovalsStore] = useState(INITIAL_DIRECTOR_APPROVALS_LIST);
-  const [hodApprovalsStore, setHodApprovalsStore] = useState(INITIAL_HOD_APPROVALS_LIST);
-  const [courseVerificationStore, setCourseVerificationStore] = useState(INITIAL_COURSE_VERIFICATION_STORE);
+  const [directorApprovalsStore, setDirectorApprovalsStore] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dypiu_director_approvals');
+      return saved ? JSON.parse(saved) : INITIAL_DIRECTOR_APPROVALS_LIST;
+    } catch {
+      return INITIAL_DIRECTOR_APPROVALS_LIST;
+    }
+  });
+
+  const [hodApprovalsStore, setHodApprovalsStore] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dypiu_hod_approvals');
+      return saved ? JSON.parse(saved) : INITIAL_HOD_APPROVALS_LIST;
+    } catch {
+      return INITIAL_HOD_APPROVALS_LIST;
+    }
+  });
+
+  const [courseVerificationStore, setCourseVerificationStore] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dypiu_course_verification');
+      return saved ? JSON.parse(saved) : INITIAL_COURSE_VERIFICATION_STORE;
+    } catch {
+      return INITIAL_COURSE_VERIFICATION_STORE;
+    }
+  });
+
+  // Cross-tab synchronization via storage event listener
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      try {
+        if (e.key === 'dypiu_course_verification' && e.newValue) {
+          setCourseVerificationStore(JSON.parse(e.newValue));
+        } else if (e.key === 'dypiu_hod_approvals' && e.newValue) {
+          setHodApprovalsStore(JSON.parse(e.newValue));
+        } else if (e.key === 'dypiu_director_approvals' && e.newValue) {
+          setDirectorApprovalsStore(JSON.parse(e.newValue));
+        }
+      } catch (err) {
+        console.error('Storage sync error in ApprovalContext:', err);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const approveDirectorSubmission = (appId, directorName) => {
-    setDirectorApprovalsStore((prev) =>
-      prev.map((a) =>
+    setDirectorApprovalsStore((prev) => {
+      const updated = prev.map((a) =>
         a.id === appId
           ? {
               ...a,
@@ -142,13 +184,15 @@ export function ApprovalProvider({ children }) {
               approvedAt: new Date().toISOString().split('T')[0],
             }
           : a
-      )
-    );
+      );
+      try { localStorage.setItem('dypiu_director_approvals', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const rejectDirectorSubmission = (appId, remarks) => {
-    setDirectorApprovalsStore((prev) =>
-      prev.map((a) =>
+    setDirectorApprovalsStore((prev) => {
+      const updated = prev.map((a) =>
         a.id === appId
           ? {
               ...a,
@@ -156,13 +200,15 @@ export function ApprovalProvider({ children }) {
               remarks: remarks || 'Review and resubmit.',
             }
           : a
-      )
-    );
+      );
+      try { localStorage.setItem('dypiu_director_approvals', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const approveHodSubmission = (appId, hodName) => {
-    setHodApprovalsStore((prev) =>
-      prev.map((a) =>
+    setHodApprovalsStore((prev) => {
+      const updated = prev.map((a) =>
         a.id === appId
           ? {
               ...a,
@@ -171,13 +217,15 @@ export function ApprovalProvider({ children }) {
               approvedAt: new Date().toISOString().split('T')[0],
             }
           : a
-      )
-    );
+      );
+      try { localStorage.setItem('dypiu_hod_approvals', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const rejectHodSubmission = (appId, remarks) => {
-    setHodApprovalsStore((prev) =>
-      prev.map((a) =>
+    setHodApprovalsStore((prev) => {
+      const updated = prev.map((a) =>
         a.id === appId
           ? {
               ...a,
@@ -185,27 +233,33 @@ export function ApprovalProvider({ children }) {
               remarks: remarks || 'Review and resubmit.',
             }
           : a
-      )
-    );
+      );
+      try { localStorage.setItem('dypiu_hod_approvals', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const updateCourseVerificationStatus = (targetCourseId, statusType, statusValue, remarksValue = '', verifierName = null) => {
     const remarkKey = statusType.replace('Status', 'Remarks');
-    setCourseVerificationStore((prev) => ({
-      ...prev,
-      [targetCourseId]: {
-        ...(prev[targetCourseId] || {
-          configStatus: 'NO_SUBMISSION',
-          coStatus: 'NO_SUBMISSION',
-          atrStatus: 'NO_SUBMISSION',
-          programmeAtrStatus: 'NO_SUBMISSION',
-        }),
-        [statusType]: statusValue,
-        [remarkKey]: remarksValue,
-        verifiedBy: verifierName || user?.name || 'Programme Coordinator',
-        verifiedAt: new Date().toISOString().split('T')[0],
-      },
-    }));
+    setCourseVerificationStore((prev) => {
+      const updated = {
+        ...prev,
+        [targetCourseId]: {
+          ...(prev[targetCourseId] || {
+            configStatus: 'NO_SUBMISSION',
+            coStatus: 'NO_SUBMISSION',
+            atrStatus: 'NO_SUBMISSION',
+            programmeAtrStatus: 'NO_SUBMISSION',
+          }),
+          [statusType]: statusValue,
+          [remarkKey]: remarksValue,
+          verifiedBy: verifierName || user?.name || 'Programme Coordinator',
+          verifiedAt: new Date().toISOString().split('T')[0],
+        },
+      };
+      try { localStorage.setItem('dypiu_course_verification', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const getPendingVerificationsCount = () => {

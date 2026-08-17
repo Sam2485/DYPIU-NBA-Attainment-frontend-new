@@ -159,6 +159,7 @@ export default function AttainmentConfig() {
   };
 
   const currentVerificationStatus = courseVerificationStore[activeCourseId]?.configStatus || currentConfig.status || 'DRAFT';
+  const isApproved = currentVerificationStatus === 'VERIFIED' || currentVerificationStatus === 'APPROVED';
 
   const handleSaveConfig = () => {
     const updatedConfig = {
@@ -225,23 +226,25 @@ export default function AttainmentConfig() {
               />
             </div>
 
-            <button className="btn btn-primary" onClick={handleSaveConfig} style={{ height: '38px' }}>
-              <Save size={15} /> {!isCoordinator ? 'Submit Configuration Proposal for Review' : 'Save Attainment Configurations'}
-            </button>
+            {!isApproved && (
+              <button className="btn btn-primary" onClick={handleSaveConfig} style={{ height: '38px' }}>
+                <Save size={15} /> {!isCoordinator ? 'Submit Configuration Proposal for Review' : 'Save Attainment Configurations'}
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Verification / Rejection Status Banner */}
-      {(currentVerificationStatus === 'VERIFIED' || currentVerificationStatus === 'APPROVED') && (
+      {isApproved && (
         <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
           <CheckCircle2 size={20} style={{ color: '#16a34a', flexShrink: 0 }} />
           <div>
             <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#15803d' }}>
-              ✓ Approved by Programme Coordinator
+              ✓ Approved & Locked by Programme Coordinator
             </span>
             <span style={{ fontSize: '12px', color: '#166534', display: 'block', marginTop: '2px' }}>
-              Attainment configuration has been verified and approved by {courseVerificationStore[activeCourseId]?.verifiedBy || 'Programme Coordinator'}.
+              Attainment configuration has been verified and approved by {courseVerificationStore[activeCourseId]?.verifiedBy || 'Programme Coordinator'}. Settings are now locked.
             </span>
           </div>
         </div>
@@ -270,7 +273,7 @@ export default function AttainmentConfig() {
             </h3>
           </div>
 
-          {currentVerificationStatus === 'VERIFIED' ? (
+          {isApproved ? (
             <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', padding: '6px 14px', fontSize: '12px', fontWeight: '800' }}>
               ✓ VERIFIED & APPROVED BY PROGRAMME COORDINATOR
             </span>
@@ -306,7 +309,7 @@ export default function AttainmentConfig() {
               </p>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', background: isApproved ? '#f1f5f9' : '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{ position: 'relative' }}>
                   <input
@@ -314,9 +317,10 @@ export default function AttainmentConfig() {
                     className="form-input"
                     value={currentConfig.directWeight}
                     onChange={(e) => handleDirectWeightChange(e.target.value)}
+                    disabled={isApproved}
                     min="0"
                     max="100"
-                    style={{ width: '84px', fontWeight: '900', fontSize: '16px', color: '#4f46e5', textAlign: 'center', padding: '6px 10px', border: '1.5px solid #c7d2fe', borderRadius: '8px' }}
+                    style={{ width: '84px', fontWeight: '900', fontSize: '16px', color: '#4f46e5', textAlign: 'center', padding: '6px 10px', border: '1.5px solid #c7d2fe', borderRadius: '8px', background: isApproved ? '#f8fafc' : '#ffffff', cursor: isApproved ? 'not-allowed' : 'text' }}
                   />
                 </div>
                 <span style={{ fontSize: '13px', fontWeight: '800', color: '#475569' }}>% Direct Weight</span>
@@ -358,7 +362,7 @@ export default function AttainmentConfig() {
               </p>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', background: isApproved ? '#f1f5f9' : '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{ position: 'relative' }}>
                   <input
@@ -366,9 +370,10 @@ export default function AttainmentConfig() {
                     className="form-input"
                     value={currentConfig.directThreshold}
                     onChange={(e) => handleThresholdChange(e.target.value)}
+                    disabled={isApproved}
                     min="0"
                     max="100"
-                    style={{ width: '84px', fontWeight: '900', fontSize: '16px', color: '#059669', textAlign: 'center', padding: '6px 10px', border: '1.5px solid #a7f3d0', borderRadius: '8px' }}
+                    style={{ width: '84px', fontWeight: '900', fontSize: '16px', color: '#059669', textAlign: 'center', padding: '6px 10px', border: '1.5px solid #a7f3d0', borderRadius: '8px', background: isApproved ? '#f8fafc' : '#ffffff', cursor: isApproved ? 'not-allowed' : 'text' }}
                   />
                 </div>
                 <span style={{ fontSize: '13px', fontWeight: '800', color: '#475569' }}>% Threshold Marks</span>
@@ -424,10 +429,11 @@ export default function AttainmentConfig() {
                             type="number"
                             min="0"
                             max="100"
+                            disabled={isApproved}
                             value={lvl.minPercentage}
                             onChange={(e) => handleDirectLevelChange(index, 'minPercentage', e.target.value)}
                             className="form-input"
-                            style={{ width: '70px', padding: '4px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #c7d2fe', borderRadius: '6px' }}
+                            style={{ width: '70px', padding: '4px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #c7d2fe', borderRadius: '6px', background: isApproved ? '#f8fafc' : '#ffffff', cursor: isApproved ? 'not-allowed' : 'text' }}
                           />
                           <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>%</span>
                         </div>
@@ -438,10 +444,11 @@ export default function AttainmentConfig() {
                             type="number"
                             min="0"
                             max="100"
+                            disabled={isApproved}
                             value={lvl.maxPercentage}
                             onChange={(e) => handleDirectLevelChange(index, 'maxPercentage', e.target.value)}
                             className="form-input"
-                            style={{ width: '70px', padding: '4px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #c7d2fe', borderRadius: '6px' }}
+                            style={{ width: '70px', padding: '4px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #c7d2fe', borderRadius: '6px', background: isApproved ? '#f8fafc' : '#ffffff', cursor: isApproved ? 'not-allowed' : 'text' }}
                           />
                           <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>%</span>
                         </div>
@@ -496,10 +503,11 @@ export default function AttainmentConfig() {
                             type="number"
                             min="0"
                             max="100"
+                            disabled={isApproved}
                             value={lvl.minPercentage}
                             onChange={(e) => handleIndirectLevelChange(index, 'minPercentage', e.target.value)}
                             className="form-input"
-                            style={{ width: '70px', padding: '4px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #7dd3fc', borderRadius: '6px' }}
+                            style={{ width: '70px', padding: '4px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #7dd3fc', borderRadius: '6px', background: isApproved ? '#f8fafc' : '#ffffff', cursor: isApproved ? 'not-allowed' : 'text' }}
                           />
                           <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>%</span>
                         </div>
@@ -510,10 +518,11 @@ export default function AttainmentConfig() {
                             type="number"
                             min="0"
                             max="100"
+                            disabled={isApproved}
                             value={lvl.maxPercentage}
                             onChange={(e) => handleIndirectLevelChange(index, 'maxPercentage', e.target.value)}
                             className="form-input"
-                            style={{ width: '70px', padding: '4px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #7dd3fc', borderRadius: '6px' }}
+                            style={{ width: '70px', padding: '4px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #7dd3fc', borderRadius: '6px', background: isApproved ? '#f8fafc' : '#ffffff', cursor: isApproved ? 'not-allowed' : 'text' }}
                           />
                           <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>%</span>
                         </div>

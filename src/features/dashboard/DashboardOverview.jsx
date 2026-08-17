@@ -76,6 +76,15 @@ export default function DashboardOverview() {
       iconBg: '#eef2ff',
     },
     {
+      id: 'course-atr',
+      title: 'Course ATR',
+      desc: 'Fill target gap analysis & corrective Action Taken Report.',
+      path: '/course-atr',
+      icon: FileText,
+      iconColor: '#dc2626',
+      iconBg: '#fef2f2',
+    },
+    {
       id: 'reports',
       title: 'Reports & Downloads',
       desc: 'View and export Course Attainment and ATR reports.',

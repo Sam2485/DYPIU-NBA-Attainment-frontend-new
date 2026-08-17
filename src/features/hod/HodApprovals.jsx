@@ -373,32 +373,24 @@ export default function HodApprovals() {
       {/* ── TAB STRIP ─────────────────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '8px 12px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px', flexWrap: 'wrap' }}>
-          {tabDefs.map(({ id, label, icon: Icon, status }) => {
-            const done     = status === 'VERIFIED' || status === 'APPROVED';
-            const rejected = status === 'REJECTED' || status === 'REVISION_REQUESTED';
-            const pending  = status && !done && !rejected;
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => handleTabChange(id)}
-                style={{
-                  padding: '7px 16px', borderRadius: '7px', border: 'none', fontSize: '12.5px',
-                  fontWeight: '700', cursor: 'pointer',
-                  background: activeTab === id ? '#ffffff' : 'transparent',
-                  color: activeTab === id ? accent : muted,
-                  boxShadow: activeTab === id ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-                  fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px',
-                }}
-              >
-                <Icon size={14} />
-                {label}
-                {done     && <Check size={12} style={{ color: '#16a34a' }} />}
-                {rejected && <XCircle size={12} style={{ color: '#dc2626' }} />}
-                {pending  && <Clock size={12} style={{ color: '#d97706' }} />}
-              </button>
-            );
-          })}
+          {tabDefs.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => handleTabChange(id)}
+              style={{
+                padding: '8px 18px', borderRadius: '7px', border: 'none', fontSize: '12.5px',
+                fontWeight: '700', cursor: 'pointer',
+                background: activeTab === id ? '#ffffff' : 'transparent',
+                color: activeTab === id ? accent : muted,
+                boxShadow: activeTab === id ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '8px',
+              }}
+            >
+              <Icon size={14} />
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 

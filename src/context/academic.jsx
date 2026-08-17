@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './auth';
 
 export const AcademicContext = createContext(null);
@@ -164,7 +164,14 @@ export function AcademicProvider({ children }) {
 
   // Master Stores
   const [departmentsStore, setDepartmentsStore] = useState(INITIAL_DEPARTMENTS);
-  const [masterProgrammesStore, setMasterProgrammesStore] = useState(INITIAL_MASTER_PROGRAMMES_LIST);
+  const [masterProgrammesStore, setMasterProgrammesStore] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dypiu_master_programmes');
+      return saved ? JSON.parse(saved) : INITIAL_MASTER_PROGRAMMES_LIST;
+    } catch {
+      return INITIAL_MASTER_PROGRAMMES_LIST;
+    }
+  });
   const [schoolsStore, setSchoolsStore] = useState(INITIAL_SCHOOLS);
   const [selectedSchoolId, setSelectedSchoolId] = useState('sch-1');
   const selectedSchool = schoolsStore.find((s) => s.id === selectedSchoolId) || schoolsStore[0];
@@ -222,47 +229,76 @@ export function AcademicProvider({ children }) {
   const [programmeId, setProgrammeIdState] = useState('prog-1');
 
   // PO & PSO Targets
-  const [poPsoTargets, setPoPsoTargets] = useState({
-    'prog-1': {
-      poTargets: { PO1: 2.50, PO2: 2.50, PO3: 2.20, PO4: 2.20, PO5: 2.00, PO6: 2.00, PO7: 2.00, PO8: 2.50, PO9: 2.50, PO10: 2.50, PO11: 2.00, PO12: 2.00 },
-      psoTargets: { PSO1: 2.50, PSO2: 2.20, PSO3: 2.00 },
-    },
-    'prog-2': {
-      poTargets: { PO1: 2.50, PO2: 2.50, PO3: 2.20, PO4: 2.00 },
-      psoTargets: { PSO1: 2.50, PSO2: 2.20 },
-    },
-    'prog-3': {
-      poTargets: { PO1: 2.50, PO2: 2.50, PO3: 2.00 },
-      psoTargets: { PSO1: 2.50 },
-    },
+  const [poPsoTargets, setPoPsoTargets] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dypiu_po_pso_targets');
+      return saved ? JSON.parse(saved) : {
+        'prog-1': {
+          poTargets: { PO1: 2.50, PO2: 2.50, PO3: 2.20, PO4: 2.20, PO5: 2.00, PO6: 2.00, PO7: 2.00, PO8: 2.50, PO9: 2.50, PO10: 2.50, PO11: 2.00, PO12: 2.00 },
+          psoTargets: { PSO1: 2.50, PSO2: 2.20, PSO3: 2.00 },
+        },
+        'prog-2': {
+          poTargets: { PO1: 2.50, PO2: 2.50, PO3: 2.20, PO4: 2.00 },
+          psoTargets: { PSO1: 2.50, PSO2: 2.20 },
+        },
+        'prog-3': {
+          poTargets: { PO1: 2.50, PO2: 2.50, PO3: 2.00 },
+          psoTargets: { PSO1: 2.50 },
+        },
+      };
+    } catch {
+      return {
+        'prog-1': {
+          poTargets: { PO1: 2.50, PO2: 2.50, PO3: 2.20, PO4: 2.20, PO5: 2.00, PO6: 2.00, PO7: 2.00, PO8: 2.50, PO9: 2.50, PO10: 2.50, PO11: 2.00, PO12: 2.00 },
+          psoTargets: { PSO1: 2.50, PSO2: 2.20, PSO3: 2.00 },
+        },
+      };
+    }
   });
 
   const updatePoPsoTargets = (targetProgId, newPoTargets, newPsoTargets) => {
-    setPoPsoTargets((prev) => ({
-      ...prev,
-      [targetProgId]: {
-        poTargets: { ...(prev[targetProgId]?.poTargets || {}), ...newPoTargets },
-        psoTargets: { ...(prev[targetProgId]?.psoTargets || {}), ...newPsoTargets },
-      },
-    }));
+    setPoPsoTargets((prev) => {
+      const updated = {
+        ...prev,
+        [targetProgId]: {
+          poTargets: { ...(prev[targetProgId]?.poTargets || {}), ...newPoTargets },
+          psoTargets: { ...(prev[targetProgId]?.psoTargets || {}), ...newPsoTargets },
+        },
+      };
+      try { localStorage.setItem('dypiu_po_pso_targets', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   // Course CO Targets
-  const [coTargets, setCoTargets] = useState({
-    'crs-1': { 'C321.1': 2.50, 'C321.2': 2.50, 'C321.3': 2.20, 'C321.4': 2.50, 'C321.5': 2.00, 'C321.6': 2.50 },
-    'crs-2': { 'CS301.1': 2.50, 'CS301.2': 2.50, 'CS301.3': 2.20, 'CS301.4': 2.00 },
-    'crs-3': { 'AI201.1': 2.50, 'AI201.2': 2.50, 'AI201.3': 2.20 },
-    'crs-4': { 'MBA101.1': 2.50, 'MBA101.2': 2.50 },
+  const [coTargets, setCoTargets] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dypiu_co_targets');
+      return saved ? JSON.parse(saved) : {
+        'crs-1': { 'C321.1': 2.50, 'C321.2': 2.50, 'C321.3': 2.20, 'C321.4': 2.50, 'C321.5': 2.00, 'C321.6': 2.50 },
+        'crs-2': { 'CS301.1': 2.50, 'CS301.2': 2.50, 'CS301.3': 2.20, 'CS301.4': 2.00 },
+        'crs-3': { 'AI201.1': 2.50, 'AI201.2': 2.50, 'AI201.3': 2.20 },
+        'crs-4': { 'MBA101.1': 2.50, 'MBA101.2': 2.50 },
+      };
+    } catch {
+      return {
+        'crs-1': { 'C321.1': 2.50, 'C321.2': 2.50, 'C321.3': 2.20, 'C321.4': 2.50, 'C321.5': 2.00, 'C321.6': 2.50 },
+      };
+    }
   });
 
   const updateCourseCoTargets = (targetCourseId, newCoTargets) => {
-    setCoTargets((prev) => ({
-      ...prev,
-      [targetCourseId]: {
-        ...(prev[targetCourseId] || {}),
-        ...newCoTargets,
-      },
-    }));
+    setCoTargets((prev) => {
+      const updated = {
+        ...prev,
+        [targetCourseId]: {
+          ...(prev[targetCourseId] || {}),
+          ...newCoTargets,
+        },
+      };
+      try { localStorage.setItem('dypiu_co_targets', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   // Year-keyed stores
@@ -284,11 +320,43 @@ export function AcademicProvider({ children }) {
     '2026-27': INITIAL_PEO_OUTCOMES,
   });
 
-  const [coursesStoreByYear, setCoursesStoreByYear] = useState({
-    '2024-25': INITIAL_COURSES,
-    '2025-26': INITIAL_COURSES,
-    '2026-27': INITIAL_COURSES,
+  const [coursesStoreByYear, setCoursesStoreByYear] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dypiu_courses_by_year');
+      return saved ? JSON.parse(saved) : {
+        '2024-25': INITIAL_COURSES,
+        '2025-26': INITIAL_COURSES,
+        '2026-27': INITIAL_COURSES,
+      };
+    } catch {
+      return {
+        '2024-25': INITIAL_COURSES,
+        '2025-26': INITIAL_COURSES,
+        '2026-27': INITIAL_COURSES,
+      };
+    }
   });
+
+  // Cross-tab synchronization via storage event listener
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      try {
+        if (e.key === 'dypiu_courses_by_year' && e.newValue) {
+          setCoursesStoreByYear(JSON.parse(e.newValue));
+        } else if (e.key === 'dypiu_master_programmes' && e.newValue) {
+          setMasterProgrammesStore(JSON.parse(e.newValue));
+        } else if (e.key === 'dypiu_po_pso_targets' && e.newValue) {
+          setPoPsoTargets(JSON.parse(e.newValue));
+        } else if (e.key === 'dypiu_co_targets' && e.newValue) {
+          setCoTargets(JSON.parse(e.newValue));
+        }
+      } catch (err) {
+        console.error('Storage sync error in AcademicContext:', err);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const poStore = poStoreByYear[academicYear] || INITIAL_PROGRAMME_OUTCOMES;
   const psoStore = psoStoreByYear[academicYear] || INITIAL_PSO_OUTCOMES;
@@ -364,17 +432,27 @@ export function AcademicProvider({ children }) {
       ...newProg,
       coordinator: newProg.coordinator && newProg.coordinator !== 'Pending HOD Assignment' ? newProg.coordinator : 'No coordinator assigned yet',
     };
-    setMasterProgrammesStore((prev) => [...prev, formattedProg]);
+    setMasterProgrammesStore((prev) => {
+      const updated = [...prev, formattedProg];
+      try { localStorage.setItem('dypiu_master_programmes', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const updateProgramme = (progId, updatedFields) => {
-    setMasterProgrammesStore((prev) =>
-      prev.map((p) => (p.id === progId ? { ...p, ...updatedFields } : p))
-    );
+    setMasterProgrammesStore((prev) => {
+      const updated = prev.map((p) => (p.id === progId ? { ...p, ...updatedFields } : p));
+      try { localStorage.setItem('dypiu_master_programmes', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const deleteProgramme = (progId) => {
-    setMasterProgrammesStore((prev) => prev.filter((p) => p.id !== progId));
+    setMasterProgrammesStore((prev) => {
+      const updated = prev.filter((p) => p.id !== progId);
+      try { localStorage.setItem('dypiu_master_programmes', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const updateProgrammePOs = (progId, newPOs) => {
@@ -408,65 +486,89 @@ export function AcademicProvider({ children }) {
   };
 
   const updateCourseCOs = (targetCourseId, newCOs) => {
-    setCoursesStoreByYear((prev) => ({
-      ...prev,
-      [academicYear]: (prev[academicYear] || []).map((c) =>
-        c.id === targetCourseId ? { ...c, courseOutcomes: newCOs } : c
-      ),
-    }));
+    setCoursesStoreByYear((prev) => {
+      const updated = {
+        ...prev,
+        [academicYear]: (prev[academicYear] || []).map((c) =>
+          c.id === targetCourseId ? { ...c, courseOutcomes: newCOs } : c
+        ),
+      };
+      try { localStorage.setItem('dypiu_courses_by_year', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const updateCourseFacultyAllocation = (targetCourseId, assignedFacultyArray) => {
-    setCoursesStoreByYear((prev) => ({
-      ...prev,
-      [academicYear]: (prev[academicYear] || []).map((c) =>
-        c.id === targetCourseId
-          ? {
-              ...c,
-              assignedFaculty: assignedFacultyArray,
-              faculty: assignedFacultyArray.join(' / '),
-            }
-          : c
-      ),
-    }));
+    setCoursesStoreByYear((prev) => {
+      const updated = {
+        ...prev,
+        [academicYear]: (prev[academicYear] || []).map((c) =>
+          c.id === targetCourseId
+            ? {
+                ...c,
+                assignedFaculty: assignedFacultyArray,
+                faculty: assignedFacultyArray.join(' / '),
+              }
+            : c
+        ),
+      };
+      try { localStorage.setItem('dypiu_courses_by_year', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const assignCourseCoordinator = (targetCourseId, facultyName) => {
-    setCoursesStoreByYear((prev) => ({
-      ...prev,
-      [academicYear]: (prev[academicYear] || []).map((c) =>
-        c.id === targetCourseId
-          ? {
-              ...c,
-              coordinator: facultyName,
-              faculty: facultyName,
-            }
-          : c
-      ),
-    }));
+    setCoursesStoreByYear((prev) => {
+      const updated = {
+        ...prev,
+        [academicYear]: (prev[academicYear] || []).map((c) =>
+          c.id === targetCourseId
+            ? {
+                ...c,
+                coordinator: facultyName,
+                faculty: facultyName,
+              }
+            : c
+        ),
+      };
+      try { localStorage.setItem('dypiu_courses_by_year', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const addCourse = (newCourse) => {
-    setCoursesStoreByYear((prev) => ({
-      ...prev,
-      [academicYear]: [...(prev[academicYear] || INITIAL_COURSES), newCourse],
-    }));
+    setCoursesStoreByYear((prev) => {
+      const updated = {
+        ...prev,
+        [academicYear]: [...(prev[academicYear] || INITIAL_COURSES), newCourse],
+      };
+      try { localStorage.setItem('dypiu_courses_by_year', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const updateCourse = (targetCourseId, updatedFields) => {
-    setCoursesStoreByYear((prev) => ({
-      ...prev,
-      [academicYear]: (prev[academicYear] || []).map((c) =>
-        c.id === targetCourseId ? { ...c, ...updatedFields } : c
-      ),
-    }));
+    setCoursesStoreByYear((prev) => {
+      const updated = {
+        ...prev,
+        [academicYear]: (prev[academicYear] || []).map((c) =>
+          c.id === targetCourseId ? { ...c, ...updatedFields } : c
+        ),
+      };
+      try { localStorage.setItem('dypiu_courses_by_year', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const deleteCourse = (targetCourseId) => {
-    setCoursesStoreByYear((prev) => ({
-      ...prev,
-      [academicYear]: (prev[academicYear] || []).filter((c) => c.id !== targetCourseId),
-    }));
+    setCoursesStoreByYear((prev) => {
+      const updated = {
+        ...prev,
+        [academicYear]: (prev[academicYear] || []).filter((c) => c.id !== targetCourseId),
+      };
+      try { localStorage.setItem('dypiu_courses_by_year', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   // Batch Students Store
