@@ -49,8 +49,14 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   const activeCourseId = courseId || currentCourse?.id || selectedCourse?.id || 'crs-1';
   const activeCOs      = currentCourse?.courseOutcomes || [];
 
-  const atrStatus = courseVerificationStore[activeCourseId]?.atrStatus || 'DRAFT';
-  const atrRemarks = courseVerificationStore[activeCourseId]?.atrRemarks || '';
+  const verificationData = courseVerificationStore[activeCourseId] || {};
+  const atrStatus = verificationData.atrStatus || 'DRAFT';
+  const atrRemarks = verificationData.atrRemarks || '';
+  const verifiedBy = verificationData.verifiedBy || 'Programme Coordinator';
+
+  const isApproved = atrStatus === 'VERIFIED' || atrStatus === 'APPROVED';
+  const isRevision = atrStatus === 'REJECTED' || atrStatus === 'REVISION_REQUESTED' || atrStatus === 'NEEDS_REVISION';
+  const isSubmitted = atrStatus === 'SUBMITTED' || atrStatus === 'PENDING_APPROVAL';
 
   // Build ATR list from COs
   const buildList = () => {
@@ -77,8 +83,8 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   const [coList, setCoList] = useState(buildList);
   useEffect(() => { setCoList(buildList()); }, [activeCourseId, currentCourse, activeCOs, courseAtrStore]);
 
-  const reportStatus = courseVerificationStore[activeCourseId]?.atrStatus || 'DRAFT';
-  const locked       = readOnly || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED' || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+  const reportStatus = atrStatus;
+  const locked       = readOnly || isApproved || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleSaveSubmit = () => {
@@ -161,13 +167,42 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
       )}
 
 
-      {!hideHeader && (atrStatus === 'REJECTED' || atrStatus === 'REVISION_REQUESTED' || atrStatus === 'NEEDS_REVISION') && (
+      {/* ── APPROVAL / REVISION / SUBMISSION STATUS BANNERS ──────────────── */}
+      {!hideHeader && isRevision && (
         <RequestRevisionCard
-          title="Course Action Taken Report (ATR) Revision Requested"
-          requestedBy={courseVerificationStore[activeCourseId]?.verifiedBy || 'Programme Coordinator'}
+          title={`Course ATR Revision Requested (${currentCourse?.code || 'Course'})`}
+          requestedBy={verifiedBy}
           remarks={atrRemarks || 'Please review corrective actions and revise ATR details before resubmission.'}
-          actionText="Please update observation notes or action plans below and resubmit for approval."
+          actionText="Please update observation notes or action plans below and resubmit for Programme Coordinator approval."
         />
+      )}
+
+      {!hideHeader && isApproved && (
+        <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', borderRadius: '10px', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
+          <CheckCircle2 size={20} style={{ color: '#10b981', flexShrink: 0 }} />
+          <div>
+            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#15803d', display: 'block' }}>
+              ✓ Verified &amp; Approved by {verifiedBy}
+            </span>
+            <span style={{ fontSize: '12px', color: '#166534', display: 'block', marginTop: '2px' }}>
+              Course Action Taken Report (ATR) for <strong>{currentCourse?.code}</strong> has been verified and approved by the Programme Coordinator.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {!hideHeader && isSubmitted && !isApproved && (
+        <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '10px', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
+          <Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} />
+          <div>
+            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#92400e', display: 'block' }}>
+              Submitted — Pending Programme Coordinator Review
+            </span>
+            <span style={{ fontSize: '12px', color: '#b45309', display: 'block', marginTop: '2px' }}>
+              Course ATR for <strong>{currentCourse?.code}</strong> has been submitted and is awaiting verification by {verifiedBy || 'Programme Coordinator'}.
+            </span>
+          </div>
+        </div>
       )}
 
 

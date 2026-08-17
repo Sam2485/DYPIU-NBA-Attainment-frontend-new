@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   BookOpen, Target, CheckCircle2,
   ArrowRight, ArrowLeft, Check, Plus, Trash2, X,
-  ChevronDown, AlertCircle, Save, Clock, Layers, Send,
+  ChevronDown, AlertCircle, Save, Clock, Layers, Send, Lock,
 } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -406,10 +406,10 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
               <div>
                 <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>Programme Setup — Course &amp; Coordinator Roster</h3>
                 <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>
-                  Add the course roster under <strong>{selectedProgramme.name}</strong> ({selectedProgramme.code}). These will be submitted for HOD verification.
+                  Add the course roster and assign coordinators for HOD verification.
                 </p>
               </div>
-              {!isAllocationApproved && (
+              {!isAllocationApproved ? (
                 <button
                   type="button"
                   onClick={handleSubmitAllocations}
@@ -422,8 +422,22 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                 >
                   <Send size={14} /> Submit Allocations for HOD Review
                 </button>
+              ) : (
+                <span style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Lock size={13} /> Course &amp; Coordinator Locked
+                </span>
               )}
             </div>
+
+            {/* HOD Allocation Revision Banner */}
+            {isAllocationRevision && (
+              <RequestRevisionCard
+                title={`Course & Coordinator Allocation Revision Requested (${selectedProgramme?.code || 'Programme'})`}
+                requestedBy="Head of Department (HOD)"
+                remarks={allocationRemarks || 'Please review and adjust course allocations as per HOD notes.'}
+                actionText="Please adjust the course list or coordinator assignments below and resubmit for HOD approval."
+              />
+            )}
 
             {/* Approved Banner */}
             {isAllocationApproved && (
@@ -435,6 +449,21 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                   </strong>
                   <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#166534' }}>
                     Course list and coordinator assignments for {selectedProgramme.name} are verified and locked.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Submitted Banner */}
+            {isAllocationSubmitted && !isAllocationApproved && !isAllocationRevision && (
+              <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', padding: '14px 18px', marginBottom: '18px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} />
+                <div>
+                  <strong style={{ fontSize: '13.5px', color: '#92400e', fontWeight: '800', display: 'block' }}>
+                    Submitted — Pending HOD Verification
+                  </strong>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#b45309' }}>
+                    Course Coordinator allocations for {selectedProgramme.name} have been submitted and are awaiting HOD review.
                   </p>
                 </div>
               </div>
@@ -549,31 +578,36 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
               <div>
                 <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>PO &amp; PSO Target Levels</h3>
                 <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>
-                  Set benchmark target levels (1.0 – 3.0 scale) for each PO and PSO under <strong>{selectedProgramme.name}</strong>.
+                  Set benchmark target levels (1.0 – 3.0 scale) for each PO and PSO.
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  disabled={isTargetsApproved}
-                  onClick={handleSaveTargets}
-                  style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: isTargetsApproved ? '#f8fafc' : '#f0fdf4', color: isTargetsApproved ? '#94a3b8' : '#16a34a', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: isTargetsApproved ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
-                >
-                  <Save size={14} /> Save Targets
-                </button>
-                {!isTargetsApproved && (
-                  <button
-                    type="button"
-                    onClick={handleSubmitTargets}
-                    style={{
-                      height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700',
-                      background: accent, color: '#ffffff', border: 'none',
-                      borderRadius: '8px', cursor: 'pointer',
-                      display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit'
-                    }}
-                  >
-                    <Send size={14} /> Submit Targets for HOD Review
-                  </button>
+                {!isTargetsApproved ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleSaveTargets}
+                      style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
+                    >
+                      <Save size={14} /> Save Targets
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmitTargets}
+                      style={{
+                        height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700',
+                        background: accent, color: '#ffffff', border: 'none',
+                        borderRadius: '8px', cursor: 'pointer',
+                        display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit'
+                      }}
+                    >
+                      <Send size={14} /> Submit Target for HOD Review
+                    </button>
+                  </>
+                ) : (
+                  <span style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Lock size={13} /> Targets Locked
+                  </span>
                 )}
               </div>
             </div>

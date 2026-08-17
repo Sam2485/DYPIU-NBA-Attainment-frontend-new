@@ -1069,69 +1069,71 @@ export default function ReportsHub() {
       {activeMainTab === 'atr-reports' && (
         <div style={{ display: 'grid', gap: '20px' }}>
           
-          {/* ATR Sub-Tab Navigation */}
-          <div
-            className="print:hidden"
-            style={{
-              display: 'flex',
-              gap: '8px',
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              padding: '6px',
-              borderRadius: '10px',
-              width: 'fit-content',
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setAtrSubTab('course-atr')}
+          {/* ATR Sub-Tab Navigation (Only for Programme Coordinator, HOD, Director) */}
+          {!isCourseCoordinator && (
+            <div
+              className="print:hidden"
               style={{
-                padding: '8px 18px',
-                borderRadius: '7px',
-                border: 'none',
-                fontSize: '12.5px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                background: atrSubTab === 'course-atr' ? '#eef2ff' : 'transparent',
-                color: atrSubTab === 'course-atr' ? '#4f46e5' : '#64748b',
-                fontFamily: 'inherit',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
+                display: 'flex',
+                gap: '8px',
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                padding: '6px',
+                borderRadius: '10px',
+                width: 'fit-content',
               }}
             >
-              <FileText size={14} /> 1. Course ATR
-            </button>
+              <button
+                type="button"
+                onClick={() => setAtrSubTab('course-atr')}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  fontSize: '12.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  background: atrSubTab === 'course-atr' ? '#eef2ff' : 'transparent',
+                  color: atrSubTab === 'course-atr' ? '#4f46e5' : '#64748b',
+                  fontFamily: 'inherit',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <FileText size={14} /> 1. Course ATR
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setAtrSubTab('programme-atr')}
-              style={{
-                padding: '8px 18px',
-                borderRadius: '7px',
-                border: 'none',
-                fontSize: '12.5px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                background: atrSubTab === 'programme-atr' ? '#eef2ff' : 'transparent',
-                color: atrSubTab === 'programme-atr' ? '#4f46e5' : '#64748b',
-                fontFamily: 'inherit',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <Layers size={14} /> 2. Programme ATR
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => setAtrSubTab('programme-atr')}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  fontSize: '12.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  background: atrSubTab === 'programme-atr' ? '#eef2ff' : 'transparent',
+                  color: atrSubTab === 'programme-atr' ? '#4f46e5' : '#64748b',
+                  fontFamily: 'inherit',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <Layers size={14} /> 2. Programme ATR
+              </button>
+            </div>
+          )}
 
-          {/* ATR SUB-TAB 1: COURSE ATR */}
-          {atrSubTab === 'course-atr' && (
+          {/* ATR SUB-TAB 1: COURSE ATR (For Course Coordinator, or when course-atr selected) */}
+          {(isCourseCoordinator || atrSubTab === 'course-atr') && (
             <CourseATR hideFooter={true} hideHeader={true} courseId={courseId} />
           )}
 
-          {/* ATR SUB-TAB 2: PROGRAMME ATR */}
-          {atrSubTab === 'programme-atr' && (
+          {/* ATR SUB-TAB 2: PROGRAMME ATR (Only for Programme Coordinator, HOD, Director) */}
+          {!isCourseCoordinator && atrSubTab === 'programme-atr' && (
             <ProgrammeATR hideFooter={true} hideHeader={true} courseId={courseId} />
           )}
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck, Send, Lock } from 'lucide-react';
+import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck, Send, Lock, ChevronDown } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import RowButtons from '../../components/common/RowButtons';
@@ -17,6 +17,9 @@ export default function OutcomesManagement({ hideFooter = false }) {
   const {
     programmeId,
     selectedProgramme,
+    courses = [],
+    availableCourses = [],
+    setCourseId = () => {},
     courseId,
     selectedCourse,
     activePOs,
@@ -527,9 +530,50 @@ export default function OutcomesManagement({ hideFooter = false }) {
             </h2>
           </div>
 
-          <div style={{ marginLeft: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
+            {/* Course Selector Dropdown */}
+            <div style={{ position: 'relative', width: '240px' }}>
+              <select
+                value={selectedCourse?.id || courseId || ''}
+                onChange={(e) => setCourseId(e.target.value)}
+                style={{
+                  height: '38px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  color: '#4f46e5',
+                  border: '1.5px solid #c7d2fe',
+                  borderRadius: '8px',
+                  padding: '0 32px 0 12px',
+                  background: '#ffffff',
+                  width: '100%',
+                  outline: 'none',
+                  appearance: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                }}
+              >
+                {(availableCourses.length > 0 ? availableCourses : courses).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} — {c.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={14}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: '#4f46e5',
+                  pointerEvents: 'none',
+                }}
+              />
+            </div>
+
             {!isCoApproved ? (
-              <button className="btn btn-primary" onClick={handleSubmitCOsForReview} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <button className="btn btn-primary" onClick={handleSubmitCOsForReview} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px' }}>
                 <Send size={15} /> Submit CO for Review
               </button>
             ) : (

@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { Save, Check, ChevronDown, AlertCircle, CheckCircle2, Lock } from 'lucide-react';
+import { Save, Check, ChevronDown, AlertCircle, CheckCircle2, Lock, Send, Clock } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import { useAuth } from '../../context/AuthContext';
+import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -19,6 +21,7 @@ const TARGET_INPUT = {
 };
 
 export default function ProgrammeTargetSettings() {
+  const { user } = useAuth();
   const {
     masterProgrammes    = [],
     programmeId,
@@ -28,6 +31,7 @@ export default function ProgrammeTargetSettings() {
     poPsoTargets        = {},
     updatePoPsoTargets  = () => {},
     courseVerificationStore = {},
+    updateCourseVerificationStatus = () => {},
   } = useAcademic();
 
   const selectedProgramme =
@@ -37,7 +41,13 @@ export default function ProgrammeTargetSettings() {
 
   const targetsKey = `targets-${programmeId}`;
   const targetsRecord = courseVerificationStore[targetsKey] || courseVerificationStore[`allocation-${programmeId}`] || {};
-  const isTargetsApproved = targetsRecord.poPsoTargetsStatus === 'APPROVED' || targetsRecord.poPsoTargetsStatus === 'VERIFIED';
+  const targetsStatus = targetsRecord.poPsoTargetsStatus || targetsRecord.targetsStatus || 'DRAFT';
+  const targetsRemarks = targetsRecord.poPsoTargetsRemarks || targetsRecord.targetsRemarks || '';
+  const verifierName = targetsRecord.verifiedBy || 'Head of Department (HOD)';
+
+  const isTargetsApproved = targetsStatus === 'APPROVED' || targetsStatus === 'VERIFIED';
+  const isTargetsSubmitted = targetsStatus === 'SUBMITTED' || targetsStatus === 'PENDING_APPROVAL';
+  const isTargetsRevision = targetsStatus === 'REVISION_REQUESTED' || targetsStatus === 'NEEDS_REVISION';
 
   const normPSOs = activePSOs.map((p) => ({ ...p, competencies: p.competencies ?? [] }));
 
@@ -73,10 +83,13 @@ export default function ProgrammeTargetSettings() {
     setPsoTargetDraft(newPsoDraft);
   };
 
-  const handleSave = () => {
+  const handleSubmitTargets = () => {
     updatePoPsoTargets(programmeId, poTargetDraft, psoTargetDraft);
+    updateCourseVerificationStatus(targetsKey, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
+    updateCourseVerificationStatus(`allocation-${programmeId}`, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
+    alert(`PO & PSO target benchmarks for ${selectedProgramme?.name} submitted for HOD review!`);
   };
 
   return (
@@ -92,30 +105,30 @@ export default function ProgrammeTargetSettings() {
             PO &amp; PSO Target Levels
           </h2>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            Set benchmark target levels (1.0 – 3.0 scale) for <strong>{selectedProgramme.name}</strong>.
+            Set benchmark target levels (1.0 – 3.0 scale).
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
           {/* Programme selector */}
           <div style={{ position: 'relative' }}>
             <select
               value={programmeId}
               onChange={(e) => handleProgrammeChange(e.target.value)}
-              style={{ height: '38px', paddingLeft: '12px', paddingRight: '32px', fontSize: '12.5px', fontWeight: '600', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ffffff', color: ink, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', appearance: 'none', maxWidth: '300px' }}
+              style={{ height: '38px', paddingLeft: '12px', paddingRight: '32px', fontSize: '12.5px', fontWeight: '600', border: '1.5px solid #cbd5e1', borderRadius: '8px', background: '#ffffff', color: accent, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', appearance: 'none', maxWidth: '300px' }}
             >
               {masterProgrammes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
             </select>
             <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
           </div>
 
-          {/* Save button */}
+          {/* Submit for HOD Review button */}
           {!isTargetsApproved ? (
             <button
-              onClick={handleSave}
+              onClick={handleSubmitTargets}
               style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', background: saved ? '#16a34a' : accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit', transition: 'background .2s' }}
             >
-              {saved ? <><Check size={14} /> Saved</> : <><Save size={14} /> Save Targets</>}
+              {saved ? <><Check size={14} /> Submitted</> : <><Send size={14} /> Submit Target for HOD Review</>}
             </button>
           ) : (
             <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
@@ -124,6 +137,46 @@ export default function ProgrammeTargetSettings() {
           )}
         </div>
       </div>
+
+      {/* ── HOD REVISION REQUESTED BANNER ─────────────────────────────────── */}
+      {isTargetsRevision && (
+        <RequestRevisionCard
+          title={`HOD Targets Revision Requested (${selectedProgramme?.code || 'Programme'})`}
+          requestedBy={verifierName}
+          remarks={targetsRemarks || 'Please review and adjust PO/PSO target levels as per HOD notes.'}
+          actionText="Please adjust the target levels below and resubmit for HOD approval."
+        />
+      )}
+
+      {/* ── APPROVED BANNER ────────────────────────────────────────────────── */}
+      {isTargetsApproved && (
+        <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', padding: '14px 18px', marginBottom: '20px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <CheckCircle2 size={20} style={{ color: '#10b981', flexShrink: 0 }} />
+          <div>
+            <strong style={{ fontSize: '13.5px', color: '#15803d', fontWeight: '800' }}>
+              ✓ ALL PO &amp; PSO TARGET LEVELS VERIFIED &amp; APPROVED BY HOD
+            </strong>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#166534' }}>
+              Benchmark target levels for {selectedProgramme.name} have been approved and are now locked.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── PENDING REVIEW BANNER ─────────────────────────────────────────── */}
+      {isTargetsSubmitted && !isTargetsApproved && (
+        <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', padding: '14px 18px', marginBottom: '20px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} />
+          <div>
+            <strong style={{ fontSize: '13.5px', color: '#92400e', fontWeight: '800' }}>
+              ⏳ Submitted — Pending HOD Review
+            </strong>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#b45309' }}>
+              PO/PSO target benchmarks for {selectedProgramme.name} have been submitted and are awaiting review by {verifierName}.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── NO OUTCOMES WARNING ────────────────────────────────────────────── */}
       {activePOs.length === 0 && normPSOs.length === 0 && (
@@ -141,7 +194,7 @@ export default function ProgrammeTargetSettings() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', marginBottom: '20px' }}>
           <CheckCircle2 size={16} style={{ color: '#16a34a', flexShrink: 0 }} />
           <span style={{ fontSize: '13px', fontWeight: '600', color: '#15803d' }}>
-            Target levels saved successfully for {selectedProgramme.name}.
+            Target levels submitted successfully for {selectedProgramme.name}.
           </span>
         </div>
       )}
@@ -169,7 +222,13 @@ export default function ProgrammeTargetSettings() {
                     <td style={{ textAlign: 'center' }}>
                       <input
                         {...TARGET_INPUT}
-                        style={{ ...TARGET_INPUT.style, color: accent }}
+                        disabled={isTargetsApproved}
+                        style={{
+                          ...TARGET_INPUT.style,
+                          color: accent,
+                          background: isTargetsApproved ? '#f8fafc' : '#ffffff',
+                          cursor: isTargetsApproved ? 'not-allowed' : 'text',
+                        }}
                         value={poTargetDraft[po.code] ?? 2.0}
                         onChange={(e) => {
                           setSaved(false);
@@ -213,7 +272,13 @@ export default function ProgrammeTargetSettings() {
                     <td style={{ textAlign: 'center' }}>
                       <input
                         {...TARGET_INPUT}
-                        style={{ ...TARGET_INPUT.style, color: '#059669' }}
+                        disabled={isTargetsApproved}
+                        style={{
+                          ...TARGET_INPUT.style,
+                          color: '#059669',
+                          background: isTargetsApproved ? '#f8fafc' : '#ffffff',
+                          cursor: isTargetsApproved ? 'not-allowed' : 'text',
+                        }}
                         value={psoTargetDraft[pso.code] ?? 2.0}
                         onChange={(e) => {
                           setSaved(false);

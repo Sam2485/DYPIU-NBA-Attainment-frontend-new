@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Save, CheckCircle2, Clock, ShieldCheck, Printer,
-  ChevronDown, AlertCircle, Plus, Lock, Send,
+  ChevronDown, AlertCircle, Plus, Lock, Send, History,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -23,6 +23,8 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
     selectedCourse,
     selectedProgramme,
     selectedBatch,
+    masterProgrammes = [],
+    setProgrammeId  = () => {},
     academicYear    = '2025-26',
     availableYears  = ['2025-26', '2024-25', '2023-24'],
     activePOs       = [],
@@ -32,6 +34,16 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
+
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Carry-forward mock data for previous academic cycle
+  const prevCycleActions = [
+    { code: 'PO1', actionPlan: 'Conducted bridge courses in engineering mathematics and computational logic.', impact: 'Attainment improved from 1.72 to 1.88 across core computing courses.' },
+    { code: 'PO3', actionPlan: 'Introduced capstone project milestones with industry mentor evaluations.', impact: 'Design of solutions attainment rose by +0.18 over benchmark.' },
+    { code: 'PO5', actionPlan: 'Conducted hands-on tool workshops on Git, Docker, and modern CI/CD pipelines.', impact: 'Modern tool usage attainment increased from 1.65 to 1.92.' },
+    { code: 'PSO2', actionPlan: 'Organized industry bootcamps on full-stack testing and secure software development.', impact: 'PSO2 attainment exceeded target with 91.4% achievement rate.' },
+  ];
 
   const targetCourseId = courseId || selectedCourse?.id || 'crs-1';
   const progAtrKey = `prog-atr-${programmeId}`;
@@ -219,38 +231,93 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
 
       {/* ── PAGE HEADER ───────────────────────────────────────────────────── */}
       {!hideHeader && (
-        <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
-              Programme ATR
-            </h2>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
-            <div style={{ position: 'relative' }}>
-              <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}
-                style={{ ...inputStyle, width: '130px', paddingRight: '28px', appearance: 'none', cursor: 'pointer', fontWeight: '700', color: accent }}>
-                {availableYears.map((yr) => <option key={yr}>{yr}</option>)}
-              </select>
-              <ChevronDown size={12} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+        <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
+                Programme ATR
+              </h2>
             </div>
 
-            <button onClick={() => window.print()}
-              style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-              <Printer size={13} /> Print
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
+              {/* Programme selector */}
+              <div style={{ position: 'relative', minWidth: '280px' }}>
+                <select
+                  value={programmeId}
+                  onChange={(e) => setProgrammeId(e.target.value)}
+                  style={{
+                    ...inputStyle,
+                    height: '38px',
+                    paddingRight: '32px',
+                    appearance: 'none',
+                    cursor: 'pointer',
+                    fontWeight: '700',
+                    color: accent,
+                    background: '#f5f3ff',
+                    border: '1.5px solid #c7d2fe',
+                  }}
+                >
+                  {masterProgrammes.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.code} — {p.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
+              </div>
+
+              {!locked ? (
+                <button onClick={handleSaveSubmit}
+                  style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                  <Send size={14} /> Submit Report for Review
+                </button>
+              ) : (
+                <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Lock size={13} /> {isPreviousYear ? `AY ${selectedYear} Archived (Read-Only)` : 'Report Locked'}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Action buttons below the title */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <button onClick={() => setShowHistory((v) => !v)}
+              style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+              <History size={13} /> {showHistory ? 'Hide Carry Forwarded ATR' : 'View Carry Forwarded ATR'}
             </button>
 
-            {!locked ? (
-              <button onClick={handleSaveSubmit}
-                style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-                <Send size={13} /> Submit Report for Review
-              </button>
-            ) : (
-              <span style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <Lock size={13} /> {isPreviousYear ? `AY ${selectedYear} Archived (Read-Only)` : 'Report Locked'}
-              </span>
-            )}
+            <button onClick={() => window.print()}
+              style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+              <Printer size={13} /> Print
+            </button>
           </div>
+        </div>
+      )}
+
+      {/* ── CARRY-FORWARD REFERENCE ───────────────────────────────────────── */}
+      {showHistory && (
+        <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px', borderColor: '#a5b4fc', borderWidth: '1.5px' }}>
+          <div style={{ fontSize: '11px', fontWeight: '700', color: accent, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+            Programme ATR Carry-Forward — Previous Academic Cycle (AY 2024-25) · Verified by Head of Department (HOD)
+          </div>
+          <table className="audit-data-table">
+            <thead>
+              <tr>
+                <th style={{ width: '90px', textAlign: 'center' }}>Outcome</th>
+                <th>Action Taken (Previous Cycle)</th>
+                <th>Impact Observed in Current Cycle</th>
+              </tr>
+            </thead>
+            <tbody>
+              {prevCycleActions.map((a) => (
+                <tr key={a.code}>
+                  <td style={{ textAlign: 'center', fontWeight: '800', color: accent }}>{a.code}</td>
+                  <td style={{ fontSize: '12.5px' }}>{a.actionPlan}</td>
+                  <td style={{ fontSize: '12.5px', color: '#16a34a', fontWeight: '600' }}>{a.impact}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -312,31 +379,6 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
             <span style={{ fontSize: '12px', color: '#b45309', display: 'block', marginTop: '2px' }}>
               Submitted for Programme Coordinator verification.
             </span>
-          </div>
-        </div>
-      )}
-
-      {/* ── STATUS BAR ────────────────────────────────────────────────────── */}
-      {!hideHeader && (
-        <div style={{ ...surface, padding: '12px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: locked ? '#f0fdf4' : reportStatus === 'SUBMITTED' ? '#fffbeb' : reportStatus === 'REVISION_REQUESTED' ? '#fef2f2' : '#ffffff', borderColor: locked ? '#bbf7d0' : reportStatus === 'SUBMITTED' ? '#fde68a' : reportStatus === 'REVISION_REQUESTED' ? '#fecaca' : '#e2e8f0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {locked ? <CheckCircle2 size={18} style={{ color: '#16a34a' }} /> : <Clock size={18} style={{ color: '#d97706' }} />}
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
-                {locked ? `Verified & Approved by ${verifierName} ✓` : reportStatus === 'SUBMITTED' ? 'Submitted — Pending Verification' : reportStatus === 'REVISION_REQUESTED' ? 'Revision Requested' : 'Draft — Not yet submitted'}
-              </div>
-              <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>
-                {selectedProgramme?.code} · {selectedProgramme?.name} · {selectedYear}
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            {[
-              { label: `${metCount} Outcomes Met`,   bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
-              { label: `${gapCount} Outcomes Gap`,   bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
-            ].map((s) => (
-              <span key={s.label} style={{ fontSize: '12px', fontWeight: '700', background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '6px', padding: '3px 10px' }}>{s.label}</span>
-            ))}
           </div>
         </div>
       )}
