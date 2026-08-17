@@ -14,7 +14,7 @@ export default function DirectorApprovals() {
     try {
       setLoading(true);
       const res = await getPendingApprovals({ role: 'DIRECTOR' });
-      const list = res?.data || res || [];
+      const list = res?.data?.approvals || res?.approvals || res?.data || (Array.isArray(res) ? res : []);
       setApprovals(Array.isArray(list) ? list : []);
     } catch (err) {
       console.warn('Failed to fetch director approvals:', err);

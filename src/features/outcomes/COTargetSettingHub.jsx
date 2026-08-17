@@ -34,7 +34,7 @@ export default function COTargetSettingHub({ hideFooter = false }) {
       getCourseCOs(targetCourseId)
         .then((res) => {
           if (!isMounted) return;
-          const rawCOs = res?.data?.data || res?.data || [];
+          const rawCOs = res?.data?.outcomes || res?.data?.cos || res?.outcomes || res?.cos || res?.data?.data || res?.data || [];
           if (Array.isArray(rawCOs) && rawCOs.length > 0) {
             const initialMap = {};
             const formattedCOs = rawCOs.map((co, idx) => {

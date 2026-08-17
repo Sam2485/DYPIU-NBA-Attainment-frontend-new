@@ -75,7 +75,7 @@ export default function HodProgrammeOutcomes() {
           }
         }
         const progRes = await getProgrammes('', deptId);
-        const progList = progRes?.data?.data || progRes?.data || [];
+        const progList = progRes?.data?.programmes || progRes?.programmes || progRes?.data?.data || progRes?.data || [];
         if (isMounted && Array.isArray(progList) && progList.length > 0) {
           setProgrammesList(progList);
           setProgrammeId((prev) => prev || progList[0].id);
@@ -121,13 +121,13 @@ const sortOutcomesNaturally = (list) => {
         ]);
 
         if (isMounted) {
-          const poList = poRes.status === 'fulfilled' ? (poRes.value?.data?.data || poRes.value?.data || []) : [];
+          const poList = poRes.status === 'fulfilled' ? (poRes.value?.data?.pos || poRes.value?.pos || poRes.value?.data?.data || poRes.value?.data || []) : [];
           setActivePOs(sortOutcomesNaturally(Array.isArray(poList) ? poList : []));
 
-          const psoList = psoRes.status === 'fulfilled' ? (psoRes.value?.data?.data || psoRes.value?.data || []) : [];
+          const psoList = psoRes.status === 'fulfilled' ? (psoRes.value?.data?.psos || psoRes.value?.psos || psoRes.value?.data?.data || psoRes.value?.data || []) : [];
           setActivePSOs(sortOutcomesNaturally(Array.isArray(psoList) ? psoList : []));
 
-          const peoList = peoRes.status === 'fulfilled' ? (peoRes.value?.data?.data || peoRes.value?.data || []) : [];
+          const peoList = peoRes.status === 'fulfilled' ? (peoRes.value?.data?.peos || peoRes.value?.peos || peoRes.value?.data?.data || peoRes.value?.data || []) : [];
           setActivePEOs(sortOutcomesNaturally(Array.isArray(peoList) ? peoList : []));
         }
       } catch (err) {

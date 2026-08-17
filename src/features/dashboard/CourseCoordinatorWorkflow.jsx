@@ -65,8 +65,8 @@ export default function CourseCoordinatorWorkflow() {
       getCourseCoordinatorSummary(user.email)
         .then((res) => {
           if (isMounted) {
-            const data = res?.data?.data || res?.data;
-            const fetched = data?.assignedCourses;
+            const data = res?.data?.data || res?.data || res;
+            const fetched = data?.assignedCourseOfferings || data?.assignedCourses;
             if (Array.isArray(fetched) && fetched.length > 0) {
               setCoordinatorCourses(fetched);
               setSelectedCourseId((prev) => prev || fetched[0].id);

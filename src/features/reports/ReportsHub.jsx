@@ -135,7 +135,7 @@ export default function ReportsHub() {
   // Dynamic POs / PSOs
   const poList = (activePOs || []).map((p) => p?.code || p).filter(Boolean);
   const psoList = (activePSOs || []).map((p) => p?.code || p).filter(Boolean);
-  const coList = (activeCOs && activeCOs.length > 0) ? activeCOs : (courseAttainmentData?.coAttainments || []);
+  const coList = (activeCOs && activeCOs.length > 0) ? activeCOs : (courseAttainmentData?.outcomes || courseAttainmentData?.coAttainments || []);
 
   const currentBatchObj = batches.find((b) => b.id === selectedBatchId) || selectedBatch || batches[0];
   const isFinalSemCompleted = currentBatchObj?.isCompleted || currentBatchObj?.status === 'COMPLETED';

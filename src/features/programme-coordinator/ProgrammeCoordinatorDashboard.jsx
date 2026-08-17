@@ -12,6 +12,8 @@ import {
   getCourses,
   getProgrammePOs,
   getProgrammePSOs,
+  getProgrammeTargets,
+  getProgrammeCoordinatorSetupProgress,
 } from '../../api/academic';
 
 // ── Style tokens (identical to HodDashboard) ─────────────────────────────────
@@ -36,6 +38,7 @@ export default function ProgrammeCoordinatorDashboard() {
   const [summaryData, setSummaryData] = useState(null);
   const [programmesList, setProgrammesList] = useState([]);
   const [selectedProgId, setSelectedProgId] = useState('');
+  const [setupProgress, setSetupProgress] = useState(null);
   const [progDetails, setProgDetails] = useState({
     coursesCount: 0,
     posCount: 0,
@@ -48,7 +51,7 @@ export default function ProgrammeCoordinatorDashboard() {
     const fetchProgrammes = async () => {
       try {
         const progRes = await getProgrammes('', '', user?.email);
-        const rawProgs = progRes?.data?.data || progRes?.data || [];
+        const rawProgs = progRes?.data?.programmes || progRes?.programmes || progRes?.data?.data || progRes?.data || [];
         if (isMounted && Array.isArray(rawProgs) && rawProgs.length > 0) {
           setProgrammesList(rawProgs);
         }
@@ -67,30 +70,37 @@ export default function ProgrammeCoordinatorDashboard() {
 
     const fetchSummaryAndDetails = async () => {
       try {
-        const [sumRes, crsRes, poRes, psoRes] = await Promise.allSettled([
+        const [sumRes, crsRes, poRes, psoRes, progStateRes] = await Promise.allSettled([
           getProgrammeCoordinatorSummary(user?.email, targetProgId || ''),
           targetProgId ? getCourses(targetProgId) : Promise.resolve(null),
           targetProgId ? getProgrammePOs(targetProgId) : Promise.resolve(null),
           targetProgId ? getProgrammePSOs(targetProgId) : Promise.resolve(null),
+          targetProgId ? getProgrammeCoordinatorSetupProgress(user?.email || '', targetProgId) : Promise.resolve(null),
         ]);
 
         if (isMounted) {
           if (sumRes.status === 'fulfilled') {
-            const data = sumRes.value?.data?.data || sumRes.value?.data;
+            const data = sumRes.value?.data?.data || sumRes.value?.data || sumRes.value;
             if (data) {
               setSummaryData(data);
-              if (Array.isArray(data.assignedProgrammes) && data.assignedProgrammes.length > 0) {
-                setProgrammesList(data.assignedProgrammes);
+              const assignedProgs = data.assignedProgrammes || (data.programme ? [data.programme] : []);
+              if (Array.isArray(assignedProgs) && assignedProgs.length > 0) {
+                setProgrammesList(assignedProgs);
               }
-              if (!selectedProgId && data.programmeId) {
-                setSelectedProgId(data.programmeId);
+              if (!selectedProgId && (data.programmeId || data.programme?.id)) {
+                setSelectedProgId(data.programmeId || data.programme?.id);
               }
             }
           }
 
-          const crsList = crsRes.status === 'fulfilled' && crsRes.value ? (crsRes.value?.data?.data || crsRes.value?.data || []) : [];
-          const poList = poRes.status === 'fulfilled' && poRes.value ? (poRes.value?.data?.data || poRes.value?.data || []) : [];
-          const psoList = psoRes.status === 'fulfilled' && psoRes.value ? (psoRes.value?.data?.data || psoRes.value?.data || []) : [];
+          if (progStateRes.status === 'fulfilled' && progStateRes.value) {
+            const pData = progStateRes.value?.data?.data || progStateRes.value?.data || progStateRes.value;
+            if (pData) setSetupProgress(pData);
+          }
+
+          const crsList = crsRes.status === 'fulfilled' && crsRes.value ? (crsRes.value?.data?.courses || crsRes.value?.courses || crsRes.value?.data?.data || crsRes.value?.data || []) : [];
+          const poList = poRes.status === 'fulfilled' && poRes.value ? (poRes.value?.data?.pos || poRes.value?.pos || poRes.value?.data?.data || poRes.value?.data || []) : [];
+          const psoList = psoRes.status === 'fulfilled' && psoRes.value ? (psoRes.value?.data?.psos || psoRes.value?.psos || psoRes.value?.data?.data || psoRes.value?.data || []) : [];
 
           setProgDetails({
             coursesCount: Array.isArray(crsList) ? crsList.length : 0,

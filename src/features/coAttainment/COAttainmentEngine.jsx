@@ -85,7 +85,7 @@ export default function COAttainmentEngine({ hideFooter = false }) {
                 poMapObj[`${coCode}_${m.poCode}`] = m.mappingLevel;
               }
             });
-            setSavedPoMappings(poMapObj);
+            setSavedPoMappings((prev) => ({ ...prev, ...poMapObj }));
           }
           if (Array.isArray(data.psoMappings)) {
             const psoMapObj = {};
@@ -96,7 +96,26 @@ export default function COAttainmentEngine({ hideFooter = false }) {
                 psoMapObj[`${coCode}_${m.psoCode}`] = m.mappingLevel;
               }
             });
-            setSavedPsoMappings(psoMapObj);
+            setSavedPsoMappings((prev) => ({ ...prev, ...psoMapObj }));
+          }
+          if (Array.isArray(data.mappings) && data.mappings.length > 0) {
+            const poMapObj = {};
+            const psoMapObj = {};
+            data.mappings.forEach((m) => {
+              const coCode = m.coCode || m.courseOutcomeId;
+              if (Array.isArray(m.poMappings)) {
+                m.poMappings.forEach((p) => {
+                  if (coCode && p.poCode) poMapObj[`${coCode}_${p.poCode}`] = p.mappingLevel;
+                });
+              }
+              if (Array.isArray(m.psoMappings)) {
+                m.psoMappings.forEach((p) => {
+                  if (coCode && p.psoCode) psoMapObj[`${coCode}_${p.psoCode}`] = p.mappingLevel;
+                });
+              }
+            });
+            setSavedPoMappings((prev) => ({ ...prev, ...poMapObj }));
+            setSavedPsoMappings((prev) => ({ ...prev, ...psoMapObj }));
           }
         }
       })
@@ -108,7 +127,17 @@ export default function COAttainmentEngine({ hideFooter = false }) {
   }, [courseId]);
 
   // CO List from API for selected course
-  const coResults = attainmentData?.coAttainments || [];
+  const rawResults = attainmentData?.outcomes || attainmentData?.coAttainments || [];
+  const coResults = rawResults.map((c) => ({
+    ...c,
+    coCode: c.coCode || c.code,
+    statement: c.statement,
+    directLevel: c.directLevel ?? c.directAttainment,
+    indirectLevel: c.indirectLevel ?? c.indirectAttainment,
+    combinedAttainment: c.combinedAttainment ?? c.overallAttainment,
+    target: c.target ?? c.targetLevel,
+  }));
+
   const coList = coResults.length > 0 ? coResults : activeCOs.map((c) => ({
     coCode: c.code,
     statement: c.statement,

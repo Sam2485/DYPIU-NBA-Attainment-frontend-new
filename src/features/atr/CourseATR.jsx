@@ -67,15 +67,33 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
         const atrData = atrRes.status === 'fulfilled' ? (atrRes.value?.data || atrRes.value) : null;
         const attData = attRes.status === 'fulfilled' ? (attRes.value?.data || attRes.value) : null;
 
-        if (atrData && Array.isArray(atrData.entries) && atrData.entries.length > 0) {
+        const rawOutcomes = atrData?.outcomes || atrData?.entries;
+        if (atrData && Array.isArray(rawOutcomes) && rawOutcomes.length > 0) {
           setAtrRecord(atrData);
-          setCoList(atrData.entries);
-        } else if (attData && Array.isArray(attData.coAttainments) && attData.coAttainments.length > 0) {
+          const mapped = rawOutcomes.map((co) => {
+            const target = Number(co.targetLevel ?? co.target ?? 2.5);
+            const actual = Number(co.actualScore ?? co.attainmentLevel ?? co.actual ?? 2.7);
+            const pct = Number(co.pctAchieved ?? co.achievementPercentage ?? (target > 0 ? ((actual / target) * 100).toFixed(2) : 100));
+            const met = actual >= target;
+            return {
+              code: co.coCode || co.outcomeCode || co.code || 'CO1',
+              statement: co.statement || co.outcomeStatement || `Course Outcome ${co.coCode || ''}`,
+              target,
+              actual,
+              pct,
+              met,
+              remark: co.observation || (met ? 'Target achieved.' : 'Target not achieved.'),
+              actions: co.actions || [],
+            };
+          });
+          setCoList(mapped);
+        } else if (attData && Array.isArray(attData.outcomes || attData.coAttainments) && (attData.outcomes || attData.coAttainments).length > 0) {
           // Construct ATR entries from real attainment calculations
-          const items = attData.coAttainments.map((co) => {
-            const target = Number(co.target || 2.5);
-            const actual = Number(co.overallAttainment || co.combinedAttainment || co.attainmentScore || 0);
-            const pct = target > 0 ? Number(((actual / target) * 100).toFixed(2)) : 0;
+          const sourceList = attData.outcomes || attData.coAttainments;
+          const items = sourceList.map((co) => {
+            const target = Number(co.targetLevel || co.target || 2.5);
+            const actual = Number(co.overallAttainment || co.combinedAttainment || co.actualScore || co.attainmentScore || 0);
+            const pct = Number(co.achievementPercentage || (target > 0 ? ((actual / target) * 100).toFixed(2) : 0));
             const met = actual >= target;
             return {
               code: co.coCode || co.code,
@@ -84,7 +102,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
               actual,
               pct,
               met,
-              remark: met ? 'Target achieved. Maintain current pedagogy and assessment methods.' : '',
+              remark: co.observation || (met ? 'Target achieved. Maintain current pedagogy and assessment methods.' : ''),
               actions: met ? [] : [
                 `Conduct extra tutorial sessions on ${co.statement?.slice(0, 45) || co.code}...`,
                 'Provide additional practice numericals and interactive assignment problem sets.',

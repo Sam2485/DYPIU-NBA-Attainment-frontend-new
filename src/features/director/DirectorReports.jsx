@@ -4,7 +4,7 @@ import { useAcademic } from '../../context/AcademicContext';
 
 export default function DirectorReports() {
   const {
-    selectedSchool = { name: 'School of Engineering & Technology', code: 'SET' },
+    selectedSchool = { name: '—', code: '—' },
     departments = [],
     masterProgrammes = [],
   } = useAcademic();

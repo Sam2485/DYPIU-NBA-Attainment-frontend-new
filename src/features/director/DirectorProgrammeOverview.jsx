@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { GraduationCap, Building2, Check, ChevronDown, Edit2, Trash2, X } from 'lucide-react';
+import { GraduationCap, Building2, Check, ChevronDown, Edit2, Trash2, X, Plus, Loader2 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
@@ -9,8 +9,6 @@ import { getDirectorSchoolSummary, getDepartments, getProgrammes, saveProgramme,
 export default function DirectorProgrammeOverview() {
   const { user } = useAuth();
   const {
-    masterProgrammes = [],
-    departments = [],
     updateProgramme = () => {},
     deleteProgramme = () => {},
   } = useAcademic();
@@ -19,52 +17,61 @@ export default function DirectorProgrammeOverview() {
   const [deptList, setDeptList] = useState([]);
   const [progList, setProgList] = useState([]);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingProg, setEditingProg] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Modal State
+  const [showModal, setShowModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentProgId, setCurrentProgId] = useState(null);
+  const [formName, setFormName] = useState('');
+  const [formCode, setFormCode] = useState('');
+  const [formDeptId, setFormDeptId] = useState('');
+  const [formDuration, setFormDuration] = useState(4);
+  const [formCoordinator, setFormCoordinator] = useState('');
+  const [formCoordinatorEmail, setFormCoordinatorEmail] = useState('');
+
+  // Delete State
   const [deletingProg, setDeletingProg] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const [editName, setEditName] = useState('');
-  const [editCode, setEditCode] = useState('');
-  const [editDeptId, setEditDeptId] = useState('');
-  const [editDuration, setEditDuration] = useState(4);
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const [summaryRes, deptsRes, progsRes] = await Promise.allSettled([
+        getDirectorSchoolSummary(user?.email || ''),
+        getDepartments(),
+        getProgrammes(),
+      ]);
 
-  // Fetch school summary, departments, and programmes on mount
-  useEffect(() => {
-    let isMounted = true;
+      if (summaryRes.status === 'fulfilled') {
+        const sch = summaryRes.value?.data?.data || summaryRes.value?.data || summaryRes.value;
+        if (sch?.schoolId) setSchoolId(sch.schoolId);
+      }
 
-    getDirectorSchoolSummary('', user?.email || '', user?.name || '')
-      .then((res) => {
-        const sch = res?.data?.data || res?.data || res;
-        let resolvedSchoolId = schoolId || '';
-        if (sch && isMounted) {
-          if (sch.schoolId) { setSchoolId(sch.schoolId); resolvedSchoolId = sch.schoolId; }
+      if (deptsRes.status === 'fulfilled') {
+        const dList = deptsRes.value?.data?.departments || deptsRes.value?.departments || deptsRes.value?.data?.data || deptsRes.value?.data || deptsRes.value;
+        if (Array.isArray(dList)) {
+          setDeptList(dList);
         }
+      }
 
-        getDepartments(resolvedSchoolId)
-          .then((dRes) => {
-            const list = dRes?.data?.data || dRes?.data || dRes;
-            if (Array.isArray(list) && isMounted) {
-              setDeptList(list);
-            }
-          })
-          .catch((err) => console.warn('Could not fetch departments for programme overview:', err));
+      if (progsRes.status === 'fulfilled') {
+        const pList = progsRes.value?.data?.programmes || progsRes.value?.programmes || progsRes.value?.data?.data || progsRes.value?.data || progsRes.value;
+        console.log('[DirectorProgrammeOverview] Loaded programmes from backend:', pList);
+        if (Array.isArray(pList)) {
+          setProgList(pList);
+        }
+      }
+    } catch (err) {
+      console.warn('[DirectorProgrammeOverview] Error loading data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        getProgrammes(resolvedSchoolId)
-          .then((pRes) => {
-            const list = pRes?.data?.data || pRes?.data || pRes;
-            console.log('[DirectorProgrammeOverview] Loaded programmes:', list);
-            if (Array.isArray(list) && isMounted) {
-              setProgList(list);
-            }
-          })
-          .catch((err) => console.warn('Could not fetch programmes for programme overview:', err));
-      })
-      .catch((err) => console.warn('Could not fetch director school summary:', err));
-
-    return () => {
-      isMounted = false;
-    };
+  useEffect(() => {
+    loadData();
   }, [user?.email]);
 
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -87,37 +94,59 @@ export default function DirectorProgrammeOverview() {
     );
   });
 
-  const handleOpenEdit = (prog) => {
-    setEditingProg(prog);
-    setEditName(prog.name);
-    setEditCode(prog.code);
-    const initialDeptId = prog.departmentId || activeDepts[0]?.id || activeDepts[0]?.deptId || '';
-    setEditDeptId(initialDeptId);
-    setEditDuration(prog.durationYears || 4);
-    setShowEditModal(true);
+  const handleOpenAdd = () => {
+    setIsEditing(false);
+    setCurrentProgId(null);
+    setFormName('');
+    setFormCode('');
+    setFormDeptId(activeDepts[0]?.id || activeDepts[0]?.deptId || '');
+    setFormDuration(4);
+    setFormCoordinator('');
+    setFormCoordinatorEmail('');
+    setShowModal(true);
   };
 
-  const handleSaveEdit = async (e) => {
+  const handleOpenEdit = (prog) => {
+    setIsEditing(true);
+    setCurrentProgId(prog.id);
+    setFormName(prog.name || '');
+    setFormCode(prog.code || '');
+    const initialDeptId = prog.departmentId || activeDepts[0]?.id || activeDepts[0]?.deptId || '';
+    setFormDeptId(initialDeptId);
+    setFormDuration(prog.durationYears || prog.duration || 4);
+    setFormCoordinator(prog.coordinator || '');
+    setFormCoordinatorEmail(prog.coordinatorEmail || '');
+    setShowModal(true);
+  };
+
+  const handleSaveProgramme = async (e) => {
     e.preventDefault();
-    if (!editingProg || !editName || !editCode) return;
-    const targetDept = activeDepts.find((d) => (d.id || d.deptId) === editDeptId) || activeDepts[0];
-    const targetDeptId = targetDept?.id || targetDept?.deptId || editDeptId;
+    if (!formName.trim() || !formCode.trim()) return;
+
+    const targetDept = activeDepts.find((d) => (d.id || d.deptId) === formDeptId) || activeDepts[0];
+    const targetDeptId = targetDept?.id || targetDept?.deptId || formDeptId;
     const targetDeptName = targetDept?.name || targetDept?.deptName || 'Department of Engineering';
 
     const progPayload = {
-      ...(editingProg.id ? { id: editingProg.id } : {}),
+      ...(isEditing && currentProgId ? { id: currentProgId } : {}),
+      schoolId: schoolId || '',
       departmentId: targetDeptId,
       departmentName: targetDeptName,
-      code: editCode.toUpperCase(),
-      name: editName,
-      durationYears: parseInt(editDuration, 10) || 4,
-      coordinator: editingProg.coordinator || '',
-      coordinatorEmail: editingProg.coordinatorEmail || '',
-      status: editingProg.status || 'ACTIVE',
+      department: targetDeptName,
+      code: formCode.trim().toUpperCase(),
+      name: formName.trim(),
+      durationYears: parseInt(formDuration, 10) || 4,
+      duration: parseInt(formDuration, 10) || 4,
+      totalSemesters: (parseInt(formDuration, 10) || 4) * 2,
+      coordinator: formCoordinator || '',
+      coordinatorName: formCoordinator || '',
+      coordinatorEmail: formCoordinatorEmail || '',
+      status: 'ACTIVE',
     };
 
     try {
-      console.log('[DirectorProgrammeOverview] Saving programme edit:', progPayload);
+      setIsSaving(true);
+      console.log('[DirectorProgrammeOverview] Persisting programme payload:', progPayload);
       const res = await saveProgramme(progPayload);
       const savedProg = res?.data?.data || res?.data || progPayload;
 
@@ -127,11 +156,15 @@ export default function DirectorProgrammeOverview() {
         return [...prev, savedProg];
       });
 
-      updateProgramme(editingProg.id, progPayload);
-      setShowEditModal(false);
+      if (isEditing && currentProgId) {
+        updateProgramme(currentProgId, progPayload);
+      }
+      setShowModal(false);
     } catch (err) {
-      console.error('Failed to save programme edit:', err);
-      alert('Failed to save programme edit to backend.');
+      console.error('Failed to save programme to backend:', err);
+      alert('Failed to save programme. Please check your backend connection.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -165,7 +198,7 @@ export default function DirectorProgrammeOverview() {
           <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>Programme Overview &amp; Governance</h2>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>Manage degree programmes, coordinators, and duration settings across all departments.</p>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Building2 size={14} style={{ color: muted }} />
             <div style={{ position: 'relative' }}>
@@ -187,16 +220,25 @@ export default function DirectorProgrammeOverview() {
               <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
             </div>
           </div>
-          <span style={{ fontSize: '11.5px', color: muted, fontWeight: '500', paddingRight: '2px' }}>
-            {filteredProgrammes.length} programme{filteredProgrammes.length !== 1 ? 's' : ''}
-          </span>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleOpenAdd}
+            style={{ height: '38px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={15} /> Add Programme
+          </button>
         </div>
       </div>
 
       {/* ── PROGRAMMES GRID ──────────────────────────────────────────────────── */}
-      {filteredProgrammes.length === 0 ? (
+      {isLoading ? (
+        <div style={{ ...surface, padding: '48px', textAlign: 'center', color: muted, fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Loading degree programmes...
+        </div>
+      ) : filteredProgrammes.length === 0 ? (
         <div style={{ ...surface, padding: '48px', textAlign: 'center', color: muted, fontSize: '13px' }}>
-          No programmes found.
+          No programmes found. Click <strong>Add Programme</strong> above to configure degree programmes.
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '14px' }}>
@@ -251,7 +293,7 @@ export default function DirectorProgrammeOverview() {
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
                     <span style={{ color: muted }}>Duration</span>
-                    <span style={{ fontWeight: '600', color: ink }}>{prog.durationYears || 4} Years</span>
+                    <span style={{ fontWeight: '600', color: ink }}>{prog.durationYears || prog.duration || 4} Years</span>
                   </div>
                 </div>
 
@@ -287,24 +329,28 @@ export default function DirectorProgrammeOverview() {
         </div>
       )}
 
-      {/* ── EDIT PROGRAMME MODAL ────────────────────────────────────────────── */}
-      {showEditModal && createPortal(
+      {/* ── ADD / EDIT PROGRAMME MODAL ────────────────────────────────────────────── */}
+      {showModal && createPortal(
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px', boxSizing: 'border-box' }}>
           <div style={{ background: '#ffffff', borderRadius: '14px', width: '480px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,0.3)', overflow: 'hidden', boxSizing: 'border-box' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>Edit Programme</div>
-                <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>{editingProg?.code} · {editingProg?.name}</div>
+                <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>
+                  {isEditing ? 'Edit Programme' : 'Add New Programme'}
+                </div>
+                <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>
+                  {isEditing ? `${formCode} · ${formName}` : 'Configure degree programme under department'}
+                </div>
               </div>
-              <button onClick={() => setShowEditModal(false)} style={{ width: '28px', height: '28px', borderRadius: '7px', border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', display: 'grid', placeItems: 'center', color: muted }}>
+              <button onClick={() => setShowModal(false)} style={{ width: '28px', height: '28px', borderRadius: '7px', border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', display: 'grid', placeItems: 'center', color: muted }}>
                 <X size={14} />
               </button>
             </div>
-            <form onSubmit={handleSaveEdit} style={{ padding: '20px' }}>
+            <form onSubmit={handleSaveProgramme} style={{ padding: '20px' }}>
               <div style={{ display: 'grid', gap: '14px', marginBottom: '20px' }}>
                 <div>
                   <label style={labelStyle}>Department *</label>
-                  <select value={editDeptId} onChange={(e) => setEditDeptId(e.target.value)} style={inputStyle}>
+                  <select value={formDeptId} onChange={(e) => setFormDeptId(e.target.value)} style={inputStyle}>
                     {activeDepts.map((d) => {
                       const dId = d.id || d.deptId;
                       const dCode = d.code || d.deptCode;
@@ -317,28 +363,29 @@ export default function DirectorProgrammeOverview() {
                 </div>
                 <div>
                   <label style={labelStyle}>Programme Code *</label>
-                  <input type="text" required value={editCode} onChange={(e) => setEditCode(e.target.value.toUpperCase())} style={{ ...inputStyle, fontWeight: '700', color: accent }} />
+                  <input type="text" required placeholder="e.g. BTECH-CSE" value={formCode} onChange={(e) => setFormCode(e.target.value.toUpperCase())} style={{ ...inputStyle, fontWeight: '700', color: accent }} />
                 </div>
                 <div>
                   <label style={labelStyle}>Programme Name *</label>
-                  <input type="text" required value={editName} onChange={(e) => setEditName(e.target.value)} style={inputStyle} />
+                  <input type="text" required placeholder="e.g. B.Tech Computer Science & Engineering" value={formName} onChange={(e) => setFormName(e.target.value)} style={inputStyle} />
                 </div>
                 <div>
                   <label style={labelStyle}>Duration (Years) *</label>
-                  <select value={editDuration} onChange={(e) => setEditDuration(e.target.value)} style={inputStyle}>
+                  <select value={formDuration} onChange={(e) => setFormDuration(e.target.value)} style={inputStyle}>
+                    <option value={4}>4 Years (B.Tech / B.E.)</option>
                     <option value={2}>2 Years (Master Degree)</option>
                     <option value={3}>3 Years (Diploma / Bachelor)</option>
-                    <option value={4}>4 Years (B.Tech / B.E.)</option>
                     <option value={5}>5 Years (Dual Degree)</option>
                   </select>
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                <button type="button" onClick={() => setShowEditModal(false)} style={{ height: '38px', padding: '0 16px', fontSize: '13px', fontWeight: '600', background: '#f8fafc', color: muted, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer' }}>
+                <button type="button" onClick={() => setShowModal(false)} style={{ height: '38px', padding: '0 16px', fontSize: '13px', fontWeight: '600', background: '#f8fafc', color: muted, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer' }}>
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary" style={{ height: '38px', padding: '0 20px', fontSize: '13px', fontWeight: '800' }}>
-                  Save Changes
+                <button type="submit" disabled={isSaving} className="btn btn-primary" style={{ height: '38px', padding: '0 20px', fontSize: '13px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  {isSaving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+                  {isSaving ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create Programme')}
                 </button>
               </div>
             </form>

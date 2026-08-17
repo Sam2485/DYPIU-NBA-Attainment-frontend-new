@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen, Target, CheckCircle2,
-  ArrowRight, ArrowLeft, Check, Plus, Trash2, X,
+  ArrowRight, ArrowLeft, Check, Plus, Trash2, X as CloseIcon,
   ChevronDown, AlertCircle, Save, Clock, Loader2,
 } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
@@ -39,6 +39,7 @@ const labelStyle = {
 };
 
 const TARGET_LEVELS = [1.0, 1.5, 2.0, 2.5, 3.0];
+const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
 export default function ProgrammeCoordinatorSetupWorkflow() {
   const navigate = useNavigate();
@@ -49,6 +50,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     courseVerificationStore = {},
   } = useAcademic();
 
+  // All state hooks declared upfront
   const [programmesList, setProgrammesList] = useState([]);
   const [selectedProgId, setSelectedProgId] = useState('');
   const [coursesList, setCoursesList] = useState([]);
@@ -64,6 +66,20 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const [deletingCourse, setDeletingCourse] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
+  const [currentStep, setCurrentStep] = useState(1);
+
+  // Step 1 state
+  const [newCourseCode,  setNewCourseCode]  = useState('');
+  const [newCourseName,  setNewCourseName]  = useState('');
+  const [newCourseSem,   setNewCourseSem]   = useState('Sem I');
+  const [newCourseCoord, setNewCourseCoord] = useState('');
+
+  // Step 2 state
+  const [poTargetDraft,  setPoTargetDraft]  = useState({});
+  const [psoTargetDraft, setPsoTargetDraft] = useState({});
+  const [isSavingTargets, setIsSavingTargets] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+
   // 1. Load programmes & Course Coordinators on initial mount
   useEffect(() => {
     let isMounted = true;
@@ -71,7 +87,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
       setIsLoadingProgrammes(true);
       try {
         const progRes = await getProgrammes('', '', user?.email);
-        const rawProgs = progRes?.data?.data || progRes?.data || [];
+        const rawProgs = progRes?.data?.programmes || progRes?.programmes || progRes?.data?.data || progRes?.data || [];
         if (isMounted && Array.isArray(rawProgs) && rawProgs.length > 0) {
           const userEmail = user?.email?.toLowerCase();
           const userAssigned = rawProgs.filter(
@@ -97,11 +113,11 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
 
         let combinedUsers = [];
         if (ccRes.status === 'fulfilled') {
-          const ccList = ccRes.value?.data?.data || ccRes.value?.data || [];
+          const ccList = ccRes.value?.data?.users || ccRes.value?.users || ccRes.value?.data?.data || ccRes.value?.data || [];
           if (Array.isArray(ccList)) combinedUsers.push(...ccList);
         }
         if (facRes.status === 'fulfilled') {
-          const facList = facRes.value?.data?.data || facRes.value?.data || [];
+          const facList = facRes.value?.data?.users || facRes.value?.users || facRes.value?.data?.data || facRes.value?.data || [];
           if (Array.isArray(facList)) combinedUsers.push(...facList);
         }
 
@@ -143,18 +159,18 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
           let pos = [];
           let psos = [];
           if (crsRes.status === 'fulfilled') {
-            const fetchedCourses = crsRes.value?.data?.data || crsRes.value?.data || [];
+            const fetchedCourses = crsRes.value?.data?.courses || crsRes.value?.courses || crsRes.value?.data?.data || crsRes.value?.data || [];
             setCoursesList(Array.isArray(fetchedCourses) ? fetchedCourses : []);
           }
 
           if (poRes.status === 'fulfilled') {
-            const fetchedPOs = poRes.value?.data?.data || poRes.value?.data || [];
+            const fetchedPOs = poRes.value?.data?.pos || poRes.value?.pos || poRes.value?.data?.data || poRes.value?.data || [];
             pos = Array.isArray(fetchedPOs) ? fetchedPOs : [];
             setActivePOsList(pos);
           }
 
           if (psoRes.status === 'fulfilled') {
-            const fetchedPSOs = psoRes.value?.data?.data || psoRes.value?.data || [];
+            const fetchedPSOs = psoRes.value?.data?.psos || psoRes.value?.psos || psoRes.value?.data?.data || psoRes.value?.data || [];
             psos = Array.isArray(fetchedPSOs) ? fetchedPSOs : [];
             setActivePSOsList(psos);
           }
@@ -162,9 +178,17 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
           let fetchedPoTargets = {};
           let fetchedPsoTargets = {};
           if (targetRes.status === 'fulfilled') {
-            const targetDto = targetRes.value?.data?.data || targetRes.value?.data || {};
-            fetchedPoTargets = targetDto.poTargets || {};
-            fetchedPsoTargets = targetDto.psoTargets || {};
+            const rawTarget = targetRes.value?.data || targetRes.value || {};
+            const targetList = Array.isArray(rawTarget) ? rawTarget : (Array.isArray(rawTarget?.targets) ? rawTarget.targets : []);
+            if (targetList.length > 0) {
+              targetList.forEach((t) => {
+                if (t.outcomeCode?.startsWith('PO')) fetchedPoTargets[t.outcomeCode] = t.targetValue;
+                if (t.outcomeCode?.startsWith('PSO')) fetchedPsoTargets[t.outcomeCode] = t.targetValue;
+              });
+            } else {
+              fetchedPoTargets = rawTarget.poTargets || {};
+              fetchedPsoTargets = rawTarget.psoTargets || {};
+            }
           }
 
           const seedContextTargets = poPsoTargets[selectedProgId] || {};
@@ -209,28 +233,13 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
 
   const durationYears = selectedProgramme?.durationYears || 4;
   const totalSemesters = durationYears * 2;
-  const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
   const programmeSemesters = Array.from({ length: totalSemesters }, (_, i) => `Sem ${ROMAN_NUMERALS[i] || i + 1}`);
-
-  const [currentStep, setCurrentStep] = useState(1);
-
-  // ── Step 1 – Add Courses / Programme Setup ─────────────────────────────────
-  const [newCourseCode,  setNewCourseCode]  = useState('');
-  const [newCourseName,  setNewCourseName]  = useState('');
-  const [newCourseSem,   setNewCourseSem]   = useState(programmeSemesters[0] || 'Sem I');
-  const [newCourseCoord, setNewCourseCoord] = useState('');
 
   useEffect(() => {
     if (coordinatorsList.length > 0 && !newCourseCoord) {
       setNewCourseCoord(coordinatorsList[0]);
     }
   }, [coordinatorsList, newCourseCoord]);
-
-  // ── Step 2 – PO/PSO Targets ──────────────────────────────────────────────
-  const [poTargetDraft,  setPoTargetDraft]  = useState({});
-  const [psoTargetDraft, setPsoTargetDraft] = useState({});
-  const [isSavingTargets, setIsSavingTargets] = useState(false);
-  const [toastMessage, setToastMessage] = useState(null);
 
   // ── Step handlers ────────────────────────────────────────────────────────
   const handleAddCourse = async (e) => {
@@ -343,6 +352,12 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   };
 
   const handleFinish = async () => {
+    if (selectedProgId) {
+      localStorage.setItem(`pc_setup_completed_${selectedProgId}`, 'true');
+    }
+    if (user?.email) {
+      localStorage.setItem(`pc_setup_completed_${user.email}`, 'true');
+    }
     try {
       await completeProgrammeCoordinatorSetup(user?.email, selectedProgId);
     } catch (err) {
@@ -352,11 +367,20 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   };
 
   // ── Step definitions ─────────────────────────────────────────────────────
+  const isCoursesDone = coursesList.length > 0;
+  const isTargetsDone = Boolean(poPsoTargets[selectedProgId] || (poTargetDraft && Object.keys(poTargetDraft).length > 0));
+  const isLocalStoragePcDone = Boolean(localStorage.getItem(`pc_setup_completed_${selectedProgId}`)) ||
+                               Boolean(localStorage.getItem(`pc_setup_completed_${user?.email}`));
+  const isReviewDone = isLocalStoragePcDone || currentStep === 3 || (isCoursesDone && isTargetsDone);
+
   const steps = [
-    { number: 1, title: 'Programme Setup',   desc: 'Add courses under programme', icon: BookOpen     },
-    { number: 2, title: 'PO / PSO Targets',  desc: 'Set benchmark levels',         icon: Target       },
-    { number: 3, title: 'Review',             desc: 'Verify & finish',              icon: CheckCircle2 },
+    { number: 1, title: 'Course Roster & Coordinators', desc: isCoursesDone ? `${coursesList.length} courses added` : 'Add courses to programme', icon: BookOpen, isDone: isCoursesDone },
+    { number: 2, title: 'PO / PSO Target Setting', desc: isTargetsDone ? 'Targets configured' : 'Configure attainment targets', icon: Target, isDone: isTargetsDone },
+    { number: 3, title: 'Review & Submit for HOD Verification', desc: isReviewDone ? 'Ready to submit' : 'Verify & submit to HOD', icon: CheckCircle2, isDone: isReviewDone },
   ];
+
+  const completedCount = steps.filter((s) => s.isDone).length;
+  const progressPct = Math.round((completedCount / steps.length) * 100);
 
   return (
     <div className="animated-page" style={{ paddingBottom: '60px' }}>
@@ -412,7 +436,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
             onClick={() => navigate('/programme-coordinator/dashboard')}
             style={{ height: '38px', padding: '0 14px', fontSize: '12.5px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
           >
-            <X size={14} /> Exit
+            <CloseIcon size={14} /> Exit
           </button>
         </div>
       </div>
@@ -450,25 +474,36 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
         />
       )}
 
-      {/* ── STEPPER ───────────────────────────────────────────────────────── */}
+      {/* ── STEPPER ───────────────────────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', position: 'relative' }}>
           <div style={{ position: 'absolute', top: '18px', left: '16.6%', right: '16.6%', height: '1px', background: '#e2e8f0', zIndex: 0 }} />
           {steps.map((s) => {
-            const done   = currentStep > s.number;
+            const done   = s.isDone;
             const active = currentStep === s.number;
             const Icon   = s.icon;
             return (
               <div
                 key={s.number}
                 onClick={() => setCurrentStep(s.number)}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', position: 'relative', zIndex: 1, opacity: currentStep >= s.number ? 1 : 0.45, transition: 'opacity .2s' }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', position: 'relative', zIndex: 1, opacity: (active || done) ? 1 : 0.5, transition: 'all .2s' }}
               >
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: done ? '#f0fdf4' : active ? '#eef2ff' : '#f8fafc', border: `1.5px solid ${done ? '#86efac' : active ? '#a5b4fc' : '#e2e8f0'}`, color: done ? '#16a34a' : active ? accent : muted, display: 'grid', placeItems: 'center', marginBottom: '8px', transition: 'all .2s' }}>
-                  {done ? <Check size={15} /> : <Icon size={15} />}
+                <div style={{
+                  width: '36px', height: '36px', borderRadius: '50%',
+                  background: done ? '#dcfce7' : active ? '#eef2ff' : '#f8fafc',
+                  border: `1.5px solid ${done ? '#16a34a' : active ? '#a5b4fc' : '#e2e8f0'}`,
+                  color: done ? '#16a34a' : active ? accent : muted,
+                  display: 'grid', placeItems: 'center', marginBottom: '8px',
+                  transition: 'all .2s ease',
+                }}>
+                  {done ? <Check size={16} strokeWidth={2.5} /> : <Icon size={15} />}
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: active ? '700' : '600', color: active ? ink : muted, textAlign: 'center' }}>{s.title}</div>
-                <div style={{ fontSize: '10.5px', color: '#94a3b8', textAlign: 'center', marginTop: '1px' }}>{s.desc}</div>
+                <div style={{ fontSize: '12px', fontWeight: active || done ? '700' : '600', color: done ? '#16a34a' : active ? ink : muted, textAlign: 'center' }}>
+                  {s.title}
+                </div>
+                <div style={{ fontSize: '10.5px', color: done ? '#16a34a' : '#94a3b8', textAlign: 'center', marginTop: '1px' }}>
+                  {s.desc}
+                </div>
               </div>
             );
           })}

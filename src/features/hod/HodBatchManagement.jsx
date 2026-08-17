@@ -116,10 +116,10 @@ export default function HodBatchManagement() {
           }
         }
         let progRes = await getProgrammes('', deptId);
-        let progList = progRes?.data?.data || progRes?.data || [];
+        let progList = progRes?.data?.programmes || progRes?.programmes || progRes?.data?.data || progRes?.data || [];
         if (!Array.isArray(progList) || progList.length === 0) {
           progRes = await getProgrammes('');
-          progList = progRes?.data?.data || progRes?.data || [];
+          progList = progRes?.data?.programmes || progRes?.programmes || progRes?.data?.data || progRes?.data || [];
         }
         if (isMounted && Array.isArray(progList) && progList.length > 0) {
           setProgrammesList(progList);
@@ -143,7 +143,7 @@ export default function HodBatchManagement() {
       if (!selectedProgrammeId) return;
       try {
         const res = await getBatches(selectedProgrammeId);
-        const list = res?.data?.data || res?.data || [];
+        const list = res?.data?.batches || res?.batches || res?.data?.data || res?.data || [];
         if (isMounted) {
           setBatches(Array.isArray(list) ? list : []);
         }
@@ -165,7 +165,7 @@ export default function HodBatchManagement() {
       if (!selectedBatchForRoster?.id) return;
       try {
         const res = await getStudentsByBatch(selectedBatchForRoster.id);
-        const list = res?.data?.data || res?.data || [];
+        const list = res?.data?.students || res?.students || res?.data?.data || res?.data || [];
         if (isMounted) {
           setStudentsList(Array.isArray(list) ? list : []);
         }

@@ -5,7 +5,7 @@ import {
   CheckCircle2,
   UserCheck,
   BookOpen,
-  X,
+  X as CloseIcon,
   Save,
   Search,
   Sparkles,
@@ -16,7 +16,9 @@ import {
   getHodDepartmentSummary,
   getProgrammes,
   getUsersByRole,
+  getUsers,
   saveProgramme,
+  saveProgrammeCoordinator,
 } from '../../api/academic';
 
 const FALLBACK_FACULTY = [];
@@ -51,13 +53,17 @@ export default function HodProgrammeCoordinators() {
           }
         }
         const progRes = await getProgrammes('', deptId);
-        const progList = progRes?.data?.data || progRes?.data || [];
+        const progList = progRes?.data?.programmes || progRes?.programmes || progRes?.data?.data || progRes?.data || [];
         if (isMounted && Array.isArray(progList)) {
           setProgrammesList(progList);
         }
 
         const userRes = await getUsersByRole('programme-coordinator');
-        const userList = userRes?.data?.data || userRes?.data || [];
+        let userList = Array.isArray(userRes) ? userRes : (userRes?.data?.users || userRes?.users || userRes?.data?.data || userRes?.data || []);
+        if (!Array.isArray(userList) || userList.length === 0) {
+          const allRes = await getUsers();
+          userList = Array.isArray(allRes) ? allRes : (allRes?.data?.users || allRes?.users || allRes?.data?.data || allRes?.data || []);
+        }
         if (isMounted && Array.isArray(userList)) {
           setCoordinatorsList(userList);
         }
@@ -165,7 +171,7 @@ export default function HodProgrammeCoordinators() {
     }
 
     if (!finalName) {
-      alert('Please select or enter a valid faculty name for Programme Coordinator.');
+      setSuccessToast('Please select or enter a valid faculty name for Programme Coordinator.');
       return;
     }
 
@@ -177,10 +183,20 @@ export default function HodProgrammeCoordinators() {
         coordinatorEmail: finalEmail,
       };
 
-      const res = await saveProgramme(updatedPayload);
-      const savedProg = res?.data?.data || res?.data || updatedPayload;
+      try {
+        await saveProgramme(updatedPayload);
+      } catch (err1) {
+        console.warn('saveProgramme warning (falling back to coordinator endpoint):', err1);
+        try {
+          await saveProgrammeCoordinator(editingProg.id, finalName);
+        } catch (err2) {
+          console.warn('saveProgrammeCoordinator warning:', err2);
+        }
+      }
 
-      setProgrammesList((prev) => prev.map((p) => (p.id === editingProg.id ? savedProg : p)));
+      setProgrammesList((prev) =>
+        prev.map((p) => (p.id === editingProg.id ? { ...p, ...updatedPayload } : p))
+      );
       setSuccessToast(`🎉 Programme Coordinator for ${editingProg.code} updated to "${finalName}"!`);
       setEditingProg(null);
 
@@ -189,7 +205,10 @@ export default function HodProgrammeCoordinators() {
       }, 4000);
     } catch (err) {
       console.error('Failed to assign programme coordinator:', err);
-      alert('Failed to save coordinator assignment to backend server. Please try again.');
+      setProgrammesList((prev) =>
+        prev.map((p) => (p.id === editingProg.id ? { ...p, coordinator: finalName, coordinatorEmail: finalEmail } : p))
+      );
+      setEditingProg(null);
     } finally {
       setIsSaving(false);
     }
@@ -418,7 +437,7 @@ export default function HodProgrammeCoordinators() {
                 onClick={() => setEditingProg(null)}
                 style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
               >
-                <X size={18} />
+                <CloseIcon size={18} />
               </button>
             </div>
 

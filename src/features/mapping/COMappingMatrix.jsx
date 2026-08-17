@@ -148,6 +148,25 @@ export default function COMappingMatrix({ hideFooter = false, courseId = null })
                 });
                 setSavedPsoMappings(psoMapObj);
               }
+              if (Array.isArray(data.mappings) && data.mappings.length > 0) {
+                const poMapObj = {};
+                const psoMapObj = {};
+                data.mappings.forEach((m) => {
+                  const coCode = m.coCode || m.courseOutcomeId;
+                  if (Array.isArray(m.poMappings)) {
+                    m.poMappings.forEach((p) => {
+                      if (coCode && p.poCode) poMapObj[`${coCode}_${p.poCode}`] = p.mappingLevel;
+                    });
+                  }
+                  if (Array.isArray(m.psoMappings)) {
+                    m.psoMappings.forEach((p) => {
+                      if (coCode && p.psoCode) psoMapObj[`${coCode}_${p.psoCode}`] = p.mappingLevel;
+                    });
+                  }
+                });
+                setSavedPoMappings((prev) => ({ ...prev, ...poMapObj }));
+                setSavedPsoMappings((prev) => ({ ...prev, ...psoMapObj }));
+              }
               if (data.poKeywordsStore && Object.keys(data.poKeywordsStore).length > 0) {
                 setPoKeywordsStore((prev) => ({ ...prev, [targetCourseId]: data.poKeywordsStore }));
               }

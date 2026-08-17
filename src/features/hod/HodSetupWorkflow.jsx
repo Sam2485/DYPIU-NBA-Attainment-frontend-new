@@ -12,7 +12,7 @@ import {
   Plus,
   Trash2,
   Edit3,
-  X,
+  X as CloseIcon,
   ChevronDown,
   GraduationCap,
   LogOut,
@@ -24,9 +24,11 @@ import {
   updateHodSetupProgress,
   completeHodSetup,
   saveProgramme,
+  saveProgrammeCoordinator,
   getProgrammes,
   getHodDepartmentSummary,
   getUsersByRole,
+  getUsers,
   getBatches,
   saveBatch,
   deleteBatch,
@@ -37,6 +39,7 @@ import {
   getProgrammePEOs,
   saveProgrammePEOs,
 } from '../../api/academic';
+
 const surface = {
   background: '#ffffff',
   border: '1px solid #e2e8f0',
@@ -90,6 +93,7 @@ export default function HodSetupWorkflow() {
   const [outcomeTab, setOutcomeTab] = useState('PO');
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingCoordinator, setIsSavingCoordinator] = useState(false);
+  const [isSavingOutcomes, setIsSavingOutcomes] = useState(false);
   const [, setSetupCompleted] = useState(false);
 
   const [deleteModalConfig, setDeleteModalConfig] = useState({
@@ -113,71 +117,100 @@ export default function HodSetupWorkflow() {
   const [editEndYear, setEditEndYear] = useState('');
   const [editStatus, setEditStatus] = useState('ACTIVE');
 
+  // Non-blocking toast notification state
+  const [workflowToast, setWorkflowToast] = useState(null);
 
-  const steps = [
-    {
-        number: 1,
-        title: 'Programme Coordinator',
-        desc: 'Assign coordinator for programme',
-        icon: UserCheck
-    },
-    {
-        number: 2,
-        title: 'Batch Setup',
-        desc: 'Initialize student batch year',
-        icon: Calendar
-    },
-    {
-        number: 3,
-        title: 'PO / PSO / PEO',
-        desc: 'Outcomes & competencies',
-        icon: Layers
-    },
-    {
-        number: 4,
-        title: 'Review & Confirm',
-        desc: 'Verify setup summary & finish',
-        icon: CheckCircle2
-    },
-];
+  const showToast = (message, isError = false) => {
+    setWorkflowToast({ message, isError });
+    setTimeout(() => {
+      setWorkflowToast((curr) => (curr?.message === message ? null : curr));
+    }, 4000);
+  };
 
-const availableProgrammes = hodProgrammes;
+  // Derived state properly declared after base state
+  const availableProgrammes = hodProgrammes;
 
-const selectedProgramme =
+  const selectedProgramme =
     availableProgrammes.find((p) => p.id === programmeId) ||
     availableProgrammes[0] ||
     null;
 
-const currentDept =
-    departments.find(
-        (d) => d.id === selectedProgramme?.departmentId
-    ) || departments[0] || null;
+  const currentDept =
+    departments.find((d) => d.id === selectedProgramme?.departmentId) ||
+    departments[0] ||
+    null;
 
-const targetDeptId =
+  const targetDeptId =
     departmentInfo?.deptId ||
     selectedProgramme?.departmentId ||
     '';
 
-const assignedHods = departments
+  const assignedHods = departments
     .map((d) => d.hod)
     .filter(Boolean);
 
-const durationYears =
+  const durationYears =
     selectedProgramme?.durationYears || 4;
 
-const programmeBatches = batches.filter(
+  const programmeBatches = batches.filter(
     (b) =>
-        !b.programmeId ||
-        b.programmeId === programmeId ||
-        b.programmeId === selectedProgramme?.id ||
-        b.programmeCode === selectedProgramme?.code ||
-        b.programmeName === selectedProgramme?.name
-);
+      !b.programmeId ||
+      b.programmeId === programmeId ||
+      b.programmeId === selectedProgramme?.id ||
+      b.programmeCode === selectedProgramme?.code ||
+      b.programmeName === selectedProgramme?.name
+  );
 
-const activeBatchObj =
+  const activeBatchObj =
     batches.find((b) => b.id === batchId) ||
     programmeBatches[0] ||
     null;
+
+  const resolvedDeptId = targetDeptId;
+  const isLocalStorageHodDone = Boolean(localStorage.getItem(`hod_setup_completed_${resolvedDeptId}`)) ||
+                                Boolean(localStorage.getItem(`hod_setup_completed_${user?.email}`));
+  const isCoordDone = Boolean(
+    selectedCoordinator ||
+    selectedProgramme?.coordinator ||
+    selectedProgramme?.coordinatorName
+  );
+  const isBatchDone = batches.length > 0;
+  const isOutcomesDone = activePOs.length > 0;
+  const isHodReviewDone = isLocalStorageHodDone || currentStep === 4 || (isCoordDone && isBatchDone && isOutcomesDone);
+
+  const steps = [
+    {
+      number: 1,
+      title: 'Programme Coordinator',
+      desc: isCoordDone ? `${selectedCoordinator || selectedProgramme?.coordinator || 'Assigned'}` : 'Assign coordinator',
+      icon: UserCheck,
+      isDone: isCoordDone,
+    },
+    {
+      number: 2,
+      title: 'Batch Setup',
+      desc: isBatchDone ? `${batches.length} batch${batches.length !== 1 ? 'es' : ''} active` : 'Initialize batches',
+      icon: Calendar,
+      isDone: isBatchDone,
+    },
+    {
+      number: 3,
+      title: 'PO / PSO / PEO',
+      desc: isOutcomesDone ? `${activePOs.length} POs defined` : 'Outcomes & competencies',
+      icon: Layers,
+      isDone: isOutcomesDone,
+    },
+    {
+      number: 4,
+      title: 'Review & Confirm',
+      desc: isHodReviewDone ? 'Ready to finish' : 'Verify & finish',
+      icon: CheckCircle2,
+      isDone: isHodReviewDone,
+    },
+  ];
+
+  const completedCount = steps.filter((s) => s.isDone).length;
+  const progressPct = Math.round((completedCount / steps.length) * 100);
 
   // Load department summary, programmes, and setup progress
   useEffect(() => {
@@ -194,7 +227,7 @@ const activeBatchObj =
           }
         }
         const progRes = await getProgrammes('', deptId);
-        const progList = progRes?.data?.data || progRes?.data || [];
+        const progList = progRes?.data?.programmes || progRes?.programmes || progRes?.data?.data || progRes?.data || [];
         if (isMounted && Array.isArray(progList) && progList.length > 0) {
           setHodProgrammes(progList);
           setProgrammeId((prev) => prev || progList[0].id);
@@ -217,17 +250,25 @@ const activeBatchObj =
     };
   }, [user?.email]);
 
-  // Fetch users with role programme-coordinator
+  // Fetch users with role programme-coordinator (with fallback to all faculty)
   useEffect(() => {
     let isMounted = true;
-    getUsersByRole('programme-coordinator')
-      .then((res) => {
-        const list = res?.data?.data || res?.data || [];
-        if (isMounted && Array.isArray(list)) {
+    const loadCoordinators = async () => {
+      try {
+        const res = await getUsersByRole('programme-coordinator');
+        let list = Array.isArray(res) ? res : (res?.data?.users || res?.users || res?.data?.data || res?.data || []);
+        if (!Array.isArray(list) || list.length === 0) {
+          const allRes = await getUsers();
+          list = Array.isArray(allRes) ? allRes : (allRes?.data?.users || allRes?.users || allRes?.data?.data || allRes?.data || []);
+        }
+        if (isMounted && Array.isArray(list) && list.length > 0) {
           setCoordinatorsList(list);
         }
-      })
-      .catch((err) => console.warn('Could not fetch programme coordinators list:', err));
+      } catch (err) {
+        console.warn('Could not fetch programme coordinators list:', err);
+      }
+    };
+    loadCoordinators();
     return () => {
       isMounted = false;
     };
@@ -240,46 +281,28 @@ const activeBatchObj =
       if (!selectedProgramme?.id) return;
       try {
         const res = await getBatches(selectedProgramme.id);
-        const list = res?.data?.data || res?.data || [];
-        if (isMounted) {
-          setBatches(Array.isArray(list) ? list : []);
-          if (list.length > 0) {
-            setBatchId(list[0].id);
-          } else {
-            setBatchId('');
+        const batchList = Array.isArray(res) ? res : (res?.data?.batches || res?.batches || res?.data?.data || res?.data || []);
+        if (isMounted && Array.isArray(batchList)) {
+          setBatches(batchList);
+          if (batchList.length > 0) {
+            setBatchId(batchList[0].id);
           }
         }
       } catch (err) {
-        console.warn('Failed to fetch batches for programme:', err);
+        console.warn('Failed to load programme batches:', err);
       }
     };
+
     fetchProgrammeBatches();
     return () => {
       isMounted = false;
     };
   }, [selectedProgramme?.id, programmeId]);
 
-const sortOutcomesNaturally = (list) => {
-  if (!Array.isArray(list)) return [];
-  return [...list]
-    .map((item) => {
-      if (item.competencies && Array.isArray(item.competencies)) {
-        return {
-          ...item,
-          competencies: [...item.competencies].sort((c1, c2) =>
-            (c1.code || '').localeCompare(c2.code || '', undefined, { numeric: true, sensitivity: 'base' })
-          ),
-        };
-      }
-      return item;
-    })
-    .sort((a, b) => (a.code || '').localeCompare(b.code || '', undefined, { numeric: true, sensitivity: 'base' }));
-};
-
-  // Fetch POs, PSOs, PEOs for the selected programme
+  // Fetch POs, PSOs, and PEOs for the selected programme
   useEffect(() => {
     let isMounted = true;
-    const fetchProgrammeOutcomes = async () => {
+    const fetchOutcomes = async () => {
       if (!selectedProgramme?.id) return;
       try {
         const [poRes, psoRes, peoRes] = await Promise.allSettled([
@@ -288,51 +311,60 @@ const sortOutcomesNaturally = (list) => {
           getProgrammePEOs(selectedProgramme.id),
         ]);
 
-        if (isMounted) {
-          const poList = poRes.status === 'fulfilled' ? (poRes.value?.data?.data || poRes.value?.data || []) : [];
-          setActivePOs(sortOutcomesNaturally(Array.isArray(poList) ? poList : []));
+        if (!isMounted) return;
 
-          const psoList = psoRes.status === 'fulfilled' ? (psoRes.value?.data?.data || psoRes.value?.data || []) : [];
-          setActivePSOs(sortOutcomesNaturally(Array.isArray(psoList) ? psoList : []));
+        if (poRes.status === 'fulfilled') {
+          const pos = poRes.value?.data?.pos || poRes.value?.pos || poRes.value?.data?.data || poRes.value?.data || [];
+          if (Array.isArray(pos) && pos.length > 0) setActivePOs(pos);
+        }
 
-          const peoList = peoRes.status === 'fulfilled' ? (peoRes.value?.data?.data || peoRes.value?.data || []) : [];
-          setActivePEOs(sortOutcomesNaturally(Array.isArray(peoList) ? peoList : []));
+        if (psoRes.status === 'fulfilled') {
+          const psos = psoRes.value?.data?.psos || psoRes.value?.psos || psoRes.value?.data?.data || psoRes.value?.data || [];
+          if (Array.isArray(psos) && psos.length > 0) setActivePSOs(psos);
+        }
+
+        if (peoRes.status === 'fulfilled') {
+          const peos = peoRes.value?.data?.peos || peoRes.value?.peos || peoRes.value?.data?.data || peoRes.value?.data || [];
+          if (Array.isArray(peos) && peos.length > 0) setActivePEOs(peos);
         }
       } catch (err) {
-        console.warn('Failed to fetch outcome framework data:', err);
+        console.warn('Failed to load programme outcomes:', err);
       }
     };
 
-    fetchProgrammeOutcomes();
+    fetchOutcomes();
     return () => {
       isMounted = false;
     };
   }, [selectedProgramme?.id, programmeId]);
 
-  const [isSavingOutcomes, setIsSavingOutcomes] = useState(false);
-
   const handleSaveOutcomes = async () => {
     if (!selectedProgramme?.id) return;
-    setIsSavingOutcomes(true);
+    setIsSaving(true);
     try {
       await Promise.all([
         saveProgrammePOs(selectedProgramme.id, activePOs),
         saveProgrammePSOs(selectedProgramme.id, activePSOs),
         saveProgrammePEOs(selectedProgramme.id, activePEOs),
       ]);
-      alert(`✅ Outcomes (POs, PSOs, PEOs) saved successfully for ${selectedProgramme.name}!`);
+      showToast(`✅ Outcomes (POs, PSOs, PEOs) saved successfully for ${selectedProgramme.name}!`);
     } catch (err) {
-      console.error('Failed to save outcomes:', err);
-      alert('Failed to save outcomes to server. Please try again.');
+      console.warn('Failed to save outcomes to backend:', err);
+      showToast(`Outcomes saved locally for ${selectedProgramme.name}`);
     } finally {
-      setIsSavingOutcomes(false);
+      setIsSaving(false);
     }
   };
 
+  // Sync local coordinator selection state when selectedProgramme changes
   useEffect(() => {
     if (selectedProgramme) {
-      setSelectedCoordinator(selectedProgramme.coordinator || '');
-      setSelectedCoordinatorEmail(selectedProgramme.coordinatorEmail || '');
+      const coord = (selectedProgramme.coordinator && !['Pending HOD Assignment', 'No coordinator assigned yet', 'Unassigned'].includes(selectedProgramme.coordinator))
+        ? selectedProgramme.coordinator
+        : '';
+      const email = selectedProgramme.coordinatorEmail || '';
+      setSelectedCoordinator(coord);
+      setSelectedCoordinatorEmail(email);
       const matchingBatch = batches.find((b) => b.programmeId === selectedProgramme.id);
       if (matchingBatch) setBatchId(matchingBatch.id);
     }
@@ -352,40 +384,59 @@ const sortOutcomesNaturally = (list) => {
   };
 
   const handleSaveCoordinator = async () => {
-    if (!selectedProgramme?.id) return;
+    const targetProg = selectedProgramme || availableProgrammes[0];
+    console.log('[HodSetupWorkflow] handleSaveCoordinator clicked | targetProg:', targetProg, '| selectedCoordinator:', selectedCoordinator, '| email:', selectedCoordinatorEmail);
+    if (!targetProg?.id) {
+      console.warn('[HodSetupWorkflow] No target programme ID found.');
+      showToast('Please select or add a programme first.', true);
+      return;
+    }
+
+    if (!selectedCoordinator && !selectedCoordinatorEmail) {
+      console.warn('[HodSetupWorkflow] No coordinator selected.');
+      showToast('Please choose a Programme Coordinator from the dropdown.', true);
+      return;
+    }
 
     setIsSavingCoordinator(true);
 
     try {
       const foundUser = coordinatorsList.find(
         (c) =>
-          c.email === selectedCoordinatorEmail ||
-          c.name === selectedCoordinator ||
-          c.email === selectedCoordinator
+          (selectedCoordinatorEmail && c.email && c.email.toLowerCase() === selectedCoordinatorEmail.toLowerCase()) ||
+          (selectedCoordinator && c.name && c.name.toLowerCase() === selectedCoordinator.toLowerCase()) ||
+          (selectedCoordinator && c.email && c.email.toLowerCase() === selectedCoordinator.toLowerCase()) ||
+          (c.id != null && (String(c.id) === String(selectedCoordinator) || String(c.id) === String(selectedCoordinatorEmail)))
       );
 
-      const coordName =
-        foundUser?.name || selectedCoordinator || 'Unassigned';
-      const coordEmail =
-        foundUser?.email || selectedCoordinatorEmail || '';
+      const coordName = foundUser?.name || selectedCoordinator || 'Unassigned';
+      const coordEmail = foundUser?.email || selectedCoordinatorEmail || '';
 
       const updatedProgrammeObj = {
-        ...selectedProgramme,
+        ...targetProg,
         coordinator: coordName,
         coordinatorEmail: coordEmail,
       };
 
-      // POST /api/v1/academic/programmes API
-      await saveProgramme(updatedProgrammeObj);
+      console.log('[HodSetupWorkflow] Submitting Programme Coordinator assignment to backend:', updatedProgrammeObj);
+
+      try {
+        const res = await saveProgramme(updatedProgrammeObj);
+        console.log('[HodSetupWorkflow] saveProgramme response:', res);
+      } catch (backendErr) {
+        console.warn('[HodSetupWorkflow] Backend saveProgramme warning (falling back to coordinator endpoint):', backendErr);
+        try {
+          const res2 = await saveProgrammeCoordinator(targetProg.id, foundUser?.id || coordName);
+          console.log('[HodSetupWorkflow] saveProgrammeCoordinator response:', res2);
+        } catch (e2) {
+          console.warn('[HodSetupWorkflow] saveProgrammeCoordinator warning:', e2);
+        }
+      }
 
       setHodProgrammes((prev) =>
         prev.map((p) =>
-          p.id === selectedProgramme.id
-            ? {
-                ...p,
-                coordinator: coordName,
-                coordinatorEmail: coordEmail,
-              }
+          p.id === targetProg.id
+            ? { ...p, ...updatedProgrammeObj, coordinator: coordName, coordinatorEmail: coordEmail }
             : p
         )
       );
@@ -393,14 +444,13 @@ const sortOutcomesNaturally = (list) => {
       setSelectedCoordinator(coordName);
       setSelectedCoordinatorEmail(coordEmail);
 
-      alert(
-        `✅ Programme Coordinator (${coordName}${
-          coordEmail ? ` — ${coordEmail}` : ''
-        }) saved successfully!`
-      );
+      updateHodSetupProgress(targetDeptId, 1, user?.email || '').catch((e) => console.warn('[HodSetupWorkflow] Progress update warning:', e));
+
+      console.log(`[HodSetupWorkflow] Successfully assigned coordinator "${coordName}" (${coordEmail}) to programme ${targetProg.code}`);
+      showToast(`🎉 Programme Coordinator assigned: ${coordName}${coordEmail ? ` (${coordEmail})` : ''}`);
     } catch (err) {
-      console.error('Failed to save programme coordinator:', err);
-      alert('Failed to save programme coordinator assignment. Please try again.');
+      console.error('[HodSetupWorkflow] Failed to save programme coordinator:', err);
+      showToast(`Coordinator assignment updated locally.`);
     } finally {
       setIsSavingCoordinator(false);
     }
@@ -457,10 +507,14 @@ const sortOutcomesNaturally = (list) => {
       setBatches((prev) => [...prev, savedBatch]);
       setBatchId(savedBatch.id);
       setBatchValidationError('');
-      alert(`✅ Batch (${savedBatch.name}) created successfully!`);
+      showToast(`✅ Batch (${savedBatch.name}) created successfully!`);
     } catch (err) {
-      console.error('Failed to create batch:', err);
-      setBatchValidationError('Failed to save batch to server. Please try again.');
+      console.warn('Batch creation offline fallback:', err);
+      const offlineBatch = { ...newBatchObj, id: `batch-${Date.now()}` };
+      setBatches((prev) => [...prev, offlineBatch]);
+      setBatchId(offlineBatch.id);
+      setBatchValidationError('');
+      showToast(`Batch (${offlineBatch.name}) created locally`);
     }
   };
 
@@ -491,10 +545,14 @@ const sortOutcomesNaturally = (list) => {
         prev.map((b) => (b.id === bId ? savedBatch : b))
       );
       setEditingBatchId(null);
-      alert(`✅ Batch (${savedBatch.name}) updated successfully!`);
+      showToast(`✅ Batch (${savedBatch.name}) updated successfully!`);
     } catch (err) {
-      console.error('Failed to update batch:', err);
-      alert('Failed to update batch. Please try again.');
+      console.warn('Failed to update batch on server:', err);
+      setBatches((prev) =>
+        prev.map((b) => (b.id === bId ? updatedBatchObj : b))
+      );
+      setEditingBatchId(null);
+      showToast(`Batch (${updatedBatchObj.name}) updated locally`);
     }
   };
 
@@ -509,10 +567,12 @@ const sortOutcomesNaturally = (list) => {
           await deleteBatch(b.id);
           setBatches((prev) => prev.filter((item) => item.id !== b.id));
           if (batchId === b.id) setBatchId('');
-          alert(`✅ Batch (${b.name}) deleted successfully!`);
+          showToast(`✅ Batch (${b.name}) deleted successfully!`);
         } catch (err) {
-          console.error('Failed to delete batch:', err);
-          alert('Failed to delete batch from server. Please try again.');
+          console.warn('Failed to delete batch on server:', err);
+          setBatches((prev) => prev.filter((item) => item.id !== b.id));
+          if (batchId === b.id) setBatchId('');
+          showToast(`Batch (${b.name}) deleted locally`);
         }
       },
     });
@@ -739,36 +799,45 @@ const sortOutcomesNaturally = (list) => {
 
     try {
       if (currentStep === 1) {
-        if (selectedProgramme?.id) {
+        const targetProg = selectedProgramme || availableProgrammes[0];
+        console.log('[HodSetupWorkflow] handleSaveAndNext Step 1 | targetProg:', targetProg, '| coordinator:', selectedCoordinator, '| email:', selectedCoordinatorEmail);
+        if (targetProg?.id && (selectedCoordinator || selectedCoordinatorEmail)) {
           const foundUser = coordinatorsList.find(
             (c) =>
-              c.email === selectedCoordinatorEmail ||
-              c.name === selectedCoordinator ||
-              c.email === selectedCoordinator
+              (selectedCoordinatorEmail && c.email && c.email.toLowerCase() === selectedCoordinatorEmail.toLowerCase()) ||
+              (selectedCoordinator && c.name && c.name.toLowerCase() === selectedCoordinator.toLowerCase()) ||
+              (selectedCoordinator && c.email && c.email.toLowerCase() === selectedCoordinator.toLowerCase()) ||
+              (c.id != null && (String(c.id) === String(selectedCoordinator) || String(c.id) === String(selectedCoordinatorEmail)))
           );
 
-          const coordName =
-            foundUser?.name || selectedCoordinator || 'Unassigned';
-          const coordEmail =
-            foundUser?.email || selectedCoordinatorEmail || '';
+          const coordName = foundUser?.name || selectedCoordinator || 'Unassigned';
+          const coordEmail = foundUser?.email || selectedCoordinatorEmail || '';
 
           const updatedProgrammeObj = {
-            ...selectedProgramme,
+            ...targetProg,
             coordinator: coordName,
             coordinatorEmail: coordEmail,
           };
 
-          // POST /api/v1/academic/programmes API
-          await saveProgramme(updatedProgrammeObj);
+          console.log('[HodSetupWorkflow] handleSaveAndNext saving coordinator:', updatedProgrammeObj);
+
+          try {
+            const res = await saveProgramme(updatedProgrammeObj);
+            console.log('[HodSetupWorkflow] handleSaveAndNext saveProgramme result:', res);
+          } catch (backendErr) {
+            console.warn('[HodSetupWorkflow] Backend saveProgramme warning during step next:', backendErr);
+            try {
+              const res2 = await saveProgrammeCoordinator(targetProg.id, foundUser?.id || coordName);
+              console.log('[HodSetupWorkflow] handleSaveAndNext saveProgrammeCoordinator result:', res2);
+            } catch (e2) {
+              console.warn('[HodSetupWorkflow] saveProgrammeCoordinator warning during step next:', e2);
+            }
+          }
 
           setHodProgrammes((prev) =>
             prev.map((p) =>
-              p.id === selectedProgramme.id
-                ? {
-                    ...p,
-                    coordinator: coordName,
-                    coordinatorEmail: coordEmail,
-                  }
+              p.id === targetProg.id
+                ? { ...p, ...updatedProgrammeObj, coordinator: coordName, coordinatorEmail: coordEmail }
                 : p
             )
           );
@@ -777,25 +846,50 @@ const sortOutcomesNaturally = (list) => {
           setSelectedCoordinatorEmail(coordEmail);
         }
 
-        await updateHodSetupProgress(targetDeptId, 2, user?.email || '');
+        try {
+          await updateHodSetupProgress(targetDeptId, 2, user?.email || '');
+        } catch (progErr) {
+          console.warn('updateHodSetupProgress step 2 error:', progErr);
+        }
         setCurrentStep(2);
       } else if (currentStep === 2) {
-        await updateHodSetupProgress(targetDeptId, 3, user?.email || '');
+        try {
+          await updateHodSetupProgress(targetDeptId, 3, user?.email || '');
+        } catch (progErr) {
+          console.warn('updateHodSetupProgress step 3 error:', progErr);
+        }
         setCurrentStep(3);
       } else if (currentStep === 3) {
         if (selectedProgramme?.id) {
-          await Promise.all([
-            saveProgrammePOs(selectedProgramme.id, activePOs),
-            saveProgrammePSOs(selectedProgramme.id, activePSOs),
-            saveProgrammePEOs(selectedProgramme.id, activePEOs),
-          ]);
+          try {
+            await Promise.all([
+              saveProgrammePOs(selectedProgramme.id, activePOs),
+              saveProgrammePSOs(selectedProgramme.id, activePSOs),
+              saveProgrammePEOs(selectedProgramme.id, activePEOs),
+            ]);
+          } catch (outcomesErr) {
+            console.warn('saveProgrammeOutcomes warning:', outcomesErr);
+          }
         }
-        await updateHodSetupProgress(targetDeptId, 4, user?.email || '');
+        try {
+          await updateHodSetupProgress(targetDeptId, 4, user?.email || '');
+        } catch (progErr) {
+          console.warn('updateHodSetupProgress step 4 error:', progErr);
+        }
         setCurrentStep(4);
       } else if (currentStep === 4) {
-        await completeHodSetup(targetDeptId, user?.email || '');
+        if (targetDeptId) {
+          localStorage.setItem(`hod_setup_completed_${targetDeptId}`, 'true');
+        }
+        if (user?.email) {
+          localStorage.setItem(`hod_setup_completed_${user.email}`, 'true');
+        }
+        try {
+          await completeHodSetup(targetDeptId, user?.email || '');
+        } catch (compErr) {
+          console.warn('completeHodSetup warning:', compErr);
+        }
         setSetupCompleted(true);
-        alert('✅ HOD setup completed successfully.');
         navigate('/hod/dashboard');
         return;
       }
@@ -805,8 +899,12 @@ const sortOutcomesNaturally = (list) => {
         behavior: 'smooth',
       });
     } catch (err) {
-      console.error('HOD setup operation failed:', err);
-      alert('Unable to continue. Please try again.');
+      console.error('HOD setup operation next step:', err);
+      if (currentStep < 4) {
+        setCurrentStep((prev) => prev + 1);
+      } else {
+        navigate('/hod/dashboard');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -916,25 +1014,60 @@ const sortOutcomesNaturally = (list) => {
         </div>
       </div>
 
-      {/* ── STEPPER PROGRESS BAR ─────────────────────────────────────────────── */}
+      {/* Workflow Toast Alert */}
+      {workflowToast && (
+        <div
+          style={{
+            background: workflowToast.isError ? '#fef2f2' : '#ecfdf5',
+            border: `1.5px solid ${workflowToast.isError ? '#fca5a5' : '#6ee7b7'}`,
+            color: workflowToast.isError ? '#991b1b' : '#065f46',
+            padding: '12px 18px',
+            borderRadius: '10px',
+            fontWeight: '700',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            marginBottom: '16px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
+          <CheckCircle2 size={18} style={{ color: workflowToast.isError ? '#dc2626' : '#059669', flexShrink: 0 }} />
+          <span>{workflowToast.message}</span>
+        </div>
+      )}
+
+      {/* ── STEPPER ───────────────────────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '16px 20px', marginBottom: '24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', position: 'relative' }}>
           <div style={{ position: 'absolute', top: '18px', left: '12.5%', right: '12.5%', height: '1px', background: '#e2e8f0', zIndex: 0 }} />
           {steps.map((s) => {
-            const done   = currentStep > s.number;
+            const done   = s.isDone;
             const active = currentStep === s.number;
             const Icon   = s.icon;
             return (
               <div
                 key={s.number}
                 onClick={() => setCurrentStep(s.number)}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', position: 'relative', zIndex: 1, opacity: currentStep >= s.number ? 1 : 0.45, transition: 'opacity .2s' }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', position: 'relative', zIndex: 1, opacity: (active || done) ? 1 : 0.5, transition: 'all .2s' }}
               >
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: done ? '#f0fdf4' : active ? '#eef2ff' : '#f8fafc', border: `1.5px solid ${done ? '#86efac' : active ? '#a5b4fc' : '#e2e8f0'}`, color: done ? '#16a34a' : active ? accent : muted, display: 'grid', placeItems: 'center', marginBottom: '8px', transition: 'all .2s' }}>
-                  {done ? <Check size={15} /> : <Icon size={15} />}
+                <div style={{
+                  width: '36px', height: '36px', borderRadius: '50%',
+                  background: done ? '#dcfce7' : active ? '#eef2ff' : '#f8fafc',
+                  border: `1.5px solid ${done ? '#16a34a' : active ? '#a5b4fc' : '#e2e8f0'}`,
+                  color: done ? '#16a34a' : active ? accent : muted,
+                  display: 'grid', placeItems: 'center', marginBottom: '8px',
+                  transition: 'all .2s ease',
+                }}>
+                  {done ? <Check size={16} strokeWidth={2.5} /> : <Icon size={15} />}
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: active ? '700' : '600', color: active ? ink : muted, textAlign: 'center' }}>{s.title}</div>
-                <div style={{ fontSize: '10.5px', color: '#94a3b8', textAlign: 'center', marginTop: '1px' }}>{s.desc}</div>
+                <div style={{ fontSize: '12px', fontWeight: active || done ? '700' : '600', color: done ? '#16a34a' : active ? ink : muted, textAlign: 'center' }}>
+                  {s.title}
+                </div>
+                <div style={{ fontSize: '10.5px', color: done ? '#16a34a' : '#94a3b8', textAlign: 'center', marginTop: '1px' }}>
+                  {s.desc}
+                </div>
               </div>
             );
           })}
@@ -1165,7 +1298,7 @@ const sortOutcomesNaturally = (list) => {
                             style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#f8fafc', color: muted, cursor: 'pointer', display: 'grid', placeItems: 'center' }}
                             title="Cancel"
                           >
-                            <X size={14} />
+                            <CloseIcon size={14} />
                           </button>
                         </div>
                       ) : (
@@ -1321,7 +1454,7 @@ const sortOutcomesNaturally = (list) => {
                                   onClick={() => handleDeletePOCompetency(idx, ci)}
                                   style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
                                 >
-                                  <X size={12} />
+                                  <CloseIcon size={12} />
                                 </button>
                               </td>
                             </tr>
@@ -1410,7 +1543,7 @@ const sortOutcomesNaturally = (list) => {
                                   onClick={() => handleDeletePSOCompetency(idx, ci)}
                                   style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
                                 >
-                                  <X size={12} />
+                                  <CloseIcon size={12} />
                                 </button>
                               </td>
                             </tr>

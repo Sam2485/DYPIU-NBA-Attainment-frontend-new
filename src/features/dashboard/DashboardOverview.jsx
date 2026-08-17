@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAcademic } from '../../context/AcademicContext';
-import { getCourseCoordinatorSummary } from '../../api/academic';
+import { getCourseCoordinatorSummary, getCourseCoordinatorSetupProgress, getCourseCOs } from '../../api/academic';
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -33,6 +33,8 @@ export default function DashboardOverview() {
   const [summaryData, setSummaryData] = useState(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [liveSetupProgress, setLiveSetupProgress] = useState(null);
+  const [liveCosCount, setLiveCosCount] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -41,10 +43,12 @@ export default function DashboardOverview() {
       getCourseCoordinatorSummary(user.email)
         .then((res) => {
           if (isMounted) {
-            const data = res?.data?.data || res?.data;
+            const data = res?.data?.data || res?.data || res;
             setSummaryData(data);
-            if (data?.assignedCourses?.length > 0) {
-              setSelectedCourseId(data.assignedCourses[0].id || '');
+            const coursesList = data?.assignedCourseOfferings || data?.assignedCourses || [];
+            if (coursesList.length > 0) {
+              const activeId = coursesList[0].id || '';
+              setSelectedCourseId(activeId);
             }
           }
         })
@@ -56,12 +60,33 @@ export default function DashboardOverview() {
     return () => { isMounted = false; };
   }, [user?.email]);
 
+  useEffect(() => {
+    let isMounted = true;
+    if (user?.email && selectedCourseId) {
+      Promise.allSettled([
+        getCourseCoordinatorSetupProgress(user.email, selectedCourseId),
+        getCourseCOs(selectedCourseId),
+      ]).then(([progRes, cosRes]) => {
+        if (!isMounted) return;
+        if (progRes.status === 'fulfilled') {
+          const p = progRes.value?.data?.data || progRes.value?.data || progRes.value;
+          if (p) setLiveSetupProgress(p);
+        }
+        if (cosRes.status === 'fulfilled') {
+          const cos = cosRes.value?.data?.outcomes || cosRes.value?.data?.cos || cosRes.value?.data || cosRes.value || [];
+          if (Array.isArray(cos)) setLiveCosCount(cos.length);
+        }
+      }).catch((err) => console.warn('Failed to load course progress / COs:', err));
+    }
+    return () => { isMounted = false; };
+  }, [user?.email, selectedCourseId]);
+
   const { courseOfferings = [], selectedCourseOffering } = useAcademic();
-  const rawAssigned = summaryData?.assignedCourses;
+  const rawAssigned = summaryData?.assignedCourseOfferings || summaryData?.assignedCourses;
   const isApiLoaded = summaryData !== null;
   const assignedCourses = (Array.isArray(rawAssigned) && rawAssigned.length > 0)
     ? rawAssigned
-    : [];
+    : (Array.isArray(courseOfferings) && courseOfferings.length > 0 ? courseOfferings : []);
 
   const hasCourses = assignedCourses.length > 0;
 
@@ -72,12 +97,12 @@ export default function DashboardOverview() {
   const progName       = currentCourse?.programme || currentCourse?.programmeName || '—';
   const progCode       = currentCourse?.programmeCode || '—';
   const academicYear   = currentCourse?.academicYear || '2025-26';
-  const courseCOsCount = summaryData?.courseOutcomesCount || currentCourse?.courseOutcomesCount || currentCourse?.courseOutcomes?.length || 0;
-  const poCount        = summaryData?.poCount || currentCourse?.poCount || 0;
-  const psoCount       = summaryData?.psoCount || 0;
+  const courseCOsCount = liveCosCount ?? summaryData?.statistics?.cosCount ?? summaryData?.courseOutcomesCount ?? currentCourse?.courseOutcomesCount ?? currentCourse?.courseOutcomes?.length ?? 6;
+  const poCount        = summaryData?.statistics?.poCount || summaryData?.poCount || currentCourse?.poCount || 12;
+  const psoCount       = summaryData?.statistics?.psoCount || summaryData?.psoCount || 2;
 
-  const setupCompletedList = summaryData?.setupProgress?.completedSteps || [];
-  const setupStepNum       = summaryData?.setupProgress?.currentStep || 1;
+  const setupCompletedList = liveSetupProgress?.completedSteps || summaryData?.setupProgress?.completedSteps || [];
+  const setupStepNum       = liveSetupProgress?.currentStep || summaryData?.setupProgress?.currentStep || 1;
 
   const stepPathMap = {
     'cos': '/outcomes',

@@ -70,11 +70,25 @@ export function AcademicProvider({ children }) {
   // ── 6. LOADING STATES ────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
 
+  const extractList = (res, key) => {
+    if (!res) return [];
+    if (Array.isArray(res)) return res;
+    if (Array.isArray(res.data)) return res.data;
+    if (key && Array.isArray(res[key])) return res[key];
+    if (key && Array.isArray(res.data?.[key])) return res.data[key];
+    if (key && Array.isArray(res.data?.data?.[key])) return res.data.data[key];
+    if (Array.isArray(res.data?.data)) return res.data.data;
+    if (Array.isArray(res.content)) return res.content;
+    if (Array.isArray(res.data?.content)) return res.data.content;
+    return [];
+  };
+
   // ── A. FETCH INITIAL HIERARCHY (Schools & Departments) ───────────────────
-  const loadSchools = useCallback(async () => {
+  const loadSchools = useCallback(async (emailOverride) => {
     try {
-      const res = await getSchools();
-      const list = res?.data || res || [];
+      const emailToQuery = emailOverride || user?.email || '';
+      const res = await getSchools(emailToQuery);
+      const list = extractList(res, 'schools');
       if (Array.isArray(list)) {
         setSchools(list);
         if (list.length > 0) {
@@ -88,12 +102,12 @@ export function AcademicProvider({ children }) {
       setSchools([]);
       setSelectedSchoolId('');
     }
-  }, []);
+  }, [user?.email]);
 
   const loadDepartments = useCallback(async (schoolId) => {
     try {
       const res = await getDepartments(schoolId);
-      const list = res?.data || res || [];
+      const list = extractList(res, 'departments');
       if (Array.isArray(list)) {
         setDepartments(list);
         if (list.length > 0) {
@@ -112,7 +126,7 @@ export function AcademicProvider({ children }) {
   const loadProgrammes = useCallback(async (deptId) => {
     try {
       const res = await getProgrammes(deptId);
-      const list = res?.data || res || [];
+      const list = extractList(res, 'programmes');
       if (Array.isArray(list)) {
         setProgrammes(list);
         if (list.length > 0) {
@@ -144,7 +158,7 @@ export function AcademicProvider({ children }) {
     try {
       // 1. Fetch Batches for Programme
       const batchRes = await getBatches(progId);
-      const batchList = batchRes?.data || batchRes || [];
+      const batchList = extractList(batchRes, 'batches');
       if (Array.isArray(batchList)) {
         setBatches(batchList);
         if (batchList.length > 0) {
@@ -159,7 +173,7 @@ export function AcademicProvider({ children }) {
 
       // 2. Fetch Master Courses for Programme
       const courseRes = await getCourses(progId);
-      const courseList = courseRes?.data || courseRes || [];
+      const courseList = extractList(courseRes, 'courses');
       if (Array.isArray(courseList)) {
         setCourses(courseList);
         if (courseList.length > 0) {
@@ -174,7 +188,7 @@ export function AcademicProvider({ children }) {
 
       // 3. Fetch Programme Outcomes (PEO, PO, PSO)
       const outcomesRes = await getProgrammeOutcomes(progId);
-      const outcomesData = outcomesRes?.data || outcomesRes || {};
+      const outcomesData = outcomesRes?.data?.data || outcomesRes?.data || outcomesRes || {};
       setActivePEOs(Array.isArray(outcomesData?.peos) ? outcomesData.peos : []);
       setActivePOs(Array.isArray(outcomesData?.pos) ? outcomesData.pos : []);
       setActivePSOs(Array.isArray(outcomesData?.psos) ? outcomesData.psos : []);
@@ -193,7 +207,7 @@ export function AcademicProvider({ children }) {
 
     try {
       const res = await getCourseOfferings(batchId);
-      const list = res?.data || res || [];
+      const list = extractList(res, 'courseOfferings');
       if (Array.isArray(list)) {
         setCourseOfferings(list);
         if (list.length > 0) {
@@ -227,12 +241,14 @@ export function AcademicProvider({ children }) {
       ]);
 
       if (cosRes.status === 'fulfilled') {
-        const cosData = cosRes.value?.data || cosRes.value || [];
+        const raw = cosRes.value;
+        const cosData = raw?.data?.outcomes || raw?.outcomes || (Array.isArray(raw?.data) ? raw.data : (Array.isArray(raw) ? raw : []));
         setActiveCOs(Array.isArray(cosData) ? cosData : []);
       }
 
       if (mapRes.status === 'fulfilled') {
-        const mapData = mapRes.value?.data || mapRes.value || [];
+        const raw = mapRes.value;
+        const mapData = raw?.data?.mappings || raw?.mappings || (Array.isArray(raw?.data) ? raw.data : (Array.isArray(raw) ? raw : []));
         setActiveMappings(Array.isArray(mapData) ? mapData : []);
       }
     } catch (err) {

@@ -40,6 +40,7 @@ import {
   createCourseOffering,
   updateCourseOffering,
   getUsers,
+  extractUserList,
   getFaculty,
   getProgrammeCoordinators,
   getStudents,
@@ -91,7 +92,16 @@ import {
 } from './dashboardApi';
 
 // ── Role User Helpers ───────────────────────────────────────────────────────
-export const getUsersByRole = (role) => getUsers({ role });
+export const getUsersByRole = async (role) => {
+  try {
+    const res = await getUsers(role ? { role } : {});
+    const list = extractUserList(res);
+    if (Array.isArray(list) && list.length > 0) return list;
+  } catch (err) {
+    console.warn('[academic.js] getUsersByRole error:', err);
+  }
+  return [];
+};
 
 // ── Course & Outcome Helpers ────────────────────────────────────────────────
 export const getCourseCOs = (offeringOrCourseId) => getCourseOutcomes(offeringOrCourseId);
@@ -107,24 +117,107 @@ export const deleteCourse = (courseId) => apiClient.delete(`/academic/courses/${
 
 export const getProgrammePOs = async (programmeId) => {
   const res = await getProgrammeOutcomes(programmeId);
-  return { data: res?.data?.pos || res?.pos || [] };
+  const list = res?.data?.pos || res?.pos || res?.data?.data?.pos || (Array.isArray(res?.data) ? res.data : []);
+  return { data: list, pos: list };
 };
 
 export const getProgrammePSOs = async (programmeId) => {
   const res = await getProgrammeOutcomes(programmeId);
-  return { data: res?.data?.psos || res?.psos || [] };
+  const list = res?.data?.psos || res?.psos || res?.data?.data?.psos || (Array.isArray(res?.data) ? res.data : []);
+  return { data: list, psos: list };
 };
 
 export const getProgrammePEOs = async (programmeId) => {
   const res = await getProgrammeOutcomes(programmeId);
-  return { data: res?.data?.peos || res?.peos || [] };
+  const list = res?.data?.peos || res?.peos || res?.data?.data?.peos || (Array.isArray(res?.data) ? res.data : []);
+  return { data: list, peos: list };
 };
 
 // ── School & Department Setup Helpers ───────────────────────────────────────
-export const saveSchoolInfo = (data) => (data?.id ? updateSchool(data.id, data) : createSchool(data));
-export const saveDepartment = (data) => (data?.id ? updateDepartment(data.id, data) : createDepartment(data));
+export const saveSchoolInfo = async (data) => {
+  const targetId = data?.id || data?.schoolId;
+  const payload = {
+    ...data,
+    name: data.name || data.schoolName || '',
+    schoolName: data.name || data.schoolName || '',
+    code: (data.code || data.schoolCode || '').toUpperCase(),
+    schoolCode: (data.code || data.schoolCode || '').toUpperCase(),
+    director: data.director || data.directorName || data.dean || '',
+    directorName: data.director || data.directorName || data.dean || '',
+    dean: data.director || data.directorName || data.dean || '',
+    directorEmail: data.directorEmail || data.email || '',
+    email: data.directorEmail || data.email || '',
+  };
+
+  if (targetId) {
+    try {
+      return await updateSchool(targetId, payload);
+    } catch (err) {
+      console.warn('[saveSchoolInfo] PUT failed, fallback to POST:', err);
+      try {
+        return await createSchool({ ...payload, id: targetId });
+      } catch (err2) {
+        throw err;
+      }
+    }
+  } else {
+    return createSchool(payload);
+  }
+};
+
+export const saveDepartment = async (data) => {
+  const targetId = data?.id || data?.deptId;
+  const payload = {
+    ...data,
+    name: data.name || data.deptName || '',
+    deptName: data.name || data.deptName || '',
+    code: (data.code || data.deptCode || '').toUpperCase(),
+    deptCode: (data.code || data.deptCode || '').toUpperCase(),
+    hod: data.hod || data.deptHodName || data.hodName || 'Unassigned',
+    deptHodName: data.hod || data.deptHodName || data.hodName || 'Unassigned',
+    hodName: data.hod || data.deptHodName || data.hodName || 'Unassigned',
+    hodEmail: data.hodEmail || data.deptHodEmail || '',
+    deptHodEmail: data.hodEmail || data.deptHodEmail || '',
+  };
+
+  if (targetId) {
+    try {
+      return await updateDepartment(targetId, payload);
+    } catch (err) {
+      console.warn('[saveDepartment] PUT failed, fallback to POST:', err);
+      try {
+        return await createDepartment({ ...payload, id: targetId });
+      } catch (err2) {
+        throw err;
+      }
+    }
+  } else {
+    return createDepartment(payload);
+  }
+};
+
 export const deleteDepartment = (departmentId) => apiClient.delete(`/academic/departments/${departmentId}`);
-export const saveProgramme = (data) => (data?.id ? updateProgramme(data.id, data) : createProgramme(data));
+export const saveProgramme = async (data) => {
+  console.log('[academicApi] saveProgramme called | ID:', data?.id, '| coordinator:', data?.coordinator, '| email:', data?.coordinatorEmail);
+  if (data?.id) {
+    try {
+      const res = await updateProgramme(data.id, data);
+      console.log('[academicApi] updateProgramme SUCCESS:', res);
+      return res;
+    } catch (err) {
+      console.warn('[saveProgramme] PUT failed, fallback to POST:', err);
+      try {
+        const res2 = await createProgramme(data);
+        console.log('[academicApi] createProgramme SUCCESS:', res2);
+        return res2;
+      } catch (err2) {
+        throw err;
+      }
+    }
+  } else {
+    return createProgramme(data);
+  }
+};
 export const deleteProgramme = (programmeId) => apiClient.delete(`/academic/programmes/${programmeId}`);
 
 // ── Evidence & Attainment Upload Helpers ────────────────────────────────────
@@ -145,8 +238,11 @@ export const saveStudent = (data) => (data?.id ? updateStudent(data.id, data) : 
 export const deleteStudent = (studentId) => apiClient.delete(`/academic/students/${studentId}`);
 
 // ── Coordinator & Target Helpers ───────────────────────────────────────────
-export const saveProgrammeCoordinator = (progId, coordId) =>
-  apiClient.put(`/academic/programmes/${progId}/coordinator`, { coordinatorId: coordId });
+export const saveProgrammeCoordinator = (progId, coordId) => {
+  const payload = typeof coordId === 'object' ? coordId : { coordinator: coordId, coordinatorId: coordId };
+  console.log('[academicApi] saveProgrammeCoordinator called | progId:', progId, '| payload:', payload);
+  return apiClient.put(`/academic/programmes/${progId}/coordinator`, payload);
+};
 export const saveProgrammePOs = (progId, pos) => saveProgrammeOutcomes(progId, { pos });
 export const saveProgrammePSOs = (progId, psos) => saveProgrammeOutcomes(progId, { psos });
 export const saveProgrammePEOs = (progId, peos) => saveProgrammeOutcomes(progId, { peos });
@@ -163,31 +259,94 @@ export const submitCourseAtrForApproval = (atrId, comments) => submitCourseAtr(a
 
 export const getProgrammeAtrData = (programmeId, batchId) => getProgrammeAtr(programmeId, batchId);
 export const saveProgrammeAtrData = (programmeId, batchId, data) => saveProgrammeAtr(data);
-export const submitProgrammeAtrForApproval = (atrId, comments) => submitProgrammeAtr(atrId, comments);
+export const submitProgrammeAtrForApproval = (atrId, comments, progId, batchId) => submitProgrammeAtr(atrId, comments, progId, batchId);
 export const getPreviousBatchProgrammeAtr = (programmeId, batchId) => getProgrammeAtr(programmeId, batchId);
 
 // ── Dashboard & Summary Helpers ─────────────────────────────────────────────
-export const getDirectorSchoolSummary = () => getDirectorDashboard();
-export const getDepartmentSummary = (deptId) => getHodDashboard(deptId);
-export const getHodDepartmentSummary = (deptId) => getHodDashboard(deptId);
+export const getDirectorSchoolSummary = (directorEmail) => getDirectorDashboard(directorEmail);
+export const getDepartmentSummary = (schoolId, directorEmail) => getHodDashboard(schoolId, directorEmail);
+export const getHodDepartmentSummary = (hodEmail) => getHodDashboard(hodEmail);
 export const getProgrammeCoordinatorSummary = (progId) => getProgrammeCoordinatorDashboard(progId);
 export const getCourseCoordinatorSummary = (offeringId) => getCourseCoordinatorDashboard(offeringId);
 
 // ── Setup Progress Helpers ──────────────────────────────────────────────────
-export const getDirectorSetupProgress = (email, id) => getRoleSetupProgress('DIRECTOR', id);
-export const updateDirectorSetupProgress = (email, id, step) => updateRoleSetupProgress('DIRECTOR', id, step);
+export const getDirectorSetupProgress = (identifierOrEmail, optionalId) => {
+  const id = optionalId || identifierOrEmail || '';
+  return getRoleSetupProgress('DIRECTOR', id);
+};
 
-export const getHodSetupProgress = (email, id) => getRoleSetupProgress('HOD', id);
-export const updateHodSetupProgress = (email, id, step) => updateRoleSetupProgress('HOD', id, step);
-export const completeHodSetup = (email, id) => updateRoleSetupProgress('HOD', id, 6);
+export const updateDirectorSetupProgress = (arg1, arg2, arg3) => {
+  let identifier = '';
+  let step = 1;
+  if (typeof arg1 === 'number') {
+    step = arg1;
+    identifier = typeof arg2 === 'string' ? arg2 : '';
+  } else {
+    identifier = typeof arg1 === 'string' ? arg1 : '';
+    step = typeof arg2 === 'number' ? arg2 : (typeof arg3 === 'number' ? arg3 : 1);
+  }
+  return updateRoleSetupProgress('DIRECTOR', identifier, step);
+};
 
-export const getProgrammeCoordinatorSetupProgress = (email, id) => getRoleSetupProgress('PROGRAMME_COORDINATOR', id);
-export const updateProgrammeCoordinatorSetupProgress = (email, id, step) => updateRoleSetupProgress('PROGRAMME_COORDINATOR', id, step);
-export const completeProgrammeCoordinatorSetup = (email, id) => updateRoleSetupProgress('PROGRAMME_COORDINATOR', id, 6);
+export const getHodSetupProgress = (identifierOrEmail, optionalId) => {
+  const id = optionalId || identifierOrEmail || '';
+  return getRoleSetupProgress('HOD', id);
+};
 
-export const getCourseCoordinatorSetupProgress = (email, id) => getRoleSetupProgress('COURSE_COORDINATOR', id);
-export const updateCourseCoordinatorSetupProgress = (email, id, step) => updateRoleSetupProgress('COURSE_COORDINATOR', id, step);
-export const completeCourseCoordinatorSetup = (email, id) => updateRoleSetupProgress('COURSE_COORDINATOR', id, 6);
+export const updateHodSetupProgress = (arg1, arg2, arg3) => {
+  let identifier = '';
+  let step = 1;
+  if (typeof arg1 === 'number') {
+    step = arg1;
+    identifier = typeof arg2 === 'string' ? arg2 : '';
+  } else {
+    identifier = typeof arg1 === 'string' ? arg1 : '';
+    step = typeof arg2 === 'number' ? arg2 : (typeof arg3 === 'number' ? arg3 : 1);
+  }
+  return updateRoleSetupProgress('HOD', identifier, step);
+};
+
+export const completeHodSetup = (identifier, email) => updateRoleSetupProgress('HOD', identifier || email || '', 6);
+
+export const getProgrammeCoordinatorSetupProgress = (identifierOrEmail, optionalId) => {
+  const id = optionalId || identifierOrEmail || '';
+  return getRoleSetupProgress('PROGRAMME_COORDINATOR', id);
+};
+
+export const updateProgrammeCoordinatorSetupProgress = (arg1, arg2, arg3) => {
+  let identifier = '';
+  let step = 1;
+  if (typeof arg1 === 'number') {
+    step = arg1;
+    identifier = typeof arg2 === 'string' ? arg2 : '';
+  } else {
+    identifier = typeof arg1 === 'string' ? arg1 : '';
+    step = typeof arg2 === 'number' ? arg2 : (typeof arg3 === 'number' ? arg3 : 1);
+  }
+  return updateRoleSetupProgress('PROGRAMME_COORDINATOR', identifier, step);
+};
+
+export const completeProgrammeCoordinatorSetup = (identifier, email) => updateRoleSetupProgress('PROGRAMME_COORDINATOR', identifier || email || '', 6);
+
+export const getCourseCoordinatorSetupProgress = (identifierOrEmail, optionalId) => {
+  const id = optionalId || identifierOrEmail || '';
+  return getRoleSetupProgress('COURSE_COORDINATOR', id);
+};
+
+export const updateCourseCoordinatorSetupProgress = (arg1, arg2, arg3) => {
+  let identifier = '';
+  let step = 1;
+  if (typeof arg1 === 'number') {
+    step = arg1;
+    identifier = typeof arg2 === 'string' ? arg2 : '';
+  } else {
+    identifier = typeof arg1 === 'string' ? arg1 : '';
+    step = typeof arg2 === 'number' ? arg2 : (typeof arg3 === 'number' ? arg3 : 1);
+  }
+  return updateRoleSetupProgress('COURSE_COORDINATOR', identifier, step);
+};
+
+export const completeCourseCoordinatorSetup = (identifier, email) => updateRoleSetupProgress('COURSE_COORDINATOR', identifier || email || '', 6);
 
 // ── Export Download Helpers ─────────────────────────────────────────────────
 export const downloadAttainmentExcel = (courseOfferingId, batchId) => {

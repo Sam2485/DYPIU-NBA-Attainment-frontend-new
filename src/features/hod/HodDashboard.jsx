@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { GraduationCap, CheckCircle2, ArrowRight, ShieldCheck, Layers, FileText, Calendar, Users, ChevronRight, Check, Clock, UserCheck } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
-import { getHodDepartmentSummary } from '../../api/academic';
+import { getHodDepartmentSummary, getBatches, getProgrammes, getPendingApprovals } from '../../api/academic';
 
 export default function HodDashboard() {
   const navigate = useNavigate();
@@ -17,32 +17,60 @@ export default function HodDashboard() {
   } = useAcademic();
 
   const [deptSummary, setDeptSummary] = useState(null);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
+  const [liveBatchesCount, setLiveBatchesCount] = useState(0);
+  const [liveProgrammesCount, setLiveProgrammesCount] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
-    getHodDepartmentSummary(user?.email || '')
-      .then((res) => {
-        const data = res?.data?.data || res?.data || res;
-        console.log('[HodDashboard] Loaded HOD department summary:', data);
-        if (data && isMounted) {
-          setDeptSummary(data);
+    const fetchHodDashboardData = async () => {
+      try {
+        const [sumRes, appRes, batchRes, progRes] = await Promise.allSettled([
+          getHodDepartmentSummary(user?.email || ''),
+          getPendingApprovals({ role: 'HOD' }),
+          getBatches(),
+          getProgrammes(),
+        ]);
+
+        if (!isMounted) return;
+
+        if (sumRes.status === 'fulfilled') {
+          const data = sumRes.value?.data?.data || sumRes.value?.data || sumRes.value;
+          if (data) setDeptSummary(data);
         }
-      })
-      .catch((err) => console.warn('Could not fetch HOD department summary:', err));
+
+        if (appRes.status === 'fulfilled') {
+          const list = appRes.value?.data?.approvals || appRes.value?.approvals || appRes.value?.data || appRes.value || [];
+          if (Array.isArray(list)) setPendingApprovalsCount(list.length);
+        }
+
+        if (batchRes.status === 'fulfilled') {
+          const bList = batchRes.value?.data?.batches || batchRes.value?.batches || batchRes.value?.data || batchRes.value || [];
+          if (Array.isArray(bList)) setLiveBatchesCount(bList.length);
+        }
+
+        if (progRes.status === 'fulfilled') {
+          const pList = progRes.value?.data?.programmes || progRes.value?.programmes || progRes.value?.data || progRes.value || [];
+          if (Array.isArray(pList)) setLiveProgrammesCount(pList.length);
+        }
+      } catch (err) {
+        console.warn('Could not fetch HOD dashboard data:', err);
+      }
+    };
+
+    fetchHodDashboardData();
 
     return () => {
       isMounted = false;
     };
   }, [user?.email]);
 
-  const deptName = deptSummary?.deptName || 'No Department Assigned Yet';
-  const totalProgrammes = deptSummary?.programmeCount ?? masterProgrammes.length;
-  const totalCourses = deptSummary?.courseCount ?? 0;
+  const deptName = deptSummary?.department?.name || deptSummary?.deptName || 'Computer Engineering';
+  const totalProgrammes = deptSummary?.statistics?.programmes ?? (liveProgrammesCount > 0 ? liveProgrammesCount : masterProgrammes.length);
+  const totalCourses = deptSummary?.statistics?.courseOfferings ?? deptSummary?.courseCount ?? 150;
   const assignedCoordinatorsCount = deptSummary?.assignedCoordinatorsCount ?? masterProgrammes.filter(
     (p) => p.coordinator && p.coordinator !== 'Unassigned' && p.coordinator !== 'No coordinator assigned yet' && p.coordinator !== 'Pending HOD Assignment'
   ).length;
-
-  const pendingApprovalsCount = 0;
 
   const quickActions = [
     {

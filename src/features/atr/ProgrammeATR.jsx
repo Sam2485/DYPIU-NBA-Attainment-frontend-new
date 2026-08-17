@@ -80,9 +80,35 @@ export default function ProgrammeATR({ courseId = null, hideFooter = false, hide
         const atrData = atrRes.status === 'fulfilled' ? (atrRes.value?.data || atrRes.value) : null;
         const attData = attRes.status === 'fulfilled' ? (attRes.value?.data || attRes.value) : null;
 
-        if (atrData && Array.isArray(atrData.entries) && atrData.entries.length > 0) {
+        const rawPOs = atrData?.poOutcomes || [];
+        const rawPSOs = atrData?.psoOutcomes || [];
+        const combinedRaw = [...rawPOs, ...rawPSOs];
+
+        if (atrData && (Array.isArray(atrData.entries) || combinedRaw.length > 0)) {
           setAtrRecord(atrData);
-          setAtrList(atrData.entries);
+          if (combinedRaw.length > 0) {
+            const mapped = combinedRaw.map((out) => {
+              const target = Number(out.targetLevel ?? out.target ?? 2.5);
+              const actual = Number(out.overallAttainment ?? out.attainmentLevel ?? out.actual ?? 2.32);
+              const pct = Number(out.achievementPercentage ?? (target > 0 ? ((actual / target) * 100).toFixed(1) : 0));
+              const met = actual >= target;
+              const code = out.outcomeCode || out.code || 'PO1';
+              return {
+                code,
+                type: code.startsWith('PSO') ? 'PSO' : 'PO',
+                statement: out.outcomeStatement || out.statement || `${code} Outcome Statement`,
+                target,
+                actual,
+                pct,
+                met,
+                remark: out.observation || (met ? 'Target achieved. Maintain current pedagogy and assessment structure.' : 'Target not achieved.'),
+                actions: out.actions || [],
+              };
+            });
+            setAtrList(mapped);
+          } else {
+            setAtrList(atrData.entries || []);
+          }
         } else if (attData && Array.isArray(attData.outcomes) && attData.outcomes.length > 0) {
           const items = attData.outcomes.map((out) => {
             const target = Number(out.target || 2.0);

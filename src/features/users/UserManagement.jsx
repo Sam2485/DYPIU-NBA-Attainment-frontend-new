@@ -1,9 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AuditTable from '../../components/tables/AuditTable';
 import { Shield, Plus } from 'lucide-react';
+import { getUsers, extractUserList } from '../../api/academic';
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getUsers()
+      .then((res) => {
+        const list = extractUserList(res);
+        if (isMounted && Array.isArray(list) && list.length > 0) {
+          setUsers(list);
+        }
+      })
+      .catch((err) => console.warn('Could not fetch users in UserManagement:', err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleAddUser = () => {
     setUsers([
