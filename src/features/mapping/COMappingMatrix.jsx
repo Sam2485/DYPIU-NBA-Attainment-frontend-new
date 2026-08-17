@@ -11,9 +11,22 @@ export default function COMappingMatrix({ hideFooter = false }) {
     activePOs,
     activePSOs,
     activeCOs,
+    yearMetrics,
+    activeAttainmentConfig,
   } = useAcademic();
 
   const [activeTab, setActiveTab] = useState('po-detail'); // 'po-detail', 'pso-detail', 'combined'
+
+  // Dynamic parameters from Attainment Configuration
+  const directWeight = activeAttainmentConfig?.directWeight || 80;
+  const indirectWeight = activeAttainmentConfig?.indirectWeight || 20;
+  const directThreshold = activeAttainmentConfig?.directThreshold || 60;
+  const thresholdPct = `${directThreshold}%`;
+
+  // Year-wise Attainment Levels from AcademicContext
+  const directLevel = yearMetrics?.directExamAttainment ?? 2.80;
+  const indirectLevel = yearMetrics?.indirectSurveyAttainment ?? 2.50;
+  const overallCOAttainment = ((directLevel * directWeight + indirectLevel * indirectWeight) / 100).toFixed(2);
 
   // Dynamic PO & PSO codes arrays from Outcome Management
   const poList = activePOs.map((p) => p.code);
@@ -521,90 +534,193 @@ export default function COMappingMatrix({ hideFooter = false }) {
 
       {/* VIEW 3: Table 1 - Combined CO to PO/PSO Matrix */}
       {activeTab === 'combined' && (
-        <div className="card">
-          <div className="card-header" style={{ marginBottom: '12px' }}>
-            <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
-              Table 1 : Combined Mapping of CO to PO/PSO ({selectedCourse.code})
-            </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Dynamic Weightage & Threshold Summary Card (from Attainment Config) */}
+          <div className="card" style={{ marginBottom: 0 }}>
+            <div className="card-header" style={{ marginBottom: '12px' }}>
+              <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
+                Dynamic Attainment Configuration Parameters ({selectedCourse.code} • {academicYear})
+              </h3>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+              <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Direct Weightage</span>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: '#2563eb', marginTop: '2px' }}>{directWeight}%</div>
+              </div>
+              <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Indirect Weightage</span>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: '#0284c7', marginTop: '2px' }}>{indirectWeight}%</div>
+              </div>
+              <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Target Threshold</span>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: '#059669', marginTop: '2px' }}>{thresholdPct}</div>
+              </div>
+              <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Overall CO Attainment</span>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>{overallCOAttainment}</div>
+              </div>
+            </div>
           </div>
 
-          <div style={{ overflowX: 'auto', width: '100%' }}>
-            <table className="audit-data-table">
-              <thead>
-                <tr>
-                  <th colSpan={2} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a' }}>
-                    Course Outcomes ({courseOutcomes.length})
-                  </th>
-                  <th colSpan={poList.length} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a' }}>
-                    Programme Outcomes ({poList.length})
-                  </th>
-                  {psoList.length > 0 && (
-                    <th colSpan={psoList.length} style={{ textAlign: 'center', background: '#e2e8f0', color: '#0f172a' }}>
-                      Programme Specific Outcomes ({psoList.length})
-                    </th>
-                  )}
-                </tr>
-                <tr>
-                  <th style={{ width: '50px', textAlign: 'center' }}>Sr No</th>
-                  <th style={{ width: '120px' }}>CO Code</th>
-                  {poList.map((po) => (
-                    <th key={po} style={{ width: '65px', textAlign: 'center' }}>
-                      {po}
-                    </th>
-                  ))}
-                  {psoList.map((pso) => (
-                    <th key={pso} style={{ width: '65px', textAlign: 'center' }}>
-                      {pso}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {courseOutcomes.map((co, idx) => (
-                  <tr key={co.code}>
-                    <td style={{ textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
-                    <td style={{ fontWeight: '700', color: '#0f172a' }}>{co.code}</td>
-
-                    {/* PO Columns */}
-                    {poList.map((po) => {
-                      const val = derivedMatrix[co.code]?.[po] ?? '-';
-                      return (
-                        <td key={po} style={{ textAlign: 'center' }}>
-                          {val}
-                        </td>
-                      );
-                    })}
-
-                    {/* PSO Columns */}
-                    {psoList.map((pso) => {
-                      const val = derivedMatrix[co.code]?.[pso] ?? '-';
-                      return (
-                        <td key={pso} style={{ textAlign: 'center' }}>
-                          {val}
-                        </td>
-                      );
-                    })}
+          {/* CO Direct & Indirect Examination / Survey Attainment Table (Dynamic Values) */}
+          <div className="card" style={{ marginBottom: 0 }}>
+            <div className="card-header" style={{ marginBottom: '12px' }}>
+              <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
+                CO Direct &amp; Indirect Examination / Survey Attainment ({courseOutcomes.length} COs)
+              </h3>
+            </div>
+            <div style={{ overflowX: 'auto', width: '100%' }}>
+              <table className="audit-data-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '180px' }}>Attainment Component</th>
+                    <th style={{ width: '220px' }}>Metric</th>
+                    {courseOutcomes.map((co) => (
+                      <th key={co.code} style={{ textAlign: 'center' }}>
+                        {co.code}
+                      </th>
+                    ))}
                   </tr>
-                ))}
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ fontWeight: '700', color: '#2563eb' }}>Direct Examination</td>
+                    <td style={{ fontSize: '12px', color: '#475569' }}>% Students ≥ Threshold ({thresholdPct})</td>
+                    {courseOutcomes.map((co) => (
+                      <td key={co.code} style={{ textAlign: 'center', fontWeight: '600' }}>
+                        {thresholdPct}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr style={{ background: '#f8fafc' }}>
+                    <td style={{ fontWeight: '700', color: '#2563eb' }}>Direct Examination</td>
+                    <td style={{ fontWeight: '700', color: '#0f172a' }}>Direct Attainment Level</td>
+                    {courseOutcomes.map((co) => (
+                      <td key={co.code} style={{ textAlign: 'center', fontWeight: '800', color: '#2563eb' }}>
+                        {directLevel}
+                      </td>
+                    ))}
+                  </tr>
 
-                {/* Average Row */}
-                <tr style={{ background: '#f8fafc', fontWeight: '700' }}>
-                  <td colSpan={2} style={{ textAlign: 'right', paddingRight: '12px', color: '#0f172a' }}>
-                    Average
-                  </td>
-                  {poList.map((po) => (
-                    <td key={po} style={{ textAlign: 'center', color: '#0f172a', fontWeight: '700' }}>
-                      {calculateCombinedAverage(po)}
-                    </td>
+                  <tr>
+                    <td style={{ fontWeight: '700', color: '#0284c7' }}>Indirect Course Survey</td>
+                    <td style={{ fontSize: '12px', color: '#475569' }}>% Positive Rating</td>
+                    {courseOutcomes.map((co) => (
+                      <td key={co.code} style={{ textAlign: 'center', fontWeight: '600' }}>
+                        82%
+                      </td>
+                    ))}
+                  </tr>
+                  <tr style={{ background: '#f8fafc' }}>
+                    <td style={{ fontWeight: '700', color: '#0284c7' }}>Indirect Course Survey</td>
+                    <td style={{ fontWeight: '700', color: '#0f172a' }}>Indirect Attainment Level</td>
+                    {courseOutcomes.map((co) => (
+                      <td key={co.code} style={{ textAlign: 'center', fontWeight: '800', color: '#0284c7' }}>
+                        {indirectLevel}
+                      </td>
+                    ))}
+                  </tr>
+
+                  <tr style={{ background: '#f1f5f9', fontWeight: '800', borderTop: '2px solid #cbd5e1' }}>
+                    <td style={{ color: '#0f172a' }}>Combined CO Attainment</td>
+                    <td style={{ color: '#0f172a' }}>({directWeight}% Direct + {indirectWeight}% Indirect)</td>
+                    {courseOutcomes.map((co) => (
+                      <td key={co.code} style={{ textAlign: 'center', fontSize: '14px', color: '#0f172a' }}>
+                        {overallCOAttainment}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Table 1 : Combined Mapping of CO to PO/PSO */}
+          <div className="card" style={{ marginBottom: 0 }}>
+            <div className="card-header" style={{ marginBottom: '12px' }}>
+              <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
+                Table 1 : Combined Mapping of CO to PO/PSO ({selectedCourse.code})
+              </h3>
+            </div>
+
+            <div style={{ overflowX: 'auto', width: '100%' }}>
+              <table className="audit-data-table">
+                <thead>
+                  <tr>
+                    <th colSpan={2} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a' }}>
+                      Course Outcomes ({courseOutcomes.length})
+                    </th>
+                    <th colSpan={poList.length} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a' }}>
+                      Programme Outcomes ({poList.length})
+                    </th>
+                    {psoList.length > 0 && (
+                      <th colSpan={psoList.length} style={{ textAlign: 'center', background: '#e2e8f0', color: '#0f172a' }}>
+                        Programme Specific Outcomes ({psoList.length})
+                      </th>
+                    )}
+                  </tr>
+                  <tr>
+                    <th style={{ width: '50px', textAlign: 'center' }}>Sr No</th>
+                    <th style={{ width: '120px' }}>CO Code</th>
+                    {poList.map((po) => (
+                      <th key={po} style={{ width: '65px', textAlign: 'center' }}>
+                        {po}
+                      </th>
+                    ))}
+                    {psoList.map((pso) => (
+                      <th key={pso} style={{ width: '65px', textAlign: 'center' }}>
+                        {pso}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {courseOutcomes.map((co, idx) => (
+                    <tr key={co.code}>
+                      <td style={{ textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
+                      <td style={{ fontWeight: '700', color: '#0f172a' }}>{co.code}</td>
+
+                      {/* PO Columns */}
+                      {poList.map((po) => {
+                        const val = derivedMatrix[co.code]?.[po] ?? '-';
+                        return (
+                          <td key={po} style={{ textAlign: 'center' }}>
+                            {val}
+                          </td>
+                        );
+                      })}
+
+                      {/* PSO Columns */}
+                      {psoList.map((pso) => {
+                        const val = derivedMatrix[co.code]?.[pso] ?? '-';
+                        return (
+                          <td key={pso} style={{ textAlign: 'center' }}>
+                            {val}
+                          </td>
+                        );
+                      })}
+                    </tr>
                   ))}
-                  {psoList.map((pso) => (
-                    <td key={pso} style={{ textAlign: 'center', color: '#0f172a', fontWeight: '700' }}>
-                      {calculateCombinedAverage(pso)}
+
+                  {/* Average Row */}
+                  <tr style={{ background: '#f8fafc', fontWeight: '700' }}>
+                    <td colSpan={2} style={{ textAlign: 'right', paddingRight: '12px', color: '#0f172a' }}>
+                      Average
                     </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
+                    {poList.map((po) => (
+                      <td key={po} style={{ textAlign: 'center', color: '#0f172a', fontWeight: '700' }}>
+                        {calculateCombinedAverage(po)}
+                      </td>
+                    ))}
+                    {psoList.map((pso) => (
+                      <td key={pso} style={{ textAlign: 'center', color: '#0f172a', fontWeight: '700' }}>
+                        {calculateCombinedAverage(pso)}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

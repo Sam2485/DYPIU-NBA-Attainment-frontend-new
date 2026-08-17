@@ -1,12 +1,20 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { UserCheck, Calendar, Layers, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, Trash2, Edit3, X, AlertCircle, ChevronDown, GraduationCap } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
+const STEPS = [
+  { number: 1, title: 'Programme Coordinator', desc: 'Assign coordinator for programme', path: '/hod/programme-coordinators', icon: UserCheck,   color: '#4f46e5', bg: '#eef2ff' },
+  { number: 2, title: 'Batch Setup',          desc: 'Initialize student batch cycle',   path: '/hod/batch-management',      icon: Calendar,    color: '#0284c7', bg: '#f0f9ff' },
+  { number: 3, title: 'PO / PSO / PEO',       desc: 'Define outcome framework',         path: '/hod/programme-outcomes',    icon: Layers,      color: '#7c3aed', bg: '#f5f3ff' },
+  { number: 4, title: 'Review & Confirm',     desc: 'Verify setup summary & finish',    path: '/hod/reports',               icon: CheckCircle2,color: '#059669', bg: '#f0fdf4' },
+];
+
 export default function HodSetupWorkflow() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const {
     masterProgrammes = [],
@@ -26,9 +34,10 @@ export default function HodSetupWorkflow() {
     updateProgrammePOs = () => {},
     updateProgrammePSOs = () => {},
     updateProgrammePEOs = () => {},
+    hodWorkflowProgressStore = {},
+    markHodWorkflowStepComplete = () => {},
   } = useAcademic();
 
-  const [currentStep, setCurrentStep] = useState(1);
   const [deleteModalConfig, setDeleteModalConfig] = useState({
     isOpen: false,
     title: '',
@@ -108,12 +117,38 @@ export default function HodSetupWorkflow() {
   // Step 3: Outcomes State
   const [outcomeTab, setOutcomeTab] = useState('PO');
 
-  const steps = [
-    { number: 1, title: 'Programme Coordinator', desc: 'Assign coordinator for programme', icon: UserCheck },
-    { number: 2, title: 'Batch Setup',          desc: 'Initialize student batch year',     icon: Calendar },
-    { number: 3, title: 'PO / PSO / PEO',       desc: 'Outcomes & competencies',          icon: Layers },
-    { number: 4, title: 'Review & Confirm',     desc: 'Verify setup summary & finish',     icon: CheckCircle2 },
-  ];
+  // ── Per-step completion flags ──────────────────────────────────────────────
+  const progProgress = hodWorkflowProgressStore[selectedProgramme?.id || 'prog-1'] || {};
+  const stepDone = STEPS.map((s) => !!progProgress[s.number]);
+  const completedCount = stepDone.filter(Boolean).length;
+  const progressPct = Math.round((completedCount / STEPS.length) * 100);
+
+  const firstIncompleteIdx = stepDone.findIndex((done) => !done);
+  const firstIncompleteStep = firstIncompleteIdx !== -1 ? firstIncompleteIdx + 1 : 1;
+
+  const rawStepParam = searchParams.get('step');
+  const parsedStep = parseInt(rawStepParam, 10);
+  const hasValidParam = parsedStep >= 1 && parsedStep <= STEPS.length;
+
+  const [currentStep, setCurrentStep] = useState(
+    hasValidParam ? parsedStep : firstIncompleteStep
+  );
+
+  useEffect(() => {
+    const s = parseInt(searchParams.get('step'), 10);
+    if (!s || isNaN(s) || s < 1 || s > STEPS.length) {
+      setSearchParams({ step: firstIncompleteStep }, { replace: true });
+      setCurrentStep(firstIncompleteStep);
+    } else if (s !== currentStep) {
+      setCurrentStep(s);
+    }
+  }, [searchParams, firstIncompleteStep]);
+
+  const goToStep = (n) => {
+    setCurrentStep(n);
+    setSearchParams({ step: n });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const durationYears = selectedProgramme?.durationYears || 4;
 
@@ -283,9 +318,28 @@ export default function HodSetupWorkflow() {
     });
   };
 
-  const handleNext = () => { if (currentStep < 4) { setCurrentStep((p) => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
-  const handlePrev = () => { if (currentStep > 1) { setCurrentStep((p) => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
-  const handleFinish = () => navigate('/hod/dashboard');
+  const currentStepMeta = STEPS[currentStep - 1] || STEPS[0];
+
+  const handleSaveAndNext = () => {
+    if (currentStep === 1) {
+      handleSaveCoordinator();
+    }
+    markHodWorkflowStepComplete(selectedProgramme.id, currentStep);
+    if (currentStep < STEPS.length) {
+      goToStep(currentStep + 1);
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (currentStep > 1) {
+      goToStep(currentStep - 1);
+    }
+  };
+
+  const handleFinish = () => {
+    markHodWorkflowStepComplete(selectedProgramme.id, STEPS.length);
+    navigate('/hod/dashboard');
+  };
 
   const activeBatchObj = batches.find((b) => b.id === batchId) || batches[0];
 
@@ -297,88 +351,137 @@ export default function HodSetupWorkflow() {
   const labelStyle = { display: 'block', fontSize: '11.5px', fontWeight: '600', color: muted, marginBottom: '4px' };
 
   return (
-    <div className="animated-page" style={{ paddingBottom: '48px' }}>
+    <div className="animated-page" style={{ paddingBottom: '60px' }}>
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
       <div
         style={{
-          background: '#ffffff',
-          padding: '22px 28px',
-          marginBottom: '20px',
+          ...surface,
+          padding: '20px 24px',
+          marginBottom: '0',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          flexWrap: 'wrap',
+          flexWrap: 'nowrap',
           gap: '16px',
-          borderRadius: '14px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 4px 20px rgba(15, 23, 42, 0.05)',
+          borderRadius: '12px 12px 0 0',
+          borderBottom: '1px solid #f1f5f9',
         }}
       >
-        <div>
-          <div style={{ fontSize: '10.5px', fontWeight: '800', color: '#4f46e5', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>
-            HOD Portal &nbsp;·&nbsp; Setup Wizard
-          </div>
-          <h2 style={{ margin: 0, fontSize: '22px', color: '#0f172a', fontWeight: '800', letterSpacing: '-0.01em' }}>
-            Programme Setup
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
+            {currentStepMeta.title}
           </h2>
-          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
-            {selectedProgramme.code} &nbsp;—&nbsp; {selectedProgramme.name}
-          </p>
         </div>
 
-        {/* Target Programme Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <GraduationCap size={18} style={{ color: '#64748b' }} />
-          <select
-            value={programmeId}
-            onChange={(e) => setProgrammeId(e.target.value)}
+        {/* Target Programme Selector & Exit */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, marginLeft: 'auto' }}>
+          <div style={{ position: 'relative' }}>
+            <select
+              value={programmeId}
+              onChange={(e) => {
+                const nextProgId = e.target.value;
+                setProgrammeId(nextProgId);
+                const nextProgObj = masterProgrammes.find((p) => p.id === nextProgId);
+                const nextProgState = hodWorkflowProgressStore[nextProgId] || {};
+                const nextIncompleteIdx = STEPS.findIndex((s) => !nextProgState[s.number]);
+                const nextStepNum = nextIncompleteIdx !== -1 ? nextIncompleteIdx + 1 : 1;
+                goToStep(nextStepNum);
+              }}
+              style={{
+                height: '38px',
+                fontSize: '13px',
+                fontWeight: '700',
+                color: accent,
+                border: '1.5px solid #c7d2fe',
+                borderRadius: '8px',
+                padding: '0 32px 0 12px',
+                background: '#f5f3ff',
+                minWidth: '240px',
+                outline: 'none',
+                appearance: 'none',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              {masterProgrammes.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.code} — {p.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
+          </div>
+
+          <button
+            onClick={() => navigate('/hod/dashboard')}
             style={{
-              height: '38px',
-              fontSize: '13px',
-              borderRadius: '8px',
-              padding: '0 12px',
-              background: '#ffffff',
-              color: '#0f172a',
-              border: '1px solid #cbd5e1',
-              width: 'auto',
-              minWidth: '280px',
-              fontWeight: '800',
-              cursor: 'pointer',
-              outline: 'none',
-              fontFamily: 'inherit',
+              height: '38px', padding: '0 14px', fontSize: '12.5px', fontWeight: '600',
+              background: '#f8fafc', color: ink, border: '1px solid #e2e8f0',
+              borderRadius: '8px', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit',
+              flexShrink: 0,
             }}
           >
-            {masterProgrammes.map((p) => (
-              <option key={p.id} value={p.id} style={{ color: '#0f172a', background: '#ffffff' }}>
-                {p.code} — {p.name}
-              </option>
-            ))}
-          </select>
+            <X size={14} /> Exit
+          </button>
         </div>
       </div>
 
-      {/* ── STEPPER PROGRESS BAR ─────────────────────────────────────────────── */}
-      <div style={{ ...surface, padding: '16px 20px', marginBottom: '24px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', position: 'relative' }}>
-          <div style={{ position: 'absolute', top: '18px', left: '12.5%', right: '12.5%', height: '1px', background: '#e2e8f0', zIndex: 0 }} />
-          {steps.map((s) => {
-            const done   = currentStep > s.number;
-            const active = currentStep === s.number;
-            const Icon   = s.icon;
-            return (
-              <div
-                key={s.number}
-                onClick={() => setCurrentStep(s.number)}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', position: 'relative', zIndex: 1, opacity: currentStep >= s.number ? 1 : 0.45, transition: 'opacity .2s' }}
-              >
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: done ? '#f0fdf4' : active ? '#eef2ff' : '#f8fafc', border: `1.5px solid ${done ? '#86efac' : active ? '#a5b4fc' : '#e2e8f0'}`, color: done ? '#16a34a' : active ? accent : muted, display: 'grid', placeItems: 'center', marginBottom: '8px', transition: 'all .2s' }}>
-                  {done ? <Check size={15} /> : <Icon size={15} />}
-                </div>
-                <div style={{ fontSize: '12px', fontWeight: active ? '700' : '600', color: active ? ink : muted, textAlign: 'center' }}>{s.title}</div>
-                <div style={{ fontSize: '10.5px', color: '#94a3b8', textAlign: 'center', marginTop: '1px' }}>{s.desc}</div>
-              </div>
-            );
-          })}
+      {/* ── STEP STEPPER (icon circles) ───────────────────────────────────────── */}
+      <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px' }}>
+        <div style={{ position: 'relative' }}>
+          {/* connector line */}
+          <div style={{
+            position: 'absolute', top: '18px',
+            left: `${100 / (STEPS.length * 2)}%`,
+            right: `${100 / (STEPS.length * 2)}%`,
+            height: '1px', background: '#e2e8f0', zIndex: 0,
+          }} />
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${STEPS.length}, 1fr)`,
+            gap: '8px', position: 'relative', zIndex: 1,
+          }}>
+            {STEPS.map((s) => {
+              const done   = stepDone[s.number - 1];
+              const active = currentStep === s.number;
+              const Icon   = s.icon;
+              return (
+                <button
+                  key={s.number}
+                  type="button"
+                  onClick={() => goToStep(s.number)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                    background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px',
+                    opacity: active || done ? 1 : 0.55, transition: 'opacity .2s',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <div style={{
+                    width: '36px', height: '36px', borderRadius: '50%',
+                    background: done ? '#f0fdf4' : active ? s.bg : '#f8fafc',
+                    border: `2px solid ${done ? '#86efac' : active ? s.color : '#e2e8f0'}`,
+                    color: done ? '#16a34a' : active ? s.color : muted,
+                    display: 'grid', placeItems: 'center', transition: 'all .2s',
+                    boxShadow: active ? `0 4px 12px ${s.color}33` : 'none',
+                  }}>
+                    {done ? <Check size={14} style={{ color: '#16a34a' }} /> : <Icon size={14} />}
+                  </div>
+                  <div style={{
+                    fontSize: '11px', fontWeight: active ? '800' : done ? '700' : '600',
+                    color: done ? '#16a34a' : active ? ink : muted,
+                    textAlign: 'center', lineHeight: 1.3,
+                  }}>
+                    {s.title}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#94a3b8', textAlign: 'center', marginTop: '1px' }}>
+                    {s.desc}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -916,34 +1019,99 @@ export default function HodSetupWorkflow() {
       )}
 
       {/* ── STEPPER BOTTOM FOOTER NAV ─────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '20px' }}>
-        <button
-          type="button"
-          onClick={handlePrev}
-          disabled={currentStep === 1}
-          style={{ height: '40px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: '#ffffff', color: currentStep === 1 ? '#94a3b8' : ink, border: '1px solid #cbd5e1', borderRadius: '8px', cursor: currentStep === 1 ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-        >
-          <ArrowLeft size={15} /> Previous Step
-        </button>
+      <div style={{
+        ...surface,
+        padding: '14px 20px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginTop: '20px',
+      }}>
+        {/* Extreme Left: Previous */}
+        <div style={{ minWidth: '160px', display: 'flex', justifyContent: 'flex-start' }}>
+          {currentStep > 1 && (
+            <button
+              type="button"
+              onClick={handlePrevStep}
+              style={{
+                height: '40px', padding: '0 18px', fontSize: '13px', fontWeight: '600',
+                background: '#f8fafc', color: ink, border: '1px solid #e2e8f0',
+                borderRadius: '8px', cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit',
+              }}
+            >
+              <ArrowLeft size={14} /> Previous Step
+            </button>
+          )}
+        </div>
 
-        {currentStep < 4 ? (
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handleNext}
-            style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '800', gap: '8px', display: 'inline-flex', alignItems: 'center' }}
-          >
-            Next Step <ArrowRight size={15} />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleFinish}
-            style={{ background: '#22c55e', color: '#ffffff', border: 'none', height: '40px', padding: '0 22px', fontSize: '13.5px', fontWeight: '800', gap: '8px', display: 'inline-flex', alignItems: 'center', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 6px rgba(34,197,94,0.3)' }}
-          >
-            <Check size={16} /> Finish Setup &amp; Go to Dashboard
-          </button>
-        )}
+        {/* Middle: Step dots & steps remaining */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {STEPS.map((s) => (
+              <div
+                key={s.number}
+                onClick={() => goToStep(s.number)}
+                style={{
+                  width: currentStep === s.number ? '20px' : '6px',
+                  height: '6px', borderRadius: '3px',
+                  background: stepDone[s.number - 1] ? '#16a34a' : currentStep === s.number ? accent : '#e2e8f0',
+                  transition: 'all .2s', cursor: 'pointer',
+                }}
+              />
+            ))}
+          </div>
+
+          {completedCount === STEPS.length ? (
+            <span style={{
+              fontSize: '11px', fontWeight: '700', background: '#f0fdf4',
+              color: '#16a34a', border: '1px solid #bbf7d0',
+              borderRadius: '6px', padding: '3px 10px',
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+            }}>
+              <Check size={11} /> All complete
+            </span>
+          ) : (
+            <span style={{
+              fontSize: '11.5px', fontWeight: '600', color: muted,
+              background: '#f8fafc', border: '1px solid #e2e8f0',
+              borderRadius: '6px', padding: '3px 10px',
+            }}>
+              {STEPS.length - completedCount} step{STEPS.length - completedCount !== 1 ? 's' : ''} remaining
+            </span>
+          )}
+        </div>
+
+        {/* Extreme Right: Save & Continue / Finish */}
+        <div style={{ minWidth: '160px', display: 'flex', justifyContent: 'flex-end' }}>
+          {currentStep < STEPS.length ? (
+            <button
+              type="button"
+              onClick={handleSaveAndNext}
+              style={{
+                height: '40px', padding: '0 22px', fontSize: '13.5px', fontWeight: '800',
+                background: `linear-gradient(135deg, ${accent} 0%, #6366f1 100%)`,
+                color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit',
+                boxShadow: '0 4px 14px rgba(79,70,229,0.28)',
+              }}
+            >
+              Save &amp; Continue <ArrowRight size={14} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleFinish}
+              style={{
+                height: '40px', padding: '0 22px', fontSize: '13.5px', fontWeight: '800',
+                background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit',
+                boxShadow: '0 4px 14px rgba(16,185,129,0.3)',
+              }}
+            >
+              <CheckCircle2 size={15} /> Finish Setup &amp; Go to Dashboard
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── DELETE CONFIRM MODAL ──────────────────────────────────────────────── */}

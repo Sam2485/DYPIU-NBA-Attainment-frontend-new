@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Sliders, Save, CheckCircle2, Clock, ShieldCheck, Target, Layers, PieChart, Award, Zap } from 'lucide-react';
+import { Sliders, Save, CheckCircle2, Clock, ShieldCheck, Target, Layers, PieChart, Award, Zap, ChevronDown, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAcademic } from '../../context/AcademicContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
+
+// ── Style tokens ───────────────────────────────────────────────────────────
+const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
+const ink = '#0f172a';
+const muted = '#64748b';
+const accent = '#4f46e5';
 
 export default function AttainmentConfig() {
   const { role, user } = useAuth();
@@ -169,17 +175,60 @@ export default function AttainmentConfig() {
   return (
     <div className="animated-page">
       {/* Standard Header Banner */}
-      <div className="banner-dark-gradient">
-        <div className="banner-content-row">
+      <div className="banner-dark-gradient" style={{ marginBottom: '20px' }}>
+        <div className="banner-content-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
               Attainment Settings
             </h2>
           </div>
 
-          <button className="btn btn-primary" onClick={handleSaveConfig}>
-            <Save size={15} /> {!isCoordinator ? 'Submit Configuration Proposal for Review' : 'Save Attainment Configurations'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            {/* Course Selector Dropdown */}
+            <div style={{ position: 'relative' }}>
+              <select
+                value={activeCourseId}
+                onChange={(e) => setActiveCourseId(e.target.value)}
+                style={{
+                  height: '38px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  color: '#4f46e5',
+                  border: '1.5px solid #c7d2fe',
+                  borderRadius: '8px',
+                  padding: '0 34px 0 14px',
+                  background: '#f5f3ff',
+                  minWidth: '250px',
+                  outline: 'none',
+                  appearance: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                }}
+              >
+                {courseList.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} — {c.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={14}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: '#4f46e5',
+                  pointerEvents: 'none',
+                }}
+              />
+            </div>
+
+            <button className="btn btn-primary" onClick={handleSaveConfig} style={{ height: '38px' }}>
+              <Save size={15} /> {!isCoordinator ? 'Submit Configuration Proposal for Review' : 'Save Attainment Configurations'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -212,48 +261,6 @@ export default function AttainmentConfig() {
         </div>
       )}
 
-      {/* Course Selection Strip */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '10px',
-          overflowX: 'auto',
-          paddingBottom: '10px',
-          marginBottom: '16px',
-        }}
-      >
-        {courseList.map((c) => {
-          const cfg = attainmentConfigs[c.id] || {};
-          const status = courseVerificationStore[c.id]?.configStatus || cfg.status;
-          const isCurrent = c.id === activeCourseId;
-
-          return (
-            <button
-              key={c.id}
-              onClick={() => setActiveCourseId(c.id)}
-              className={`btn ${isCurrent ? 'btn-primary' : 'btn-secondary'}`}
-              style={{
-                fontSize: '12px',
-                padding: '8px 14px',
-                whiteSpace: 'nowrap',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              <span>
-                {c.code} - {c.name}
-              </span>
-              {status === 'VERIFIED' ? (
-                <CheckCircle2 size={14} style={{ color: '#10b981' }} />
-              ) : status === 'SUBMITTED' ? (
-                <Clock size={14} style={{ color: '#f59e0b' }} />
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
-
       {/* Active Course Attainment Configuration Settings */}
       <div className="card" style={{ marginBottom: '20px' }}>
         <div className="card-header" style={{ marginBottom: '16px' }}>
@@ -278,78 +285,137 @@ export default function AttainmentConfig() {
           )}
         </div>
 
-        {/* ── SIMPLE & SUBTLE FORM FIELDS FOR WEIGHTAGES AND THRESHOLD ────────────────── */}
+        {/* ── ENHANCED FORM FIELDS FOR WEIGHTAGES AND THRESHOLD ────────────────── */}
         <div className="grid-cards-2" style={{ gap: '20px', marginBottom: '24px' }}>
-          {/* Direct Weightage Field */}
-          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px' }}>
-            <label style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', display: 'block', marginBottom: '6px' }}>
-              Direct Assessment Weightage (%)
-            </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <input
-                type="number"
-                className="form-input"
-                value={currentConfig.directWeight}
-                onChange={(e) => handleDirectWeightChange(e.target.value)}
-                min="0"
-                max="100"
-                style={{ width: '110px', fontWeight: '800', fontSize: '14px', color: '#4f46e5' }}
-              />
-              <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>% Direct Weight</span>
+          {/* Direct & Indirect Assessment Weightage Field */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sliders size={16} style={{ color: '#4f46e5' }} />
+                  <label style={{ fontSize: '13.5px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                    Direct Assessment Weightage (%)
+                  </label>
+                </div>
+                <span style={{ fontSize: '11px', fontWeight: '700', color: '#4f46e5', background: '#eef2ff', padding: '2px 8px', borderRadius: '6px' }}>
+                  Direct : Indirect Split
+                </span>
+              </div>
+              <p style={{ margin: '0 0 12px', fontSize: '11.5px', color: '#64748b' }}>
+                Proportion of final CO attainment derived from Direct Examination vs. Indirect Course Exit Survey.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={currentConfig.directWeight}
+                    onChange={(e) => handleDirectWeightChange(e.target.value)}
+                    min="0"
+                    max="100"
+                    style={{ width: '84px', fontWeight: '900', fontSize: '16px', color: '#4f46e5', textAlign: 'center', padding: '6px 10px', border: '1.5px solid #c7d2fe', borderRadius: '8px' }}
+                  />
+                </div>
+                <span style={{ fontSize: '13px', fontWeight: '800', color: '#475569' }}>% Direct Weight</span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '15px', fontWeight: '800', color: '#0284c7' }}>
+                    {currentConfig.indirectWeight !== undefined ? currentConfig.indirectWeight : (100 - currentConfig.directWeight)}%
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Indirect Weight</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Visual ratio bar */}
+            <div style={{ display: 'flex', height: '8px', borderRadius: '4px', overflow: 'hidden', background: '#e2e8f0' }}>
+              <div style={{ width: `${currentConfig.directWeight}%`, background: '#4f46e5', transition: 'width 0.3s' }} title={`Direct: ${currentConfig.directWeight}%`} />
+              <div style={{ width: `${100 - currentConfig.directWeight}%`, background: '#38bdf8', transition: 'width 0.3s' }} title={`Indirect: ${100 - currentConfig.directWeight}%`} />
             </div>
           </div>
 
           {/* Direct Exam Threshold Marks Field */}
-          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px' }}>
-            <label style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', display: 'block', marginBottom: '6px' }}>
-              Direct Exam Threshold Marks (%)
-            </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <input
-                type="number"
-                className="form-input"
-                value={currentConfig.directThreshold}
-                onChange={(e) => handleThresholdChange(e.target.value)}
-                min="0"
-                max="100"
-                style={{ width: '110px', fontWeight: '800', fontSize: '14px', color: '#059669' }}
-              />
-              <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>% Threshold Marks</span>
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Target size={16} style={{ color: '#059669' }} />
+                  <label style={{ fontSize: '13.5px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                    Direct Exam Threshold Marks (%)
+                  </label>
+                </div>
+                <span style={{ fontSize: '11px', fontWeight: '700', color: '#059669', background: '#d1fae5', padding: '2px 8px', borderRadius: '6px' }}>
+                  Benchmark Criteria
+                </span>
+              </div>
+              <p style={{ margin: '0 0 12px', fontSize: '11.5px', color: '#64748b' }}>
+                Minimum % score in direct assessments required for a student to be counted towards CO target attainment.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={currentConfig.directThreshold}
+                    onChange={(e) => handleThresholdChange(e.target.value)}
+                    min="0"
+                    max="100"
+                    style={{ width: '84px', fontWeight: '900', fontSize: '16px', color: '#059669', textAlign: 'center', padding: '6px 10px', border: '1.5px solid #a7f3d0', borderRadius: '8px' }}
+                  />
+                </div>
+                <span style={{ fontSize: '13px', fontWeight: '800', color: '#475569' }}>% Threshold Marks</span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#047857', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '4px 10px', borderRadius: '6px', fontWeight: '700' }}>
+                  Standard NBA: 60%
+                </span>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '11.5px', color: '#475569', lineHeight: 1.4 }}>
+              Students scoring <strong style={{ color: '#059669' }}>≥ {currentConfig.directThreshold}%</strong> marks are marked as having achieved CO competency.
             </div>
           </div>
         </div>
 
         {/* ── DYNAMIC EDITABLE MIN-MAX LEVEL 1-3 MAPPING BANDS TABLES ─────────────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {/* Direct Assessment Level 1-3 Percentage Bands Table */}
-          <div style={{ border: '1.5px solid #6366f1', borderRadius: '12px', padding: '16px', background: '#faf5ff' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', background: '#f8fafc' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Layers size={18} style={{ color: '#4f46e5' }} />
-                <h4 style={{ margin: 0, fontSize: '14.5px', color: '#3730a3', fontWeight: '800' }}>
-                  Direct Assessment Attainment Level Bands (Levels 1 – 3)
-                </h4>
+                <Layers size={16} style={{ color: accent }} />
+                <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>Direct Assessment Level Percentage Bands (Configured by Course Coordinator)</span>
               </div>
-              <span style={{ fontSize: '11.5px', color: '#6366f1', fontWeight: '700' }}>
-                Specify Min % & Max % threshold for each attainment level
+              <span style={{ fontSize: '11.5px', color: muted, fontWeight: '600' }}>
+                Specify Min % &amp; Max % benchmark for each attainment level
               </span>
             </div>
 
-            <div style={{ overflowX: 'auto', background: '#ffffff', borderRadius: '10px', border: '1px solid #e0e7ff' }}>
+            <div style={{ overflowX: 'auto', width: '100%' }}>
               <table className="audit-data-table">
                 <thead>
                   <tr>
                     <th style={{ width: '90px', textAlign: 'center' }}>Level</th>
-                    <th style={{ width: '140px', textAlign: 'center' }}>Min % Benchmark</th>
-                    <th style={{ width: '140px', textAlign: 'center' }}>Max % Benchmark</th>
-                    <th style={{ width: '120px', textAlign: 'center' }}>Assigned Score</th>
-                    <th>Attainment Description</th>
+                    <th style={{ width: '140px', textAlign: 'center' }}>Min % Marks</th>
+                    <th style={{ width: '140px', textAlign: 'center' }}>Max % Marks</th>
+                    <th style={{ width: '130px', textAlign: 'center' }}>Attainment Score</th>
+                    <th>Description / Target Standard</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(currentConfig.directLevels || []).map((lvl, index) => (
                     <tr key={lvl.level}>
-                      <td style={{ textAlign: 'center', fontWeight: '900', color: '#4f46e5' }}>
+                      <td style={{ textAlign: 'center', fontWeight: '800', color: accent }}>
                         Level {lvl.level}
                       </td>
                       <td style={{ textAlign: 'center' }}>
@@ -361,7 +427,7 @@ export default function AttainmentConfig() {
                             value={lvl.minPercentage}
                             onChange={(e) => handleDirectLevelChange(index, 'minPercentage', e.target.value)}
                             className="form-input"
-                            style={{ width: '70px', padding: '5px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #c7d2fe' }}
+                            style={{ width: '70px', padding: '4px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #c7d2fe', borderRadius: '6px' }}
                           />
                           <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>%</span>
                         </div>
@@ -375,18 +441,18 @@ export default function AttainmentConfig() {
                             value={lvl.maxPercentage}
                             onChange={(e) => handleDirectLevelChange(index, 'maxPercentage', e.target.value)}
                             className="form-input"
-                            style={{ width: '70px', padding: '5px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #c7d2fe' }}
+                            style={{ width: '70px', padding: '4px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #c7d2fe', borderRadius: '6px' }}
                           />
                           <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>%</span>
                         </div>
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <span className="badge badge-active" style={{ background: '#dcfce7', color: '#15803d', fontWeight: '900', fontSize: '12px' }}>
+                        <span style={{ fontWeight: '800', color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '3px 10px', borderRadius: '6px', fontSize: '12px', display: 'inline-block' }}>
                           {lvl.level}.0 / 3.0
                         </span>
                       </td>
-                      <td style={{ fontSize: '12px', color: '#475569', fontWeight: '600' }}>
-                        {lvl.level === 1 ? 'Low Attainment (< benchmark threshold)' : lvl.level === 2 ? 'Moderate Attainment (meets benchmark)' : 'High Attainment (exceeds benchmark)'}
+                      <td style={{ fontSize: '12px', color: muted, fontWeight: '500' }}>
+                        {lvl.level === 1 ? 'Low Direct Attainment (Students scoring within minimum threshold)' : lvl.level === 2 ? 'Moderate Direct Attainment (Students scoring within target threshold)' : 'High Direct Attainment (Students exceeding target benchmark)'}
                       </td>
                     </tr>
                   ))}
@@ -396,34 +462,32 @@ export default function AttainmentConfig() {
           </div>
 
           {/* Indirect Assessment Level 1-3 Percentage Bands Table */}
-          <div style={{ border: '1.5px solid #0284c7', borderRadius: '12px', padding: '16px', background: '#f0f9ff' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', background: '#f8fafc' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Layers size={18} style={{ color: '#0284c7' }} />
-                <h4 style={{ margin: 0, fontSize: '14.5px', color: '#0369a1', fontWeight: '800' }}>
-                  Indirect Assessment Attainment Level Bands (Levels 1 – 3)
-                </h4>
+                <Layers size={16} style={{ color: '#0284c7' }} />
+                <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>Indirect Assessment Level Percentage Bands (Configured by Course Coordinator)</span>
               </div>
-              <span style={{ fontSize: '11.5px', color: '#0284c7', fontWeight: '700' }}>
-                Specify Min % & Max % threshold for indirect survey feedback
+              <span style={{ fontSize: '11.5px', color: muted, fontWeight: '600' }}>
+                Specify Min % &amp; Max % benchmark for indirect survey feedback
               </span>
             </div>
 
-            <div style={{ overflowX: 'auto', background: '#ffffff', borderRadius: '10px', border: '1px solid #bae6fd' }}>
+            <div style={{ overflowX: 'auto', width: '100%' }}>
               <table className="audit-data-table">
                 <thead>
                   <tr>
                     <th style={{ width: '90px', textAlign: 'center' }}>Level</th>
-                    <th style={{ width: '140px', textAlign: 'center' }}>Min % Survey</th>
-                    <th style={{ width: '140px', textAlign: 'center' }}>Max % Survey</th>
-                    <th style={{ width: '120px', textAlign: 'center' }}>Assigned Score</th>
-                    <th>Attainment Description</th>
+                    <th style={{ width: '140px', textAlign: 'center' }}>Min % Survey Rating</th>
+                    <th style={{ width: '140px', textAlign: 'center' }}>Max % Survey Rating</th>
+                    <th style={{ width: '130px', textAlign: 'center' }}>Attainment Score</th>
+                    <th>Description / Survey Standard</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(currentConfig.indirectLevels || []).map((lvl, index) => (
                     <tr key={lvl.level}>
-                      <td style={{ textAlign: 'center', fontWeight: '900', color: '#0284c7' }}>
+                      <td style={{ textAlign: 'center', fontWeight: '800', color: '#0284c7' }}>
                         Level {lvl.level}
                       </td>
                       <td style={{ textAlign: 'center' }}>
@@ -435,7 +499,7 @@ export default function AttainmentConfig() {
                             value={lvl.minPercentage}
                             onChange={(e) => handleIndirectLevelChange(index, 'minPercentage', e.target.value)}
                             className="form-input"
-                            style={{ width: '70px', padding: '5px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #7dd3fc' }}
+                            style={{ width: '70px', padding: '4px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #7dd3fc', borderRadius: '6px' }}
                           />
                           <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>%</span>
                         </div>
@@ -449,18 +513,18 @@ export default function AttainmentConfig() {
                             value={lvl.maxPercentage}
                             onChange={(e) => handleIndirectLevelChange(index, 'maxPercentage', e.target.value)}
                             className="form-input"
-                            style={{ width: '70px', padding: '5px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #7dd3fc' }}
+                            style={{ width: '70px', padding: '4px 8px', fontSize: '13px', fontWeight: '800', textAlign: 'center', border: '1px solid #7dd3fc', borderRadius: '6px' }}
                           />
                           <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>%</span>
                         </div>
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <span className="badge badge-active" style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: '900', fontSize: '12px' }}>
+                        <span style={{ fontWeight: '800', color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '3px 10px', borderRadius: '6px', fontSize: '12px', display: 'inline-block' }}>
                           {lvl.level}.0 / 3.0
                         </span>
                       </td>
-                      <td style={{ fontSize: '12px', color: '#475569', fontWeight: '600' }}>
-                        {lvl.level === 1 ? 'Low Survey Rating' : lvl.level === 2 ? 'Moderate Survey Rating' : 'High Survey Rating'}
+                      <td style={{ fontSize: '12px', color: muted, fontWeight: '500' }}>
+                        {lvl.level === 1 ? 'Low Indirect Rating (Below 50% positive survey feedback)' : lvl.level === 2 ? 'Moderate Indirect Rating (50% to 70% positive survey feedback)' : 'High Indirect Rating (Above 70% positive survey feedback)'}
                       </td>
                     </tr>
                   ))}

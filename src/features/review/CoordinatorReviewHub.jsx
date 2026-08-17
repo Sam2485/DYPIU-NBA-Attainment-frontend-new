@@ -27,16 +27,19 @@ const STATUS_META = {
   VERIFIED:             { bg: '#f0fdf4', color: '#15803d', border: '#86efac', label: 'Verified & Approved', icon: '✓' },
   APPROVED:             { bg: '#f0fdf4', color: '#15803d', border: '#86efac', label: 'Verified & Approved', icon: '✓' },
   SUBMITTED:            { bg: '#fffbeb', color: '#b45309', border: '#fde68a', label: 'Pending Review',     icon: '⏳' },
+  PENDING:              { bg: '#fffbeb', color: '#b45309', border: '#fde68a', label: 'Pending Review',     icon: '⏳' },
   PENDING_APPROVAL:     { bg: '#fffbeb', color: '#b45309', border: '#fde68a', label: 'Pending Review',     icon: '⏳' },
   WAITING_FOR_APPROVAL: { bg: '#fffbeb', color: '#b45309', border: '#fde68a', label: 'Pending Review',     icon: '⏳' },
-  DRAFT:                { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0', label: 'Draft',              icon: '—'  },
+  DRAFT:                { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0', label: 'No Submissions Yet', icon: '—'  },
+  NO_SUBMISSION:        { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0', label: 'No Submissions Yet', icon: '—'  },
+  NOT_SUBMITTED:        { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0', label: 'No Submissions Yet', icon: '—'  },
   REJECTED:             { bg: '#fef2f2', color: '#dc2626', border: '#fecaca', label: 'Needs Revision',     icon: '⚠' },
   REVISION_REQUESTED:   { bg: '#fef2f2', color: '#dc2626', border: '#fecaca', label: 'Needs Revision',     icon: '⚠' },
   NEEDS_REVISION:       { bg: '#fef2f2', color: '#dc2626', border: '#fecaca', label: 'Needs Revision',     icon: '⚠' },
 };
 
 function StatusBadge({ status, size = 'md' }) {
-  const s = STATUS_META[status] || STATUS_META.DRAFT;
+  const s = STATUS_META[status] || STATUS_META.NO_SUBMISSION;
   const pad = size === 'sm' ? '2px 8px' : '4px 11px';
   const fs  = size === 'sm' ? '10.5px'  : '11.5px';
   return (
@@ -56,27 +59,37 @@ function SectionHeader({
   revisionCardRemarks = 'Please review and revise details as per coordinator notes.',
   revisionCardActionText = 'The Course Coordinator has been notified to revise the submission.',
 }) {
-  const isNeedsRevision = status === 'REJECTED' || status === 'REVISION_REQUESTED';
+  const isNeedsRevision = status === 'REJECTED' || status === 'REVISION_REQUESTED' || status === 'NEEDS_REVISION';
+  const hasNoSubmission = !status || status === 'NO_SUBMISSION' || status === 'DRAFT' || status === 'NOT_SUBMITTED';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <div style={{ ...surface, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <div style={{ fontSize: '14px', fontWeight: '800', color: ink }}>{title}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: '14px', fontWeight: '800', color: ink }}>{title}</div>
+            <StatusBadge status={status} />
+          </div>
           {subtitle && <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>{subtitle}</div>}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <ApprovalHeaderControls
-            status={status}
-            onApprove={onApprove}
-            onRequestRevision={onReject}
-            approveText="Approve & Verify"
-            approvedText="Verified & Approved"
-            requestRevisionText="Request Revision"
-            editRevisionText="Edit Revision Request"
-            showButtonsOnly={true}
-          />
+          {hasNoSubmission ? (
+            <span style={{ fontSize: '12px', fontWeight: '700', color: '#94a3b8', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '6px 14px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Clock size={13} style={{ color: '#94a3b8' }} /> No Submissions Yet
+            </span>
+          ) : (
+            <ApprovalHeaderControls
+              status={status}
+              onApprove={onApprove}
+              onRequestRevision={onReject}
+              approveText="Approve & Verify"
+              approvedText="Verified & Approved"
+              requestRevisionText="Request Revision"
+              editRevisionText="Edit Revision Request"
+              showButtonsOnly={true}
+            />
+          )}
         </div>
       </div>
 
@@ -87,100 +100,6 @@ function SectionHeader({
           remarks={revisionCardRemarks}
           actionText={revisionCardActionText}
         />
-      )}
-    </div>
-  );
-}
-
-// ── PROGRAMME ATR TAB ────────────────────────────────────────────────────────
-function ProgATRTab({ selectedProgramme, activePOs, normPSOs, progAtrRows, onApprove, onReject, status, remarks }) {
-  const [entries, setEntries] = useState([]);
-
-  useEffect(() => {
-    setEntries(
-      progAtrRows.map((r) => ({
-        ...r,
-        actions: r.met
-          ? []
-          : [`Conduct targeted interventions for ${r.code} — ${r.statement.slice(0, 50)}...`,
-             'Review assessment methodology and increase practice problem frequency.'],
-        remark: r.met ? 'Target achieved. Maintain current teaching strategy and assessment approach.' : '',
-      }))
-    );
-  }, [progAtrRows]);
-
-  const poEntries  = entries.filter((e) => e.type === 'PO');
-  const psoEntries = entries.filter((e) => e.type === 'PSO');
-
-  const renderCards = (list, accentCol) => list.map((entry) => {
-    const pct = Number(((entry.actual / entry.target) * 100).toFixed(1));
-    return (
-      <div key={entry.code} style={{ border: `1px solid ${entry.met ? '#bbf7d0' : '#fecaca'}`, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-        <div style={{ background: entry.met ? '#f0fdf4' : '#fef2f2', borderBottom: `1px solid ${entry.met ? '#bbf7d0' : '#fecaca'}`, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-          <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
-            <span style={{ color: accentCol, fontWeight: '900', marginRight: '6px' }}>{entry.code}:</span>
-            {entry.statement}
-          </span>
-        </div>
-
-        <table className="audit-data-table" style={{ margin: 0, border: 'none' }}>
-          <thead>
-            <tr style={{ background: '#f8fafc' }}>
-              <th style={{ width: '70px', textAlign: 'center' }}>Outcome</th>
-              <th style={{ width: '100px', textAlign: 'center' }}>Target</th>
-              <th style={{ width: '110px', textAlign: 'center' }}>Attainment</th>
-              <th style={{ width: '130px', textAlign: 'center' }}>Observation</th>
-              <th>{entry.met ? 'Remark' : 'Corrective Actions'}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style={{ textAlign: 'center', fontWeight: '800', color: accentCol, verticalAlign: 'top', paddingTop: '12px' }}>{entry.code}</td>
-              <td style={{ textAlign: 'center', fontWeight: '700', color: muted, verticalAlign: 'top', paddingTop: '12px' }}>{entry.target.toFixed(2)}</td>
-              <td style={{ textAlign: 'center', fontWeight: '800', color: entry.met ? '#16a34a' : '#dc2626', verticalAlign: 'top', paddingTop: '12px' }}>{entry.actual.toFixed(2)}</td>
-              <td style={{ textAlign: 'center', verticalAlign: 'top', paddingTop: '12px' }}>
-                <span style={{ display: 'inline-block', fontSize: '11px', fontWeight: '700', background: entry.met ? '#dcfce7' : '#fee2e2', color: entry.met ? '#15803d' : '#991b1b', borderRadius: '5px', padding: '3px 8px' }}>
-                  {pct}% {entry.met ? 'Achieved' : 'Gap'}
-                </span>
-              </td>
-              <td style={{ padding: '10px 14px', verticalAlign: 'top', fontSize: '12.5px', color: ink }}>
-                {entry.met ? entry.remark : (
-                  <ul style={{ margin: 0, paddingLeft: '16px', display: 'grid', gap: '4px' }}>
-                    {entry.actions.map((act, aIdx) => <li key={aIdx}>{act}</li>)}
-                  </ul>
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    );
-  });
-
-  return (
-    <div style={{ display: 'grid', gap: '16px' }}>
-      <SectionHeader
-        title={`Programme ATR — ${selectedProgramme.name} (${selectedProgramme.code})`}
-        subtitle="Overall PO & PSO target vs attainment analysis across all courses."
-        status={status}
-        onApprove={onApprove}
-        onReject={onReject}
-        revisionCardTitle={`Revision Requested for Programme ATR (${selectedProgramme?.code})`}
-        revisionCardRemarks={remarks || 'Please review PO/PSO target vs actual attainment calculations.'}
-        revisionCardActionText="The Programme Coordinator has been notified to revise programme-level ATR entries."
-      />
-
-      {poEntries.length > 0 && (
-        <div>
-          <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Programme Outcomes (POs)</div>
-          <div style={{ display: 'grid', gap: '12px' }}>{renderCards(poEntries, accent)}</div>
-        </div>
-      )}
-      {psoEntries.length > 0 && (
-        <div>
-          <div style={{ fontSize: '11px', fontWeight: '700', color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px', marginTop: '12px' }}>Programme Specific Outcomes (PSOs)</div>
-          <div style={{ display: 'grid', gap: '12px' }}>{renderCards(psoEntries, '#059669')}</div>
-        </div>
       )}
     </div>
   );
@@ -213,7 +132,7 @@ export default function CoordinatorReviewHub() {
     { name: 'B.Tech CSE', code: 'BE-COMP' };
 
   // ── Active tab (URL-driven) ───────────────────────────────────────────────
-  const TABS = ['config', 'cos', 'atr', 'programme-atr'];
+  const TABS = ['config', 'cos', 'atr'];
   const currentTabParam = searchParams.get('tab') || 'config';
   const [activeTab, setActiveTab] = useState(
     TABS.includes(currentTabParam) ? currentTabParam : 'config',
@@ -229,7 +148,7 @@ export default function CoordinatorReviewHub() {
   const selectedCourse = availableCourses.find((c) => c.id === reviewCourseId) || availableCourses[0];
 
   const courseReview = courseVerificationStore[reviewCourseId] || {
-    configStatus: 'DRAFT', coStatus: 'PENDING_APPROVAL', atrStatus: 'DRAFT', programmeAtrStatus: 'DRAFT',
+    configStatus: 'NO_SUBMISSION', coStatus: 'NO_SUBMISSION', atrStatus: 'NO_SUBMISSION', programmeAtrStatus: 'NO_SUBMISSION',
   };
 
   const attainmentConfig = attainmentConfigs[reviewCourseId] || {
@@ -259,26 +178,11 @@ export default function CoordinatorReviewHub() {
     });
   })();
 
-  const progTargets  = poPsoTargets[programmeId] || {};
-  const normPSOs     = activePSOs.map((p) => ({ ...p, competencies: p.competencies ?? [] }));
-  const progAtrRows  = [
-    ...activePOs.map((po) => ({
-      code: po.code, type: 'PO', statement: po.statement,
-      target: progTargets.poTargets?.[po.code] ?? 2.0,
-      actual: (progTargets.poTargets?.[po.code] ?? 2.0) * (0.85 + Math.random() * 0.3),
-    })),
-    ...normPSOs.map((pso) => ({
-      code: pso.code, type: 'PSO', statement: pso.statement,
-      target: progTargets.psoTargets?.[pso.code] ?? 2.0,
-      actual: (progTargets.psoTargets?.[pso.code] ?? 2.0) * (0.85 + Math.random() * 0.3),
-    })),
-  ].map((r) => ({ ...r, actual: Math.min(3, Math.round(r.actual * 100) / 100), met: r.actual >= r.target }));
-
   // Active status & remarks for top alert banner
-  const activeStatusKey  = activeTab === 'config' ? 'configStatus' : activeTab === 'cos' ? 'coStatus' : activeTab === 'atr' ? 'atrStatus' : 'programmeAtrStatus';
-  const activeRemarkKey  = activeTab === 'config' ? 'configRemarks' : activeTab === 'cos' ? 'coRemarks' : activeTab === 'atr' ? 'atrRemarks' : 'programmeAtrRemarks';
+  const activeStatusKey  = activeTab === 'config' ? 'configStatus' : activeTab === 'cos' ? 'coStatus' : 'atrStatus';
+  const activeRemarkKey  = activeTab === 'config' ? 'configRemarks' : activeTab === 'cos' ? 'coRemarks' : 'atrRemarks';
 
-  const activeTabStatus  = courseReview[activeStatusKey] || 'DRAFT';
+  const activeTabStatus  = courseReview[activeStatusKey] || 'NO_SUBMISSION';
   const activeTabRemarks = courseReview[activeRemarkKey] || '';
 
   // ── REJECTION REMARKS MODAL STATE ───────────────────────────────────────────
@@ -318,10 +222,9 @@ export default function CoordinatorReviewHub() {
   };
 
   const tabDefs = [
-    { id: 'config',        label: '1. Attainment Config', icon: Sliders,       status: courseReview.configStatus },
-    { id: 'cos',           label: '2. CO Approvals',      icon: CheckCircle2,  status: courseReview.coStatus     },
-    { id: 'atr',           label: '3. Course ATR',        icon: FileText,      status: courseReview.atrStatus    },
-    { id: 'programme-atr', label: '4. Programme ATR',     icon: Layers,        status: courseReview.programmeAtrStatus },
+    { id: 'config', label: '1. Attainment Settings', icon: Sliders,      status: courseReview.configStatus },
+    { id: 'cos',    label: '2. CO Approvals',        icon: CheckCircle2, status: courseReview.coStatus     },
+    { id: 'atr',    label: '3. Course ATR',          icon: FileText,     status: courseReview.atrStatus    },
   ];
 
   return (
@@ -361,8 +264,9 @@ export default function CoordinatorReviewHub() {
         <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px', flexWrap: 'wrap' }}>
           {tabDefs.map(({ id, label, icon: Icon, status }) => {
             const done     = status === 'VERIFIED' || status === 'APPROVED';
-            const rejected = status === 'REJECTED';
-            const pending  = status && !done && !rejected;
+            const rejected = status === 'REJECTED' || status === 'REVISION_REQUESTED' || status === 'NEEDS_REVISION';
+            const pending  = status === 'SUBMITTED' || status === 'PENDING' || status === 'PENDING_APPROVAL' || status === 'WAITING_FOR_APPROVAL';
+            const noSub    = !status || status === 'NO_SUBMISSION' || status === 'DRAFT' || status === 'NOT_SUBMITTED';
             return (
               <button
                 key={id}
@@ -375,6 +279,7 @@ export default function CoordinatorReviewHub() {
                 {done     && <Check size={12} style={{ color: '#16a34a' }} />}
                 {rejected && <XCircle size={12} style={{ color: '#dc2626' }} />}
                 {pending  && <Clock size={12} style={{ color: '#d97706' }} />}
+                {noSub    && <span style={{ fontSize: '10px', color: '#94a3b8', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '1px 6px', borderRadius: '4px', fontWeight: '600' }}>No Submissions Yet</span>}
               </button>
             );
           })}
@@ -383,16 +288,16 @@ export default function CoordinatorReviewHub() {
 
 
 
-      {/* ── TAB 1: ATTAINMENT CONFIG ──────────────────────────────────────── */}
+      {/* ── TAB 1: ATTAINMENT SETTINGS ─────────────────────────────────────── */}
       {activeTab === 'config' && (
         <div style={{ display: 'grid', gap: '16px' }}>
           <SectionHeader
-            title={`Attainment Configuration — ${selectedCourse?.code} · ${selectedCourse?.name}`}
-            subtitle={`Submitted by ${selectedCourse?.faculty || 'Course Coordinator'}`}
+            title="Attainment Settings"
+            subtitle={`Submitted by Course Coordinator: ${selectedCourse?.coordinator || selectedCourse?.faculty || 'Course Coordinator'}`}
             status={courseReview.configStatus}
             onApprove={() => handleApproveSubmission('configStatus')}
-            onReject={() => openRejectModal('configStatus', `Attainment Config — ${selectedCourse?.code}`)}
-            revisionCardTitle={`Revision Requested for Attainment Configuration (${selectedCourse?.code})`}
+            onReject={() => openRejectModal('configStatus', `Attainment Settings — ${selectedCourse?.code}`)}
+            revisionCardTitle={`Revision Requested for Attainment Settings (${selectedCourse?.code})`}
             revisionCardRemarks={courseReview.configRemarks || 'Please review direct/indirect weightages and percentage level bands.'}
             revisionCardActionText="The Course Coordinator has been notified to revise threshold levels and assessment weightages."
           />
@@ -491,12 +396,12 @@ export default function CoordinatorReviewHub() {
       {activeTab === 'cos' && (
         <div style={{ display: 'grid', gap: '16px' }}>
           <SectionHeader
-            title={`Course Outcomes — ${selectedCourse?.code} · ${selectedCourse?.name}`}
-            subtitle={`Submitted by ${selectedCourse?.faculty || 'Course Coordinator'}`}
+            title="CO Approvals"
+            subtitle={`Submitted by Course Coordinator: ${selectedCourse?.coordinator || selectedCourse?.faculty || 'Course Coordinator'}`}
             status={courseReview.coStatus}
             onApprove={() => handleApproveSubmission('coStatus')}
-            onReject={() => openRejectModal('coStatus', `Course Outcomes — ${selectedCourse?.code}`)}
-            revisionCardTitle={`Revision Requested for Course Outcomes (${selectedCourse?.code})`}
+            onReject={() => openRejectModal('coStatus', `CO Approvals — ${selectedCourse?.code}`)}
+            revisionCardTitle={`Revision Requested for CO Approvals (${selectedCourse?.code})`}
             revisionCardRemarks={courseReview.coRemarks || 'Please review and update Course Outcome statements.'}
             revisionCardActionText="The Course Coordinator has been notified to revise Course Outcome statements."
           />
@@ -518,13 +423,11 @@ export default function CoordinatorReviewHub() {
                   const rowStatus =
                     courseReview.coStatus === 'VERIFIED' || courseReview.coStatus === 'APPROVED'
                       ? 'VERIFIED'
-                      : courseReview.coStatus === 'REJECTED' || courseReview.coStatus === 'REVISION_REQUESTED'
+                      : courseReview.coStatus === 'REJECTED' || courseReview.coStatus === 'REVISION_REQUESTED' || courseReview.coStatus === 'NEEDS_REVISION'
                       ? 'REJECTED'
-                      : co.status === 'APPROVED' || co.status === 'VERIFIED'
-                      ? 'VERIFIED'
-                      : co.status === 'REJECTED' || co.status === 'REVISION_REQUESTED'
-                      ? 'REJECTED'
-                      : 'PENDING_APPROVAL';
+                      : courseReview.coStatus === 'SUBMITTED' || courseReview.coStatus === 'PENDING_APPROVAL' || courseReview.coStatus === 'PENDING'
+                      ? 'PENDING_APPROVAL'
+                      : 'NO_SUBMISSION';
 
                   return (
                     <tr key={co.code}>
@@ -551,8 +454,8 @@ export default function CoordinatorReviewHub() {
       {activeTab === 'atr' && (
         <div style={{ display: 'grid', gap: '16px' }}>
           <SectionHeader
-            title={`Course ATR — ${selectedCourse?.code} · ${selectedCourse?.name}`}
-            subtitle="Target gap analysis & corrective actions from Course Coordinator."
+            title="Course ATR"
+            subtitle={`Submitted by Course Coordinator: ${selectedCourse?.coordinator || selectedCourse?.faculty || 'Course Coordinator'}`}
             status={courseReview.atrStatus}
             onApprove={() => handleApproveSubmission('atrStatus')}
             onReject={() => openRejectModal('atrStatus', `Course ATR — ${selectedCourse?.code}`)}
@@ -563,20 +466,6 @@ export default function CoordinatorReviewHub() {
 
           <CourseATR courseId={reviewCourseId} hideHeader={true} hideFooter={true} readOnly={true} />
         </div>
-      )}
-
-      {/* ── TAB 4: PROGRAMME ATR REVIEW ───────────────────────────────────── */}
-      {activeTab === 'programme-atr' && (
-        <ProgATRTab
-          selectedProgramme={selectedProgramme}
-          activePOs={activePOs}
-          normPSOs={normPSOs}
-          progAtrRows={progAtrRows}
-          onApprove={() => handleApproveSubmission('programmeAtrStatus')}
-          onReject={() => openRejectModal('programmeAtrStatus', `Programme ATR — ${selectedProgramme.code}`)}
-          status={courseReview.programmeAtrStatus}
-          remarks={courseReview.programmeAtrRemarks}
-        />
       )}
 
       {/* ── REJECTION REMARKS MODAL DIALOG ──────────────────────────────────── */}

@@ -122,21 +122,9 @@ export default function CourseCoordinatorWorkflow() {
         borderBottom: '1px solid #f1f5f9',
       }}>
         <div>
-          <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
-            Course Coordinator &nbsp;·&nbsp; Guided Attainment Workflow &nbsp;·&nbsp; Step {currentStep} of {STEPS.length}
-          </div>
           <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
             {currentStepMeta.title}
           </h2>
-          <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            {currentStepMeta.desc}
-            {course && (
-              <span style={{ color: '#94a3b8' }}>
-                &nbsp;·&nbsp; <strong style={{ color: accent }}>{course.code}</strong>
-                {academicYear && ` · ${academicYear}`}
-              </span>
-            )}
-          </p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -264,9 +252,10 @@ export default function CourseCoordinatorWorkflow() {
         ...surface,
         padding: '14px 20px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginTop: '20px',
       }}>
-        {/* Previous */}
-        <div>
+        {/* Extreme Left: Previous */}
+        <div style={{ minWidth: '160px', display: 'flex', justifyContent: 'flex-start' }}>
           {currentStep > 1 && (
             <button
               type="button"
@@ -283,8 +272,8 @@ export default function CourseCoordinatorWorkflow() {
           )}
         </div>
 
-        {/* Centre: step dots */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Middle: Step dots & steps remaining */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ display: 'flex', gap: '4px' }}>
             {STEPS.map((s) => (
               <div
@@ -300,7 +289,28 @@ export default function CourseCoordinatorWorkflow() {
             ))}
           </div>
 
-          {/* Save & Next / Finish */}
+          {completedCount === STEPS.length ? (
+            <span style={{
+              fontSize: '11px', fontWeight: '700', background: '#f0fdf4',
+              color: '#16a34a', border: '1px solid #bbf7d0',
+              borderRadius: '6px', padding: '3px 10px',
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+            }}>
+              <Check size={11} /> All complete
+            </span>
+          ) : (
+            <span style={{
+              fontSize: '11.5px', fontWeight: '600', color: muted,
+              background: '#f8fafc', border: '1px solid #e2e8f0',
+              borderRadius: '6px', padding: '3px 10px',
+            }}>
+              {STEPS.length - completedCount} step{STEPS.length - completedCount !== 1 ? 's' : ''} remaining
+            </span>
+          )}
+        </div>
+
+        {/* Extreme Right: Save & Next / Finish */}
+        <div style={{ minWidth: '160px', display: 'flex', justifyContent: 'flex-end' }}>
           {currentStep < STEPS.length ? (
             <button
               type="button"
@@ -329,24 +339,6 @@ export default function CourseCoordinatorWorkflow() {
             >
               <CheckCircle2 size={15} /> Finish Attainment
             </button>
-          )}
-        </div>
-
-        {/* Right: completion badge */}
-        <div style={{ minWidth: '120px', textAlign: 'right' }}>
-          {completedCount === STEPS.length ? (
-            <span style={{
-              fontSize: '11px', fontWeight: '700', background: '#f0fdf4',
-              color: '#16a34a', border: '1px solid #bbf7d0',
-              borderRadius: '6px', padding: '4px 10px',
-              display: 'inline-flex', alignItems: 'center', gap: '5px',
-            }}>
-              <Check size={11} /> All complete
-            </span>
-          ) : (
-            <span style={{ fontSize: '11.5px', color: muted }}>
-              {STEPS.length - completedCount} step{STEPS.length - completedCount !== 1 ? 's' : ''} remaining
-            </span>
           )}
         </div>
       </div>

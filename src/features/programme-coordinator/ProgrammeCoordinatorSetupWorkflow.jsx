@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   BookOpen, Target, CheckCircle2,
   ArrowRight, ArrowLeft, Check, Plus, Trash2, X,
@@ -27,8 +27,16 @@ const labelStyle = {
 
 const TARGET_LEVELS = [1.0, 1.5, 2.0, 2.5, 3.0];
 
+const STEPS = [
+  { number: 1, title: 'Add Courses',        desc: 'Add & allocate courses under programme',      path: '/programme-coordinator/courses',         icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
+  { number: 2, title: 'Set PO/PSO Targets', desc: 'Configure PO & PSO target levels (1.0 – 3.0)', path: '/programme-coordinator/target-settings', icon: Target,       color: '#7c3aed', bg: '#f5f3ff' },
+  { number: 3, title: 'Programme ATR',     desc: 'Fill & submit Programme Action Taken Report', path: '/programme-coordinator/programme-atr',   icon: Layers,       color: '#0284c7', bg: '#f0f9ff' },
+  { number: 4, title: 'Review and Confirm', desc: 'Verify setup summary & finish',               path: '/programme-coordinator/reports',         icon: CheckCircle2, color: '#059669', bg: '#f0fdf4' },
+];
+
 export default function ProgrammeCoordinatorSetupWorkflow() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     masterProgrammes = [],
     programmeId,
@@ -42,6 +50,8 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     deleteCourse = () => {},
     assignCourseCoordinator = () => {},
     courseVerificationStore = {},
+    pcWorkflowProgressStore = {},
+    markPcWorkflowStepComplete = () => {},
   } = useAcademic();
 
   const [deletingCourse, setDeletingCourse] = useState(null);
@@ -75,7 +85,38 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
   const programmeSemesters = Array.from({ length: totalSemesters }, (_, i) => `Sem ${ROMAN_NUMERALS[i] || i + 1}`);
 
-  const [currentStep, setCurrentStep] = useState(1);
+  // ── Per-step completion flags ──────────────────────────────────────────────
+  const progProgress = pcWorkflowProgressStore[selectedProgramme.id || 'prog-1'] || {};
+  const stepDone = STEPS.map((s) => !!progProgress[s.number]);
+  const completedCount = stepDone.filter(Boolean).length;
+  const progressPct = Math.round((completedCount / STEPS.length) * 100);
+
+  const firstIncompleteIdx = stepDone.findIndex((done) => !done);
+  const firstIncompleteStep = firstIncompleteIdx !== -1 ? firstIncompleteIdx + 1 : 1;
+
+  const rawStepParam = searchParams.get('step');
+  const parsedStep = parseInt(rawStepParam, 10);
+  const hasValidParam = parsedStep >= 1 && parsedStep <= STEPS.length;
+
+  const [currentStep, setCurrentStep] = useState(
+    hasValidParam ? parsedStep : firstIncompleteStep
+  );
+
+  useEffect(() => {
+    const s = parseInt(searchParams.get('step'), 10);
+    if (!s || isNaN(s) || s < 1 || s > STEPS.length) {
+      setSearchParams({ step: firstIncompleteStep }, { replace: true });
+      setCurrentStep(firstIncompleteStep);
+    } else if (s !== currentStep) {
+      setCurrentStep(s);
+    }
+  }, [searchParams, firstIncompleteStep]);
+
+  const goToStep = (n) => {
+    setCurrentStep(n);
+    setSearchParams({ step: n });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // ── Step 1 – Add Courses / Programme Setup ─────────────────────────────────
   const [newCourseCode,  setNewCourseCode]  = useState('');
@@ -123,68 +164,111 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     updatePoPsoTargets(programmeId, poTargetDraft, psoTargetDraft);
   };
 
-  const handleNext = () => {
-    if (currentStep === 2) handleSaveTargets();
-    if (currentStep < 4) { setCurrentStep((s) => s + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  const handleSaveAndNext = () => {
+    if (currentStep === 2) {
+      handleSaveTargets();
+    }
+    markPcWorkflowStepComplete(selectedProgramme.id, currentStep);
+    if (currentStep < STEPS.length) {
+      goToStep(currentStep + 1);
+    }
   };
-  const handlePrev = () => {
-    if (currentStep > 1) { setCurrentStep((s) => s - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-  };
-  const handleFinish = () => navigate('/programme-coordinator/dashboard');
 
-  // ── Step definitions ─────────────────────────────────────────────────────
-  const steps = [
-    { number: 1, title: 'Programme Setup',   desc: 'Add courses under programme', icon: BookOpen     },
-    { number: 2, title: 'PO / PSO Targets',  desc: 'Set benchmark levels',         icon: Target       },
-    { number: 3, title: 'Programme ATR',     desc: 'Fill PO/PSO ATR',             icon: Layers       },
-    { number: 4, title: 'Review',             desc: 'Verify & finish',              icon: CheckCircle2 },
-  ];
+  const handlePrevStep = () => {
+    if (currentStep > 1) {
+      goToStep(currentStep - 1);
+    }
+  };
+
+  const handleFinish = () => {
+    markPcWorkflowStepComplete(selectedProgramme.id, STEPS.length);
+    navigate('/programme-coordinator/dashboard');
+  };
+
+  const currentStepMeta = STEPS[currentStep - 1] || STEPS[0];
 
   return (
     <div className="animated-page" style={{ paddingBottom: '60px' }}>
 
       {/* ── HEADER ────────────────────────────────────────────────────────── */}
-      <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
-            Programme Coordinator Guided Workflow &nbsp;·&nbsp; Step {currentStep} of {steps.length}
-          </div>
-          <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
-            {steps[currentStep - 1]?.title || 'Programme Setup'}
-          </h2>
-          <p style={{ margin: '3px 0 6px', fontSize: '12.5px', color: muted }}>{selectedProgramme.name} ({selectedProgramme.code})</p>
-
-          {/* HOD Verification Status Badge */}
-          <div>
+      <div style={{
+        ...surface,
+        padding: '20px 24px',
+        marginBottom: '0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'nowrap',
+        gap: '16px',
+        borderRadius: '12px 12px 0 0',
+        borderBottom: '1px solid #f1f5f9',
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
+              {currentStepMeta.title}
+            </h2>
+            {/* HOD Verification Status Badge */}
             {allocationStatus === 'APPROVED' ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '3px 10px', fontSize: '11.5px', fontWeight: '800' }}>
-                <CheckCircle2 size={13} /> HOD Verification Status: Verified &amp; Approved
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' }}>
+                <CheckCircle2 size={12} /> HOD: Verified &amp; Approved
               </span>
             ) : allocationStatus === 'REVISION_REQUESTED' ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '3px 10px', fontSize: '11.5px', fontWeight: '800' }}>
-                <AlertCircle size={13} /> HOD Verification Status: Requested Revision
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' }}>
+                <AlertCircle size={12} /> HOD: Revision Requested
               </span>
             ) : (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', borderRadius: '6px', padding: '3px 10px', fontSize: '11.5px', fontWeight: '800' }}>
-                <Clock size={13} /> HOD Verification Status: Pending Review
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' }}>
+                <Clock size={12} /> HOD: Pending Review
               </span>
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+
+        {/* Programme selector & exit button on extreme right */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, marginLeft: 'auto' }}>
           <div style={{ position: 'relative' }}>
             <select
               value={programmeId}
-              onChange={(e) => setProgrammeId(e.target.value)}
-              style={{ height: '38px', paddingLeft: '12px', paddingRight: '32px', fontSize: '12.5px', fontWeight: '600', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ffffff', color: ink, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', appearance: 'none', maxWidth: '280px' }}
+              onChange={(e) => {
+                const nextProgId = e.target.value;
+                setProgrammeId(nextProgId);
+                const nextProgState = pcWorkflowProgressStore[nextProgId] || {};
+                const nextIncompleteIdx = STEPS.findIndex((s) => !nextProgState[s.number]);
+                const nextStepNum = nextIncompleteIdx !== -1 ? nextIncompleteIdx + 1 : 1;
+                goToStep(nextStepNum);
+              }}
+              style={{
+                height: '38px',
+                fontSize: '13px',
+                fontWeight: '700',
+                color: accent,
+                border: '1.5px solid #c7d2fe',
+                borderRadius: '8px',
+                padding: '0 32px 0 12px',
+                background: '#f5f3ff',
+                minWidth: '240px',
+                outline: 'none',
+                appearance: 'none',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
             >
-              {masterProgrammes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+              {masterProgrammes.map((p) => (
+                <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+              ))}
             </select>
-            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
           </div>
           <button
             onClick={() => navigate('/programme-coordinator/dashboard')}
-            style={{ height: '38px', padding: '0 14px', fontSize: '12.5px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
+            style={{
+              height: '38px', padding: '0 14px', fontSize: '12.5px', fontWeight: '600',
+              background: '#f8fafc', color: ink, border: '1px solid #e2e8f0',
+              borderRadius: '8px', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit',
+              flexShrink: 0,
+            }}
           >
             <X size={14} /> Exit
           </button>
@@ -201,28 +285,61 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
         />
       )}
 
-      {/* ── STEPPER ───────────────────────────────────────────────────────── */}
+      {/* ── STEP STEPPER (icon circles) ───────────────────────────────────────── */}
       <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${steps.length}, 1fr)`, gap: '8px', position: 'relative' }}>
-          <div style={{ position: 'absolute', top: '18px', left: '12.5%', right: '12.5%', height: '1px', background: '#e2e8f0', zIndex: 0 }} />
-          {steps.map((s) => {
-            const done   = currentStep > s.number;
-            const active = currentStep === s.number;
-            const Icon   = s.icon;
-            return (
-              <div
-                key={s.number}
-                onClick={() => setCurrentStep(s.number)}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', position: 'relative', zIndex: 1, opacity: currentStep >= s.number ? 1 : 0.45, transition: 'opacity .2s' }}
-              >
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: done ? '#f0fdf4' : active ? '#eef2ff' : '#f8fafc', border: `1.5px solid ${done ? '#86efac' : active ? '#a5b4fc' : '#e2e8f0'}`, color: done ? '#16a34a' : active ? accent : muted, display: 'grid', placeItems: 'center', marginBottom: '8px', transition: 'all .2s' }}>
-                  {done ? <Check size={15} /> : <Icon size={15} />}
-                </div>
-                <div style={{ fontSize: '12px', fontWeight: active ? '700' : '600', color: active ? ink : muted, textAlign: 'center' }}>{s.title}</div>
-                <div style={{ fontSize: '10.5px', color: '#94a3b8', textAlign: 'center', marginTop: '1px' }}>{s.desc}</div>
-              </div>
-            );
-          })}
+        <div style={{ position: 'relative' }}>
+          {/* connector line */}
+          <div style={{
+            position: 'absolute', top: '18px',
+            left: `${100 / (STEPS.length * 2)}%`,
+            right: `${100 / (STEPS.length * 2)}%`,
+            height: '1px', background: '#e2e8f0', zIndex: 0,
+          }} />
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${STEPS.length}, 1fr)`,
+            gap: '8px', position: 'relative', zIndex: 1,
+          }}>
+            {STEPS.map((s) => {
+              const done   = stepDone[s.number - 1];
+              const active = currentStep === s.number;
+              const Icon   = s.icon;
+              return (
+                <button
+                  key={s.number}
+                  type="button"
+                  onClick={() => goToStep(s.number)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                    background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px',
+                    opacity: active || done ? 1 : 0.55, transition: 'opacity .2s',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <div style={{
+                    width: '36px', height: '36px', borderRadius: '50%',
+                    background: done ? '#f0fdf4' : active ? s.bg : '#f8fafc',
+                    border: `2px solid ${done ? '#86efac' : active ? s.color : '#e2e8f0'}`,
+                    color: done ? '#16a34a' : active ? s.color : muted,
+                    display: 'grid', placeItems: 'center', transition: 'all .2s',
+                    boxShadow: active ? `0 4px 12px ${s.color}33` : 'none',
+                  }}>
+                    {done ? <Check size={14} style={{ color: '#16a34a' }} /> : <Icon size={14} />}
+                  </div>
+                  <div style={{
+                    fontSize: '11px', fontWeight: active ? '800' : done ? '700' : '600',
+                    color: done ? '#16a34a' : active ? ink : muted,
+                    textAlign: 'center', lineHeight: 1.3,
+                  }}>
+                    {s.title}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#94a3b8', textAlign: 'center', marginTop: '1px' }}>
+                    {s.desc}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -512,46 +629,96 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
       </div>{/* end step content */}
 
       {/* ── FOOTER NAV ────────────────────────────────────────────────────── */}
-      <div style={{ ...surface, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
+      <div style={{
+        ...surface,
+        padding: '14px 20px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginTop: '20px',
+      }}>
+        {/* Extreme Left: Previous */}
+        <div style={{ minWidth: '160px', display: 'flex', justifyContent: 'flex-start' }}>
           {currentStep > 1 && (
             <button
               type="button"
-              onClick={handlePrev}
-              style={{ height: '40px', padding: '0 18px', fontSize: '13px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
+              onClick={handlePrevStep}
+              style={{
+                height: '40px', padding: '0 18px', fontSize: '13px', fontWeight: '600',
+                background: '#f8fafc', color: ink, border: '1px solid #e2e8f0',
+                borderRadius: '8px', cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit',
+              }}
             >
-              <ArrowLeft size={14} /> Previous
+              <ArrowLeft size={14} /> Previous Step
             </button>
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Step dots */}
-          <div style={{ display: 'flex', gap: '5px' }}>
-            {steps.map((s) => (
+        {/* Middle: Step dots & steps remaining */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {STEPS.map((s) => (
               <div
                 key={s.number}
-                style={{ width: currentStep === s.number ? '18px' : '6px', height: '6px', borderRadius: '3px', background: currentStep >= s.number ? accent : '#e2e8f0', transition: 'all .2s', cursor: 'pointer' }}
-                onClick={() => setCurrentStep(s.number)}
+                onClick={() => goToStep(s.number)}
+                style={{
+                  width: currentStep === s.number ? '20px' : '6px',
+                  height: '6px', borderRadius: '3px',
+                  background: stepDone[s.number - 1] ? '#16a34a' : currentStep === s.number ? accent : '#e2e8f0',
+                  transition: 'all .2s', cursor: 'pointer',
+                }}
               />
             ))}
           </div>
 
-          {currentStep < 4 ? (
+          {completedCount === STEPS.length ? (
+            <span style={{
+              fontSize: '11px', fontWeight: '700', background: '#f0fdf4',
+              color: '#16a34a', border: '1px solid #bbf7d0',
+              borderRadius: '6px', padding: '3px 10px',
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+            }}>
+              <Check size={11} /> All complete
+            </span>
+          ) : (
+            <span style={{
+              fontSize: '11.5px', fontWeight: '600', color: muted,
+              background: '#f8fafc', border: '1px solid #e2e8f0',
+              borderRadius: '6px', padding: '3px 10px',
+            }}>
+              {STEPS.length - completedCount} step{STEPS.length - completedCount !== 1 ? 's' : ''} remaining
+            </span>
+          )}
+        </div>
+
+        {/* Extreme Right: Save & Continue / Finish */}
+        <div style={{ minWidth: '160px', display: 'flex', justifyContent: 'flex-end' }}>
+          {currentStep < STEPS.length ? (
             <button
               type="button"
-              onClick={handleNext}
-              style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}
+              onClick={handleSaveAndNext}
+              style={{
+                height: '40px', padding: '0 22px', fontSize: '13.5px', fontWeight: '800',
+                background: `linear-gradient(135deg, ${accent} 0%, #6366f1 100%)`,
+                color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit',
+                boxShadow: '0 4px 14px rgba(79,70,229,0.28)',
+              }}
             >
-              {currentStep === 3 ? 'Save & Review' : 'Next'} <ArrowRight size={14} />
+              Save &amp; Continue <ArrowRight size={14} />
             </button>
           ) : (
             <button
               type="button"
               onClick={handleFinish}
-              style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}
+              style={{
+                height: '40px', padding: '0 22px', fontSize: '13.5px', fontWeight: '800',
+                background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit',
+                boxShadow: '0 4px 14px rgba(16,185,129,0.3)',
+              }}
             >
-              <Check size={15} /> Finish &amp; Go to Dashboard
+              <CheckCircle2 size={15} /> Finish Setup &amp; Go to Dashboard
             </button>
           )}
         </div>
