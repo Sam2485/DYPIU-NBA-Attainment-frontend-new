@@ -32,7 +32,7 @@ export default function DirectorDashboard() {
   const { user } = useAuth();
   const {
     departments = [],
-    selectedSchool = { name: 'School of Engineering & Technology', code: 'SET', dean: 'Dr. R. K. Deshmukh' },
+    selectedSchool = { name: 'School of Engineering & Technology', code: 'SET', dean: 'School Director' },
     masterProgrammes = [],
     directorApprovals = [],
     directorWorkflowProgress = {},

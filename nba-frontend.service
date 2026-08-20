@@ -1,0 +1,18 @@
+[Unit]
+Description=DYPIU NBA Attainment Frontend Service (Vite Preview on Port 3010)
+After=network.target
+
+[Service]
+Type=simple
+User=dypiu
+Group=dypiu
+WorkingDirectory=/opt/dypiu-nba/frontend
+ExecStart=/usr/bin/npm run preview -- --port 3010 --host 0.0.0.0
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

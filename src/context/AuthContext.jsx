@@ -1,2 +1,4 @@
-export * from './auth';
-export { AuthProvider, useAuth, SIMULATED_ACCOUNTS } from './auth';
+import { AuthContext, AuthProvider, useAuth, SIMULATED_ACCOUNTS } from './auth';
+
+export { AuthContext, AuthProvider, useAuth, SIMULATED_ACCOUNTS };
+export default useAuth;

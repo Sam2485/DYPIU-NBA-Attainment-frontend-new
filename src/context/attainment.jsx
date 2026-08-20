@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAcademic } from './academic';
+import apiClient from '../api/client';
 
 export const AttainmentContext = createContext(null);
 
@@ -204,6 +205,67 @@ export function AttainmentProvider({ children }) {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  // Fetch real backend attainment config and ATR on course selection
+  useEffect(() => {
+    const cid = selectedCourse?.id;
+    if (!cid) return;
+    let isMounted = true;
+
+    const loadCourseData = async () => {
+      try {
+        const [configRes, atrRes] = await Promise.allSettled([
+          apiClient.get(`/attainment/config/${cid}`),
+          apiClient.get(`/atr/course/${cid}`),
+        ]);
+
+        if (!isMounted) return;
+
+        if (configRes.status === 'fulfilled' && configRes.value) {
+          const cfg = configRes.value?.data || configRes.value;
+          if (cfg && (cfg.directWeight !== undefined || cfg.directThreshold !== undefined)) {
+            setAttainmentConfigs((prev) => ({
+              ...prev,
+              [cid]: {
+                ...(prev[cid] || defaultLevels),
+                directWeight: cfg.directWeight !== undefined ? Number(cfg.directWeight) : 80,
+                indirectWeight: cfg.indirectWeight !== undefined ? Number(cfg.indirectWeight) : 20,
+                directThreshold: cfg.directThreshold !== undefined ? Number(cfg.directThreshold) : 60,
+                indirectThreshold: cfg.indirectThreshold !== undefined ? Number(cfg.indirectThreshold) : 60,
+                thresholdPct: `${cfg.directThreshold || 60}%`,
+                status: cfg.status || 'DRAFT',
+              },
+            }));
+          }
+        }
+
+        if (atrRes.status === 'fulfilled' && atrRes.value) {
+          const atrs = atrRes.value?.data || atrRes.value;
+          if (Array.isArray(atrs) && atrs.length > 0) {
+            const mapped = atrs.map((a) => ({
+              code: a.coCode,
+              title: a.title || a.coCode,
+              target: a.targetScore !== undefined ? Number(a.targetScore) : 2.50,
+              actual: a.actualScore !== undefined ? Number(a.actualScore) : 2.70,
+              pctAchieved: a.pctAchieved !== undefined ? Number(a.pctAchieved) : 100.0,
+              status: a.status || (a.actualScore >= a.targetScore ? 'Target Achieved' : 'Target Not Achieved'),
+              statement: a.statement || '',
+              actions: a.actionsJson ? (typeof a.actionsJson === 'string' ? JSON.parse(a.actionsJson) : a.actionsJson) : [],
+            }));
+            setCourseAtrStore((prev) => ({
+              ...prev,
+              [cid]: mapped,
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn('Backend load attainment config/ATR warning:', err);
+      }
+    };
+
+    loadCourseData();
+    return () => { isMounted = false; };
+  }, [selectedCourse?.id]);
+
   const [courseAttainmentStore, setCourseAttainmentStore] = useState({
     'crs-1': {
       directAttainment: 2.80,
@@ -233,7 +295,7 @@ export function AttainmentProvider({ children }) {
     ...defaultLevels,
   };
 
-  const updateCourseAttainmentConfig = (targetCourseId, newConfig) => {
+  const updateCourseAttainmentConfig = async (targetCourseId, newConfig) => {
     setAttainmentConfigs((prev) => {
       const updated = {
         ...prev,
@@ -246,9 +308,22 @@ export function AttainmentProvider({ children }) {
       try { localStorage.setItem('dypiu_attainment_configs', JSON.stringify(updated)); } catch {}
       return updated;
     });
+
+    try {
+      const payload = {
+        directWeight: newConfig.directWeight || newConfig.directWeightage || 80,
+        indirectWeight: newConfig.indirectWeight || newConfig.indirectWeightage || 20,
+        directThreshold: newConfig.directThreshold || 60,
+        indirectThreshold: newConfig.indirectThreshold || 60,
+        status: newConfig.status || 'DRAFT',
+      };
+      await apiClient.post(`/attainment/config/${targetCourseId}`, payload);
+    } catch (err) {
+      console.warn('Backend save attainment config warning:', err);
+    }
   };
 
-  const updateCourseAtrData = (targetCourseId, newAtrList) => {
+  const updateCourseAtrData = async (targetCourseId, newAtrList) => {
     setCourseAtrStore((prev) => {
       const updated = {
         ...prev,
@@ -257,9 +332,26 @@ export function AttainmentProvider({ children }) {
       try { localStorage.setItem('dypiu_course_atr_store', JSON.stringify(updated)); } catch {}
       return updated;
     });
+
+    try {
+      const payload = newAtrList.map((a) => ({
+        courseOfferingId: targetCourseId,
+        coCode: a.code || a.coCode,
+        title: a.title || a.code,
+        targetScore: a.target || 2.50,
+        actualScore: a.actual || 2.50,
+        pctAchieved: a.pctAchieved || 100.0,
+        status: a.status || (a.actual >= a.target ? 'Target Achieved' : 'Target Not Achieved'),
+        statement: a.statement || '',
+        actionsJson: JSON.stringify(a.actions || []),
+      }));
+      await apiClient.post(`/atr/course/${targetCourseId}`, payload);
+    } catch (err) {
+      console.warn('Backend save Course ATR warning:', err);
+    }
   };
 
-  const approveProgrammeAtr = (targetProgId, hodName) => {
+  const approveProgrammeAtr = async (targetProgId, hodName) => {
     setProgrammeAtrStore((prev) => {
       const updated = {
         ...prev,
@@ -273,9 +365,19 @@ export function AttainmentProvider({ children }) {
       try { localStorage.setItem('dypiu_programme_atr_store', JSON.stringify(updated)); } catch {}
       return updated;
     });
+
+    try {
+      await apiClient.post(`/atr/programme/${targetProgId}`, {
+        programmeId: targetProgId,
+        status: 'APPROVED',
+        approvedBy: hodName || 'Head of Department (HOD)',
+      });
+    } catch (err) {
+      console.warn('Backend approve Programme ATR warning:', err);
+    }
   };
 
-  const updateProgrammeAtrObservations = (targetProgId, newObservations) => {
+  const updateProgrammeAtrObservations = async (targetProgId, newObservations) => {
     setProgrammeAtrStore((prev) => {
       const updated = {
         ...prev,
@@ -287,6 +389,15 @@ export function AttainmentProvider({ children }) {
       try { localStorage.setItem('dypiu_programme_atr_store', JSON.stringify(updated)); } catch {}
       return updated;
     });
+
+    try {
+      await apiClient.post(`/atr/programme/${targetProgId}`, {
+        programmeId: targetProgId,
+        observationsJson: JSON.stringify(newObservations),
+      });
+    } catch (err) {
+      console.warn('Backend save Programme ATR observations warning:', err);
+    }
   };
 
   const updateCourseAttainment = (courseId, attainmentData) => {
@@ -297,6 +408,32 @@ export function AttainmentProvider({ children }) {
         ...attainmentData,
       },
     }));
+  };
+
+  // Upload End Sem Marks Spreadsheet
+  const uploadEndSemMarks = async (offeringId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await apiClient.post(`/attainment/upload/end-sem-marks/${offeringId}`, formData);
+    return res?.data || res;
+  };
+
+  // Upload Course Exit Survey Spreadsheet
+  const uploadCourseSurvey = async (offeringId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await apiClient.post(`/attainment/upload/course-survey/${offeringId}`, formData);
+    return res?.data || res;
+  };
+
+  // Trigger backend calculation
+  const calculateCourseCoAttainment = async (courseId) => {
+    const res = await apiClient.get(`/attainment/course/${courseId}`);
+    const data = res?.data || res;
+    if (data) {
+      updateCourseAttainment(courseId, data);
+    }
+    return data;
   };
 
   const yearMetrics = YEAR_ATTAINMENT_METRICS[academicYear] || YEAR_ATTAINMENT_METRICS['2025-26'];
@@ -312,6 +449,9 @@ export function AttainmentProvider({ children }) {
         YEAR_ATTAINMENT_METRICS,
         courseAttainmentStore,
         updateCourseAttainment,
+        calculateCourseCoAttainment,
+        uploadEndSemMarks,
+        uploadCourseSurvey,
         courseAtrStore,
         updateCourseAtrData,
         programmeAtrStore,

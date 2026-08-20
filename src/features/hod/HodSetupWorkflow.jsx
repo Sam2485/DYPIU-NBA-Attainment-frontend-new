@@ -36,7 +36,10 @@ export default function HodSetupWorkflow() {
     updateProgrammePEOs = () => {},
     hodWorkflowProgressStore = {},
     markHodWorkflowStepComplete = () => {},
+    facultyList = [],
   } = useAcademic();
+
+  const activeFaculties = facultyList.length > 0 ? facultyList : ['Programme Coordinator', 'Head of Department (HOD)', 'Course Coordinator', 'School Director'];
 
   const [deleteModalConfig, setDeleteModalConfig] = useState({
     isOpen: false,
@@ -65,7 +68,7 @@ export default function HodSetupWorkflow() {
   const assignedHods = departments.map((d) => d.hod).filter(Boolean);
 
   // Step 1: Coordinator State
-  const [selectedCoordinator, setSelectedCoordinator] = useState(() => selectedProgramme?.coordinator || MASTER_FACULTY_LIST[0] || '');
+  const [selectedCoordinator, setSelectedCoordinator] = useState(() => selectedProgramme?.coordinator || activeFaculties[0] || '');
 
   // Step 2: Batch State
   const [startYearInput, setStartYearInput] = useState('2025');
@@ -523,7 +526,7 @@ export default function HodSetupWorkflow() {
                     onChange={(e) => setSelectedCoordinator(e.target.value)}
                     style={{ ...inputStyle, cursor: 'pointer', fontWeight: '700', paddingRight: '32px', appearance: 'none', border: '1.5px solid #4f46e5', color: accent }}
                   >
-                    {MASTER_FACULTY_LIST.map((fac) => {
+                    {activeFaculties.map((fac) => {
                       const isHod = assignedHods.includes(fac);
                       return (
                         <option key={fac} value={fac} disabled={isHod} style={{ color: isHod ? '#94a3b8' : '#0f172a' }}>

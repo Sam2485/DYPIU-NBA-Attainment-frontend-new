@@ -10,7 +10,10 @@ export default function DirectorDepartmentManagement() {
     addDepartment = () => {},
     updateDepartment = () => {},
     deleteDepartment = () => {},
+    facultyList = [],
   } = useAcademic();
+
+  const activeFaculties = facultyList.length > 0 ? facultyList : ['Head of Department (HOD)', 'Programme Coordinator', 'Course Coordinator', 'School Director'];
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -20,7 +23,7 @@ export default function DirectorDepartmentManagement() {
 
   const [deptName, setDeptName] = useState('');
   const [deptCode, setDeptCode] = useState('');
-  const [selectedHod, setSelectedHod] = useState(MASTER_FACULTY_LIST[0] || '');
+  const [selectedHod, setSelectedHod] = useState(activeFaculties[0] || '');
   const [hodEmail, setHodEmail] = useState('');
 
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -33,7 +36,7 @@ export default function DirectorDepartmentManagement() {
   const handleOpenAdd = () => {
     setEditingDept(null);
     setDeptName(''); setDeptCode('');
-    setSelectedHod(MASTER_FACULTY_LIST[0] || '');
+    setSelectedHod(activeFaculties[0] || '');
     setHodEmail('');
     setShowModal(true);
   };
@@ -41,7 +44,7 @@ export default function DirectorDepartmentManagement() {
   const handleOpenEdit = (dept) => {
     setEditingDept(dept);
     setDeptName(dept.name); setDeptCode(dept.code);
-    setSelectedHod(dept.hod || MASTER_FACULTY_LIST[0]);
+    setSelectedHod(dept.hod || activeFaculties[0] || '');
     setHodEmail(dept.hodEmail || '');
     setShowModal(true);
   };
@@ -222,7 +225,7 @@ export default function DirectorDepartmentManagement() {
               <div>
                 <label style={labelStyle}>Assign HOD *</label>
                 <select value={selectedHod} onChange={(e) => { setSelectedHod(e.target.value); setHodEmail(`${e.target.value.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`); }} style={{ ...inputStyle, cursor: 'pointer' }}>
-                  {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                  {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
                 </select>
               </div>
               <div>

@@ -63,7 +63,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
   }, [role, activeOutcomeTab]);
 
   // Multiple Teachers for Course
-  const courseTeachers = selectedCourse?.faculty || 'Dr. Raj Shaikh / Prof. XYZ';
+  const courseTeachers = selectedCourse?.faculty || 'Course Coordinator';
 
   // ── PEOs (Programme Educational Objectives - No Verification Required) ──────
   const [peoList, setPeoList] = useState([
@@ -1074,7 +1074,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
             const targetData = courseVerificationStore[targetCourseId] || {};
             const status = targetData.coStatus || currentCoVerificationStatus || 'PENDING_APPROVAL';
             const remarks = targetData.coRemarks || '';
-            const verifier = targetData.verifiedBy || 'Dr. Raj Shaikh (Programme Coordinator)';
+            const verifier = targetData.verifiedBy || 'Programme Coordinator';
 
             const isApproved = status === 'APPROVED' || status === 'VERIFIED';
             const isRejected = status === 'REJECTED' || status === 'REVISION_REQUESTED';
@@ -1242,7 +1242,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                                         <CheckCircle2 size={13} /> Approve
                                       </button>
                                     )}
-                                    {isPending && (
+                                    {isSubmitted && (
                                       <button
                                         className="btn btn-danger"
                                         style={{ padding: '4px 8px', fontSize: '11px' }}

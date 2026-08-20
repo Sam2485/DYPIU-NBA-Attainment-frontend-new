@@ -55,7 +55,10 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     updateCourseVerificationStatus = () => {},
     pcWorkflowProgressStore = {},
     markPcWorkflowStepComplete = () => {},
+    facultyList = [],
   } = useAcademic();
+
+  const activeFaculties = facultyList.length > 0 ? facultyList : ['Course Coordinator', 'Programme Coordinator', 'Head of Department (HOD)', 'School Director'];
 
   const [deletingCourse, setDeletingCourse] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -150,7 +153,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const [newCourseCode,  setNewCourseCode]  = useState('');
   const [newCourseName,  setNewCourseName]  = useState('');
   const [newCourseSem,   setNewCourseSem]   = useState(programmeSemesters[0] || 'Sem I');
-  const [newCourseCoord, setNewCourseCoord] = useState(MASTER_FACULTY_LIST[0] || '');
+  const [newCourseCoord, setNewCourseCoord] = useState(activeFaculties[0] || 'Course Coordinator');
   const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === programmeId);
 
   // ── Step 2 – PO/PSO Targets ──────────────────────────────────────────────
@@ -491,7 +494,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                   <div>
                     <label style={labelStyle}>Course Coordinator</label>
                     <select value={newCourseCoord} onChange={(e) => setNewCourseCoord(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', fontWeight: '600', color: accent }}>
-                      {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                      {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
                     </select>
                   </div>
                   <button type="submit" style={{ height: '40px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
@@ -518,7 +521,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                     <tr><td colSpan={5} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>No courses yet — add one above.</td></tr>
                   )}
                   {progCourses.map((c) => {
-                    const coord = c.coordinator || (c.faculty || '').split('/')[0].trim() || MASTER_FACULTY_LIST[0];
+                    const coord = c.coordinator || (c.faculty || '').split('/')[0].trim() || activeFaculties[0];
                     return (
                       <tr key={c.id}>
                         <td style={{ fontWeight: '700', color: accent }}>{c.code}</td>
@@ -539,7 +542,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                               background: isAllocationApproved ? '#f8fafc' : '#ffffff',
                             }}
                           >
-                            {MASTER_FACULTY_LIST.map((f) => (
+                            {activeFaculties.map((f) => (
                               <option key={f} value={f}>{f}</option>
                             ))}
                           </select>

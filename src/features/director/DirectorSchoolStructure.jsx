@@ -4,7 +4,7 @@ import { useAcademic } from '../../context/AcademicContext';
 
 export default function DirectorSchoolStructure() {
   const {
-    selectedSchool = { name: 'School of Engineering & Technology', code: 'SET', dean: 'Dr. R. K. Deshmukh', estYear: '2019' },
+    selectedSchool = { name: 'School of Engineering & Technology', code: 'SET', dean: 'School Director', estYear: '2019' },
     departments = [],
     masterProgrammes = [],
   } = useAcademic();

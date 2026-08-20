@@ -16,7 +16,7 @@ export default function DirectorSetupWorkflow() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const {
-    selectedSchool = { name: 'School of Engineering & Technology', code: 'SET', dean: 'Dr. R. K. Deshmukh', estYear: '2019' },
+    selectedSchool = { name: 'School of Engineering & Technology', code: 'SET', dean: 'School Director', estYear: '2019' },
     departments = [],
     addDepartment = () => {},
     updateDepartment = () => {},
@@ -27,7 +27,10 @@ export default function DirectorSetupWorkflow() {
     updateSchoolInfo = () => {},
     directorWorkflowProgress = {},
     markDirectorWorkflowStepComplete = () => {},
+    facultyList = [],
   } = useAcademic();
+
+  const activeFaculties = facultyList.length > 0 ? facultyList : ['Head of Department (HOD)', 'Programme Coordinator', 'Course Coordinator', 'School Director'];
 
   const [deleteModalConfig, setDeleteModalConfig] = useState({
     isOpen: false,
@@ -60,7 +63,7 @@ export default function DirectorSetupWorkflow() {
   const [deptList, setDeptList] = useState(departments);
   const [newDeptName, setNewDeptName] = useState('');
   const [newDeptCode, setNewDeptCode] = useState('');
-  const [selectedHod, setSelectedHod] = useState(MASTER_FACULTY_LIST[0] || 'Dr. Raj Shaikh');
+  const [selectedHod, setSelectedHod] = useState(activeFaculties[0] || 'Head of Department (HOD)');
 
   // Step 3
   const [progList, setProgList] = useState(masterProgrammes);
@@ -364,7 +367,7 @@ export default function DirectorSetupWorkflow() {
                 <div style={{ width: '210px' }}>
                   <label style={labelStyle}>Assign HOD</label>
                   <select value={selectedHod} onChange={(e) => setSelectedHod(e.target.value)} style={selectStyle}>
-                    {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                    {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
                 <button
@@ -397,7 +400,7 @@ export default function DirectorSetupWorkflow() {
                     <td style={{ fontWeight: '600', color: ink }}>{dept.name}</td>
                     <td>
                       <select value={dept.hod} onChange={(e) => handleHodChange(dept.id, e.target.value)} style={{ ...selectStyle, height: '34px', fontSize: '12px' }}>
-                        {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                        {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
                       </select>
                     </td>
                     <td style={{ textAlign: 'center' }}>

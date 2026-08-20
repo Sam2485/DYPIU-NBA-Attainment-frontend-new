@@ -17,7 +17,7 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
       course: 'CS301 - Data Structures & Algorithms',
       totalResponses: 55,
       status: 'SUCCESS',
-      uploadedBy: 'Dr. Raj Shaikh',
+      uploadedBy: 'Course Coordinator',
       uploadedAt: '2026-08-01 12:10',
     },
   ]);

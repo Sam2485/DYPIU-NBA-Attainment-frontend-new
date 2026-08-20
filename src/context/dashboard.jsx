@@ -322,7 +322,7 @@ export function DashboardProvider({ children }) {
 
     return {
       schoolName: selectedSchool?.name || 'School of Engineering & Technology',
-      hodName: user?.name || 'Dr. Raj Shaikh',
+      hodName: user?.name || 'Head of Department (HOD)',
       departmentName: deptName,
       programmesCount: deptProgrammes.length || masterProgrammes.length,
       totalCoursesCount: courses.length,
@@ -360,7 +360,7 @@ export function DashboardProvider({ children }) {
 
     return {
       schoolName: selectedSchool?.name || 'School of Engineering & Technology',
-      directorName: user?.name || 'Dr. R. K. Deshmukh',
+      directorName: user?.name || 'School Director',
       departmentsCount: departments.length || 4,
       totalProgrammesCount: masterProgrammes.length,
       totalStudentsCount: totalStudents,

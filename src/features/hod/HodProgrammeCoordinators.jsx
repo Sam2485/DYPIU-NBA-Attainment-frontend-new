@@ -17,7 +17,10 @@ export default function HodProgrammeCoordinators() {
     masterProgrammes = [],
     updateProgramme = () => {},
     assignProgrammeCoordinator = () => {},
+    facultyList = [],
   } = useAcademic();
+
+  const activeFaculties = facultyList.length > 0 ? facultyList : ['Programme Coordinator', 'Head of Department (HOD)', 'Course Coordinator', 'School Director'];
 
   const [searchQuery, setSearchQuery] = useState('');
   const [editingProg, setEditingProg] = useState(null);
@@ -43,7 +46,7 @@ export default function HodProgrammeCoordinators() {
   const handleOpenEditModal = (prog) => {
     setEditingProg(prog);
     const existing = prog.coordinator || '';
-    if (MASTER_FACULTY_LIST.includes(existing)) {
+    if (activeFaculties.includes(existing)) {
       setSelectedCoordinator(existing);
       setIsCustomMode(false);
       setCustomCoordinator('');
@@ -52,7 +55,7 @@ export default function HodProgrammeCoordinators() {
       setIsCustomMode(true);
       setCustomCoordinator(existing);
     } else {
-      setSelectedCoordinator(MASTER_FACULTY_LIST[0] || '');
+      setSelectedCoordinator(activeFaculties[0] || '');
       setIsCustomMode(false);
       setCustomCoordinator('');
     }
@@ -334,7 +337,7 @@ export default function HodProgrammeCoordinators() {
                     background: '#ffffff',
                   }}
                 >
-                  {MASTER_FACULTY_LIST.map((fac) => (
+                  {activeFaculties.map((fac) => (
                     <option key={fac} value={fac}>
                       {fac}
                     </option>
