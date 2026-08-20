@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Building2,
@@ -11,13 +12,11 @@ import {
   Clock,
   ChevronRight,
   TrendingUp,
-  AlertCircle,
   PlayCircle,
-  FileText,
-  Settings,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import { ScreenLoadingState, ScreenErrorState } from '../../components/common/ScreenState';
 
 // ── Director 4-Step Setup Workflow Definition ────────────────────────────────
 const DIRECTOR_STEPS = [
@@ -32,21 +31,65 @@ export default function DirectorDashboard() {
   const { user } = useAuth();
   const {
     departments = [],
-    selectedSchool = { name: 'School of Engineering & Technology', code: 'SET', dean: 'School Director' },
+    selectedSchool = null,
     masterProgrammes = [],
     directorApprovals = [],
-    directorWorkflowProgress = {},
+    directorWorkflowProgress = null,
+    loadDirectorDashboard,
+    loadDirectorSetupProgress,
+    loadSchools,
+    loadDepartments,
+    loadProgrammes,
+    loadDirectorApprovals,
   } = useAcademic();
 
-  const totalDepts = departments.length || 4;
-  const assignedHODs = departments.filter((d) => d.hod && d.hod !== 'Unassigned').length || 3;
-  const pendingHODs = totalDepts - assignedHODs;
-  const totalProgrammes = masterProgrammes.length || 8;
-  const pendingApprovalsCount = directorApprovals.filter((a) => a.status === 'PENDING').length || 0;
+  const [screenLoading, setScreenLoading] = useState(false);
+  const [screenError, setScreenError] = useState(null);
+
+  const fetchDashboardData = async () => {
+    setScreenLoading(true);
+    setScreenError(null);
+    try {
+      await Promise.allSettled([
+        loadSchools ? loadSchools() : Promise.resolve(),
+        loadDepartments ? loadDepartments() : Promise.resolve(),
+        loadProgrammes ? loadProgrammes() : Promise.resolve(),
+        loadDirectorApprovals ? loadDirectorApprovals() : Promise.resolve(),
+        loadDirectorDashboard ? loadDirectorDashboard() : Promise.resolve(),
+        loadDirectorSetupProgress ? loadDirectorSetupProgress() : Promise.resolve(),
+      ]);
+    } catch (err) {
+      console.warn('DirectorDashboard fetch failed:', err);
+      setScreenError(err?.customMessage || err?.message || 'Failed to load Director dashboard.');
+    } finally {
+      setScreenLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const totalDepts = departments?.length ?? 0;
+  const assignedHODs = Array.isArray(departments)
+    ? departments.filter((d) => d?.hod && d.hod !== 'Unassigned').length
+    : 0;
+  const pendingHODs = Math.max(totalDepts - assignedHODs, 0);
+  const totalProgrammes = masterProgrammes?.length ?? 0;
+  const pendingApprovalsCount = Array.isArray(directorApprovals)
+    ? directorApprovals.filter((a) => a?.status === 'PENDING').length
+    : 0;
 
   // ── Per-step completion tracking ───────────────────────────────────────────
-  const stepStatus = DIRECTOR_STEPS.map((s) => {
-    return !!directorWorkflowProgress[s.step];
+  const safeProgress = directorWorkflowProgress ?? {};
+  const stepStatus = DIRECTOR_STEPS.map((s, idx) => {
+    if (Array.isArray(safeProgress.stepStatus)) {
+      return !!safeProgress.stepStatus[idx];
+    }
+    if (Array.isArray(safeProgress.completedSteps)) {
+      return safeProgress.completedSteps.includes(s.step);
+    }
+    return !!safeProgress[s.step] || !!safeProgress[`step-${s.step}`];
   });
 
   const completedCount = stepStatus.filter(Boolean).length;
@@ -103,6 +146,17 @@ export default function DirectorDashboard() {
   const muted = '#64748b';
   const accent = '#4f46e5';
 
+  if (screenLoading && !selectedSchool && departments.length === 0) {
+    return <ScreenLoadingState message="Loading Director Dashboard..." />;
+  }
+
+  if (screenError && !selectedSchool && departments.length === 0) {
+    return <ScreenErrorState title="Failed to load Director Dashboard" message={screenError} onRetry={fetchDashboardData} />;
+  }
+
+  const schoolDisplayName = selectedSchool?.name || 'School of Engineering & Technology';
+  const schoolDisplayCode = selectedSchool?.code || 'SET';
+
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
 
@@ -125,7 +179,7 @@ export default function DirectorDashboard() {
             Welcome, {user?.name || 'School Director'}
           </h1>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            <strong style={{ color: ink }}>{selectedSchool.name}</strong> &nbsp;·&nbsp; {selectedSchool.code}
+            <strong style={{ color: ink }}>{schoolDisplayName}</strong> &nbsp;·&nbsp; {schoolDisplayCode}
           </p>
         </div>
         <div style={{ marginLeft: 'auto' }}>
@@ -162,7 +216,7 @@ export default function DirectorDashboard() {
             </div>
           </div>
           <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalDepts}</div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>In {selectedSchool.code}</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>In {schoolDisplayCode}</div>
         </div>
 
         {/* HODs */}

@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  BarChart2, TrendingUp, TrendingDown,
-  CheckCircle2, ChevronDown, Award, Layers, BookOpen,
-  Activity, ArrowRight, GitMerge, Zap,
+  BarChart2, TrendingUp,
+  CheckCircle2, ChevronDown, Award, BookOpen,
+  GitMerge,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import ErrorBoundary from '../../components/common/ErrorBoundary';
 import COAttainmentEngine from './COAttainmentEngine';
 import POPSOAttainmentEngine from '../poPsoAttainment/POPSOAttainmentEngine';
 
@@ -45,6 +46,7 @@ const TABS = [
 
 // Attainment level colour helper
 const levelColor = (val) => {
+  if (val === null || val === undefined || isNaN(val)) return '#64748b';
   const n = parseFloat(val);
   if (n >= 2.5) return '#16a34a';
   if (n >= 1.5) return '#d97706';
@@ -53,6 +55,9 @@ const levelColor = (val) => {
 
 // Mini progress bar
 function MiniBar({ value, max = 3, color }) {
+  if (value === null || value === undefined || isNaN(value)) {
+    return <div style={{ height: '5px', background: '#f1f5f9', borderRadius: '3px', marginTop: '8px' }} />;
+  }
   const pct = Math.min(100, (parseFloat(value) / max) * 100);
   return (
     <div style={{ height: '5px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden', marginTop: '8px' }}>
@@ -67,42 +72,63 @@ export default function AttainmentOverviewHub() {
   const {
     availableCourses       = [],
     setCourseId            = () => {},
-    selectedCourse,
-    selectedProgramme,
-    academicYear,
-    activeAttainmentConfig = {},
-    yearMetrics            = {},
+    selectedCourse         = null,
+    activeAttainmentConfig = null,
+    yearMetrics            = null,
     activePOs              = [],
     activePSOs             = [],
     activeCOs              = [],
     poPsoTargets           = {},
-    programmeId            = 'prog-1',
+    programmeId            = null,
+    courseOfferingId       = null,
+    loadCOAttainment,
+    loadAttainmentConfig,
   } = useAcademic();
 
-  const course = selectedCourse || availableCourses[0];
+  const course = selectedCourse || availableCourses[0] || null;
+  const courseId = course?.id || null;
+
+  useEffect(() => {
+    if (courseOfferingId && loadCOAttainment) {
+      loadCOAttainment(courseOfferingId).catch(() => {});
+    }
+    if ((courseOfferingId || courseId) && loadAttainmentConfig) {
+      loadAttainmentConfig(courseOfferingId || courseId).catch(() => {});
+    }
+  }, [courseOfferingId, courseId]);
 
   // ── Derived stats ──────────────────────────────────────────────────────────
-  const directWeight   = activeAttainmentConfig?.directWeight   || 80;
-  const indirectWeight = activeAttainmentConfig?.indirectWeight || 20;
-  const directLevel    = yearMetrics?.directExamAttainment      || 2.80;
-  const indirectLevel  = yearMetrics?.indirectSurveyAttainment  || 2.50;
-  const overallCO      = ((directLevel * directWeight + indirectLevel * indirectWeight) / 100).toFixed(2);
+  const directWeight   = activeAttainmentConfig?.directWeight ?? 80;
+  const indirectWeight = activeAttainmentConfig?.indirectWeight ?? 20;
+  const directLevel    = yearMetrics?.directExamAttainment ?? null;
+  const indirectLevel  = yearMetrics?.indirectSurveyAttainment ?? null;
 
-  const progTargets = poPsoTargets[programmeId] || {};
-  const cosMet = activeCOs.filter((_, i) =>
-    (i % 2 === 0 ? 2.80 - i * 0.1 : 2.10) >= 2.50
-  ).length;
-  const posMet = activePOs.filter((po) => {
+  const overallCO = directLevel !== null && indirectLevel !== null
+    ? ((directLevel * directWeight + indirectLevel * indirectWeight) / 100).toFixed(2)
+    : yearMetrics?.overallCOAttainment !== undefined && yearMetrics?.overallCOAttainment !== null
+    ? Number(yearMetrics.overallCOAttainment).toFixed(2)
+    : null;
+
+  const progTargets = (programmeId && poPsoTargets[programmeId]) || {};
+  const cosMet = activeCOs.filter((co) => {
+    const directVal = co.directAttainment ?? directLevel;
+    const indirectVal = co.indirectAttainment ?? indirectLevel;
+    if (directVal === null || directVal === undefined) return false;
+    const coOverall = ((directVal * directWeight + (indirectVal ?? directVal) * indirectWeight) / 100);
+    return coOverall >= (co.targetLevel ?? 2.5);
+  }).length;
+
+  const posMet = overallCO !== null ? activePOs.filter((po) => {
     const t = progTargets.poTargets?.[po.code] ?? 2.0;
     return ((parseFloat(overallCO) * 2.7) / 3) >= t;
-  }).length;
-  const psosMet = activePSOs.filter((pso) => {
+  }).length : 0;
+
+  const psosMet = overallCO !== null ? activePSOs.filter((pso) => {
     const t = progTargets.psoTargets?.[pso.code] ?? 2.0;
     return ((parseFloat(overallCO) * 2.7) / 3) >= t;
-  }).length;
+  }).length : 0;
 
-  const coColor    = levelColor(overallCO);
-  const activeTabConfig = TABS.find((t) => t.id === activeTab);
+  const coColor = levelColor(overallCO);
 
   return (
     <div className="animated-page" style={{ paddingBottom: '56px' }}>
@@ -128,7 +154,7 @@ export default function AttainmentOverviewHub() {
           </h2>
         </div>
 
-        {/* Course selector only — no programme selector */}
+        {/* Course selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ position: 'relative' }}>
             <BookOpen
@@ -178,7 +204,9 @@ export default function AttainmentOverviewHub() {
               <BarChart2 size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '32px', fontWeight: '900', color: coColor, lineHeight: 1, letterSpacing: '-0.02em' }}>{overallCO}</div>
+          <div style={{ fontSize: '32px', fontWeight: '900', color: coColor, lineHeight: 1, letterSpacing: '-0.02em' }}>
+            {overallCO !== null ? overallCO : '—'}
+          </div>
           <MiniBar value={overallCO} color={coColor} />
           <div style={{ fontSize: '11px', color: muted, marginTop: '5px' }}>out of 3.0 scale</div>
         </div>
@@ -192,225 +220,139 @@ export default function AttainmentOverviewHub() {
               <TrendingUp size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '30px', fontWeight: '900', color: ink, lineHeight: 1, letterSpacing: '-0.02em' }}>{directLevel}</div>
+          <div style={{ fontSize: '30px', fontWeight: '900', color: ink, lineHeight: 1, letterSpacing: '-0.02em' }}>
+            {directLevel !== null ? directLevel : '—'}
+          </div>
           <div style={{ marginTop: '8px' }}>
             <span style={{ fontSize: '11px', fontWeight: '700', background: '#e0f2fe', color: '#0284c7', borderRadius: '5px', padding: '2px 8px' }}>
               {directWeight}% weight
             </span>
           </div>
-          <div style={{ fontSize: '11px', color: muted, marginTop: '5px' }}>Exam-based assessment</div>
         </div>
 
         {/* Indirect Assessment */}
         <div style={{ ...surface, padding: '20px', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #7c3aed, #a78bfa)', borderRadius: '14px 14px 0 0' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #059669, #34d399)', borderRadius: '14px 14px 0 0' }} />
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
             <span style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Indirect</span>
-            <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#f5f3ff', display: 'grid', placeItems: 'center', color: '#7c3aed', flexShrink: 0 }}>
-              <TrendingDown size={16} />
-            </div>
-          </div>
-          <div style={{ fontSize: '30px', fontWeight: '900', color: ink, lineHeight: 1, letterSpacing: '-0.02em' }}>{indirectLevel}</div>
-          <div style={{ marginTop: '8px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', background: '#ede9fe', color: '#7c3aed', borderRadius: '5px', padding: '2px 8px' }}>
-              {indirectWeight}% weight
-            </span>
-          </div>
-          <div style={{ fontSize: '11px', color: muted, marginTop: '5px' }}>Survey-based assessment</div>
-        </div>
-
-        {/* COs Meeting Target */}
-        <div style={{ ...surface, padding: '20px', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #16a34a, #4ade80)', borderRadius: '14px 14px 0 0' }} />
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>COs Met</span>
-            <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#f0fdf4', display: 'grid', placeItems: 'center', color: '#16a34a', flexShrink: 0 }}>
+            <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#f0fdf4', display: 'grid', placeItems: 'center', color: '#059669', flexShrink: 0 }}>
               <CheckCircle2 size={16} />
             </div>
           </div>
           <div style={{ fontSize: '30px', fontWeight: '900', color: ink, lineHeight: 1, letterSpacing: '-0.02em' }}>
-            {cosMet}
-            <span style={{ fontSize: '16px', fontWeight: '600', color: muted }}> / {activeCOs.length || '—'}</span>
+            {indirectLevel !== null ? indirectLevel : '—'}
           </div>
-          <MiniBar value={activeCOs.length ? cosMet : 0} max={activeCOs.length || 1} color="#16a34a" />
-          <div style={{ fontSize: '11px', color: muted, marginTop: '5px' }}>Course Outcomes</div>
+          <div style={{ marginTop: '8px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '700', background: '#dcfce7', color: '#059669', borderRadius: '5px', padding: '2px 8px' }}>
+              {indirectWeight}% weight
+            </span>
+          </div>
         </div>
 
-        {/* POs & PSOs Met */}
+        {/* COs Target Met */}
+        <div style={{ ...surface, padding: '20px', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #7c3aed, #a78bfa)', borderRadius: '14px 14px 0 0' }} />
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>COs Met</span>
+            <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#f5f3ff', display: 'grid', placeItems: 'center', color: '#7c3aed', flexShrink: 0 }}>
+              <Award size={16} />
+            </div>
+          </div>
+          <div style={{ fontSize: '30px', fontWeight: '900', color: ink, lineHeight: 1, letterSpacing: '-0.02em' }}>
+            {cosMet}<span style={{ fontSize: '16px', fontWeight: '600', color: muted }}>/{activeCOs.length}</span>
+          </div>
+          <MiniBar value={activeCOs.length ? cosMet : 0} max={activeCOs.length > 0 ? activeCOs.length : 1} color="#16a34a" />
+          <div style={{ fontSize: '11px', color: muted, marginTop: '5px' }}>target ≥ 2.50</div>
+        </div>
+
+        {/* POs / PSOs Met */}
         <div style={{ ...surface, padding: '20px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #d97706, #fbbf24)', borderRadius: '14px 14px 0 0' }} />
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
             <span style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>POs / PSOs</span>
             <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#fffbeb', display: 'grid', placeItems: 'center', color: '#d97706', flexShrink: 0 }}>
-              <Award size={16} />
+              <GitMerge size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '22px', fontWeight: '900', color: ink, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
-            <span style={{ color: '#d97706' }}>{posMet}</span>
-            <span style={{ fontSize: '14px', fontWeight: '600', color: muted }}>/{activePOs.length || '—'}</span>
-            <span style={{ color: '#94a3b8', margin: '0 6px', fontSize: '14px' }}>·</span>
-            <span style={{ color: '#d97706' }}>{psosMet}</span>
-            <span style={{ fontSize: '14px', fontWeight: '600', color: muted }}>/{activePSOs.length || '—'}</span>
+          <div style={{ fontSize: '30px', fontWeight: '900', color: ink, lineHeight: 1, letterSpacing: '-0.02em' }}>
+            {posMet + psosMet}
           </div>
-          <div style={{ fontSize: '11px', color: muted, marginTop: '10px' }}>POs met · PSOs met</div>
+          <div style={{ fontSize: '11px', color: muted, marginTop: '8px' }}>
+            {posMet}/{activePOs.length} POs &nbsp;·&nbsp; {psosMet}/{activePSOs.length} PSOs
+          </div>
         </div>
 
       </div>
 
-      {/* ── ACTIVE COURSE CONTEXT STRIP ───────────────────────────────────── */}
-      {course && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '14px',
-          background: 'linear-gradient(90deg, #eef2ff, #f5f3ff)',
-          border: '1.5px solid #c7d2fe',
-          borderRadius: '12px',
-          padding: '14px 20px',
-          marginBottom: '24px',
-          flexWrap: 'wrap',
-        }}>
-          <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: accent, display: 'grid', placeItems: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(79,70,229,.25)' }}>
-            <Layers size={17} style={{ color: '#fff' }} />
-          </div>
-          <div style={{ flex: 1, minWidth: '180px' }}>
-            <div style={{ fontSize: '13.5px', fontWeight: '800', color: ink }}>
-              {course.code} — {course.name}
-            </div>
-            <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>
-              {selectedProgramme?.name || course.programme || ''}
-              {course.semester && <span style={{ color: '#94a3b8' }}> &nbsp;·&nbsp; {course.semester}</span>}
-              {academicYear && <span style={{ color: '#94a3b8' }}> &nbsp;·&nbsp; {academicYear}</span>}
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-            <Zap size={13} style={{ color: '#16a34a' }} />
-            <span style={{ fontSize: '12.5px', fontWeight: '700', background: '#f0fdf4', color: '#16a34a', border: '1.5px solid #bbf7d0', borderRadius: '7px', padding: '4px 12px' }}>
-              {directWeight}% Direct &nbsp;·&nbsp; {indirectWeight}% Indirect
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* ── TWO-PART TAB NAVIGATION ───────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '12px',
-        marginBottom: '24px',
-      }}>
+      {/* ── PART 1 / PART 2 TAB SWITCHER ──────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
         {TABS.map((tab) => {
-          const Icon = tab.icon;
           const isActive = activeTab === tab.id;
+          const Icon = tab.icon;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               style={{
+                ...surface,
+                padding: '16px 20px',
+                textAlign: 'left',
+                cursor: 'pointer',
+                border: `2px solid ${isActive ? tab.borderActive : '#e2e8f0'}`,
+                background: isActive ? '#ffffff' : '#f8fafc',
+                boxShadow: isActive ? `0 4px 16px ${tab.color}22` : 'none',
+                transition: 'all .2s ease',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '14px',
-                padding: '16px 20px',
-                border: isActive ? `2px solid ${tab.borderActive}` : '2px solid #e2e8f0',
-                borderRadius: '14px',
-                background: isActive ? tab.bgLight : '#ffffff',
-                cursor: 'pointer',
-                textAlign: 'left',
+                position: 'relative',
+                overflow: 'hidden',
                 fontFamily: 'inherit',
-                transition: 'all .2s ease',
-                boxShadow: isActive ? `0 4px 16px ${tab.color}20` : '0 1px 3px rgba(0,0,0,.06)',
-                transform: isActive ? 'translateY(-1px)' : 'none',
               }}
             >
-              {/* Icon block */}
+              {isActive && (
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: tab.color }} />
+              )}
               <div style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '12px',
-                background: isActive ? tab.color : '#f1f5f9',
+                width: '42px',
+                height: '42px',
+                borderRadius: '11px',
+                background: isActive ? tab.bgLight : '#ffffff',
+                border: `1.5px solid ${isActive ? tab.borderActive : '#e2e8f0'}`,
                 display: 'grid',
                 placeItems: 'center',
+                color: tab.color,
                 flexShrink: 0,
-                transition: 'background .2s',
               }}>
-                <Icon size={20} style={{ color: isActive ? '#fff' : muted }} />
+                <Icon size={20} />
               </div>
-
-              {/* Text */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{
-                  fontSize: '10px',
-                  fontWeight: '700',
-                  color: isActive ? tab.color : muted,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                  marginBottom: '3px',
-                }}>
-                  {tab.id === 'co' ? 'Part 1' : 'Part 2'}
+                <div style={{ fontSize: '14.5px', fontWeight: '800', color: isActive ? tab.color : ink }}>
+                  {tab.label}
                 </div>
-                <div style={{
-                  fontSize: '13.5px',
-                  fontWeight: '800',
-                  color: isActive ? ink : '#475569',
-                  lineHeight: 1.2,
-                  marginBottom: '3px',
-                }}>
-                  {tab.shortLabel}
-                </div>
-                <div style={{ fontSize: '11.5px', color: muted, lineHeight: 1.3 }}>
+                <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>
                   {tab.description}
                 </div>
               </div>
-
-              {/* Active chevron */}
               {isActive && (
-                <ArrowRight size={16} style={{ color: tab.color, flexShrink: 0 }} />
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: tab.color, flexShrink: 0 }} />
               )}
             </button>
           );
         })}
       </div>
 
-      {/* ── ACTIVE TAB LABEL STRIP ────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        marginBottom: '18px',
-        padding: '10px 16px',
-        background: activeTabConfig?.bgLight,
-        borderRadius: '10px',
-        border: `1px solid ${activeTabConfig?.borderActive}33`,
-      }}>
-        <div style={{ width: '4px', height: '22px', borderRadius: '2px', background: activeTabConfig?.color, flexShrink: 0 }} />
-        <div>
-          <div style={{ fontSize: '13.5px', fontWeight: '800', color: ink }}>
-            {activeTabConfig?.label}
-          </div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>
-            {activeTabConfig?.description}
-          </div>
-        </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Activity size={13} style={{ color: activeTabConfig?.color }} />
-          <span style={{ fontSize: '11px', fontWeight: '700', color: activeTabConfig?.color }}>
-            {course?.code || 'No Course'} &nbsp;·&nbsp; {academicYear || '—'}
-          </span>
-        </div>
-      </div>
-
-      {/* ── TAB CONTENT ──────────────────────────────────────────────────── */}
-      {activeTab === 'co' && (
-        <div>
-          <COAttainmentEngine hideFooter />
-        </div>
-      )}
-
-      {activeTab === 'po-pso' && (
-        <div>
-          <POPSOAttainmentEngine hideFooter />
-        </div>
-      )}
+      {/* ── TAB CONTENT WITH ISOLATED ERROR BOUNDARY ──────────────────────── */}
+      <ErrorBoundary
+        fallbackTitle={`Error Loading ${activeTab === 'co' ? 'CO Attainment' : 'PO / PSO Attainment'}`}
+        fallbackMessage="An error occurred while calculating or displaying attainment data. Other sections remain accessible."
+      >
+        {activeTab === 'co' ? (
+          <COAttainmentEngine hideHeader />
+        ) : (
+          <POPSOAttainmentEngine hideHeader />
+        )}
+      </ErrorBoundary>
 
     </div>
   );

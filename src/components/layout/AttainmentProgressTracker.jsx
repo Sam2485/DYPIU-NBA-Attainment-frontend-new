@@ -1,7 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  CheckCircle2, BookX, ChevronRight,
-  BookOpen, Target, Map, Upload, ClipboardList, BarChart2, FileText, Layers,
+  BookX, ChevronRight,
+  BookOpen, Map, Upload, ClipboardList, BarChart2, FileText,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -24,14 +24,27 @@ export default function AttainmentProgressTracker() {
   const { role } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const { selectedCourse, availableCourses = [], academicYear, workflowProgressStore = {} } = useAcademic();
-  const courseProgress = workflowProgressStore[selectedCourse?.id || 'crs-1'] || {};
+  const {
+    selectedCourse = null,
+    availableCourses = [],
+    academicYear = null,
+    workflowProgressStore = {},
+    ccWorkflowProgress = null,
+    courseOfferingId = null,
+  } = useAcademic();
+
+  const courseId = selectedCourse?.id || null;
+  const courseProgress =
+    (courseOfferingId && workflowProgressStore[courseOfferingId]) ||
+    (courseId && workflowProgressStore[courseId]) ||
+    ccWorkflowProgress ||
+    {};
 
   // Only Course Coordinator role sees this tracker
-  if (role !== 'FACULTY') return null;
+  if (role !== 'FACULTY' && role !== 'COURSE_COORDINATOR') return null;
 
   // No course assigned
-  if (availableCourses.length === 0) {
+  if (availableCourses.length === 0 && !selectedCourse) {
     return (
       <div style={{ padding: '16px 28px 0', width: '100%', boxSizing: 'border-box' }}>
         <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderLeft: '6px solid #e11d48', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px', width: '100%', boxSizing: 'border-box' }}>
@@ -91,10 +104,14 @@ export default function AttainmentProgressTracker() {
           </div>
         </div>
 
-        {/* 8-step stepper strip */}
+        {/* 6-step stepper strip */}
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${WORKFLOW_STEPS.length}, 1fr)`, gap: '4px' }}>
           {WORKFLOW_STEPS.map((stepItem, idx) => {
-            const isCompleted = !!courseProgress[stepItem.path];
+            const isCompleted = Array.isArray(courseProgress?.stepStatus)
+              ? !!courseProgress.stepStatus[idx]
+              : Array.isArray(courseProgress?.completedSteps)
+              ? courseProgress.completedSteps.includes(stepItem.step)
+              : !!courseProgress?.[stepItem.path] || !!courseProgress?.[stepItem.step];
             const isCurrent   = idx === currentStepIndex;
             const StepIcon    = stepItem.icon;
             return (
@@ -103,23 +120,25 @@ export default function AttainmentProgressTracker() {
                 type="button"
                 onClick={() => navigate(stepItem.path)}
                 style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
-                  border: isCompleted ? '1.5px solid #86efac' : isCurrent ? '1.5px solid #a5b4fc' : '1px solid #e2e8f0',
-                  background: isCompleted ? '#f0fdf4' : isCurrent ? '#eef2ff' : '#f8fafc',
-                  color: isCompleted ? '#16a34a' : isCurrent ? accent : muted,
-                  borderRadius: '8px', padding: '6px 6px', fontSize: '11px',
-                  fontWeight: isCompleted ? '800' : isCurrent ? '800' : '600',
-                  cursor: 'pointer', textAlign: 'center', whiteSpace: 'nowrap',
-                  overflow: 'hidden', textOverflow: 'ellipsis',
-                  transition: 'all 0.15s ease', fontFamily: 'inherit',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 10px',
+                  borderRadius: '7px',
+                  border: `1px solid ${isCurrent ? '#c7d2fe' : isCompleted ? '#bbf7d0' : '#e2e8f0'}`,
+                  background: isCurrent ? '#eef2ff' : isCompleted ? '#f0fdf4' : '#f8fafc',
+                  color: isCurrent ? accent : isCompleted ? '#16a34a' : muted,
+                  cursor: 'pointer',
+                  fontSize: '11.5px',
+                  fontWeight: isCurrent ? '800' : isCompleted ? '700' : '600',
+                  fontFamily: 'inherit',
+                  transition: 'all .15s ease',
                 }}
               >
-                {isCompleted
-                  ? <CheckCircle2 size={12} style={{ flexShrink: 0, color: '#16a34a' }} />
-                  : isCurrent
-                  ? <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: accent, flexShrink: 0, display: 'inline-block' }} />
-                  : <StepIcon size={11} style={{ flexShrink: 0, opacity: 0.5 }} />}
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{stepItem.label}</span>
+                <StepIcon size={13} style={{ flexShrink: 0 }} />
+                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {stepItem.step}. {stepItem.label}
+                </span>
               </button>
             );
           })}

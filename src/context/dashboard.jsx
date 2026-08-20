@@ -1,7 +1,6 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useMemo,
   useState,
   useCallback,
@@ -12,154 +11,42 @@ import { useAcademic } from './academic';
 import { useApproval } from './approval';
 import { useAttainment } from './attainment';
 import { dashboardApi } from '../api/dashboard';
+import apiClient from '../api/client';
 
-export const DashboardContext =
-  createContext(null);
+export const DashboardContext = createContext(null);
 
 /* ========================================================================== */
 /* WORKFLOW DEFINITIONS                                                       */
 /* ========================================================================== */
 
 export const CC_WORKFLOW_STEPS = [
-  {
-    step: 1,
-    label: 'Add COs',
-    path: '/outcomes',
-  },
-  {
-    step: 2,
-    label: 'CO–PO/PSO Mapping',
-    path: '/co-mapping',
-  },
-  {
-    step: 3,
-    label: 'Direct Assessment',
-    path: '/marks-upload',
-  },
-  {
-    step: 4,
-    label: 'Indirect Assessment',
-    path: '/survey-upload',
-  },
-  {
-    step: 5,
-    label: 'CO Attainment',
-    path: '/co-attainment',
-  },
-  {
-    step: 6,
-    label: 'Course ATR',
-    path: '/course-atr',
-  },
+  { step: 1, label: 'Add COs', path: '/outcomes' },
+  { step: 2, label: 'CO–PO/PSO Mapping', path: '/co-mapping' },
+  { step: 3, label: 'Direct Assessment', path: '/marks-upload' },
+  { step: 4, label: 'Indirect Assessment', path: '/survey-upload' },
+  { step: 5, label: 'CO Attainment', path: '/co-attainment' },
+  { step: 6, label: 'Course ATR', path: '/course-atr' },
 ];
 
 export const DIRECTOR_WORKFLOW_STEPS = [
-  {
-    number: 1,
-    title: 'School Info',
-    desc: 'Metadata & Dean allocation',
-    path: '/director/school-structure',
-    stepKey: 'step-1',
-  },
-  {
-    number: 2,
-    title: 'Departments',
-    desc: 'Department hierarchy & HODs',
-    path: '/director/department-management',
-    stepKey: 'step-2',
-  },
-  {
-    number: 3,
-    title: 'Programmes',
-    desc: 'Degree programmes & duration',
-    path: '/director/programme-overview',
-    stepKey: 'step-3',
-  },
-  {
-    number: 4,
-    title: 'Review & Verify',
-    desc: 'Audit structure & complete setup',
-    path: '/director/reports',
-    stepKey: 'step-4',
-  },
+  { number: 1, title: 'School Info', desc: 'Metadata & Dean allocation', path: '/director/school-structure', stepKey: 'step-1' },
+  { number: 2, title: 'Departments', desc: 'Department hierarchy & HODs', path: '/director/department-management', stepKey: 'step-2' },
+  { number: 3, title: 'Programmes', desc: 'Degree programmes & duration', path: '/director/programme-overview', stepKey: 'step-3' },
+  { number: 4, title: 'Review & Verify', desc: 'Audit structure & complete setup', path: '/director/reports', stepKey: 'step-4' },
 ];
 
 export const HOD_WORKFLOW_STEPS = [
-  {
-    step: 1,
-    number: 1,
-    title: 'Programme Coordinator',
-    label: 'Programme Coordinator',
-    desc: 'Assign coordinator for programme',
-    path: '/hod/programme-coordinators',
-    icon: 'UserCheck',
-  },
-  {
-    step: 2,
-    number: 2,
-    title: 'Batch Setup',
-    label: 'Batch Setup',
-    desc: 'Initialize student batch cycle',
-    path: '/hod/batch-management',
-    icon: 'Calendar',
-  },
-  {
-    step: 3,
-    number: 3,
-    title: 'PO / PSO / PEO',
-    label: 'PO / PSO / PEO',
-    desc: 'Define outcome framework',
-    path: '/hod/programme-outcomes',
-    icon: 'Layers',
-  },
-  {
-    step: 4,
-    number: 4,
-    title: 'Review & Confirm',
-    label: 'Review & Confirm',
-    desc: 'Verify setup summary & finish',
-    path: '/hod/reports',
-    icon: 'CheckCircle2',
-  },
+  { step: 1, number: 1, title: 'Programme Coordinator', label: 'Programme Coordinator', desc: 'Assign coordinator for programme', path: '/hod/programme-coordinators', icon: 'UserCheck' },
+  { step: 2, number: 2, title: 'Batch Setup', label: 'Batch Setup', desc: 'Initialize student batch cycle', path: '/hod/batch-management', icon: 'Calendar' },
+  { step: 3, number: 3, title: 'PO / PSO / PEO', label: 'PO / PSO / PEO', desc: 'Define outcome framework', path: '/hod/programme-outcomes', icon: 'Layers' },
+  { step: 4, number: 4, title: 'Review & Confirm', label: 'Review & Confirm', desc: 'Verify setup summary & finish', path: '/hod/reports', icon: 'CheckCircle2' },
 ];
 
 export const PC_WORKFLOW_STEPS = [
-  {
-    step: 1,
-    number: 1,
-    title: 'Add Courses',
-    label: 'Add Courses',
-    desc: 'Add & allocate courses under programme',
-    path: '/programme-coordinator/setup-workflow?step=1',
-    icon: 'BookOpen',
-  },
-  {
-    step: 2,
-    number: 2,
-    title: 'Set PO/PSO Targets',
-    label: 'Set PO/PSO Targets',
-    desc: 'Configure PO & PSO target levels',
-    path: '/programme-coordinator/setup-workflow?step=2',
-    icon: 'Target',
-  },
-  {
-    step: 3,
-    number: 3,
-    title: 'Programme ATR',
-    label: 'Programme ATR',
-    desc: 'Fill & submit Programme Action Taken Report',
-    path: '/programme-coordinator/setup-workflow?step=3',
-    icon: 'Layers',
-  },
-  {
-    step: 4,
-    number: 4,
-    title: 'Review & Confirm',
-    label: 'Review & Confirm',
-    desc: 'Verify setup summary & finish',
-    path: '/programme-coordinator/setup-workflow?step=4',
-    icon: 'CheckCircle2',
-  },
+  { step: 1, number: 1, title: 'Add Courses', label: 'Add Courses', desc: 'Add & allocate courses under programme', path: '/programme-coordinator/setup-workflow?step=1', icon: 'BookOpen' },
+  { step: 2, number: 2, title: 'Set PO/PSO Targets', label: 'Set PO/PSO Targets', desc: 'Configure PO & PSO target levels', path: '/programme-coordinator/setup-workflow?step=2', icon: 'Target' },
+  { step: 3, number: 3, title: 'Programme ATR', label: 'Programme ATR', desc: 'Fill & submit Programme Action Taken Report', path: '/programme-coordinator/setup-workflow?step=3', icon: 'Layers' },
+  { step: 4, number: 4, title: 'Review & Confirm', label: 'Review & Confirm', desc: 'Verify setup summary & finish', path: '/programme-coordinator/setup-workflow?step=4', icon: 'CheckCircle2' },
 ];
 
 /* ========================================================================== */
@@ -171,15 +58,11 @@ const unwrap = (response) => {
     return null;
   }
 
-  if (
-    response?.data?.data !== undefined
-  ) {
+  if (response?.data?.data !== undefined) {
     return response.data.data;
   }
 
-  if (
-    response?.data !== undefined
-  ) {
+  if (response?.data !== undefined) {
     return response.data;
   }
 
@@ -190,175 +73,66 @@ const unwrap = (response) => {
 /* SETUP PROGRESS NORMALIZATION                                               */
 /* ========================================================================== */
 
-const normalizeProgress = (
-  data,
-  totalSteps
-) => {
+const normalizeProgress = (data, totalSteps) => {
   const source = data ?? {};
 
-  /*
-   * Backend may expose:
-   * - currentStep
-   * - step
-   * - completedStep
-   * - completedSteps
-   *
-   * Preserve all backend fields.
-   */
-  const currentStep =
-    source.currentStep ??
-    source.step ??
-    null;
+  const currentStep = source.currentStep ?? source.step ?? null;
 
   let completedSteps = [];
 
-  if (
-    Array.isArray(
-      source.completedSteps
-    )
-  ) {
-    completedSteps =
-      source.completedSteps
-        .map(Number)
-        .filter(
-          (step) =>
-            Number.isFinite(step)
-        );
+  if (Array.isArray(source.completedSteps)) {
+    completedSteps = source.completedSteps
+      .map(Number)
+      .filter((step) => Number.isFinite(step));
   } else if (
-    source.completedStep !==
-      undefined &&
+    source.completedStep !== undefined &&
     source.completedStep !== null &&
     source.completedStep !== ''
   ) {
-    const completedStep =
-      Number(
-        source.completedStep
-      );
-
-    if (
-      Number.isFinite(
-        completedStep
-      )
-    ) {
-      completedSteps = [
-        completedStep,
-      ];
+    const completedStep = Number(source.completedStep);
+    if (Number.isFinite(completedStep)) {
+      completedSteps = [completedStep];
     }
-  }
-
-  /*
-   * Some backend responses may contain a
-   * completedSteps object/map.
-   */
-  if (
-    !Array.isArray(
-      source.completedSteps
-    ) &&
+  } else if (
     source.completedSteps &&
-    typeof source.completedSteps ===
-      'object'
+    typeof source.completedSteps === 'object'
   ) {
-    completedSteps = Object.entries(
-      source.completedSteps
-    )
-      .filter(
-        ([, value]) =>
-          value === true
-      )
-      .map(
-        ([key]) =>
-          Number(key)
-      )
-      .filter(
-        Number.isFinite
-      );
+    completedSteps = Object.entries(source.completedSteps)
+      .filter(([, value]) => value === true)
+      .map(([key]) => Number(key))
+      .filter(Number.isFinite);
   }
 
-  completedSteps =
-    [...new Set(completedSteps)]
-      .filter(
-        (step) =>
-          step >= 1 &&
-          step <= totalSteps
-      )
-      .sort(
-        (a, b) =>
-          a - b
-      );
+  completedSteps = [...new Set(completedSteps)]
+    .filter((step) => step >= 1 && step <= totalSteps)
+    .sort((a, b) => a - b);
 
-  const completedSet =
-    new Set(
-      completedSteps
-    );
-
-  const stepStatus = Array.from(
-    {
-      length: totalSteps,
-    },
-    (_, index) =>
-      completedSet.has(
-        index + 1
-      )
+  const completedSet = new Set(completedSteps);
+  const stepStatus = Array.from({ length: totalSteps }, (_, index) =>
+    completedSet.has(index + 1)
   );
 
-  const completedStepsCount =
-    completedSteps.length;
-
-  const pendingStepsCount =
-    Math.max(
-      totalSteps -
-        completedStepsCount,
-      0
-    );
-
+  const completedStepsCount = completedSteps.length;
+  const pendingStepsCount = Math.max(totalSteps - completedStepsCount, 0);
   const progressPct =
     totalSteps > 0
-      ? Math.round(
-          (completedStepsCount /
-            totalSteps) *
-            100
-        )
+      ? Math.round((completedStepsCount / totalSteps) * 100)
       : 0;
 
-  let currentStepNumber =
-    Number(
-      currentStep
-    );
-
-  if (
-    !Number.isFinite(
-      currentStepNumber
-    ) ||
-    currentStepNumber < 1
-  ) {
-    const firstPending =
-      stepStatus.findIndex(
-        (done) => !done
-      );
-
-    currentStepNumber =
-      firstPending === -1
-        ? totalSteps
-        : firstPending + 1;
+  let currentStepNumber = Number(currentStep);
+  if (!Number.isFinite(currentStepNumber) || currentStepNumber < 1) {
+    const firstPending = stepStatus.findIndex((done) => !done);
+    currentStepNumber = firstPending === -1 ? totalSteps : firstPending + 1;
   }
 
   return {
     ...source,
-
-    currentStep:
-      currentStepNumber,
-
+    currentStep: currentStepNumber,
     completedSteps,
-
     stepStatus,
-
-    totalStepsCount:
-      totalSteps,
-
+    totalStepsCount: totalSteps,
     completedStepsCount,
-
     pendingStepsCount,
-
     progressPct,
   };
 };
@@ -367,13 +141,8 @@ const normalizeProgress = (
 /* PROVIDER                                                                   */
 /* ========================================================================== */
 
-export function DashboardProvider({
-  children,
-}) {
-  const {
-    user,
-    role,
-  } = useAuth();
+export function DashboardProvider({ children }) {
+  const { user, role } = useAuth();
 
   const {
     selectedSchool,
@@ -386,7 +155,6 @@ export function DashboardProvider({
     batches = [],
     batchId,
     courses = [],
-    availableCourses = [],
     selectedCourse,
     courseId,
     courseOfferingId,
@@ -394,8 +162,6 @@ export function DashboardProvider({
     activePOs = [],
     activePSOs = [],
     activeCOs = [],
-    students = [],
-    academicYear,
   } = useAcademic();
 
   const {
@@ -410,1692 +176,782 @@ export function DashboardProvider({
     yearMetrics = null,
   } = useAttainment();
 
-  /* ======================================================================== */
-  /* Backend dashboard state                                                  */
-  /* ======================================================================== */
+  /* ------------------------------------------------------------------------ */
+  /* Dashboard State                                                          */
+  /* ------------------------------------------------------------------------ */
 
-  const [
-    directorDashboard,
-    setDirectorDashboard,
-  ] = useState(null);
+  const [directorDashboard, setDirectorDashboard] = useState(null);
+  const [hodDashboard, setHodDashboard] = useState(null);
+  const [programmeCoordinatorDashboard, setProgrammeCoordinatorDashboard] = useState(null);
+  const [courseCoordinatorDashboard, setCourseCoordinatorDashboard] = useState(null);
 
-  const [
-    hodDashboard,
-    setHodDashboard,
-  ] = useState(null);
+  /* ------------------------------------------------------------------------ */
+  /* Isolated Error States                                                    */
+  /* ------------------------------------------------------------------------ */
 
-  const [
-    programmeCoordinatorDashboard,
-    setProgrammeCoordinatorDashboard,
-  ] = useState(null);
+  const [directorDashboardError, setDirectorDashboardError] = useState(null);
+  const [hodDashboardError, setHodDashboardError] = useState(null);
+  const [programmeCoordinatorDashboardError, setProgrammeCoordinatorDashboardError] = useState(null);
+  const [courseCoordinatorDashboardError, setCourseCoordinatorDashboardError] = useState(null);
 
-  const [
-    courseCoordinatorDashboard,
-    setCourseCoordinatorDashboard,
-  ] = useState(null);
+  /* ------------------------------------------------------------------------ */
+  /* Setup Progress State                                                     */
+  /* ------------------------------------------------------------------------ */
 
-  /* ======================================================================== */
-  /* Backend setup progress state                                             */
-  /* ======================================================================== */
+  const [directorWorkflowProgress, setDirectorWorkflowProgress] = useState(null);
+  const [hodWorkflowProgress, setHodWorkflowProgress] = useState(null);
+  const [pcWorkflowProgress, setPcWorkflowProgress] = useState(null);
+  const [ccWorkflowProgress, setCcWorkflowProgress] = useState(null);
 
-  const [
-    directorWorkflowProgress,
-    setDirectorWorkflowProgress,
-  ] = useState(null);
-
-  const [
-    hodWorkflowProgress,
-    setHodWorkflowProgress,
-  ] = useState(null);
-
-  const [
-    pcWorkflowProgress,
-    setPcWorkflowProgress,
-  ] = useState(null);
-
-  const [
-    ccWorkflowProgress,
-    setCcWorkflowProgress,
-  ] = useState(null);
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(false);
-
-  const [
-    error,
-    setError,
-  ] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   /* ======================================================================== */
-  /* DIRECTOR DASHBOARD                                                       */
+  /* 1. Explicit Dashboard Loaders                                            */
   /* ======================================================================== */
 
-  const loadDirectorDashboard =
-    useCallback(
-      async (
-        targetSchoolId =
-          selectedSchoolId
-      ) => {
-        if (
-          role !== 'DIRECTOR' &&
-          role !== 'ADMIN'
-        ) {
-          return null;
-        }
+  const loadDirectorDashboard = useCallback(
+    async (targetSchoolId = selectedSchoolId, directorEmail = user?.email) => {
+      try {
+        setDirectorDashboardError(null);
+        setError(null);
 
-        const response =
-          await dashboardApi.getDirectorDashboard(
-            targetSchoolId,
-            user?.email
-          );
-
-        const data =
-          unwrap(response);
-
-        setDirectorDashboard(
-          data
+        const response = await dashboardApi.getDirectorDashboard(
+          targetSchoolId,
+          directorEmail
         );
-
+        const data = unwrap(response);
+        setDirectorDashboard(data);
         return data;
-      },
-      [
-        role,
-        selectedSchoolId,
-        user?.email,
-      ]
-    );
+      } catch (err) {
+        console.warn('loadDirectorDashboard failed:', err);
+        const msg = err?.response?.data?.message || err?.message || 'Failed to load Director dashboard.';
+        setDirectorDashboardError(msg);
+        return null;
+      }
+    },
+    [selectedSchoolId, user?.email]
+  );
 
-  /* ======================================================================== */
-  /* HOD DASHBOARD                                                            */
-  /* ======================================================================== */
+  const loadHodDashboard = useCallback(
+    async (targetDepartmentId = user?.departmentId, hodEmail = user?.email) => {
+      try {
+        setHodDashboardError(null);
+        setError(null);
 
-  const loadHodDashboard =
-    useCallback(
-      async (
-        targetDepartmentId =
-          user?.departmentId
-      ) => {
-        if (role !== 'HOD') {
-          return null;
-        }
-
-        const response =
-          await dashboardApi.getHodDashboard(
-            targetDepartmentId,
-            user?.email
-          );
-
-        const data =
-          unwrap(response);
-
+        const response = await dashboardApi.getHodDashboard(
+          targetDepartmentId,
+          hodEmail
+        );
+        const data = unwrap(response);
         setHodDashboard(data);
-
         return data;
-      },
-      [
-        role,
-        user?.departmentId,
-        user?.email,
-      ]
-    );
+      } catch (err) {
+        console.warn('loadHodDashboard failed:', err);
+        const msg = err?.response?.data?.message || err?.message || 'Failed to load HOD dashboard.';
+        setHodDashboardError(msg);
+        return null;
+      }
+    },
+    [user?.departmentId, user?.email]
+  );
 
-  /* ======================================================================== */
-  /* PROGRAMME COORDINATOR DASHBOARD                                          */
-  /* ======================================================================== */
+  const loadProgrammeCoordinatorDashboard = useCallback(
+    async (targetProgrammeId = programmeId) => {
+      if (!targetProgrammeId) {
+        setProgrammeCoordinatorDashboard(null);
+        return null;
+      }
 
-  const loadProgrammeCoordinatorDashboard =
-    useCallback(
-      async (
-        targetProgrammeId =
-          programmeId
-      ) => {
-        if (
-          role !==
-          'PROGRAMME_COORDINATOR'
-        ) {
-          return null;
-        }
+      try {
+        setProgrammeCoordinatorDashboardError(null);
+        setError(null);
 
-        if (!targetProgrammeId) {
-          setProgrammeCoordinatorDashboard(
-            null
-          );
-
-          return null;
-        }
-
-        const response =
-          await dashboardApi.getProgrammeCoordinatorDashboard(
-            targetProgrammeId
-          );
-
-        const data =
-          unwrap(response);
-
-        setProgrammeCoordinatorDashboard(
-          data
+        const response = await dashboardApi.getProgrammeCoordinatorDashboard(
+          targetProgrammeId
         );
-
+        const data = unwrap(response);
+        setProgrammeCoordinatorDashboard(data);
         return data;
-      },
-      [
-        role,
-        programmeId,
-      ]
-    );
+      } catch (err) {
+        console.warn('loadProgrammeCoordinatorDashboard failed:', err);
+        const msg = err?.response?.data?.message || err?.message || 'Failed to load Programme Coordinator dashboard.';
+        setProgrammeCoordinatorDashboardError(msg);
+        return null;
+      }
+    },
+    [programmeId]
+  );
 
-  /* ======================================================================== */
-  /* COURSE COORDINATOR DASHBOARD                                             */
-  /* ======================================================================== */
+  const loadCourseCoordinatorDashboard = useCallback(
+    async (targetCourseId = courseId, targetBatchId = batchId) => {
+      if (!targetCourseId || !targetBatchId) {
+        setCourseCoordinatorDashboard(null);
+        return null;
+      }
 
-  const loadCourseCoordinatorDashboard =
-    useCallback(
-      async (
-        targetCourseId =
-          courseId,
-        targetBatchId =
-          batchId
-      ) => {
-        if (
-          role !== 'FACULTY' &&
-          role !==
-            'COURSE_COORDINATOR'
-        ) {
-          return null;
-        }
-
-        if (
-          !targetCourseId ||
-          !targetBatchId
-        ) {
-          setCourseCoordinatorDashboard(
-            null
-          );
-
-          return null;
-        }
+      try {
+        setCourseCoordinatorDashboardError(null);
+        setError(null);
 
         /*
-         * IMPORTANT:
-         *
          * Backend dashboard contract:
-         *
-         * GET /dashboard/course-coordinator
-         * ?courseId=...&batchId=...
-         *
-         * This endpoint is NOT passed
-         * courseOfferingId as courseId.
+         * GET /dashboard/course-coordinator?courseId=...&batchId=...
+         * (Uses MASTER COURSE ID + BATCH ID)
          */
-        const response =
-          await dashboardApi.getCourseCoordinatorDashboard(
-            targetCourseId,
-            targetBatchId
-          );
-
-        const data =
-          unwrap(response);
-
-        setCourseCoordinatorDashboard(
-          data
+        const response = await dashboardApi.getCourseCoordinatorDashboard(
+          targetCourseId,
+          targetBatchId
         );
-
+        const data = unwrap(response);
+        setCourseCoordinatorDashboard(data);
         return data;
-      },
-      [
-        role,
-        courseId,
-        batchId,
-      ]
-    );
+      } catch (err) {
+        console.warn('loadCourseCoordinatorDashboard failed:', err);
+        const msg = err?.response?.data?.message || err?.message || 'Failed to load Course Coordinator dashboard.';
+        setCourseCoordinatorDashboardError(msg);
+        return null;
+      }
+    },
+    [courseId, batchId]
+  );
 
   /* ======================================================================== */
-  /* SETUP PROGRESS: GET                                                      */
+  /* 2. Explicit Setup Progress Loaders                                       */
   /* ======================================================================== */
 
-  const loadWorkflowProgress =
-    useCallback(
-      async () => {
-        setError(null);
+  const loadDirectorSetupProgress = useCallback(
+    async (targetSchoolId = selectedSchoolId, directorEmail = user?.email) => {
+      try {
+        const params = {};
+        if (targetSchoolId) params.schoolId = targetSchoolId;
+        if (directorEmail) params.directorEmail = directorEmail;
 
-        try {
-          /*
-           * Director
-           */
-          if (
-            role === 'DIRECTOR' ||
-            role === 'ADMIN'
-          ) {
-            const params = {};
+        const response = await apiClient.get('/academic/director/setup-progress', { params });
+        const normalized = normalizeProgress(unwrap(response), DIRECTOR_WORKFLOW_STEPS.length);
+        setDirectorWorkflowProgress(normalized);
+        return normalized;
+      } catch (err) {
+        console.warn('loadDirectorSetupProgress failed:', err);
+        return null;
+      }
+    },
+    [selectedSchoolId, user?.email]
+  );
 
-            if (
-              selectedSchoolId
-            ) {
-              params.schoolId =
-                selectedSchoolId;
-            }
+  const loadHodSetupProgress = useCallback(
+    async (targetDepartmentId = user?.departmentId, hodEmail = user?.email) => {
+      try {
+        const params = {};
+        if (targetDepartmentId) params.departmentId = targetDepartmentId;
+        if (hodEmail) params.hodEmail = hodEmail;
 
-            if (user?.email) {
-              params.directorEmail =
-                user.email;
-            }
+        const response = await apiClient.get('/academic/hod/setup-progress', { params });
+        const normalized = normalizeProgress(unwrap(response), HOD_WORKFLOW_STEPS.length);
+        setHodWorkflowProgress(normalized);
+        return normalized;
+      } catch (err) {
+        console.warn('loadHodSetupProgress failed:', err);
+        return null;
+      }
+    },
+    [user?.departmentId, user?.email]
+  );
 
-            /*
-             * Use the backend setup-progress
-             * API directly.
-             */
-            const response =
-              await apiClientGet(
-                '/academic/director/setup-progress',
-                params
-              );
+  const loadPcSetupProgress = useCallback(
+    async (targetProgrammeId = programmeId, targetBatchId = batchId, coordinatorEmail = user?.email) => {
+      if (!targetProgrammeId || !targetBatchId) {
+        setPcWorkflowProgress(null);
+        return null;
+      }
 
-            const raw =
-              unwrap(response);
+      try {
+        const params = {
+          coordinatorEmail,
+          programmeId: targetProgrammeId,
+          batchId: targetBatchId,
+        };
 
-            const normalized =
-              normalizeProgress(
-                raw,
-                DIRECTOR_WORKFLOW_STEPS.length
-              );
+        const response = await apiClient.get('/academic/coordinator/setup-progress', { params });
+        const normalized = normalizeProgress(unwrap(response), PC_WORKFLOW_STEPS.length);
+        setPcWorkflowProgress(normalized);
+        return normalized;
+      } catch (err) {
+        console.warn('loadPcSetupProgress failed:', err);
+        return null;
+      }
+    },
+    [programmeId, batchId, user?.email]
+  );
 
-            setDirectorWorkflowProgress(
-              normalized
-            );
+  const loadCcSetupProgress = useCallback(
+    async (targetOfferingOrCourse = (courseOfferingId || courseId), coordinatorEmail = user?.email) => {
+      if (!targetOfferingOrCourse) {
+        setCcWorkflowProgress(null);
+        return null;
+      }
 
-            return normalized;
-          }
+      try {
+        /*
+         * CRITICAL:
+         * For Course Coordinator setup-progress:
+         * courseId = COURSE OFFERING ID
+         */
+        const params = {
+          coordinatorEmail,
+          courseId: targetOfferingOrCourse,
+        };
 
-          /*
-           * HOD
-           */
-          if (
-            role === 'HOD'
-          ) {
-            const params = {};
+        const response = await apiClient.get('/academic/course-coordinator/setup-progress', { params });
+        const normalized = normalizeProgress(unwrap(response), CC_WORKFLOW_STEPS.length);
+        setCcWorkflowProgress(normalized);
+        return normalized;
+      } catch (err) {
+        console.warn('loadCcSetupProgress failed:', err);
+        return null;
+      }
+    },
+    [courseOfferingId, courseId, user?.email]
+  );
 
-            if (
-              user?.departmentId
-            ) {
-              params.departmentId =
-                user.departmentId;
-            }
-
-            if (user?.email) {
-              params.hodEmail =
-                user.email;
-            }
-
-            const response =
-              await apiClientGet(
-                '/academic/hod/setup-progress',
-                params
-              );
-
-            const raw =
-              unwrap(response);
-
-            const normalized =
-              normalizeProgress(
-                raw,
-                HOD_WORKFLOW_STEPS.length
-              );
-
-            setHodWorkflowProgress(
-              normalized
-            );
-
-            return normalized;
-          }
-
-          /*
-           * Programme Coordinator
-           */
-          if (
-            role ===
-            'PROGRAMME_COORDINATOR'
-          ) {
-            if (
-              !programmeId ||
-              !batchId
-            ) {
-              setPcWorkflowProgress(
-                null
-              );
-
-              return null;
-            }
-
-            const params = {
-              coordinatorEmail:
-                user?.email,
-
-              programmeId,
-
-              batchId,
-            };
-
-            const response =
-              await apiClientGet(
-                '/academic/coordinator/setup-progress',
-                params
-              );
-
-            const raw =
-              unwrap(response);
-
-            const normalized =
-              normalizeProgress(
-                raw,
-                PC_WORKFLOW_STEPS.length
-              );
-
-            setPcWorkflowProgress(
-              normalized
-            );
-
-            return normalized;
-          }
-
-          /*
-           * Course Coordinator
-           *
-           * Backend contract calls the identity
-           * parameter `courseId`.
-           */
-          if (
-            role === 'FACULTY' ||
-            role ===
-              'COURSE_COORDINATOR'
-          ) {
-            if (
-              !courseId
-            ) {
-              setCcWorkflowProgress(
-                null
-              );
-
-              return null;
-            }
-
-            const params = {
-              coordinatorEmail:
-                user?.email,
-
-              courseId,
-            };
-
-            const response =
-              await apiClientGet(
-                '/academic/course-coordinator/setup-progress',
-                params
-              );
-
-            const raw =
-              unwrap(response);
-
-            const normalized =
-              normalizeProgress(
-                raw,
-                CC_WORKFLOW_STEPS.length
-              );
-
-            setCcWorkflowProgress(
-              normalized
-            );
-
-            return normalized;
-          }
-
-          return null;
-        } catch (requestError) {
-          console.error(
-            'Failed to load workflow progress:',
-            requestError
-          );
-
-          setError(
-            requestError?.customMessage ??
-            requestError?.message ??
-            'Failed to load workflow progress.'
-          );
-
-          throw requestError;
-        }
-      },
-      [
-        role,
-        selectedSchoolId,
-        user?.email,
-        user?.departmentId,
-        programmeId,
-        batchId,
-        courseId,
-      ]
-    );
+  /* General role-based workflow loader */
+  const loadWorkflowProgress = useCallback(
+    async (targetRole = role) => {
+      if (targetRole === 'DIRECTOR' || targetRole === 'ADMIN') {
+        return loadDirectorSetupProgress();
+      }
+      if (targetRole === 'HOD') {
+        return loadHodSetupProgress();
+      }
+      if (targetRole === 'PROGRAMME_COORDINATOR') {
+        return loadPcSetupProgress();
+      }
+      if (targetRole === 'FACULTY' || targetRole === 'COURSE_COORDINATOR') {
+        return loadCcSetupProgress();
+      }
+      return null;
+    },
+    [role, loadDirectorSetupProgress, loadHodSetupProgress, loadPcSetupProgress, loadCcSetupProgress]
+  );
 
   /* ======================================================================== */
-  /* SETUP PROGRESS: POST                                                     */
+  /* 3. Explicit Setup Progress Savers                                        */
   /* ======================================================================== */
 
-  const saveWorkflowProgress =
-    useCallback(
-      async ({
-        nextStep,
-        completedStep,
-      }) => {
-        setError(null);
+  const saveDirectorSetupProgress = useCallback(
+    async (nextStep, completedStep) => {
+      try {
+        const payload = {
+          schoolId: selectedSchoolId,
+          directorEmail: user?.email,
+          step: nextStep,
+          completedStep: String(completedStep),
+          completedSteps: [
+            ...(directorWorkflowProgress?.completedSteps || []),
+            Number(completedStep),
+          ].filter((v, i, arr) => arr.indexOf(v) === i),
+        };
 
-        try {
-          /*
-           * Director
-           */
-          if (
-            role === 'DIRECTOR' ||
-            role === 'ADMIN'
-          ) {
-            const payload = {
-              schoolId:
-                selectedSchoolId,
+        const response = await apiClient.post('/academic/director/setup-progress', payload);
+        const normalized = normalizeProgress(unwrap(response), DIRECTOR_WORKFLOW_STEPS.length);
+        setDirectorWorkflowProgress(normalized);
+        return normalized;
+      } catch (err) {
+        console.warn('saveDirectorSetupProgress failed:', err);
+        throw err;
+      }
+    },
+    [selectedSchoolId, user?.email, directorWorkflowProgress?.completedSteps]
+  );
 
-              directorEmail:
-                user?.email,
+  const saveHodSetupProgress = useCallback(
+    async (nextStep, completedStep) => {
+      try {
+        const completedSteps = [
+          ...(hodWorkflowProgress?.completedSteps || []),
+          Number(completedStep),
+        ].filter((v, i, arr) => arr.indexOf(v) === i);
 
-              step:
-                nextStep,
+        const payload = {
+          departmentId: user?.departmentId,
+          email: user?.email,
+          hodEmail: user?.email,
+          step: nextStep,
+          completedStep: String(completedStep),
+          completedSteps,
+        };
 
-              completedStep:
-                String(
-                  completedStep
-                ),
+        const response = await apiClient.post('/academic/hod/setup-progress', payload);
+        const normalized = normalizeProgress(unwrap(response), HOD_WORKFLOW_STEPS.length);
+        setHodWorkflowProgress(normalized);
+        return normalized;
+      } catch (err) {
+        console.warn('saveHodSetupProgress failed:', err);
+        throw err;
+      }
+    },
+    [user?.departmentId, user?.email, hodWorkflowProgress?.completedSteps]
+  );
 
-              completedSteps:
-                [
-                  ...(directorWorkflowProgress
-                    ?.completedSteps ||
-                    []),
-                  Number(
-                    completedStep
-                  ),
-                ].filter(
-                  (
-                    value,
-                    index,
-                    array
-                  ) =>
-                    array.indexOf(
-                      value
-                    ) === index
-                ),
-            };
+  const savePcSetupProgress = useCallback(
+    async (nextStep, completedStep) => {
+      if (!programmeId || !batchId) {
+        throw new Error('programmeId and batchId are required to save PC progress');
+      }
 
-            const response =
-              await apiClientPost(
-                '/academic/director/setup-progress',
-                payload
-              );
+      try {
+        const completedSteps = [
+          ...(pcWorkflowProgress?.completedSteps || []),
+          Number(completedStep),
+        ].filter((v, i, arr) => arr.indexOf(v) === i);
 
-            const normalized =
-              normalizeProgress(
-                unwrap(response),
-                DIRECTOR_WORKFLOW_STEPS.length
-              );
+        const payload = {
+          coordinatorEmail: user?.email,
+          programmeId,
+          batchId,
+          currentStep: nextStep,
+          completedStep: String(completedStep),
+          completedSteps,
+        };
 
-            setDirectorWorkflowProgress(
-              normalized
-            );
+        const response = await apiClient.post('/academic/coordinator/setup-progress', payload);
+        const normalized = normalizeProgress(unwrap(response), PC_WORKFLOW_STEPS.length);
+        setPcWorkflowProgress(normalized);
+        return normalized;
+      } catch (err) {
+        console.warn('savePcSetupProgress failed:', err);
+        throw err;
+      }
+    },
+    [programmeId, batchId, user?.email, pcWorkflowProgress?.completedSteps]
+  );
 
-            return normalized;
-          }
+  const saveCcSetupProgress = useCallback(
+    async (nextStep, completedStep) => {
+      const targetOfferingOrCourse = courseOfferingId || courseId;
+      if (!targetOfferingOrCourse) {
+        throw new Error('courseOfferingId or courseId is required to save CC progress');
+      }
 
-          /*
-           * HOD
-           */
-          if (
-            role === 'HOD'
-          ) {
-            const completedSteps = [
-              ...(hodWorkflowProgress
-                ?.completedSteps ||
-                []),
-              Number(
-                completedStep
-              ),
-            ].filter(
-              (
-                value,
-                index,
-                array
-              ) =>
-                array.indexOf(
-                  value
-                ) === index
-            );
+      try {
+        const payload = {
+          coordinatorEmail: user?.email,
+          courseId: targetOfferingOrCourse,
+          currentStep: nextStep,
+        };
 
-            const payload = {
-              departmentId:
-                user?.departmentId,
+        const response = await apiClient.post('/academic/course-coordinator/setup-progress', payload);
+        const normalized = normalizeProgress(unwrap(response), CC_WORKFLOW_STEPS.length);
+        setCcWorkflowProgress(normalized);
+        return normalized;
+      } catch (err) {
+        console.warn('saveCcSetupProgress failed:', err);
+        throw err;
+      }
+    },
+    [courseOfferingId, courseId, user?.email]
+  );
 
-              email:
-                user?.email,
-
-              hodEmail:
-                user?.email,
-
-              step:
-                nextStep,
-
-              completedStep:
-                String(
-                  completedStep
-                ),
-
-              completedSteps,
-            };
-
-            const response =
-              await apiClientPost(
-                '/academic/hod/setup-progress',
-                payload
-              );
-
-            const normalized =
-              normalizeProgress(
-                unwrap(response),
-                HOD_WORKFLOW_STEPS.length
-              );
-
-            setHodWorkflowProgress(
-              normalized
-            );
-
-            return normalized;
-          }
-
-          /*
-           * Programme Coordinator
-           */
-          if (
-            role ===
-            'PROGRAMME_COORDINATOR'
-          ) {
-            if (
-              !programmeId ||
-              !batchId
-            ) {
-              throw new Error(
-                'programmeId and batchId are required to save programme coordinator workflow progress.'
-              );
-            }
-
-            const completedSteps = [
-              ...(pcWorkflowProgress
-                ?.completedSteps ||
-                []),
-              Number(
-                completedStep
-              ),
-            ].filter(
-              (
-                value,
-                index,
-                array
-              ) =>
-                array.indexOf(
-                  value
-                ) === index
-            );
-
-            const payload = {
-              coordinatorEmail:
-                user?.email,
-
-              programmeId,
-
-              batchId,
-
-              currentStep:
-                nextStep,
-
-              completedStep:
-                String(
-                  completedStep
-                ),
-
-              completedSteps,
-            };
-
-            const response =
-              await apiClientPost(
-                '/academic/coordinator/setup-progress',
-                payload
-              );
-
-            const normalized =
-              normalizeProgress(
-                unwrap(response),
-                PC_WORKFLOW_STEPS.length
-              );
-
-            setPcWorkflowProgress(
-              normalized
-            );
-
-            return normalized;
-          }
-
-          /*
-           * Course Coordinator
-           */
-          if (
-            role === 'FACULTY' ||
-            role ===
-              'COURSE_COORDINATOR'
-          ) {
-            if (!courseId) {
-              throw new Error(
-                'courseId is required to save course coordinator workflow progress.'
-              );
-            }
-
-            const payload = {
-              coordinatorEmail:
-                user?.email,
-
-              courseId,
-
-              currentStep:
-                nextStep,
-            };
-
-            const response =
-              await apiClientPost(
-                '/academic/course-coordinator/setup-progress',
-                payload
-              );
-
-            const normalized =
-              normalizeProgress(
-                unwrap(response),
-                CC_WORKFLOW_STEPS.length
-              );
-
-            setCcWorkflowProgress(
-              normalized
-            );
-
-            return normalized;
-          }
-
-          return null;
-        } catch (requestError) {
-          console.error(
-            'Failed to save workflow progress:',
-            requestError
-          );
-
-          setError(
-            requestError?.customMessage ??
-            requestError?.message ??
-            'Failed to save workflow progress.'
-          );
-
-          throw requestError;
-        }
-      },
-      [
-        role,
-        selectedSchoolId,
-        user?.email,
-        user?.departmentId,
-        programmeId,
-        batchId,
-        courseId,
-        directorWorkflowProgress,
-        hodWorkflowProgress,
-        pcWorkflowProgress,
-      ]
-    );
+  /* General role-based workflow saver */
+  const saveWorkflowProgress = useCallback(
+    async ({ nextStep, completedStep }) => {
+      if (role === 'DIRECTOR' || role === 'ADMIN') {
+        return saveDirectorSetupProgress(nextStep, completedStep);
+      }
+      if (role === 'HOD') {
+        return saveHodSetupProgress(nextStep, completedStep);
+      }
+      if (role === 'PROGRAMME_COORDINATOR') {
+        return savePcSetupProgress(nextStep, completedStep);
+      }
+      if (role === 'FACULTY' || role === 'COURSE_COORDINATOR') {
+        return saveCcSetupProgress(nextStep, completedStep);
+      }
+      return null;
+    },
+    [role, saveDirectorSetupProgress, saveHodSetupProgress, savePcSetupProgress, saveCcSetupProgress]
+  );
 
   /* ======================================================================== */
-  /* Convenience compatibility methods                                       */
+  /* 4. Workflow Convenience Compatibility Methods                            */
   /* ======================================================================== */
 
-  /*
-   * Existing screens may still call these methods.
-   *
-   * They now persist to backend instead of modifying
-   * memory-only progress stores.
-   */
+  const markWorkflowStepComplete = useCallback(
+    async (targetCourseOfferingId, path) => {
+      if (!targetCourseOfferingId || !path) {
+        return null;
+      }
 
-  const markWorkflowStepComplete =
-    useCallback(
-      async (
-        targetCourseOfferingId,
-        path
-      ) => {
-        if (
-          !targetCourseOfferingId ||
-          !path
-        ) {
-          return null;
-        }
+      const step = CC_WORKFLOW_STEPS.find((item) => item.path === path);
+      if (!step) {
+        return null;
+      }
 
-        const step =
-          CC_WORKFLOW_STEPS.find(
-            (item) =>
-              item.path ===
-              path
-          );
+      return saveWorkflowProgress({
+        nextStep: step.step + 1,
+        completedStep: step.step,
+      });
+    },
+    [saveWorkflowProgress]
+  );
 
-        if (!step) {
-          return null;
-        }
+  const markDirectorWorkflowStepComplete = useCallback(
+    async (stepNumber) => {
+      if (!stepNumber) return null;
+      return saveDirectorSetupProgress(Number(stepNumber) + 1, Number(stepNumber));
+    },
+    [saveDirectorSetupProgress]
+  );
 
-        return saveWorkflowProgress({
-          nextStep:
-            step.step + 1,
+  const markHodWorkflowStepComplete = useCallback(
+    async (targetProgId, stepNumber) => {
+      if (!stepNumber) return null;
+      return saveHodSetupProgress(Number(stepNumber) + 1, Number(stepNumber));
+    },
+    [saveHodSetupProgress]
+  );
 
-          completedStep:
-            step.step,
-        });
-      },
-      [
-        saveWorkflowProgress,
-      ]
-    );
+  const markPcWorkflowStepComplete = useCallback(
+    async (targetProgId, stepNumber) => {
+      if (!stepNumber) return null;
+      return savePcSetupProgress(Number(stepNumber) + 1, Number(stepNumber));
+    },
+    [savePcSetupProgress]
+  );
 
-  const markDirectorWorkflowStepComplete =
-    useCallback(
-      async (
-        stepNumber
-      ) => {
-        if (!stepNumber) {
-          return null;
-        }
+  const resetWorkflowProgress = useCallback(async () => {
+    return loadWorkflowProgress();
+  }, [loadWorkflowProgress]);
 
-        return saveWorkflowProgress({
-          nextStep:
-            Number(
-              stepNumber
-            ) + 1,
+  const resetDirectorWorkflowProgress = useCallback(async () => {
+    return loadDirectorSetupProgress();
+  }, [loadDirectorSetupProgress]);
 
-          completedStep:
-            Number(
-              stepNumber
-            ),
-        });
-      },
-      [
-        saveWorkflowProgress,
-      ]
-    );
+  const resetHodWorkflowProgress = useCallback(async () => {
+    return loadHodSetupProgress();
+  }, [loadHodSetupProgress]);
 
-  const markHodWorkflowStepComplete =
-    useCallback(
-      async (
-        targetProgId,
-        stepNumber
-      ) => {
-        if (
-          !targetProgId ||
-          !stepNumber
-        ) {
-          return null;
-        }
-
-        return saveWorkflowProgress({
-          nextStep:
-            Number(
-              stepNumber
-            ) + 1,
-
-          completedStep:
-            Number(
-              stepNumber
-            ),
-        });
-      },
-      [
-        saveWorkflowProgress,
-      ]
-    );
-
-  const markPcWorkflowStepComplete =
-    useCallback(
-      async (
-        targetProgId,
-        stepNumber
-      ) => {
-        if (
-          !targetProgId ||
-          !stepNumber
-        ) {
-          return null;
-        }
-
-        return saveWorkflowProgress({
-          nextStep:
-            Number(
-              stepNumber
-            ) + 1,
-
-          completedStep:
-            Number(
-              stepNumber
-            ),
-        });
-      },
-      [
-        saveWorkflowProgress,
-      ]
-    );
-
-  /*
-   * These reset methods no longer pretend to delete backend progress.
-   *
-   * No backend DELETE endpoint is documented in the API catalog.
-   *
-   * Therefore they simply refresh authoritative progress.
-   */
-  const resetWorkflowProgress =
-    useCallback(
-      async () => {
-        return loadWorkflowProgress();
-      },
-      [
-        loadWorkflowProgress,
-      ]
-    );
-
-  const resetDirectorWorkflowProgress =
-    useCallback(
-      async () => {
-        return loadWorkflowProgress();
-      },
-      [
-        loadWorkflowProgress,
-      ]
-    );
-
-  const resetHodWorkflowProgress =
-    useCallback(
-      async () => {
-        return loadWorkflowProgress();
-      },
-      [
-        loadWorkflowProgress,
-      ]
-    );
-
-  const resetPcWorkflowProgress =
-    useCallback(
-      async () => {
-        return loadWorkflowProgress();
-      },
-      [
-        loadWorkflowProgress,
-      ]
-    );
+  const resetPcWorkflowProgress = useCallback(async () => {
+    return loadPcSetupProgress();
+  }, [loadPcSetupProgress]);
 
   /* ======================================================================== */
-  /* INITIAL / SELECTION-DRIVEN HYDRATION                                     */
+  /* 5. Safe Normalized Role Stats (White-Screen Protected)                   */
   /* ======================================================================== */
 
-  useEffect(() => {
-    if (!role) {
-      return;
-    }
+  const courseCoordinatorStats = useMemo(() => {
+    const progress = ccWorkflowProgress ?? normalizeProgress(null, CC_WORKFLOW_STEPS.length);
+    const stepStatus = progress.stepStatus;
+    const nextStepNumber = progress.currentStep;
+    const nextStepItem = CC_WORKFLOW_STEPS.find((step) => step.step === nextStepNumber) ?? null;
+    const dashboardData = courseCoordinatorDashboard ?? null;
 
-    loadWorkflowProgress().catch(
-      () => {}
-    );
+    return {
+      ...(dashboardData && typeof dashboardData === 'object' ? dashboardData : {}),
+      schoolName: selectedSchool?.name ?? dashboardData?.schoolName ?? null,
+      coordinatorName: user?.name ?? dashboardData?.coordinatorName ?? null,
+      courseCode: selectedCourse?.code ?? dashboardData?.courseCode ?? null,
+      courseName: selectedCourse?.name ?? dashboardData?.courseName ?? null,
+      courseId,
+      batchId,
+      courseOfferingId,
+      courseOffering: selectedCourseOffering ?? null,
+      coCount: activeCOs.length,
+      poCount: activePOs.length,
+      psoCount: activePSOs.length,
+      attainment: courseAttainmentStore,
+      verification: courseVerificationStore[courseOfferingId] ?? null,
+      workflowProgress: progress,
+      stepStatus,
+      totalStepsCount: CC_WORKFLOW_STEPS.length,
+      completedStepsCount: progress.completedStepsCount,
+      pendingStepsCount: progress.pendingStepsCount,
+      progressPct: progress.progressPct,
+      targetStepNum: nextStepNumber,
+      nextStep: nextStepItem,
+    };
   }, [
-    role,
-    selectedSchoolId,
-    user?.email,
-    user?.departmentId,
-    programmeId,
-    batchId,
+    ccWorkflowProgress,
+    courseCoordinatorDashboard,
+    selectedSchool,
+    user,
+    selectedCourse,
     courseId,
+    batchId,
     courseOfferingId,
-    loadWorkflowProgress,
+    selectedCourseOffering,
+    activeCOs,
+    activePOs,
+    activePSOs,
+    courseAttainmentStore,
+    courseVerificationStore,
   ]);
 
-  useEffect(() => {
-    const loadDashboard =
-      async () => {
-        try {
-          setLoading(true);
+  const programmeCoordinatorStats = useMemo(() => {
+    const progress = pcWorkflowProgress ?? normalizeProgress(null, PC_WORKFLOW_STEPS.length);
+    const dashboardData = programmeCoordinatorDashboard ?? null;
+    const programmeCourses = programmeId
+      ? courses.filter((course) => course.programmeId === programmeId)
+      : [];
 
-          if (
-            role ===
-              'DIRECTOR' ||
-            role === 'ADMIN'
-          ) {
-            await loadDirectorDashboard();
-          }
-
-          if (
-            role === 'HOD'
-          ) {
-            await loadHodDashboard();
-          }
-
-          if (
-            role ===
-            'PROGRAMME_COORDINATOR'
-          ) {
-            await loadProgrammeCoordinatorDashboard();
-          }
-
-          if (
-            role === 'FACULTY' ||
-            role ===
-              'COURSE_COORDINATOR'
-          ) {
-            await loadCourseCoordinatorDashboard();
-          }
-        } catch (
-          dashboardError
-        ) {
-          console.error(
-            'Failed to load dashboard:',
-            dashboardError
-          );
-
-          setError(
-            dashboardError?.customMessage ??
-            dashboardError?.message ??
-            'Failed to load dashboard.'
-          );
-        } finally {
-          setLoading(false);
-        }
-      };
-
-    if (role) {
-      loadDashboard();
-    }
+    return {
+      ...(dashboardData && typeof dashboardData === 'object' ? dashboardData : {}),
+      schoolName: selectedSchool?.name ?? dashboardData?.schoolName ?? null,
+      coordinatorName:
+        user?.name ??
+        selectedProgramme?.coordinator ??
+        dashboardData?.coordinatorName ??
+        null,
+      programmeName: selectedProgramme?.name ?? dashboardData?.programmeName ?? null,
+      programmeCode: selectedProgramme?.code ?? dashboardData?.programmeCode ?? null,
+      programmeId,
+      batchId,
+      totalCoursesCount: dashboardData?.totalCoursesCount ?? programmeCourses.length,
+      assignedFacultyCount: dashboardData?.assignedFacultyCount ?? null,
+      poCount: activePOs.length,
+      psoCount: activePSOs.length,
+      pendingVerificationsCount: getPendingVerificationsCount
+        ? getPendingVerificationsCount()
+        : 0,
+      selectedProgramme: selectedProgramme ?? null,
+      workflowProgress: progress,
+      stepStatus: progress.stepStatus,
+      completedStepsCount: progress.completedStepsCount,
+      totalStepsCount: PC_WORKFLOW_STEPS.length,
+      pendingStepsCount: progress.pendingStepsCount,
+      progressPct: progress.progressPct,
+      targetStepNum: progress.currentStep,
+      nextStep:
+        PC_WORKFLOW_STEPS.find((step) => step.step === progress.currentStep) ?? null,
+    };
   }, [
-    role,
-    selectedSchoolId,
-    user?.email,
-    user?.departmentId,
+    pcWorkflowProgress,
+    programmeCoordinatorDashboard,
+    selectedSchool,
+    selectedProgramme,
     programmeId,
-    courseId,
     batchId,
+    courses,
+    user,
+    activePOs,
+    activePSOs,
+    getPendingVerificationsCount,
+  ]);
+
+  const hodStats = useMemo(() => {
+    const departmentId = user?.departmentId ?? null;
+    const departmentName = user?.department ?? null;
+
+    const departmentProgrammes = programmes.filter((programme) => {
+      if (departmentId) {
+        return programme.departmentId === departmentId;
+      }
+      if (departmentName) {
+        return programme.department === departmentName;
+      }
+      return false;
+    });
+
+    const progress = hodWorkflowProgress ?? normalizeProgress(null, HOD_WORKFLOW_STEPS.length);
+    const dashboardData = hodDashboard ?? null;
+
+    const pendingApprovalsCount = hodApprovals.filter(
+      (approval) => approval.status === 'PENDING'
+    ).length;
+
+    const activeBatchesCount = batches.filter(
+      (batch) => batch.status === 'ACTIVE'
+    ).length;
+
+    return {
+      ...(dashboardData && typeof dashboardData === 'object' ? dashboardData : {}),
+      schoolName: selectedSchool?.name ?? dashboardData?.schoolName ?? null,
+      hodName: user?.name ?? dashboardData?.hodName ?? null,
+      departmentName,
+      departmentId,
+      programmesCount: dashboardData?.programmesCount ?? departmentProgrammes.length,
+      totalCoursesCount: dashboardData?.totalCoursesCount ?? null,
+      activeBatchesCount: dashboardData?.activeBatchesCount ?? activeBatchesCount,
+      pendingHodApprovalsCount:
+        dashboardData?.pendingHodApprovalsCount ?? pendingApprovalsCount,
+      coordinatorsCount: dashboardData?.coordinatorsCount ?? null,
+      atrApprovedCount: dashboardData?.atrApprovedCount ?? null,
+      selectedProgramme: selectedProgramme ?? null,
+      workflowProgress: progress,
+      stepStatus: progress.stepStatus,
+      completedStepsCount: progress.completedStepsCount,
+      totalStepsCount: HOD_WORKFLOW_STEPS.length,
+      pendingStepsCount: progress.pendingStepsCount,
+      progressPct: progress.progressPct,
+      targetStepNum: progress.currentStep,
+      nextStep:
+        HOD_WORKFLOW_STEPS.find((step) => step.step === progress.currentStep) ?? null,
+    };
+  }, [
+    hodWorkflowProgress,
+    hodDashboard,
+    user,
+    selectedSchool,
+    selectedProgramme,
+    programmes,
+    hodApprovals,
+    batches,
+  ]);
+
+  const directorStats = useMemo(() => {
+    const progress = directorWorkflowProgress ?? normalizeProgress(null, DIRECTOR_WORKFLOW_STEPS.length);
+    const dashboardData = directorDashboard ?? null;
+
+    return {
+      ...(dashboardData && typeof dashboardData === 'object' ? dashboardData : {}),
+      schoolName: selectedSchool?.name ?? dashboardData?.schoolName ?? null,
+      directorName: user?.name ?? dashboardData?.directorName ?? null,
+      departmentsCount: dashboardData?.departmentsCount ?? departments.length,
+      totalProgrammesCount: dashboardData?.totalProgrammesCount ?? masterProgrammes.length,
+      totalStudentsCount: dashboardData?.totalStudentsCount ?? null,
+      pendingDirectorApprovalsCount:
+        dashboardData?.pendingDirectorApprovalsCount ??
+        directorApprovals.filter((approval) => approval.status === 'PENDING').length,
+      overallAttainmentAvg:
+        dashboardData?.overallAttainmentAvg ??
+        yearMetrics?.overallCOAttainment ??
+        null,
+      avgPoAttainment:
+        dashboardData?.avgPoAttainment ??
+        yearMetrics?.avgPoAttainment ??
+        null,
+      avgPsoAttainment:
+        dashboardData?.avgPsoAttainment ??
+        yearMetrics?.avgPsoAttainment ??
+        null,
+      accreditationReadinessPct: dashboardData?.accreditationReadinessPct ?? null,
+      workflowProgress: progress,
+      stepDone: progress.stepStatus,
+      completedStepsCount: progress.completedStepsCount,
+      totalStepsCount: DIRECTOR_WORKFLOW_STEPS.length,
+      pendingStepsCount: progress.pendingStepsCount,
+      progressPct: progress.progressPct,
+      targetStepNum: progress.currentStep,
+      nextStep:
+        DIRECTOR_WORKFLOW_STEPS.find((step) => step.number === progress.currentStep) ?? null,
+    };
+  }, [
+    directorWorkflowProgress,
+    directorDashboard,
+    selectedSchool,
+    user,
+    departments,
+    masterProgrammes,
+    directorApprovals,
+    yearMetrics,
+  ]);
+
+  /* Safe Workflow Progress Store for screens that access workflowProgressStore[id] */
+  const workflowProgressStore = useMemo(() => {
+    const store = {};
+    const defaultProgress = normalizeProgress(null, CC_WORKFLOW_STEPS.length);
+
+    if (courseOfferingId) {
+      store[courseOfferingId] = ccWorkflowProgress ?? defaultProgress;
+    }
+    if (courseId) {
+      store[courseId] = ccWorkflowProgress ?? defaultProgress;
+    }
+    if (programmeId) {
+      store[`allocation-${programmeId}`] = pcWorkflowProgress ?? normalizeProgress(null, PC_WORKFLOW_STEPS.length);
+      store[`targets-${programmeId}`] = pcWorkflowProgress ?? normalizeProgress(null, PC_WORKFLOW_STEPS.length);
+      store[`prog-atr-${programmeId}`] = pcWorkflowProgress ?? normalizeProgress(null, PC_WORKFLOW_STEPS.length);
+    }
+    return store;
+  }, [courseOfferingId, courseId, programmeId, ccWorkflowProgress, pcWorkflowProgress]);
+
+  const getDashboardData = useCallback(
+    (targetRole = role) => {
+      switch (targetRole) {
+        case 'DIRECTOR':
+          return directorStats;
+        case 'HOD':
+          return hodStats;
+        case 'PROGRAMME_COORDINATOR':
+          return programmeCoordinatorStats;
+        case 'FACULTY':
+        case 'COURSE_COORDINATOR':
+        default:
+          return courseCoordinatorStats;
+      }
+    },
+    [role, directorStats, hodStats, programmeCoordinatorStats, courseCoordinatorStats]
+  );
+
+  /* ======================================================================== */
+  /* Context Value                                                            */
+  /* ======================================================================== */
+
+  const value = {
+    /* Backend dashboard responses */
+    directorDashboard,
+    hodDashboard,
+    programmeCoordinatorDashboard,
+    courseCoordinatorDashboard,
+
+    /* Isolated error states */
+    directorDashboardError,
+    hodDashboardError,
+    programmeCoordinatorDashboardError,
+    courseCoordinatorDashboardError,
+
+    /* Derived dashboard data */
+    directorStats,
+    hodStats,
+    programmeCoordinatorStats,
+    courseCoordinatorStats,
+    getDashboardData,
+
+    /* Backend setup progress */
+    directorWorkflowProgress,
+    hodWorkflowProgress,
+    pcWorkflowProgress,
+    ccWorkflowProgress,
+    workflowProgressStore,
+
+    /* Explicit Loaders */
     loadDirectorDashboard,
     loadHodDashboard,
     loadProgrammeCoordinatorDashboard,
     loadCourseCoordinatorDashboard,
-  ]);
 
-  /* ======================================================================== */
-  /* COURSE COORDINATOR STATS                                                 */
-  /* ======================================================================== */
-
-  const courseCoordinatorStats =
-    useMemo(() => {
-      const progress =
-        ccWorkflowProgress ??
-        normalizeProgress(
-          null,
-          CC_WORKFLOW_STEPS.length
-        );
-
-      const stepStatus =
-        progress.stepStatus;
-
-      const nextStepNumber =
-        progress.currentStep;
-
-      const nextStepItem =
-        CC_WORKFLOW_STEPS.find(
-          (step) =>
-            step.step ===
-            nextStepNumber
-        ) ?? null;
-
-      const dashboardData =
-        courseCoordinatorDashboard ??
-        null;
-
-      return {
-        /*
-         * Backend dashboard is the
-         * authoritative source.
-         */
-        ...(
-          dashboardData &&
-          typeof dashboardData ===
-            'object'
-            ? dashboardData
-            : {}
-        ),
-
-        schoolName:
-          selectedSchool?.name ??
-          dashboardData?.schoolName ??
-          null,
-
-        coordinatorName:
-          user?.name ??
-          dashboardData?.coordinatorName ??
-          null,
-
-        courseCode:
-          selectedCourse?.code ??
-          dashboardData?.courseCode ??
-          null,
-
-        courseName:
-          selectedCourse?.name ??
-          dashboardData?.courseName ??
-          null,
-
-        courseId:
-          courseId,
-
-        batchId:
-          batchId,
-
-        courseOfferingId:
-          courseOfferingId,
-
-        courseOffering:
-          selectedCourseOffering ??
-          null,
-
-        coCount:
-          activeCOs.length,
-
-        poCount:
-          activePOs.length,
-
-        psoCount:
-          activePSOs.length,
-
-        attainment:
-          courseAttainmentStore,
-
-        verification:
-          courseVerificationStore[
-            courseOfferingId
-          ] ?? null,
-
-        workflowProgress:
-          progress,
-
-        stepStatus,
-
-        totalStepsCount:
-          CC_WORKFLOW_STEPS.length,
-
-        completedStepsCount:
-          progress.completedStepsCount,
-
-        pendingStepsCount:
-          progress.pendingStepsCount,
-
-        progressPct:
-          progress.progressPct,
-
-        targetStepNum:
-          nextStepNumber,
-
-        nextStep:
-          nextStepItem,
-      };
-    }, [
-      ccWorkflowProgress,
-      courseCoordinatorDashboard,
-      selectedSchool,
-      user,
-      selectedCourse,
-      courseId,
-      batchId,
-      courseOfferingId,
-      selectedCourseOffering,
-      activeCOs,
-      activePOs,
-      activePSOs,
-      courseAttainmentStore,
-      courseVerificationStore,
-    ]);
-
-  /* ======================================================================== */
-  /* PROGRAMME COORDINATOR STATS                                              */
-  /* ======================================================================== */
-
-  const programmeCoordinatorStats =
-    useMemo(() => {
-      const progress =
-        pcWorkflowProgress ??
-        normalizeProgress(
-          null,
-          PC_WORKFLOW_STEPS.length
-        );
-
-      const dashboardData =
-        programmeCoordinatorDashboard ??
-        null;
-
-      const programmeCourses =
-        programmeId
-          ? courses.filter(
-              (course) =>
-                course.programmeId ===
-                programmeId
-            )
-          : [];
-
-      return {
-        ...(
-          dashboardData &&
-          typeof dashboardData ===
-            'object'
-            ? dashboardData
-            : {}
-        ),
-
-        schoolName:
-          selectedSchool?.name ??
-          dashboardData?.schoolName ??
-          null,
-
-        coordinatorName:
-          user?.name ??
-          selectedProgramme?.coordinator ??
-          dashboardData?.coordinatorName ??
-          null,
-
-        programmeName:
-          selectedProgramme?.name ??
-          dashboardData?.programmeName ??
-          null,
-
-        programmeCode:
-          selectedProgramme?.code ??
-          dashboardData?.programmeCode ??
-          null,
-
-        programmeId,
-
-        batchId,
-
-        totalCoursesCount:
-          dashboardData?.totalCoursesCount ??
-          programmeCourses.length,
-
-        assignedFacultyCount:
-          dashboardData?.assignedFacultyCount ??
-          null,
-
-        poCount:
-          activePOs.length,
-
-        psoCount:
-          activePSOs.length,
-
-        pendingVerificationsCount:
-          getPendingVerificationsCount
-            ? getPendingVerificationsCount()
-            : 0,
-
-        selectedProgramme:
-          selectedProgramme ??
-          null,
-
-        workflowProgress:
-          progress,
-
-        stepStatus:
-          progress.stepStatus,
-
-        completedStepsCount:
-          progress.completedStepsCount,
-
-        totalStepsCount:
-          PC_WORKFLOW_STEPS.length,
-
-        pendingStepsCount:
-          progress.pendingStepsCount,
-
-        progressPct:
-          progress.progressPct,
-
-        targetStepNum:
-          progress.currentStep,
-
-        nextStep:
-          PC_WORKFLOW_STEPS.find(
-            (step) =>
-              step.step ===
-              progress.currentStep
-          ) ?? null,
-      };
-    }, [
-      pcWorkflowProgress,
-      programmeCoordinatorDashboard,
-      selectedSchool,
-      selectedProgramme,
-      programmeId,
-      batchId,
-      courses,
-      user,
-      activePOs,
-      activePSOs,
-      getPendingVerificationsCount,
-    ]);
-
-  /* ======================================================================== */
-  /* HOD STATS                                                                */
-  /* ======================================================================== */
-
-  const hodStats =
-    useMemo(() => {
-      const departmentId =
-        user?.departmentId ??
-        null;
-
-      const departmentName =
-        user?.department ??
-        null;
-
-      const departmentProgrammes =
-        programmes.filter(
-          (programme) => {
-            if (departmentId) {
-              return (
-                programme.departmentId ===
-                departmentId
-              );
-            }
-
-            if (departmentName) {
-              return (
-                programme.department ===
-                departmentName
-              );
-            }
-
-            return false;
-          }
-        );
-
-      const progress =
-        hodWorkflowProgress ??
-        normalizeProgress(
-          null,
-          HOD_WORKFLOW_STEPS.length
-        );
-
-      const dashboardData =
-        hodDashboard ??
-        null;
-
-      const pendingApprovalsCount =
-        hodApprovals.filter(
-          (approval) =>
-            approval.status ===
-            'PENDING'
-        ).length;
-
-      const activeBatchesCount =
-        batches.filter(
-          (batch) =>
-            batch.status ===
-            'ACTIVE'
-        ).length;
-
-      return {
-        ...(
-          dashboardData &&
-          typeof dashboardData ===
-            'object'
-            ? dashboardData
-            : {}
-        ),
-
-        schoolName:
-          selectedSchool?.name ??
-          dashboardData?.schoolName ??
-          null,
-
-        hodName:
-          user?.name ??
-          dashboardData?.hodName ??
-          null,
-
-        departmentName,
-
-        departmentId,
-
-        programmesCount:
-          dashboardData?.programmesCount ??
-          departmentProgrammes.length,
-
-        totalCoursesCount:
-          dashboardData?.totalCoursesCount ??
-          null,
-
-        activeBatchesCount:
-          dashboardData?.activeBatchesCount ??
-          activeBatchesCount,
-
-        pendingHodApprovalsCount:
-          dashboardData?.pendingHodApprovalsCount ??
-          pendingApprovalsCount,
-
-        coordinatorsCount:
-          dashboardData?.coordinatorsCount ??
-          null,
-
-        atrApprovedCount:
-          dashboardData?.atrApprovedCount ??
-          null,
-
-        selectedProgramme:
-          selectedProgramme ??
-          null,
-
-        workflowProgress:
-          progress,
-
-        stepStatus:
-          progress.stepStatus,
-
-        completedStepsCount:
-          progress.completedStepsCount,
-
-        totalStepsCount:
-          HOD_WORKFLOW_STEPS.length,
-
-        pendingStepsCount:
-          progress.pendingStepsCount,
-
-        progressPct:
-          progress.progressPct,
-
-        targetStepNum:
-          progress.currentStep,
-
-        nextStep:
-          HOD_WORKFLOW_STEPS.find(
-            (step) =>
-              step.step ===
-              progress.currentStep
-          ) ?? null,
-      };
-    }, [
-      hodWorkflowProgress,
-      hodDashboard,
-      user,
-      selectedSchool,
-      selectedProgramme,
-      programmes,
-      hodApprovals,
-      batches,
-    ]);
-
-  /* ======================================================================== */
-  /* DIRECTOR STATS                                                           */
-  /* ======================================================================== */
-
-  const directorStats =
-    useMemo(() => {
-      const progress =
-        directorWorkflowProgress ??
-        normalizeProgress(
-          null,
-          DIRECTOR_WORKFLOW_STEPS.length
-        );
-
-      const dashboardData =
-        directorDashboard ??
-        null;
-
-      /*
-       * Do not fabricate student counts.
-       * The backend dashboard response is preferred.
-       */
-      return {
-        ...(
-          dashboardData &&
-          typeof dashboardData ===
-            'object'
-            ? dashboardData
-            : {}
-        ),
-
-        schoolName:
-          selectedSchool?.name ??
-          dashboardData?.schoolName ??
-          null,
-
-        directorName:
-          user?.name ??
-          dashboardData?.directorName ??
-          null,
-
-        departmentsCount:
-          dashboardData?.departmentsCount ??
-          departments.length,
-
-        totalProgrammesCount:
-          dashboardData?.totalProgrammesCount ??
-          masterProgrammes.length,
-
-        totalStudentsCount:
-          dashboardData?.totalStudentsCount ??
-          null,
-
-        pendingDirectorApprovalsCount:
-          dashboardData?.pendingDirectorApprovalsCount ??
-          directorApprovals.filter(
-            (approval) =>
-              approval.status ===
-              'PENDING'
-          ).length,
-
-        overallAttainmentAvg:
-          dashboardData?.overallAttainmentAvg ??
-          yearMetrics?.overallCOAttainment ??
-          null,
-
-        avgPoAttainment:
-          dashboardData?.avgPoAttainment ??
-          yearMetrics?.avgPoAttainment ??
-          null,
-
-        avgPsoAttainment:
-          dashboardData?.avgPsoAttainment ??
-          yearMetrics?.avgPsoAttainment ??
-          null,
-
-        accreditationReadinessPct:
-          dashboardData?.accreditationReadinessPct ??
-          null,
-
-        workflowProgress:
-          progress,
-
-        stepDone:
-          progress.stepStatus,
-
-        completedStepsCount:
-          progress.completedStepsCount,
-
-        totalStepsCount:
-          DIRECTOR_WORKFLOW_STEPS.length,
-
-        pendingStepsCount:
-          progress.pendingStepsCount,
-
-        progressPct:
-          progress.progressPct,
-
-        targetStepNum:
-          progress.currentStep,
-
-        nextStep:
-          DIRECTOR_WORKFLOW_STEPS.find(
-            (step) =>
-              step.number ===
-              progress.currentStep
-          ) ?? null,
-      };
-    }, [
-      directorWorkflowProgress,
-      directorDashboard,
-      selectedSchool,
-      user,
-      departments,
-      masterProgrammes,
-      directorApprovals,
-      yearMetrics,
-    ]);
-
-  /* ======================================================================== */
-  /* ROLE ROUTING                                                             */
-  /* ======================================================================== */
-
-  const getDashboardData =
-    useCallback(
-      (
-        targetRole = role
-      ) => {
-        switch (
-          targetRole
-        ) {
-          case 'DIRECTOR':
-            return directorStats;
-
-          case 'HOD':
-            return hodStats;
-
-          case 'PROGRAMME_COORDINATOR':
-            return programmeCoordinatorStats;
-
-          case 'FACULTY':
-          case 'COURSE_COORDINATOR':
-          default:
-            return courseCoordinatorStats;
-        }
-      },
-      [
-        role,
-        directorStats,
-        hodStats,
-        programmeCoordinatorStats,
-        courseCoordinatorStats,
-      ]
-    );
-
-  /* ======================================================================== */
-  /* PROVIDER                                                                 */
-  /* ======================================================================== */
+    loadDirectorSetupProgress,
+    loadHodSetupProgress,
+    loadPcSetupProgress,
+    loadCcSetupProgress,
+    loadWorkflowProgress,
+
+    /* Explicit Savers */
+    saveDirectorSetupProgress,
+    saveHodSetupProgress,
+    savePcSetupProgress,
+    saveCcSetupProgress,
+    saveWorkflowProgress,
+
+    /* Compatibility workflow methods */
+    markWorkflowStepComplete,
+    resetWorkflowProgress,
+    markDirectorWorkflowStepComplete,
+    resetDirectorWorkflowProgress,
+    markHodWorkflowStepComplete,
+    resetHodWorkflowProgress,
+    markPcWorkflowStepComplete,
+    resetPcWorkflowProgress,
+
+    /* Status */
+    loading,
+    error,
+  };
 
   return (
-    <DashboardContext.Provider
-      value={{
-        /* Backend dashboard responses */
-        directorDashboard,
-        hodDashboard,
-        programmeCoordinatorDashboard,
-        courseCoordinatorDashboard,
-
-        /* Derived dashboard data */
-        directorStats,
-        hodStats,
-        programmeCoordinatorStats,
-        courseCoordinatorStats,
-
-        getDashboardData,
-
-        /* Backend setup progress */
-        directorWorkflowProgress,
-        hodWorkflowProgress,
-        pcWorkflowProgress,
-        ccWorkflowProgress,
-
-        loadWorkflowProgress,
-        saveWorkflowProgress,
-
-        /* Compatibility workflow methods */
-        markWorkflowStepComplete,
-        resetWorkflowProgress,
-
-        markDirectorWorkflowStepComplete,
-        resetDirectorWorkflowProgress,
-
-        markHodWorkflowStepComplete,
-        resetHodWorkflowProgress,
-
-        markPcWorkflowStepComplete,
-        resetPcWorkflowProgress,
-
-        /* State */
-        loading,
-        error,
-      }}
-    >
+    <DashboardContext.Provider value={value}>
       {children}
     </DashboardContext.Provider>
-  );
-}
-
-/* ========================================================================== */
-/* API helpers                                                                */
-/* ========================================================================== */
-
-/*
- * These two helpers keep the DashboardContext independent from
- * the shape of apiClient's interceptor.
- *
- * The current apiClient may return response.data,
- * but these helpers safely support both:
- *
- * AxiosResponse
- * or
- * response.data
- */
-
-async function apiClientGet(
-  url,
-  params = {}
-) {
-  const module =
-    await import(
-      '../api/client'
-    );
-
-  const client =
-    module.default;
-
-  return client.get(
-    url,
-    { params }
-  );
-}
-
-async function apiClientPost(
-  url,
-  payload
-) {
-  const module =
-    await import(
-      '../api/client'
-    );
-
-  const client =
-    module.default;
-
-  return client.post(
-    url,
-    payload
   );
 }
 
@@ -2104,17 +960,10 @@ async function apiClientPost(
 /* ========================================================================== */
 
 export function useDashboard() {
-  const context =
-    useContext(
-      DashboardContext
-    );
-
+  const context = useContext(DashboardContext);
   if (!context) {
-    throw new Error(
-      'useDashboard must be used within a DashboardProvider'
-    );
+    throw new Error('useDashboard must be used within a DashboardProvider');
   }
-
   return context;
 }
 

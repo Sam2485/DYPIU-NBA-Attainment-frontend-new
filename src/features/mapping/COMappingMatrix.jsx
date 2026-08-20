@@ -24,14 +24,18 @@ export default function COMappingMatrix({ hideFooter = false }) {
   const thresholdPct = `${directThreshold}%`;
 
   // Year-wise Attainment Levels from AcademicContext
-  const directLevel = yearMetrics?.directExamAttainment ?? 2.80;
-  const indirectLevel = yearMetrics?.indirectSurveyAttainment ?? 2.50;
-  const overallCOAttainment = ((directLevel * directWeight + indirectLevel * indirectWeight) / 100).toFixed(2);
+  const directLevel = yearMetrics?.directExamAttainment ?? null;
+  const indirectLevel = yearMetrics?.indirectSurveyAttainment ?? null;
+  const overallCOAttainment = directLevel !== null && indirectLevel !== null
+    ? ((directLevel * directWeight + indirectLevel * indirectWeight) / 100).toFixed(2)
+    : yearMetrics?.overallCOAttainment != null
+    ? Number(yearMetrics.overallCOAttainment).toFixed(2)
+    : null;
 
   // Dynamic PO & PSO codes arrays from Outcome Management
-  const poList = activePOs.map((p) => p.code);
-  const psoList = activePSOs.map((p) => p.code);
-  const courseOutcomes = activeCOs;
+  const poList = (activePOs || []).map((p) => p.code);
+  const psoList = (activePSOs || []).map((p) => p.code);
+  const courseOutcomes = activeCOs || [];
 
   // Keyword Stores for POs & PSOs (keyed by courseId)
   const [poKeywordsStore, setPoKeywordsStore] = useState({});
@@ -39,7 +43,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
 
   // Helper to get PO competencies dynamically
   const getCoursePoCompetencies = (poCode) => {
-    const courseStore = poKeywordsStore[selectedCourse.id] || {};
+    const courseStore = (selectedCourse?.id && poKeywordsStore[selectedCourse.id]) || {};
     if (courseStore[poCode]) return courseStore[poCode];
 
     const poObj = activePOs.find((p) => p.code === poCode);

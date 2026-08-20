@@ -1,7 +1,6 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useMemo,
   useState,
   useCallback,
@@ -10,8 +9,7 @@ import {
 import { useAuth } from './auth';
 import apiClient from '../api/client';
 
-export const AcademicContext =
-  createContext(null);
+export const AcademicContext = createContext(null);
 
 /* ========================================================================== */
 /* Response helpers                                                           */
@@ -22,18 +20,11 @@ const unwrap = (response) => {
     return null;
   }
 
-  /*
-   * apiClient may return the raw Axios response OR response.data.
-   */
-  if (
-    response?.data?.data !== undefined
-  ) {
+  if (response?.data?.data !== undefined) {
     return response.data.data;
   }
 
-  if (
-    response?.data !== undefined
-  ) {
+  if (response?.data !== undefined) {
     return response.data;
   }
 
@@ -42,9 +33,7 @@ const unwrap = (response) => {
 
 const unwrapList = (response) => {
   const value = unwrap(response);
-  return Array.isArray(value)
-    ? value
-    : [];
+  return Array.isArray(value) ? value : [];
 };
 
 /* ========================================================================== */
@@ -60,8 +49,7 @@ const normalizeSchool = (school) => ({
     school?.directorName ??
     school?.director ??
     '',
-  deanEmail:
-    school?.deanEmail ?? '',
+  deanEmail: school?.deanEmail ?? '',
   director:
     school?.directorName ??
     school?.director ??
@@ -70,2156 +58,1045 @@ const normalizeSchool = (school) => ({
     school?.directorEmail ??
     school?.email ??
     '',
-  estYear:
-    school?.estYear ?? null,
+  estYear: school?.estYear ?? null,
   email:
     school?.email ??
     school?.directorEmail ??
     '',
-  status:
-    school?.status ?? null,
-  createdAt:
-    school?.createdAt ?? null,
-  updatedAt:
-    school?.updatedAt ?? null,
+  status: school?.status ?? null,
+  createdAt: school?.createdAt ?? null,
+  updatedAt: school?.updatedAt ?? null,
 });
 
 const normalizeDepartment = (department) => ({
-  id:
-    department?.id ?? null,
-  schoolId:
-    department?.schoolId ?? null,
-  code:
-    department?.code ?? null,
-  name:
-    department?.name ?? null,
-  hod:
-    department?.hod ?? '',
-  hodEmail:
-    department?.hodEmail ?? '',
-  status:
-    department?.status ?? null,
-  createdAt:
-    department?.createdAt ?? null,
-  updatedAt:
-    department?.updatedAt ?? null,
+  id: department?.id ?? null,
+  schoolId: department?.schoolId ?? null,
+  code: department?.code ?? null,
+  name: department?.name ?? null,
+  hod: department?.hod ?? '',
+  hodEmail: department?.hodEmail ?? '',
+  status: department?.status ?? null,
+  createdAt: department?.createdAt ?? null,
+  updatedAt: department?.updatedAt ?? null,
 });
 
 const normalizeProgramme = (programme) => ({
-  id:
-    programme?.id ?? null,
-  departmentId:
-    programme?.departmentId ?? null,
-  code:
-    programme?.code ?? null,
-  name:
-    programme?.name ?? null,
-  degree:
-    programme?.degree ?? null,
-  durationYears:
-    programme?.durationYears ?? null,
+  id: programme?.id ?? null,
+  departmentId: programme?.departmentId ?? null,
+  code: programme?.code ?? null,
+  name: programme?.name ?? null,
+  degree: programme?.degree ?? null,
+  durationYears: programme?.durationYears ?? null,
   department:
     programme?.departmentName ??
     programme?.department ??
     '',
-  coordinator:
-    programme?.coordinator ?? '',
-  coordinatorEmail:
-    programme?.coordinatorEmail ?? '',
-  status:
-    programme?.status ?? null,
-  createdAt:
-    programme?.createdAt ?? null,
-  updatedAt:
-    programme?.updatedAt ?? null,
+  coordinator: programme?.coordinator ?? '',
+  coordinatorEmail: programme?.coordinatorEmail ?? '',
+  status: programme?.status ?? null,
+  createdAt: programme?.createdAt ?? null,
+  updatedAt: programme?.updatedAt ?? null,
 });
 
 const normalizeBatch = (batch) => ({
-  id:
-    batch?.id ?? null,
-  name:
-    batch?.name ?? null,
-  programmeId:
-    batch?.programmeId ?? null,
-  programmeCode:
-    batch?.programmeCode ?? null,
-  programmeName:
-    batch?.programmeName ?? null,
-  durationYears:
-    batch?.durationYears ?? null,
-  startYear:
-    batch?.startYear ?? null,
-  endYear:
-    batch?.endYear ?? null,
-  academicYear:
-    batch?.academicYear ?? null,
+  id: batch?.id ?? null,
+  name: batch?.name ?? null,
+  programmeId: batch?.programmeId ?? null,
+  programmeCode: batch?.programmeCode ?? null,
+  programmeName: batch?.programmeName ?? null,
+  durationYears: batch?.durationYears ?? null,
+  startYear: batch?.startYear ?? null,
+  endYear: batch?.endYear ?? null,
+  academicYear: batch?.academicYear ?? null,
   yearLevel:
     batch?.yearLevel ??
     batch?.currentYear ??
     null,
-  status:
-    batch?.status ?? null,
-  createdAt:
-    batch?.createdAt ?? null,
-  updatedAt:
-    batch?.updatedAt ?? null,
+  status: batch?.status ?? null,
+  createdAt: batch?.createdAt ?? null,
+  updatedAt: batch?.updatedAt ?? null,
 });
 
 const normalizeCourse = (course) => ({
-  id:
-    course?.id ?? null,
-  code:
-    course?.code ?? null,
-  name:
-    course?.name ?? null,
-  programmeId:
-    course?.programmeId ?? null,
-  semester:
-    course?.semester ?? null,
-  credits:
-    course?.credits ?? null,
-  status:
-    course?.status ?? null,
-  createdAt:
-    course?.createdAt ?? null,
-  updatedAt:
-    course?.updatedAt ?? null,
-
-  /*
-   * Preserve any backend-supplied batch/offering
-   * metadata without inventing values.
-   */
-  batchId:
-    course?.batchId ?? null,
-
-  courseOfferingId:
-    course?.courseOfferingId ??
-    null,
+  id: course?.id ?? null,
+  code: course?.code ?? null,
+  name: course?.name ?? null,
+  programmeId: course?.programmeId ?? null,
+  semester: course?.semester ?? null,
+  credits: course?.credits ?? null,
+  status: course?.status ?? null,
+  createdAt: course?.createdAt ?? null,
+  updatedAt: course?.updatedAt ?? null,
+  batchId: course?.batchId ?? null,
+  courseOfferingId: course?.courseOfferingId ?? null,
 });
 
 const normalizeOffering = (offering) => ({
-  id:
-    offering?.id ?? null,
-
-  courseId:
-    offering?.courseId ?? null,
-
-  batchId:
-    offering?.batchId ?? null,
-
-  semester:
-    offering?.semester ?? null,
-
-  courseCoordinatorId:
-    offering?.courseCoordinatorId ??
-    null,
-
+  id: offering?.id ?? null,
+  courseId: offering?.courseId ?? null,
+  batchId: offering?.batchId ?? null,
+  semester: offering?.semester ?? null,
+  courseCoordinatorId: offering?.courseCoordinatorId ?? null,
   courseCoordinatorName:
     offering?.courseCoordinatorName ??
     offering?.courseCoordinator ??
     '',
-
-  courseCoordinatorEmail:
-    offering?.courseCoordinatorEmail ??
-    '',
-
-  status:
-    offering?.status ?? null,
-
-  /*
-   * Kept only for compatibility with
-   * existing response fields.
-   *
-   * It is NOT used as an independent owner.
-   */
-  assignedFaculty:
-    offering?.assignedFaculty ??
-    null,
-
-  createdAt:
-    offering?.createdAt ?? null,
-
-  updatedAt:
-    offering?.updatedAt ?? null,
-
-  course:
-    offering?.course ?? null,
-
-  courseName:
-    offering?.courseName ?? null,
-
-  courseCode:
-    offering?.courseCode ?? null,
+  courseCoordinatorEmail: offering?.courseCoordinatorEmail ?? '',
+  status: offering?.status ?? null,
+  assignedFaculty: offering?.assignedFaculty ?? null,
+  createdAt: offering?.createdAt ?? null,
+  updatedAt: offering?.updatedAt ?? null,
+  course: offering?.course ?? null,
+  courseName: offering?.courseName ?? null,
+  courseCode: offering?.courseCode ?? null,
 });
 
 const normalizeUser = (user) => ({
-  id:
-    user?.id ?? null,
-  username:
-    user?.username ?? null,
-  name:
-    user?.name ?? null,
-  email:
-    user?.email ?? null,
-  role:
-    user?.role ?? null,
-  schoolId:
-    user?.schoolId ?? null,
-  departmentId:
-    user?.departmentId ?? null,
-  programmeId:
-    user?.programmeId ?? null,
-  department:
-    user?.department ?? null,
-  programme:
-    user?.programme ?? null,
-  isActive:
-    user?.isActive ??
-    user?.is_active ??
-    true,
+  id: user?.id ?? null,
+  username: user?.username ?? null,
+  name: user?.name ?? null,
+  email: user?.email ?? null,
+  role: user?.role ?? null,
+  schoolId: user?.schoolId ?? null,
+  departmentId: user?.departmentId ?? null,
+  programmeId: user?.programmeId ?? null,
+  department: user?.department ?? null,
+  programme: user?.programme ?? null,
+  isActive: user?.isActive ?? user?.is_active ?? true,
 });
-
-const normalizeResponseData = (response) =>
-  unwrap(response);
 
 /* ========================================================================== */
 /* Provider                                                                   */
 /* ========================================================================== */
 
-export function AcademicProvider({
-  children,
-}) {
-  const {
-    role,
-    user,
-  } = useAuth();
+export function AcademicProvider({ children }) {
+  const { role, user } = useAuth();
 
   /* ------------------------------------------------------------------------ */
   /* Global selections                                                        */
   /* ------------------------------------------------------------------------ */
 
-  const [
-    selectedSchoolId,
-    setSelectedSchoolId,
-  ] = useState(null);
-
-  const [
-    programmeId,
-    setProgrammeIdState,
-  ] = useState(null);
-
-  const [
-    batchId,
-    setBatchId,
-  ] = useState(null);
-
-  const [
-    courseId,
-    setCourseId,
-  ] = useState(null);
-
-  const [
-    courseOfferingId,
-    setCourseOfferingId,
-  ] = useState(null);
-
-  const [
-    academicYear,
-    setAcademicYear,
-  ] = useState('');
+  const [selectedSchoolId, setSelectedSchoolId] = useState(null);
+  const [programmeId, setProgrammeIdState] = useState(null);
+  const [batchId, setBatchId] = useState(null);
+  const [courseId, setCourseId] = useState(null);
+  const [courseOfferingId, setCourseOfferingId] = useState(null);
+  const [academicYear, setAcademicYear] = useState('');
 
   /* ------------------------------------------------------------------------ */
-  /* Backend state                                                            */
+  /* Academic entities state                                                  */
   /* ------------------------------------------------------------------------ */
 
-  const [
-    schools,
-    setSchools,
-  ] = useState([]);
+  const [schools, setSchools] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [programmes, setProgrammes] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [courseOfferings, setCourseOfferings] = useState([]);
+  const [courseCoordinators, setCourseCoordinators] = useState([]);
+  const [students, setStudents] = useState([]);
 
-  const [
-    departments,
-    setDepartments,
-  ] = useState([]);
+  /* ------------------------------------------------------------------------ */
+  /* Outcomes & Mapping state                                                 */
+  /* ------------------------------------------------------------------------ */
 
-  const [
-    programmes,
-    setProgrammes,
-  ] = useState([]);
+  const [activePOs, setActivePOs] = useState([]);
+  const [activePSOs, setActivePSOs] = useState([]);
+  const [activePEOs, setActivePEOs] = useState([]);
+  const [poPsoTargets, setPoPsoTargets] = useState(null);
+  const [activeCOs, setActiveCOs] = useState([]);
+  const [coTargets, setCoTargets] = useState(null);
+  const [coMapping, setCoMapping] = useState(null);
 
-  const [
-    batches,
-    setBatches,
-  ] = useState([]);
+  /* ------------------------------------------------------------------------ */
+  /* Attainment & ATR state                                                   */
+  /* ------------------------------------------------------------------------ */
 
-  const [
-    courses,
-    setCourses,
-  ] = useState([]);
+  const [attainmentSettings, setAttainmentSettings] = useState(null);
+  const [coAttainment, setCoAttainment] = useState(null);
+  const [programmeATR, setProgrammeATR] = useState(null);
+  const [courseATR, setCourseATR] = useState(null);
 
-  const [
-    courseOfferings,
-    setCourseOfferings,
-  ] = useState([]);
+  /* ------------------------------------------------------------------------ */
+  /* Dashboards & Setup Progress state                                        */
+  /* ------------------------------------------------------------------------ */
 
-  const [
-    courseCoordinators,
-    setCourseCoordinators,
-  ] = useState([]);
+  const [directorDashboard, setDirectorDashboard] = useState(null);
+  const [hodDashboard, setHodDashboard] = useState(null);
+  const [programmeCoordinatorDashboard, setProgrammeCoordinatorDashboard] = useState(null);
+  const [courseCoordinatorDashboard, setCourseCoordinatorDashboard] = useState(null);
+  const [setupProgress, setSetupProgress] = useState(null);
 
-  const [
-    students,
-    setStudents,
-  ] = useState([]);
+  /* ------------------------------------------------------------------------ */
+  /* Loading & Error state                                                    */
+  /* ------------------------------------------------------------------------ */
 
-  const [
-    activePOs,
-    setActivePOs,
-  ] = useState([]);
-
-  const [
-    activePSOs,
-    setActivePSOs,
-  ] = useState([]);
-
-  const [
-    activePEOs,
-    setActivePEOs,
-  ] = useState([]);
-
-  const [
-    poPsoTargets,
-    setPoPsoTargets,
-  ] = useState(null);
-
-  const [
-    activeCOs,
-    setActiveCOs,
-  ] = useState([]);
-
-  const [
-    coTargets,
-    setCoTargets,
-  ] = useState(null);
-
-  const [
-    programmeATR,
-    setProgrammeATR,
-  ] = useState(null);
-
-  const [
-    courseATR,
-    setCourseATR,
-  ] = useState(null);
-
-  const [
-    attainmentSettings,
-    setAttainmentSettings,
-  ] = useState(null);
-
-  const [
-    coMapping,
-    setCoMapping,
-  ] = useState(null);
-
-  const [
-    coAttainment,
-    setCoAttainment,
-  ] = useState(null);
-
-  const [
-    directorDashboard,
-    setDirectorDashboard,
-  ] = useState(null);
-
-  const [
-    hodDashboard,
-    setHodDashboard,
-  ] = useState(null);
-
-  const [
-    programmeCoordinatorDashboard,
-    setProgrammeCoordinatorDashboard,
-  ] = useState(null);
-
-  const [
-    courseCoordinatorDashboard,
-    setCourseCoordinatorDashboard,
-  ] = useState(null);
-
-  const [
-    setupProgress,
-    setSetupProgress,
-  ] = useState(null);
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   /* ======================================================================== */
   /* Derived selections                                                       */
   /* ======================================================================== */
 
-  const selectedSchool =
-    useMemo(
-      () =>
-        schools.find(
-          (school) =>
-            school.id ===
-            selectedSchoolId
-        ) ?? null,
-      [
-        schools,
-        selectedSchoolId,
-      ]
-    );
+  const selectedSchool = useMemo(
+    () => schools.find((school) => school.id === selectedSchoolId) ?? null,
+    [schools, selectedSchoolId]
+  );
 
-  const selectedProgramme =
-    useMemo(
-      () =>
-        programmes.find(
-          (programme) =>
-            programme.id ===
-            programmeId
-        ) ?? null,
-      [
-        programmes,
-        programmeId,
-      ]
-    );
+  const selectedProgramme = useMemo(
+    () => programmes.find((programme) => programme.id === programmeId) ?? null,
+    [programmes, programmeId]
+  );
 
-  const selectedBatch =
-    useMemo(
-      () =>
-        batches.find(
-          (batch) =>
-            batch.id ===
-            batchId
-        ) ?? null,
-      [
-        batches,
-        batchId,
-      ]
-    );
+  const selectedBatch = useMemo(
+    () => batches.find((batch) => batch.id === batchId) ?? null,
+    [batches, batchId]
+  );
 
-  const selectedCourse =
-    useMemo(
-      () =>
-        courses.find(
-          (course) =>
-            course.id ===
-            courseId
-        ) ?? null,
-      [
-        courses,
-        courseId,
-      ]
-    );
+  const selectedCourse = useMemo(
+    () => courses.find((course) => course.id === courseId) ?? null,
+    [courses, courseId]
+  );
 
-  const selectedCourseOffering =
-    useMemo(
-      () =>
-        courseOfferings.find(
-          (offering) =>
-            offering.id ===
-            courseOfferingId
-        ) ?? null,
-      [
-        courseOfferings,
-        courseOfferingId,
-      ]
-    );
+  const selectedCourseOffering = useMemo(
+    () => courseOfferings.find((offering) => offering.id === courseOfferingId) ?? null,
+    [courseOfferings, courseOfferingId]
+  );
 
-  const availableCourses =
-    useMemo(() => {
-      if (!programmeId) {
+  const availableCourses = useMemo(() => {
+    if (!programmeId) return [];
+    return courses.filter((course) => course.programmeId === programmeId);
+  }, [courses, programmeId]);
+
+  const availableCourseOfferings = useMemo(() => {
+    let result = courseOfferings;
+    if (batchId) {
+      result = result.filter((offering) => offering.batchId === batchId);
+    }
+    if (courseId) {
+      result = result.filter((offering) => offering.courseId === courseId);
+    }
+    return result;
+  }, [courseOfferings, batchId, courseId]);
+
+  const facultyList = useMemo(() => {
+    return courseCoordinators.map((c) => c.name || c.username || c.email).filter(Boolean);
+  }, [courseCoordinators]);
+
+  /* ======================================================================== */
+  /* Explicit Callable Loaders (Isolated Error Handling)                      */
+  /* ======================================================================== */
+
+  /* --- Schools --- */
+  const loadSchools = useCallback(async () => {
+    try {
+      const response = await apiClient.get('/academic/schools');
+      const data = unwrapList(response).map(normalizeSchool);
+      setSchools(data);
+      return data;
+    } catch (err) {
+      console.warn('loadSchools failed:', err);
+      return [];
+    }
+  }, []);
+
+  /* --- Departments --- */
+  const loadDepartments = useCallback(async (targetSchoolId = null) => {
+    try {
+      const params = targetSchoolId ? { schoolId: targetSchoolId } : {};
+      const response = await apiClient.get('/academic/departments', { params });
+      const data = unwrapList(response).map(normalizeDepartment);
+      setDepartments(data);
+      return data;
+    } catch (err) {
+      console.warn('loadDepartments failed:', err);
+      return [];
+    }
+  }, []);
+
+  /* --- Programmes --- */
+  const loadProgrammes = useCallback(async (targetDepartmentId = null) => {
+    try {
+      const params = targetDepartmentId ? { departmentId: targetDepartmentId } : {};
+      const response = await apiClient.get('/academic/programmes', { params });
+      const data = unwrapList(response).map(normalizeProgramme);
+      setProgrammes(data);
+      return data;
+    } catch (err) {
+      console.warn('loadProgrammes failed:', err);
+      return [];
+    }
+  }, []);
+
+  /* --- Batches --- */
+  const loadBatches = useCallback(
+    async ({ targetProgrammeId = null, userEmail = null, targetRole = null } = {}) => {
+      try {
+        const params = {};
+        if (targetProgrammeId) params.programmeId = targetProgrammeId;
+        if (userEmail) params.userEmail = userEmail;
+        if (targetRole) params.role = targetRole;
+
+        const response = await apiClient.get('/academic/batches', { params });
+        const data = unwrapList(response).map(normalizeBatch);
+        setBatches(data);
+        return data;
+      } catch (err) {
+        console.warn('loadBatches failed:', err);
         return [];
       }
+    },
+    []
+  );
 
-      return courses.filter(
-        (course) =>
-          course.programmeId ===
-          programmeId
-      );
-    }, [
-      courses,
-      programmeId,
-    ]);
-
-  const availableCourseOfferings =
-    useMemo(() => {
-      let result =
-        courseOfferings;
-
-      if (batchId) {
-        result =
-          result.filter(
-            (offering) =>
-              offering.batchId ===
-              batchId
-          );
-      }
-
-      if (courseId) {
-        result =
-          result.filter(
-            (offering) =>
-              offering.courseId ===
-              courseId
-          );
-      }
-
-      return result;
-    }, [
-      courseOfferings,
-      batchId,
-      courseId,
-    ]);
-
-  /* ======================================================================== */
-  /* Schools                                                                  */
-  /* ======================================================================== */
-
-  const loadSchools =
-    useCallback(
-      async () => {
-        const response =
-          await apiClient.get(
-            '/academic/schools'
-          );
-
-        const data =
-          unwrapList(response)
-            .map(normalizeSchool);
-
-        setSchools(data);
-
-        return data;
-      },
-      []
-    );
-
-  /* ======================================================================== */
-  /* Departments                                                              */
-  /* ======================================================================== */
-
-  const loadDepartments =
-    useCallback(
-      async (
-        targetSchoolId = null
-      ) => {
+  /* --- Courses --- */
+  const loadCourses = useCallback(
+    async ({ targetProgrammeId = null, targetBatchId = null } = {}) => {
+      try {
         const params = {};
+        if (targetProgrammeId) params.programmeId = targetProgrammeId;
+        if (targetBatchId) params.batchId = targetBatchId;
 
-        if (targetSchoolId) {
-          params.schoolId =
-            targetSchoolId;
-        }
-
-        const response =
-          await apiClient.get(
-            '/academic/departments',
-            { params }
-          );
-
-        const data =
-          unwrapList(response)
-            .map(
-              normalizeDepartment
-            );
-
-        setDepartments(data);
-
-        return data;
-      },
-      []
-    );
-
-  /* ======================================================================== */
-  /* Programmes                                                               */
-  /* ======================================================================== */
-
-  const loadProgrammes =
-    useCallback(
-      async (
-        targetDepartmentId = null
-      ) => {
-        const params = {};
-
-        if (targetDepartmentId) {
-          params.departmentId =
-            targetDepartmentId;
-        }
-
-        const response =
-          await apiClient.get(
-            '/academic/programmes',
-            { params }
-          );
-
-        const data =
-          unwrapList(response)
-            .map(
-              normalizeProgramme
-            );
-
-        setProgrammes(data);
-
-        return data;
-      },
-      []
-    );
-
-  /* ======================================================================== */
-  /* Batches                                                                  */
-  /* ======================================================================== */
-
-  const loadBatches =
-    useCallback(
-      async ({
-        targetProgrammeId = null,
-        userEmail = null,
-        targetRole = null,
-      } = {}) => {
-        const params = {};
-
-        if (
-          targetProgrammeId
-        ) {
-          params.programmeId =
-            targetProgrammeId;
-        }
-
-        if (userEmail) {
-          params.userEmail =
-            userEmail;
-        }
-
-        if (targetRole) {
-          params.role =
-            targetRole;
-        }
-
-        const response =
-          await apiClient.get(
-            '/academic/batches',
-            { params }
-          );
-
-        const data =
-          unwrapList(response)
-            .map(normalizeBatch);
-
-        setBatches(data);
-
-        return data;
-      },
-      []
-    );
-
-  /* ======================================================================== */
-  /* Courses                                                                  */
-  /* ======================================================================== */
-
-  const loadCourses =
-    useCallback(
-      async ({
-        targetProgrammeId = null,
-        targetBatchId = null,
-      } = {}) => {
-        const params = {};
-
-        if (
-          targetProgrammeId
-        ) {
-          params.programmeId =
-            targetProgrammeId;
-        }
-
-        if (
-          targetBatchId
-        ) {
-          params.batchId =
-            targetBatchId;
-        }
-
-        const response =
-          await apiClient.get(
-            '/academic/courses',
-            { params }
-          );
-
-        const data =
-          unwrapList(response)
-            .map(normalizeCourse);
-
+        const response = await apiClient.get('/academic/courses', { params });
+        const data = unwrapList(response).map(normalizeCourse);
         setCourses(data);
-
         return data;
-      },
-      []
-    );
-
-  /* ======================================================================== */
-  /* Course Offerings                                                         */
-  /* ======================================================================== */
-
-  const loadCourseOfferings =
-    useCallback(
-      async (
-        targetBatchId = batchId
-      ) => {
-        if (!targetBatchId) {
-          setCourseOfferings([]);
-          setCourseOfferingId(
-            null
-          );
-
-          return [];
-        }
-
-        const response =
-          await apiClient.get(
-            '/academic/course-offerings',
-            {
-              params: {
-                batchId:
-                  targetBatchId,
-              },
-            }
-          );
-
-        const data =
-          unwrapList(response)
-            .map(
-              normalizeOffering
-            );
-
-        setCourseOfferings(data);
-
-        return data;
-      },
-      [batchId]
-    );
-
-  /* ======================================================================== */
-  /* Course Offering by ID                                                    */
-  /* ======================================================================== */
-
-  const loadCourseOffering =
-    useCallback(
-      async (
-        offeringId
-      ) => {
-        if (!offeringId) {
-          return null;
-        }
-
-        const response =
-          await apiClient.get(
-            `/academic/course-offerings/${offeringId}`
-          );
-
-        const data =
-          normalizeOffering(
-            normalizeResponseData(
-              response
-            )
-          );
-
-        setCourseOfferings(
-          (previous) => {
-            const existing =
-              previous.filter(
-                (item) =>
-                  item.id !==
-                  data.id
-              );
-
-            return [
-              ...existing,
-              data,
-            ];
-          }
-        );
-
-        setCourseOfferingId(
-          data.id ??
-            null
-        );
-
-        return data;
-      },
-      []
-    );
-
-  /* ======================================================================== */
-  /* Initial loading                                                          */
-  /* ======================================================================== */
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadInitial =
-      async () => {
-        setLoading(true);
-
-        try {
-          const schoolData =
-            await loadSchools();
-
-          if (!mounted) {
-            return;
-          }
-
-          const firstSchool =
-            schoolData[0];
-
-          if (
-            !selectedSchoolId &&
-            firstSchool?.id
-          ) {
-            setSelectedSchoolId(
-              firstSchool.id
-            );
-          }
-
-          /*
-           * Do not automatically select
-           * an arbitrary programme or batch.
-           *
-           * Those selections belong to the
-           * role-specific workflow/sidebar.
-           */
-        } finally {
-          if (mounted) {
-            setLoading(false);
-          }
-        }
-      };
-
-    loadInitial().catch(
-      (error) => {
-        console.error(
-          'Initial academic load failed:',
-          error
-        );
-
-        if (mounted) {
-          setLoading(false);
-        }
+      } catch (err) {
+        console.warn('loadCourses failed:', err);
+        return [];
       }
-    );
+    },
+    []
+  );
 
-    return () => {
-      mounted = false;
-    };
-  }, [
-    loadSchools,
-    selectedSchoolId,
-  ]);
-
-  /* ======================================================================== */
-  /* Programme change                                                         */
-  /* ======================================================================== */
-
-  useEffect(() => {
-    if (!programmeId) {
-      return;
-    }
-
-    let mounted = true;
-
-    const refreshProgrammeContext =
-      async () => {
-        const [
-          batchData,
-          courseData,
-        ] =
-          await Promise.all([
-            loadBatches({
-              targetProgrammeId:
-                programmeId,
-            }),
-
-            loadCourses({
-              targetProgrammeId:
-                programmeId,
-
-              /*
-               * Do not send an old batch
-               * belonging to another programme.
-               */
-              targetBatchId:
-                null,
-            }),
-          ]);
-
-        if (!mounted) {
-          return;
-        }
-
-        /*
-         * Preserve the currently selected batch
-         * only if it actually belongs to the
-         * selected programme.
-         *
-         * Otherwise clear it instead of
-         * silently selecting batch[0].
-         */
-        const currentBatch =
-          batchData.find(
-            (batch) =>
-              batch.id ===
-              batchId
-          );
-
-        if (!currentBatch) {
-          setBatchId(null);
-          setCourseOfferingId(
-            null
-          );
-          setCourseOfferings([]);
-        }
-
-        /*
-         * Preserve course only when it belongs
-         * to the selected programme.
-         */
-        const currentCourse =
-          courseData.find(
-            (course) =>
-              course.id ===
-              courseId
-          );
-
-        if (!currentCourse) {
-          setCourseId(null);
-        }
-      };
-
-    refreshProgrammeContext().catch(
-      (error) => {
-        console.error(
-          'Failed to refresh programme context:',
-          error
-        );
-      }
-    );
-
-    return () => {
-      mounted = false;
-    };
-  }, [
-    programmeId,
-    batchId,
-    courseId,
-    loadBatches,
-    loadCourses,
-  ]);
-
-  /* ======================================================================== */
-  /* Batch change                                                             */
-  /* ======================================================================== */
-
-  useEffect(() => {
-    if (!batchId) {
+  /* --- Course Offerings --- */
+  const loadCourseOfferings = useCallback(async (targetBatchId = batchId) => {
+    if (!targetBatchId) {
       setCourseOfferings([]);
-      setCourseOfferingId(
-        null
-      );
-      return;
+      return [];
     }
-
-    loadCourseOfferings(
-      batchId
-    ).catch((error) => {
-      console.error(
-        'Failed to load course offerings:',
-        error
-      );
-    });
-  }, [
-    batchId,
-    loadCourseOfferings,
-  ]);
-
-  /* ======================================================================== */
-  /* Course -> CourseOffering resolution                                      */
-  /* ======================================================================== */
-
-  useEffect(() => {
-    if (
-      !courseId ||
-      !batchId
-    ) {
-      setCourseOfferingId(
-        null
-      );
-      return;
+    try {
+      const response = await apiClient.get('/academic/course-offerings', {
+        params: { batchId: targetBatchId },
+      });
+      const data = unwrapList(response).map(normalizeOffering);
+      setCourseOfferings(data);
+      return data;
+    } catch (err) {
+      console.warn('loadCourseOfferings failed:', err);
+      return [];
     }
+  }, [batchId]);
 
-    const matchingOffering =
-      courseOfferings.find(
-        (offering) =>
-          offering.courseId ===
-            courseId &&
-          offering.batchId ===
-            batchId
-      );
+  const loadCourseOffering = useCallback(async (offeringId) => {
+    if (!offeringId) return null;
+    try {
+      const response = await apiClient.get(`/academic/course-offerings/${offeringId}`);
+      const data = normalizeOffering(unwrap(response));
+      setCourseOfferings((prev) => {
+        const withoutCurrent = prev.filter((item) => item.id !== data.id);
+        return [...withoutCurrent, data];
+      });
+      setCourseOfferingId(data.id ?? null);
+      return data;
+    } catch (err) {
+      console.warn(`loadCourseOffering(${offeringId}) failed:`, err);
+      return null;
+    }
+  }, []);
 
-    setCourseOfferingId(
-      matchingOffering?.id ??
-        null
-    );
-  }, [
-    courseId,
-    batchId,
-    courseOfferings,
-  ]);
+  /* --- Course Coordinators / Faculty --- */
+  const loadCourseCoordinators = useCallback(async () => {
+    try {
+      const response = await apiClient.get('/users', {
+        params: { role: 'FACULTY' },
+      });
+      const data = unwrapList(response).map(normalizeUser);
+      setCourseCoordinators(data);
+      return data;
+    } catch (err) {
+      console.warn('loadCourseCoordinators failed:', err);
+      return [];
+    }
+  }, []);
 
-  /* ======================================================================== */
-  /* Course Coordinators                                                      */
-  /* ======================================================================== */
+  /* --- Students --- */
+  const loadStudents = useCallback(async (targetBatchId = batchId) => {
+    if (!targetBatchId) return [];
+    try {
+      const response = await apiClient.get(`/academic/batches/${targetBatchId}/students`);
+      const data = unwrapList(response);
+      setStudents(data);
+      return data;
+    } catch (err) {
+      console.warn(`loadStudents(${targetBatchId}) failed:`, err);
+      return [];
+    }
+  }, [batchId]);
 
-  const loadCourseCoordinators =
-    useCallback(
-      async () => {
-        /*
-         * Course Coordinator = FACULTY
-         * in the backend.
-         */
-        const response =
-          await apiClient.get(
-            '/users',
-            {
-              params: {
-                role: 'FACULTY',
-              },
-            }
-          );
+  /* --- Programme Outcomes --- */
+  const loadProgrammeOutcomes = useCallback(
+    async (targetProgrammeId = programmeId) => {
+      if (!targetProgrammeId) {
+        setActivePOs([]);
+        setActivePSOs([]);
+        setActivePEOs([]);
+        setPoPsoTargets(null);
+        return;
+      }
 
-        const data =
-          unwrapList(response)
-            .map(normalizeUser);
+      try {
+        const results = await Promise.allSettled([
+          apiClient.get(`/outcomes/programmes/${targetProgrammeId}/pos`),
+          apiClient.get(`/outcomes/programmes/${targetProgrammeId}/psos`),
+          apiClient.get(`/outcomes/programmes/${targetProgrammeId}/peos`),
+          apiClient.get(`/academic/programmes/${targetProgrammeId}/targets`),
+        ]);
 
-        setCourseCoordinators(
-          data
+        if (results[0].status === 'fulfilled') {
+          setActivePOs(unwrapList(results[0].value));
+        }
+        if (results[1].status === 'fulfilled') {
+          setActivePSOs(unwrapList(results[1].value));
+        }
+        if (results[2].status === 'fulfilled') {
+          setActivePEOs(unwrapList(results[2].value));
+        }
+        if (results[3].status === 'fulfilled') {
+          setPoPsoTargets(unwrap(results[3].value));
+        }
+      } catch (err) {
+        console.warn(`loadProgrammeOutcomes(${targetProgrammeId}) failed:`, err);
+      }
+    },
+    [programmeId]
+  );
+
+  /* --- Programme Targets --- */
+  const loadProgrammeTargets = useCallback(
+    async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
+      if (!targetProgrammeId) return null;
+      try {
+        const params = targetBatchId ? { batchId: targetBatchId } : {};
+        const response = await apiClient.get(
+          `/academic/programmes/${targetProgrammeId}/targets`,
+          { params }
         );
-
+        const data = unwrap(response);
+        setPoPsoTargets(data);
         return data;
-      },
-      []
-    );
+      } catch (err) {
+        console.warn(`loadProgrammeTargets(${targetProgrammeId}) failed:`, err);
+        return null;
+      }
+    },
+    [programmeId, batchId]
+  );
 
-  useEffect(() => {
-    if (
-      role ===
-        'PROGRAMME_COORDINATOR' ||
-      role === 'HOD' ||
-      role === 'DIRECTOR' ||
-      role === 'ADMIN'
-    ) {
-      loadCourseCoordinators()
-        .catch((error) => {
-          console.error(
-            'Failed to load course coordinators:',
-            error
-          );
+  /* --- Course Outcomes --- */
+  const loadCourseOutcomes = useCallback(
+    async (offeringId = courseOfferingId) => {
+      if (!offeringId) {
+        setActiveCOs([]);
+        return [];
+      }
+      try {
+        const response = await apiClient.get(
+          `/academic/course-offerings/${offeringId}/outcomes`
+        );
+        const data = unwrapList(response);
+        setActiveCOs(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadCourseOutcomes(${offeringId}) failed:`, err);
+        return [];
+      }
+    },
+    [courseOfferingId]
+  );
+
+  /* --- CO Mapping --- */
+  const loadCourseMapping = useCallback(
+    async (offeringId = courseOfferingId) => {
+      if (!offeringId) {
+        setCoMapping(null);
+        return null;
+      }
+      try {
+        const response = await apiClient.get(
+          `/academic/course-offerings/${offeringId}/mappings`
+        );
+        const data = unwrap(response);
+        setCoMapping(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadCourseMapping(${offeringId}) failed:`, err);
+        return null;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  /* --- Attainment Settings --- */
+  const loadAttainmentSettings = useCallback(
+    async (targetOfferingId = courseOfferingId) => {
+      if (!targetOfferingId) {
+        setAttainmentSettings(null);
+        return null;
+      }
+      try {
+        const response = await apiClient.get(`/attainment/config/${targetOfferingId}`);
+        const data = unwrap(response);
+        setAttainmentSettings(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadAttainmentSettings(${targetOfferingId}) failed:`, err);
+        return null;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  /* --- CO Attainment --- */
+  const loadCOAttainment = useCallback(
+    async (offeringId = courseOfferingId) => {
+      if (!offeringId) {
+        setCoAttainment(null);
+        return null;
+      }
+      try {
+        const response = await apiClient.get(
+          `/reports/attainment-main/course/${offeringId}`
+        );
+        const data = unwrap(response);
+        setCoAttainment(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadCOAttainment(${offeringId}) failed:`, err);
+        return null;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  /* --- Course ATR --- */
+  const loadCourseATR = useCallback(
+    async (offeringId = courseOfferingId) => {
+      if (!offeringId) {
+        setCourseATR(null);
+        return null;
+      }
+      try {
+        const response = await apiClient.get(`/reports/course-atr/${offeringId}`);
+        const data = unwrap(response);
+        setCourseATR(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadCourseATR(${offeringId}) failed:`, err);
+        return null;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  /* --- Programme ATR --- */
+  const loadProgrammeATR = useCallback(
+    async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
+      if (!targetProgrammeId || !targetBatchId) {
+        setProgrammeATR(null);
+        return null;
+      }
+      try {
+        const response = await apiClient.get(`/atr/programme/${targetProgrammeId}`, {
+          params: { batchId: targetBatchId },
         });
+        const data = unwrap(response);
+        setProgrammeATR(data);
+        return data;
+      } catch (err) {
+        console.warn('loadProgrammeATR failed:', err);
+        return null;
+      }
+    },
+    [programmeId, batchId]
+  );
+
+  /* --- Dashboards --- */
+  const loadDirectorDashboard = useCallback(
+    async (targetSchoolId = selectedSchoolId) => {
+      try {
+        const params = {};
+        if (targetSchoolId) params.schoolId = targetSchoolId;
+        if (user?.email) params.directorEmail = user.email;
+
+        const response = await apiClient.get('/dashboard/director', { params });
+        const data = unwrap(response);
+        setDirectorDashboard(data);
+        return data;
+      } catch (err) {
+        console.warn('loadDirectorDashboard failed:', err);
+        return null;
+      }
+    },
+    [selectedSchoolId, user?.email]
+  );
+
+  const loadHodDashboard = useCallback(async () => {
+    try {
+      const params = {};
+      if (user?.departmentId) params.departmentId = user.departmentId;
+      if (user?.email) params.hodEmail = user.email;
+
+      const response = await apiClient.get('/dashboard/hod', { params });
+      const data = unwrap(response);
+      setHodDashboard(data);
+      return data;
+    } catch (err) {
+      console.warn('loadHodDashboard failed:', err);
+      return null;
+    }
+  }, [user?.departmentId, user?.email]);
+
+  const loadProgrammeCoordinatorDashboard = useCallback(
+    async (targetProgrammeId = programmeId) => {
+      try {
+        const params = targetProgrammeId ? { programmeId: targetProgrammeId } : {};
+        const response = await apiClient.get('/dashboard/programme-coordinator', { params });
+        const data = unwrap(response);
+        setProgrammeCoordinatorDashboard(data);
+        return data;
+      } catch (err) {
+        console.warn('loadProgrammeCoordinatorDashboard failed:', err);
+        return null;
+      }
+    },
+    [programmeId]
+  );
+
+  const loadCourseCoordinatorDashboard = useCallback(
+    async (targetCourseId = courseId, targetBatchId = batchId) => {
+      if (!targetCourseId || !targetBatchId) {
+        setCourseCoordinatorDashboard(null);
+        return null;
+      }
+      try {
+        const response = await apiClient.get('/dashboard/course-coordinator', {
+          params: {
+            courseId: targetCourseId,
+            batchId: targetBatchId,
+          },
+        });
+        const data = unwrap(response);
+        setCourseCoordinatorDashboard(data);
+        return data;
+      } catch (err) {
+        console.warn('loadCourseCoordinatorDashboard failed:', err);
+        return null;
+      }
+    },
+    [courseId, batchId]
+  );
+
+  /* --- Setup Progress --- */
+  const loadSetupProgress = useCallback(async () => {
+    try {
+      let response = null;
+
+      if (role === 'DIRECTOR') {
+        const params = {};
+        if (selectedSchoolId) params.schoolId = selectedSchoolId;
+        if (user?.email) params.directorEmail = user.email;
+        response = await apiClient.get('/academic/director/setup-progress', { params });
+      } else if (role === 'HOD') {
+        const params = {};
+        if (user?.departmentId) params.departmentId = user.departmentId;
+        if (user?.email) params.hodEmail = user.email;
+        response = await apiClient.get('/academic/hod/setup-progress', { params });
+      } else if (role === 'PROGRAMME_COORDINATOR') {
+        if (!programmeId || !batchId) return null;
+        response = await apiClient.get('/academic/coordinator/setup-progress', {
+          params: {
+            coordinatorEmail: user?.email,
+            programmeId,
+            batchId,
+          },
+        });
+      } else if (role === 'FACULTY' || role === 'COURSE_COORDINATOR') {
+        const targetOfferingOrCourse = courseOfferingId || courseId;
+        if (!targetOfferingOrCourse) return null;
+        response = await apiClient.get('/academic/course-coordinator/setup-progress', {
+          params: {
+            coordinatorEmail: user?.email,
+            courseId: targetOfferingOrCourse,
+          },
+        });
+      } else {
+        return null;
+      }
+
+      const data = unwrap(response);
+      setSetupProgress(data);
+      return data;
+    } catch (err) {
+      console.warn('loadSetupProgress failed:', err);
+      return null;
     }
   }, [
     role,
-    loadCourseCoordinators,
-  ]);
-
-  /* ======================================================================== */
-  /* Programme Outcomes                                                      */
-  /* ======================================================================== */
-
-  const loadProgrammeOutcomes =
-    useCallback(
-      async (
-        targetProgrammeId =
-          programmeId
-      ) => {
-        if (
-          !targetProgrammeId
-        ) {
-          setActivePOs([]);
-          setActivePSOs([]);
-          setActivePEOs([]);
-          setPoPsoTargets(null);
-          return;
-        }
-
-        const results =
-          await Promise.allSettled([
-            apiClient.get(
-              `/outcomes/programmes/${targetProgrammeId}/pos`
-            ),
-
-            apiClient.get(
-              `/outcomes/programmes/${targetProgrammeId}/psos`
-            ),
-
-            apiClient.get(
-              `/outcomes/programmes/${targetProgrammeId}/peos`
-            ),
-
-            apiClient.get(
-              `/outcomes/programmes/${targetProgrammeId}/targets`
-            ),
-          ]);
-
-        if (
-          results[0].status ===
-          'fulfilled'
-        ) {
-          setActivePOs(
-            unwrapList(
-              results[0].value
-            )
-          );
-        }
-
-        if (
-          results[1].status ===
-          'fulfilled'
-        ) {
-          setActivePSOs(
-            unwrapList(
-              results[1].value
-            )
-          );
-        }
-
-        if (
-          results[2].status ===
-          'fulfilled'
-        ) {
-          setActivePEOs(
-            unwrapList(
-              results[2].value
-            )
-          );
-        }
-
-        if (
-          results[3].status ===
-          'fulfilled'
-        ) {
-          setPoPsoTargets(
-            unwrap(
-              results[3].value
-            )
-          );
-        }
-      },
-      [programmeId]
-    );
-
-  useEffect(() => {
-    loadProgrammeOutcomes(
-      programmeId
-    ).catch((error) => {
-      console.error(
-        'Failed to load programme outcomes:',
-        error
-      );
-    });
-  }, [
+    selectedSchoolId,
+    user?.email,
+    user?.departmentId,
     programmeId,
-    loadProgrammeOutcomes,
+    batchId,
+    courseId,
+    courseOfferingId,
   ]);
 
   /* ======================================================================== */
-  /* Course Outcomes                                                          */
+  /* Mutators & Actions                                                       */
   /* ======================================================================== */
 
-  const loadCourseOutcomes =
-    useCallback(
-      async (
-        offeringId =
-          courseOfferingId
-      ) => {
-        if (!offeringId) {
-          setActiveCOs([]);
-          return [];
-        }
+  /* --- Setup Progress Mutator --- */
+  const saveSetupProgress = useCallback(
+    async (nextStep, completedStep) => {
+      let endpoint = null;
+      let payload = null;
 
-        const response =
-          await apiClient.get(
-            `/academic/course-offerings/${offeringId}/outcomes`
-          );
+      if (role === 'DIRECTOR') {
+        endpoint = '/academic/director/setup-progress';
+        payload = {
+          schoolId: selectedSchoolId,
+          directorEmail: user?.email,
+          currentStep: nextStep,
+          completedStep: String(completedStep),
+        };
+      } else if (role === 'HOD') {
+        endpoint = '/academic/hod/setup-progress';
+        payload = {
+          departmentId: user?.departmentId,
+          hodEmail: user?.email,
+          currentStep: nextStep,
+          completedStep: String(completedStep),
+        };
+      } else if (role === 'PROGRAMME_COORDINATOR') {
+        endpoint = '/academic/coordinator/setup-progress';
+        payload = {
+          coordinatorEmail: user?.email,
+          programmeId,
+          batchId,
+          currentStep: nextStep,
+          completedStep: String(completedStep),
+        };
+      } else if (role === 'FACULTY' || role === 'COURSE_COORDINATOR') {
+        endpoint = '/academic/course-coordinator/setup-progress';
+        payload = {
+          coordinatorEmail: user?.email,
+          courseId: courseOfferingId || courseId,
+          currentStep: nextStep,
+        };
+      } else {
+        return null;
+      }
 
-        const data =
-          unwrapList(response);
+      const response = await apiClient.post(endpoint, payload);
+      const data = unwrap(response);
+      setSetupProgress(data);
+      return data;
+    },
+    [
+      role,
+      selectedSchoolId,
+      user?.email,
+      user?.departmentId,
+      programmeId,
+      batchId,
+      courseId,
+      courseOfferingId,
+    ]
+  );
 
-        setActiveCOs(data);
+  /* --- School CRUD --- */
+  const createSchool = useCallback(async (data) => {
+    const res = await apiClient.post('/academic/schools', data);
+    const item = normalizeSchool(unwrap(res));
+    setSchools((prev) => [...prev.filter((s) => s.id !== item.id), item]);
+    return item;
+  }, []);
 
-        return data;
-      },
-      [courseOfferingId]
-    );
+  const updateSchool = useCallback(async (id, data) => {
+    const res = await apiClient.put(`/academic/schools/${id}`, data);
+    const item = normalizeSchool(unwrap(res));
+    setSchools((prev) => prev.map((s) => (s.id === id ? item : s)));
+    return item;
+  }, []);
 
-  /* ======================================================================== */
-  /* CO Mapping                                                               */
-  /* ======================================================================== */
+  /* --- Department CRUD --- */
+  const createDepartment = useCallback(async (data) => {
+    const res = await apiClient.post('/academic/departments', data);
+    const item = normalizeDepartment(unwrap(res));
+    setDepartments((prev) => [...prev.filter((d) => d.id !== item.id), item]);
+    return item;
+  }, []);
 
-  const loadCourseMapping =
-    useCallback(
-      async (
-        offeringId =
-          courseOfferingId
-      ) => {
-        if (!offeringId) {
-          setCoMapping(null);
-          return null;
-        }
+  const updateDepartment = useCallback(async (id, data) => {
+    const res = await apiClient.put(`/academic/departments/${id}`, data);
+    const item = normalizeDepartment(unwrap(res));
+    setDepartments((prev) => prev.map((d) => (d.id === id ? item : d)));
+    return item;
+  }, []);
 
-        const response =
-          await apiClient.get(
-            `/academic/course-offerings/${offeringId}/mappings`
-          );
+  const deleteDepartment = useCallback(async (id) => {
+    await apiClient.delete(`/academic/departments/${id}`);
+    setDepartments((prev) => prev.filter((d) => d.id !== id));
+  }, []);
 
-        const data =
-          unwrap(response);
+  /* --- Programme CRUD --- */
+  const createProgramme = useCallback(async (data) => {
+    const res = await apiClient.post('/academic/programmes', data);
+    const item = normalizeProgramme(unwrap(res));
+    setProgrammes((prev) => [...prev.filter((p) => p.id !== item.id), item]);
+    return item;
+  }, []);
 
-        setCoMapping(data);
+  const updateProgramme = useCallback(async (id, data) => {
+    const res = await apiClient.put(`/academic/programmes/${id}`, data);
+    const item = normalizeProgramme(unwrap(res));
+    setProgrammes((prev) => prev.map((p) => (p.id === id ? item : p)));
+    return item;
+  }, []);
 
-        return data;
-      },
-      [courseOfferingId]
-    );
+  const deleteProgramme = useCallback(async (id) => {
+    await apiClient.delete(`/academic/programmes/${id}`);
+    setProgrammes((prev) => prev.filter((p) => p.id !== id));
+  }, []);
 
-  /* ======================================================================== */
-  /* Attainment Settings                                                      */
-  /* ======================================================================== */
+  /* --- Batch CRUD --- */
+  const createBatch = useCallback(async (data) => {
+    const res = await apiClient.post('/academic/batches', data);
+    const item = normalizeBatch(unwrap(res));
+    setBatches((prev) => [...prev.filter((b) => b.id !== item.id), item]);
+    return item;
+  }, []);
 
-  const loadAttainmentSettings =
-    useCallback(
-      async (
-        targetCourseId =
-          courseId,
-        targetBatchId =
-          batchId
-      ) => {
-        if (
-          !targetCourseId
-        ) {
-          setAttainmentSettings(
-            null
-          );
+  const updateBatch = useCallback(async (id, data) => {
+    const res = await apiClient.put(`/academic/batches/${id}`, data);
+    const item = normalizeBatch(unwrap(res));
+    setBatches((prev) => prev.map((b) => (b.id === id ? item : b)));
+    return item;
+  }, []);
 
-          return null;
-        }
+  const deleteBatch = useCallback(async (id) => {
+    await apiClient.delete(`/academic/batches/${id}`);
+    setBatches((prev) => prev.filter((b) => b.id !== id));
+  }, []);
 
-        const params = {};
+  /* --- Course CRUD --- */
+  const createCourse = useCallback(async (data) => {
+    const res = await apiClient.post('/academic/courses', data);
+    const item = normalizeCourse(unwrap(res));
+    setCourses((prev) => [...prev.filter((c) => c.id !== item.id), item]);
+    return item;
+  }, []);
 
-        if (
-          targetBatchId
-        ) {
-          params.batchId =
-            targetBatchId;
-        }
+  const updateCourse = useCallback(async (id, data) => {
+    const res = await apiClient.put(`/academic/courses/${id}`, data);
+    const item = normalizeCourse(unwrap(res));
+    setCourses((prev) => prev.map((c) => (c.id === id ? item : c)));
+    return item;
+  }, []);
 
-        const response =
-          await apiClient.get(
-            `/attainment/config/${targetCourseId}`,
-            { params }
-          );
+  const deleteCourse = useCallback(async (id) => {
+    await apiClient.delete(`/academic/courses/${id}`);
+    setCourses((prev) => prev.filter((c) => c.id !== id));
+  }, []);
 
-        const data =
-          unwrap(response);
+  /* --- Course Offering CRUD --- */
+  const addCourseOffering = useCallback(async (payload) => {
+    const response = await apiClient.post('/academic/course-offerings', payload);
+    const data = normalizeOffering(unwrap(response));
 
-        setAttainmentSettings(
-          data
+    setCourseOfferings((prev) => {
+      const withoutCurrent = prev.filter((item) => item.id !== data.id);
+      return [...withoutCurrent, data];
+    });
+
+    if (data?.id) {
+      setCourseOfferingId(data.id);
+    }
+    return data;
+  }, []);
+
+  const updateCourseOffering = useCallback(
+    async (offeringId, payload) => {
+      const response = await apiClient.put(`/academic/course-offerings/${offeringId}`, payload);
+      const data = normalizeOffering(unwrap(response));
+
+      setCourseOfferings((prev) =>
+        prev.map((offering) => (offering.id === offeringId ? data : offering))
+      );
+
+      if (courseOfferingId === offeringId) {
+        setCourseOfferingId(data.id ?? offeringId);
+      }
+      return data;
+    },
+    [courseOfferingId]
+  );
+
+  const assignCourseCoordinator = useCallback(
+    async (targetCourseId, coordinatorId, targetBatchId = batchId) => {
+      const offering = courseOfferings.find(
+        (item) => item.courseId === targetCourseId && item.batchId === targetBatchId
+      );
+
+      if (!offering) {
+        throw new Error(
+          `Course Offering not found for course ${targetCourseId} and batch ${targetBatchId}`
         );
+      }
 
-        return data;
-      },
-      [
-        courseId,
-        batchId,
-      ]
-    );
+      return updateCourseOffering(offering.id, {
+        courseId: offering.courseId,
+        batchId: offering.batchId,
+        semester: offering.semester,
+        courseCoordinatorId: coordinatorId,
+      });
+    },
+    [batchId, courseOfferings, updateCourseOffering]
+  );
+
+  /* --- Course Outcomes Mutator --- */
+  const updateCourseCOs = useCallback(
+    async (newCOs, offeringId = courseOfferingId) => {
+      if (!offeringId) {
+        throw new Error('Course Offering is required to save Course Outcomes.');
+      }
+      const response = await apiClient.post(
+        `/academic/course-offerings/${offeringId}/outcomes`,
+        newCOs
+      );
+      const data = unwrapList(response);
+      setActiveCOs(data);
+      return data;
+    },
+    [courseOfferingId]
+  );
+
+  /* --- CO Mapping Mutator --- */
+  const updateCourseMapping = useCallback(
+    async (mappingPayload, offeringId = courseOfferingId) => {
+      if (!offeringId) {
+        throw new Error('Course Offering is required to save CO mapping.');
+      }
+      const response = await apiClient.put(
+        `/academic/course-offerings/${offeringId}/mappings`,
+        mappingPayload
+      );
+      const data = unwrap(response);
+      setCoMapping(data);
+      return data;
+    },
+    [courseOfferingId]
+  );
+
+  /* --- Attainment Settings Mutator --- */
+  const updateAttainmentSettings = useCallback(
+    async (payload, targetOfferingId = courseOfferingId) => {
+      if (!targetOfferingId) {
+        throw new Error('Course Offering ID is required to save attainment settings.');
+      }
+
+      const body = {
+        courseOfferingId: targetOfferingId,
+        directWeight: payload.directWeight ?? 80.0,
+        indirectWeight: payload.indirectWeight ?? 20.0,
+        internalWeight: payload.internalWeight ?? 30.0,
+        externalWeight: payload.externalWeight ?? 70.0,
+        targetThresholdPercentage:
+          payload.targetThresholdPercentage ?? payload.directThreshold ?? 60.0,
+        status: payload.status ?? 'DRAFT',
+        directLevelsJson:
+          payload.directLevelsJson ??
+          (payload.directLevels ? JSON.stringify(payload.directLevels) : null),
+        indirectLevelsJson:
+          payload.indirectLevelsJson ??
+          (payload.indirectLevels ? JSON.stringify(payload.indirectLevels) : null),
+      };
+
+      const response = await apiClient.put(`/attainment/config/${targetOfferingId}`, body);
+      const data = unwrap(response);
+      setAttainmentSettings(data);
+      return data;
+    },
+    [courseOfferingId]
+  );
+
+  /* --- Programme Targets Mutator --- */
+  const updatePoPsoTargets = useCallback(
+    async (targetProgrammeId, poTargets, psoTargets, targetBatchId = batchId) => {
+      const pId = targetProgrammeId || programmeId;
+      if (!pId) throw new Error('programmeId is required');
+
+      const payload = {
+        programmeId: pId,
+        batchId: targetBatchId || null,
+        poTargets,
+        psoTargets,
+      };
+
+      const response = await apiClient.post(`/academic/programmes/${pId}/targets`, payload);
+      const data = unwrap(response);
+      setPoPsoTargets(data);
+      return data;
+    },
+    [programmeId, batchId]
+  );
+
+  /* --- Student Mutators --- */
+  const createStudent = useCallback(
+    async (targetBatchId, studentData) => {
+      const bId = targetBatchId || batchId;
+      if (!bId) throw new Error('batchId is required');
+      const response = await apiClient.post(`/academic/batches/${bId}/students`, studentData);
+      const data = unwrap(response);
+      setStudents((prev) => [...prev, data]);
+      return data;
+    },
+    [batchId]
+  );
+
+  const deleteStudent = useCallback(async (id) => {
+    await apiClient.delete(`/academic/students/${id}`);
+    setStudents((prev) => prev.filter((s) => s.id !== id));
+  }, []);
 
   /* ======================================================================== */
-  /* CO Attainment                                                            */
+  /* Local Selection Setters (No Eager Network Requests)                      */
   /* ======================================================================== */
 
-  const loadCOAttainment =
-    useCallback(
-      async (
-        offeringId =
-          courseOfferingId
-      ) => {
-        if (!offeringId) {
-          setCoAttainment(null);
-          return null;
-        }
+  const setProgrammeId = useCallback((newProgrammeId) => {
+    setProgrammeIdState(newProgrammeId);
+    setBatchId(null);
+    setCourseId(null);
+    setCourseOfferingId(null);
+    setCourseOfferings([]);
+    setActiveCOs([]);
+    setCoMapping(null);
+    setAttainmentSettings(null);
+    setCoAttainment(null);
+    setCourseATR(null);
+  }, []);
 
-        const response =
-          await apiClient.get(
-            `/reports/attainment-main/course/${offeringId}`
-          );
-
-        const data =
-          unwrap(response);
-
-        setCoAttainment(data);
-
-        return data;
-      },
-      [courseOfferingId]
-    );
-
-  /* ======================================================================== */
-  /* Course ATR                                                               */
-  /* ======================================================================== */
-
-  const loadCourseATR =
-    useCallback(
-      async (
-        offeringId =
-          courseOfferingId
-      ) => {
-        if (!offeringId) {
-          setCourseATR(null);
-          return null;
-        }
-
-        const response =
-          await apiClient.get(
-            `/reports/course-atr/${offeringId}`
-          );
-
-        const data =
-          unwrap(response);
-
-        setCourseATR(data);
-
-        return data;
-      },
-      [courseOfferingId]
-    );
-
-  /* ======================================================================== */
-  /* Course-level workflow hydration                                         */
-  /* ======================================================================== */
-
-  useEffect(() => {
-    if (!courseOfferingId) {
-      setActiveCOs([]);
-      setCoMapping(null);
-      setCoAttainment(null);
-      setCourseATR(null);
-
-      /*
-       * Attainment settings is courseId +
-       * batchId based in the documented API.
-       */
-      setAttainmentSettings(null);
-
+  const selectCourseOffering = useCallback((offering) => {
+    if (!offering) {
+      setCourseOfferingId(null);
+      setCourseId(null);
       return;
     }
-
-    Promise.allSettled([
-      loadCourseOutcomes(
-        courseOfferingId
-      ),
-
-      loadCourseMapping(
-        courseOfferingId
-      ),
-
-      loadAttainmentSettings(
-        courseId,
-        batchId
-      ),
-
-      loadCOAttainment(
-        courseOfferingId
-      ),
-
-      loadCourseATR(
-        courseOfferingId
-      ),
-    ]).catch((error) => {
-      console.error(
-        'Course workflow hydration failed:',
-        error
-      );
-    });
-  }, [
-    courseOfferingId,
-    courseId,
-    batchId,
-    loadCourseOutcomes,
-    loadCourseMapping,
-    loadAttainmentSettings,
-    loadCOAttainment,
-    loadCourseATR,
-  ]);
-
-  /* ======================================================================== */
-  /* Director Dashboard                                                       */
-  /* ======================================================================== */
-
-  const loadDirectorDashboard =
-    useCallback(
-      async (
-        targetSchoolId =
-          selectedSchoolId
-      ) => {
-        const params = {};
-
-        if (
-          targetSchoolId
-        ) {
-          params.schoolId =
-            targetSchoolId;
-        }
-
-        if (user?.email) {
-          params.directorEmail =
-            user.email;
-        }
-
-        const response =
-          await apiClient.get(
-            '/dashboard/director',
-            { params }
-          );
-
-        const data =
-          unwrap(response);
-
-        setDirectorDashboard(
-          data
-        );
-
-        return data;
-      },
-      [
-        selectedSchoolId,
-        user?.email,
-      ]
-    );
-
-  /* ======================================================================== */
-  /* HOD Dashboard                                                            */
-  /* ======================================================================== */
-
-  const loadHodDashboard =
-    useCallback(
-      async () => {
-        const params = {};
-
-        if (
-          user?.departmentId
-        ) {
-          params.departmentId =
-            user.departmentId;
-        }
-
-        if (user?.email) {
-          params.hodEmail =
-            user.email;
-        }
-
-        const response =
-          await apiClient.get(
-            '/dashboard/hod',
-            { params }
-          );
-
-        const data =
-          unwrap(response);
-
-        setHodDashboard(data);
-
-        return data;
-      },
-      [
-        user?.departmentId,
-        user?.email,
-      ]
-    );
-
-  /* ======================================================================== */
-  /* Programme Coordinator Dashboard                                          */
-  /* ======================================================================== */
-
-  const loadProgrammeCoordinatorDashboard =
-    useCallback(
-      async (
-        targetProgrammeId =
-          programmeId
-      ) => {
-        const params = {};
-
-        if (
-          targetProgrammeId
-        ) {
-          params.programmeId =
-            targetProgrammeId;
-        }
-
-        const response =
-          await apiClient.get(
-            '/dashboard/programme-coordinator',
-            { params }
-          );
-
-        const data =
-          unwrap(response);
-
-        setProgrammeCoordinatorDashboard(
-          data
-        );
-
-        return data;
-      },
-      [programmeId]
-    );
-
-  /* ======================================================================== */
-  /* Course Coordinator Dashboard                                              */
-  /* ======================================================================== */
-
-  const loadCourseCoordinatorDashboard =
-    useCallback(
-      async (
-        targetCourseId =
-          courseId,
-        targetBatchId =
-          batchId
-      ) => {
-        if (
-          !targetCourseId ||
-          !targetBatchId
-        ) {
-          setCourseCoordinatorDashboard(
-            null
-          );
-
-          return null;
-        }
-
-        /*
-         * Backend contract:
-         *
-         * GET /dashboard/course-coordinator
-         * ?courseId=...&batchId=...
-         *
-         * This endpoint is NOT
-         * CourseOffering-ID based.
-         */
-        const response =
-          await apiClient.get(
-            '/dashboard/course-coordinator',
-            {
-              params: {
-                courseId:
-                  targetCourseId,
-
-                batchId:
-                  targetBatchId,
-              },
-            }
-          );
-
-        const data =
-          unwrap(response);
-
-        setCourseCoordinatorDashboard(
-          data
-        );
-
-        return data;
-      },
-      [
-        courseId,
-        batchId,
-      ]
-    );
-
-  /* ======================================================================== */
-  /* Setup Progress                                                           */
-  /* ======================================================================== */
-
-  const loadSetupProgress =
-    useCallback(
-      async () => {
-        let response = null;
-
-        if (
-          role ===
-          'DIRECTOR'
-        ) {
-          const params = {};
-
-          if (
-            selectedSchoolId
-          ) {
-            params.schoolId =
-              selectedSchoolId;
-          }
-
-          if (user?.email) {
-            params.directorEmail =
-              user.email;
-          }
-
-          response =
-            await apiClient.get(
-              '/academic/director/setup-progress',
-              { params }
-            );
-        } else if (
-          role === 'HOD'
-        ) {
-          const params = {};
-
-          if (
-            user?.departmentId
-          ) {
-            params.departmentId =
-              user.departmentId;
-          }
-
-          if (user?.email) {
-            params.hodEmail =
-              user.email;
-          }
-
-          response =
-            await apiClient.get(
-              '/academic/hod/setup-progress',
-              { params }
-            );
-        } else if (
-          role ===
-          'PROGRAMME_COORDINATOR'
-        ) {
-          if (
-            !programmeId ||
-            !batchId
-          ) {
-            return null;
-          }
-
-          response =
-            await apiClient.get(
-              '/academic/coordinator/setup-progress',
-              {
-                params: {
-                  coordinatorEmail:
-                    user?.email,
-
-                  programmeId,
-
-                  batchId,
-                },
-              }
-            );
-        } else if (
-          role === 'FACULTY' ||
-          role ===
-            'COURSE_COORDINATOR'
-        ) {
-          if (!courseId) {
-            return null;
-          }
-
-          response =
-            await apiClient.get(
-              '/academic/course-coordinator/setup-progress',
-              {
-                params: {
-                  coordinatorEmail:
-                    user?.email,
-
-                  courseId,
-                },
-              }
-            );
-        } else {
-          return null;
-        }
-
-        const data =
-          unwrap(response);
-
-        setSetupProgress(data);
-
-        return data;
-      },
-      [
-        role,
-        selectedSchoolId,
-        user?.email,
-        user?.departmentId,
-        programmeId,
-        batchId,
-        courseId,
-      ]
-    );
-
-  /* ======================================================================== */
-  /* Save Setup Progress                                                      */
-  /* ======================================================================== */
-
-  const saveSetupProgress =
-    useCallback(
-      async (
-        nextStep,
-        completedStep
-      ) => {
-        let endpoint = null;
-        let payload = null;
-
-        if (
-          role ===
-          'DIRECTOR'
-        ) {
-          endpoint =
-            '/academic/director/setup-progress';
-
-          payload = {
-            schoolId:
-              selectedSchoolId,
-
-            directorEmail:
-              user?.email,
-
-            currentStep:
-              nextStep,
-
-            completedStep:
-              String(
-                completedStep
-              ),
-          };
-        } else if (
-          role === 'HOD'
-        ) {
-          endpoint =
-            '/academic/hod/setup-progress';
-
-          payload = {
-            departmentId:
-              user?.departmentId,
-
-            hodEmail:
-              user?.email,
-
-            currentStep:
-              nextStep,
-
-            completedStep:
-              String(
-                completedStep
-              ),
-          };
-        } else if (
-          role ===
-          'PROGRAMME_COORDINATOR'
-        ) {
-          endpoint =
-            '/academic/coordinator/setup-progress';
-
-          payload = {
-            coordinatorEmail:
-              user?.email,
-
-            programmeId,
-
-            batchId,
-
-            currentStep:
-              nextStep,
-
-            completedStep:
-              String(
-                completedStep
-              ),
-          };
-        } else if (
-          role === 'FACULTY' ||
-          role ===
-            'COURSE_COORDINATOR'
-        ) {
-          endpoint =
-            '/academic/course-coordinator/setup-progress';
-
-          payload = {
-            coordinatorEmail:
-              user?.email,
-
-            courseId,
-
-            currentStep:
-              nextStep,
-          };
-        } else {
-          return null;
-        }
-
-        const response =
-          await apiClient.post(
-            endpoint,
-            payload
-          );
-
-        const data =
-          unwrap(response);
-
-        setSetupProgress(data);
-
-        return data;
-      },
-      [
-        role,
-        selectedSchoolId,
-        user?.email,
-        user?.departmentId,
-        programmeId,
-        batchId,
-        courseId,
-      ]
-    );
-
-  /* ======================================================================== */
-  /* Course Offering CRUD                                                     */
-  /* ======================================================================== */
-
-  const addCourseOffering =
-    useCallback(
-      async (payload) => {
-        const response =
-          await apiClient.post(
-            '/academic/course-offerings',
-            payload
-          );
-
-        const data =
-          normalizeOffering(
-            unwrap(response)
-          );
-
-        setCourseOfferings(
-          (previous) => {
-            const withoutCurrent =
-              previous.filter(
-                (item) =>
-                  item.id !==
-                  data.id
-              );
-
-            return [
-              ...withoutCurrent,
-              data,
-            ];
-          }
-        );
-
-        if (data?.id) {
-          setCourseOfferingId(
-            data.id
-          );
-        }
-
-        return data;
-      },
-      []
-    );
-
-  const updateCourseOffering =
-    useCallback(
-      async (
-        offeringId,
-        payload
-      ) => {
-        const response =
-          await apiClient.put(
-            `/academic/course-offerings/${offeringId}`,
-            payload
-          );
-
-        const data =
-          normalizeOffering(
-            unwrap(response)
-          );
-
-        setCourseOfferings(
-          (previous) =>
-            previous.map(
-              (offering) =>
-                offering.id ===
-                offeringId
-                  ? data
-                  : offering
-            )
-        );
-
-        if (
-          courseOfferingId ===
-          offeringId
-        ) {
-          setCourseOfferingId(
-            data.id ??
-              offeringId
-          );
-        }
-
-        return data;
-      },
-      [
-        courseOfferingId,
-      ]
-    );
-
-  const assignCourseCoordinator =
-    useCallback(
-      async (
-        targetCourseId,
-        coordinatorId,
-        targetBatchId = batchId
-      ) => {
-        const offering =
-          courseOfferings.find(
-            (item) =>
-              item.courseId ===
-                targetCourseId &&
-              item.batchId ===
-                targetBatchId
-          );
-
-        if (!offering) {
-          throw new Error(
-            `Course Offering not found for course ${targetCourseId} and batch ${targetBatchId}`
-          );
-        }
-
-        return updateCourseOffering(
-          offering.id,
-          {
-            courseId:
-              offering.courseId,
-
-            batchId:
-              offering.batchId,
-
-            semester:
-              offering.semester,
-
-            courseCoordinatorId:
-              coordinatorId,
-          }
-        );
-      },
-      [
-        batchId,
-        courseOfferings,
-        updateCourseOffering,
-      ]
-    );
-
-  /* ======================================================================== */
-  /* Course Outcomes                                                          */
-  /* ======================================================================== */
-
-  const updateCourseCOs =
-    useCallback(
-      async (
-        newCOs,
-        offeringId =
-          courseOfferingId
-      ) => {
-        if (!offeringId) {
-          throw new Error(
-            'Course Offering is required to save Course Outcomes.'
-          );
-        }
-
-        const response =
-          await apiClient.post(
-            `/academic/course-offerings/${offeringId}/outcomes`,
-            newCOs
-          );
-
-        const data =
-          unwrapList(response);
-
-        setActiveCOs(data);
-
-        return data;
-      },
-      [
-        courseOfferingId,
-      ]
-    );
-
-  /* ======================================================================== */
-  /* CO Mapping                                                               */
-  /* ======================================================================== */
-
-  const updateCourseMapping =
-    useCallback(
-      async (
-        mappingPayload,
-        offeringId =
-          courseOfferingId
-      ) => {
-        if (!offeringId) {
-          throw new Error(
-            'Course Offering is required to save CO mapping.'
-          );
-        }
-
-        const response =
-          await apiClient.put(
-            `/academic/course-offerings/${offeringId}/mappings`,
-            mappingPayload
-          );
-
-        const data =
-          unwrap(response);
-
-        setCoMapping(data);
-
-        return data;
-      },
-      [
-        courseOfferingId,
-      ]
-    );
-
-  /* ======================================================================== */
-  /* Attainment Settings                                                      */
-  /* ======================================================================== */
-
-  const updateAttainmentSettings =
-    useCallback(
-      async (
-        payload,
-        targetCourseId =
-          courseId,
-        targetBatchId =
-          batchId
-      ) => {
-        if (
-          !targetCourseId
-        ) {
-          throw new Error(
-            'Course ID is required to save attainment settings.'
-          );
-        }
-
-        const body = {
-          ...payload,
-
-          /*
-           * Send the identifiers explicitly when
-           * the backend DTO supports them.
-           */
-          courseId:
-            targetCourseId,
-
-          ...(targetBatchId
-            ? {
-                batchId:
-                  targetBatchId,
-              }
-            : {}),
-        };
-
-        const response =
-          await apiClient.put(
-            `/attainment/config/${targetCourseId}`,
-            body
-          );
-
-        const data =
-          unwrap(response);
-
-        setAttainmentSettings(
-          data
-        );
-
-        return data;
-      },
-      [
-        courseId,
-        batchId,
-      ]
-    );
-
-  /* ======================================================================== */
-  /* Programme selection                                                      */
-  /* ======================================================================== */
-
-  const setProgrammeId =
-    useCallback(
-      (newProgrammeId) => {
-        setProgrammeIdState(
-          newProgrammeId
-        );
-
-        /*
-         * A programme change invalidates
-         * all child selections.
-         */
-        setBatchId(null);
-        setCourseId(null);
-        setCourseOfferingId(
-          null
-        );
-        setCourseOfferings([]);
-        setActiveCOs([]);
-        setCoMapping(null);
-        setAttainmentSettings(
-          null
-        );
-        setCoAttainment(null);
-        setCourseATR(null);
-      },
-      []
-    );
-
-  /* ======================================================================== */
-  /* Course Offering selection                                                */
-  /* ======================================================================== */
-
-  const selectCourseOffering =
-    useCallback(
-      (offering) => {
-        if (!offering) {
-          setCourseOfferingId(
-            null
-          );
-          setCourseId(null);
-
-          return;
-        }
-
-        setCourseOfferingId(
-          offering.id
-        );
-
-        setCourseId(
-          offering.courseId
-        );
-
-        setBatchId(
-          offering.batchId
-        );
-      },
-      []
-    );
+    setCourseOfferingId(offering.id);
+    setCourseId(offering.courseId);
+    setBatchId(offering.batchId);
+  }, []);
 
   /* ======================================================================== */
   /* Context value                                                            */
@@ -2227,9 +1104,7 @@ export function AcademicProvider({
 
   const value = {
     loading,
-
     role,
-
     user,
 
     /* School */
@@ -2238,24 +1113,30 @@ export function AcademicProvider({
     selectedSchoolId,
     setSelectedSchoolId,
     loadSchools,
+    createSchool,
+    addSchool: createSchool,
+    updateSchool,
 
     /* Departments */
     departments,
     loadDepartments,
+    createDepartment,
+    addDepartment: createDepartment,
+    updateDepartment,
+    deleteDepartment,
 
     /* Programmes */
     programmes,
-
-    masterProgrammes:
-      programmes,
-
-    allMasterProgrammes:
-      programmes,
-
+    masterProgrammes: programmes,
+    allMasterProgrammes: programmes,
     selectedProgramme,
     programmeId,
     setProgrammeId,
     loadProgrammes,
+    createProgramme,
+    addProgramme: createProgramme,
+    updateProgramme,
+    deleteProgramme,
 
     /* Batches */
     batches,
@@ -2263,6 +1144,10 @@ export function AcademicProvider({
     setBatchId,
     selectedBatch,
     loadBatches,
+    createBatch,
+    addBatch: createBatch,
+    updateBatch,
+    deleteBatch,
 
     /* Academic year */
     academicYear,
@@ -2275,6 +1160,10 @@ export function AcademicProvider({
     courseId,
     setCourseId,
     loadCourses,
+    createCourse,
+    addCourse: createCourse,
+    updateCourse,
+    deleteCourse,
 
     /* Course Offerings */
     courseOfferings,
@@ -2286,11 +1175,14 @@ export function AcademicProvider({
     loadCourseOfferings,
     loadCourseOffering,
     addCourseOffering,
+    createCourseOffering: addCourseOffering,
     updateCourseOffering,
     assignCourseCoordinator,
 
-    /* Course Coordinators */
+    /* Course Coordinators & Faculty */
     courseCoordinators,
+    facultyList,
+    loadCourseCoordinators,
 
     /* Programme Outcomes */
     activePOs,
@@ -2298,6 +1190,9 @@ export function AcademicProvider({
     activePEOs,
     poPsoTargets,
     loadProgrammeOutcomes,
+    loadProgrammeTargets,
+    updatePoPsoTargets,
+    saveProgrammeTargets: updatePoPsoTargets,
 
     /* Course Outcomes */
     activeCOs,
@@ -2314,14 +1209,13 @@ export function AcademicProvider({
     attainmentSettings,
     loadAttainmentSettings,
     updateAttainmentSettings,
-
     coAttainment,
     loadCOAttainment,
 
     /* ATR */
     programmeATR,
     setProgrammeATR,
-
+    loadProgrammeATR,
     courseATR,
     loadCourseATR,
 
@@ -2330,7 +1224,6 @@ export function AcademicProvider({
     hodDashboard,
     programmeCoordinatorDashboard,
     courseCoordinatorDashboard,
-
     loadDirectorDashboard,
     loadHodDashboard,
     loadProgrammeCoordinatorDashboard,
@@ -2344,12 +1237,13 @@ export function AcademicProvider({
     /* Students */
     students,
     setStudents,
+    loadStudents,
+    createStudent,
+    deleteStudent,
   };
 
   return (
-    <AcademicContext.Provider
-      value={value}
-    >
+    <AcademicContext.Provider value={value}>
       {children}
     </AcademicContext.Provider>
   );
@@ -2360,17 +1254,10 @@ export function AcademicProvider({
 /* ========================================================================== */
 
 export function useAcademic() {
-  const context =
-    useContext(
-      AcademicContext
-    );
-
+  const context = useContext(AcademicContext);
   if (!context) {
-    throw new Error(
-      'useAcademic must be used within an AcademicProvider'
-    );
+    throw new Error('useAcademic must be used within an AcademicProvider');
   }
-
   return context;
 }
 

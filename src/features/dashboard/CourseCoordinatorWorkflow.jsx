@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  BookOpen, Target, Map, Upload, ClipboardList,
-  BarChart2, FileText, Layers, Check, ArrowRight, ArrowLeft, X, ChevronDown,
+  BookOpen, Map, Upload, ClipboardList,
+  BarChart2, FileText, Check, ArrowRight, ArrowLeft, X, ChevronDown,
   CheckCircle2,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import ErrorBoundary from '../../components/common/ErrorBoundary';
 
 // ── Inline step components ─────────────────────────────────────────────────────
 import OutcomesManagement from '../outcomes/OutcomesManagement';
@@ -14,7 +15,6 @@ import EndSemMarksHub from '../marks/EndSemMarksHub';
 import CourseEndSurveyHub from '../survey/CourseEndSurveyHub';
 import COAttainmentEngine from '../coAttainment/COAttainmentEngine';
 import CourseATR from '../atr/CourseATR';
-import ProgrammeATR from '../atr/ProgrammeATR';
 
 // ── Style tokens ───────────────────────────────────────────────────────────────
 const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -40,26 +40,29 @@ export default function CourseCoordinatorWorkflow() {
     availableCourses          = [],
     courses                   = [],
     setCourseId               = () => {},
-    selectedCourse,
-    academicYear,
-    attainmentConfigs         = {},
-    activeCOs                 = [],
+    selectedCourse            = null,
     workflowProgressStore     = {},
+    ccWorkflowProgress        = null,
+    courseOfferingId          = null,
     markWorkflowStepComplete  = () => {},
   } = useAcademic();
 
-  const course     = selectedCourse || availableCourses[0];
-  const config     = course?.id ? (attainmentConfigs[course.id] || {}) : {};
-  const courseCOs  = course?.courseOutcomes || activeCOs || [];
-  const courseProgress = workflowProgressStore[course?.id || 'crs-1'] || {};
+  const course = selectedCourse || availableCourses[0] || null;
+  const courseId = course?.id || null;
+  const courseProgress = (courseOfferingId && workflowProgressStore[courseOfferingId]) || (courseId && workflowProgressStore[courseId]) || ccWorkflowProgress || {};
 
-  // ── Per-step completion flags (strictly based on completed & saved workflow steps) ──
-  const stepDone = STEPS.map((s) => {
-    return !!courseProgress[s.path];
+  // ── Per-step completion flags ──
+  const stepDone = STEPS.map((s, idx) => {
+    if (Array.isArray(courseProgress?.stepStatus)) {
+      return !!courseProgress.stepStatus[idx];
+    }
+    if (Array.isArray(courseProgress?.completedSteps)) {
+      return courseProgress.completedSteps.includes(s.number);
+    }
+    return !!courseProgress?.[s.path] || !!courseProgress?.[s.number];
   });
 
   const completedCount = stepDone.filter(Boolean).length;
-  const progressPct    = Math.round((completedCount / STEPS.length) * 100);
 
   // Compute the current in-progress step (first incomplete step)
   const firstIncompleteIdx = stepDone.findIndex((done) => !done);
@@ -92,14 +95,18 @@ export default function CourseCoordinatorWorkflow() {
 
   // ── Save & Next ──────────────────────────────────────────────────────────────
   const handleSaveAndNext = () => {
-    markWorkflowStepComplete(course?.id, STEPS[currentStep - 1].path);
+    if (courseId) {
+      markWorkflowStepComplete(courseOfferingId || courseId, STEPS[currentStep - 1].path);
+    }
     if (currentStep < STEPS.length) {
       goToStep(currentStep + 1);
     }
   };
 
   const handleFinish = () => {
-    markWorkflowStepComplete(course?.id, STEPS[STEPS.length - 1].path);
+    if (courseId) {
+      markWorkflowStepComplete(courseOfferingId || courseId, STEPS[STEPS.length - 1].path);
+    }
     navigate('/dashboard');
   };
 
@@ -136,7 +143,10 @@ export default function CourseCoordinatorWorkflow() {
                 const nextCourseId = e.target.value;
                 setCourseId(nextCourseId);
                 const nextProg = workflowProgressStore[nextCourseId] || {};
-                const nextIncompleteIdx = STEPS.findIndex((s) => !nextProg[s.path]);
+                const nextIncompleteIdx = STEPS.findIndex((s, idx) => {
+                  if (Array.isArray(nextProg?.stepStatus)) return !nextProg.stepStatus[idx];
+                  return !nextProg[s.path];
+                });
                 const nextStepNum = nextIncompleteIdx !== -1 ? nextIncompleteIdx + 1 : 1;
                 goToStep(nextStepNum);
               }}
@@ -168,8 +178,6 @@ export default function CourseCoordinatorWorkflow() {
           </button>
         </div>
       </div>
-
-      {/* Top Banner Header with Course Selector */}
 
       {/* ── STEP STEPPER (icon circles) ───────────────────────────────────────── */}
       <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px' }}>
@@ -226,25 +234,30 @@ export default function CourseCoordinatorWorkflow() {
         </div>
       </div>
 
-      {/* ── STEP CONTENT ──────────────────────────────────────────────────────── */}
+      {/* ── STEP CONTENT WITH STEP-LEVEL ERROR BOUNDARY ───────────────────────── */}
       <div style={{ ...surface, padding: '0', marginBottom: '20px', overflow: 'hidden' }}>
-        {currentStep === 1 && <OutcomesManagement hideFooter />}
-        {currentStep === 2 && <COMappingMatrix hideFooter />}
-        {currentStep === 3 && <EndSemMarksHub hideFooter />}
-        {currentStep === 4 && <CourseEndSurveyHub hideFooter />}
-        {currentStep === 5 && <COAttainmentEngine hideFooter />}
-        {currentStep === 6 && (
-          <div>
-            <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 24px' }}>
-              <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>
-                Course ATR
-              </h3>
+        <ErrorBoundary
+          fallbackTitle={`Step ${currentStep} Error (${currentStepMeta.title})`}
+          fallbackMessage={`An error occurred while loading ${currentStepMeta.title}. Other workflow steps and navigation remain available.`}
+        >
+          {currentStep === 1 && <OutcomesManagement hideFooter />}
+          {currentStep === 2 && <COMappingMatrix hideFooter />}
+          {currentStep === 3 && <EndSemMarksHub hideFooter />}
+          {currentStep === 4 && <CourseEndSurveyHub hideFooter />}
+          {currentStep === 5 && <COAttainmentEngine hideFooter />}
+          {currentStep === 6 && (
+            <div>
+              <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 24px' }}>
+                <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a', fontWeight: '800' }}>
+                  Course ATR
+                </h3>
+              </div>
+              <div style={{ padding: '20px' }}>
+                <CourseATR hideFooter hideHeader />
+              </div>
             </div>
-            <div style={{ padding: '20px' }}>
-              <CourseATR hideFooter hideHeader />
-            </div>
-          </div>
-        )}
+          )}
+        </ErrorBoundary>
       </div>
 
       {/* ── FOOTER NAV ────────────────────────────────────────────────────────── */}

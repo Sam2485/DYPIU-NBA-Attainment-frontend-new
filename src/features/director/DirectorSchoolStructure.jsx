@@ -1,20 +1,66 @@
-import { useState } from 'react';
-import { Building2, Users, GraduationCap, ChevronRight, Layers, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Building2, Layers, ChevronRight } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import { ScreenLoadingState, ScreenErrorState, ScreenEmptyState } from '../../components/common/ScreenState';
 
 export default function DirectorSchoolStructure() {
   const {
-    selectedSchool = { name: 'School of Engineering & Technology', code: 'SET', dean: 'School Director', estYear: '2019' },
+    selectedSchool = null,
     departments = [],
     masterProgrammes = [],
+    loadSchools,
+    loadDepartments,
+    loadProgrammes,
   } = useAcademic();
 
-  const [expandedDeptId, setExpandedDeptId] = useState(departments[0]?.id || 'dept-1');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [expandedDeptId, setExpandedDeptId] = useState(null);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await Promise.allSettled([
+        loadSchools ? loadSchools() : Promise.resolve(),
+        loadDepartments ? loadDepartments() : Promise.resolve(),
+        loadProgrammes ? loadProgrammes() : Promise.resolve(),
+      ]);
+    } catch (err) {
+      console.warn('DirectorSchoolStructure fetch failed:', err);
+      setError(err?.customMessage || err?.message || 'Failed to load school structure.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    if (departments.length > 0 && expandedDeptId === null) {
+      setExpandedDeptId(departments[0].id);
+    }
+  }, [departments, expandedDeptId]);
 
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
   const ink = '#0f172a';
   const muted = '#64748b';
   const accent = '#4f46e5';
+
+  if (loading && departments.length === 0 && !selectedSchool) {
+    return <ScreenLoadingState message="Loading School Structure..." />;
+  }
+
+  if (error && departments.length === 0 && !selectedSchool) {
+    return <ScreenErrorState title="Failed to load School Structure" message={error} onRetry={fetchData} />;
+  }
+
+  const schoolDisplayName = selectedSchool?.name || 'School of Engineering & Technology';
+  const schoolDisplayCode = selectedSchool?.code || 'SET';
+  const schoolDeanName = selectedSchool?.dean || 'School Director';
+  const schoolEstYear = selectedSchool?.estYear || '—';
 
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
@@ -28,7 +74,7 @@ export default function DirectorSchoolStructure() {
           School Structure & Hierarchy
         </h2>
         <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-          {selectedSchool.name} ({selectedSchool.code})
+          {schoolDisplayName} ({schoolDisplayCode})
         </p>
       </div>
 
@@ -39,21 +85,21 @@ export default function DirectorSchoolStructure() {
             <Building2 size={20} />
           </div>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{selectedSchool.name}</div>
+            <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{schoolDisplayName}</div>
             <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>
-              Dean: <strong style={{ color: ink }}>{selectedSchool.dean}</strong>
-              &nbsp;·&nbsp; Est. {selectedSchool.estYear}
+              Dean: <strong style={{ color: ink }}>{schoolDeanName}</strong>
+              &nbsp;·&nbsp; Est. {schoolEstYear}
             </div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <div style={{ ...surface, padding: '10px 18px', textAlign: 'center', minWidth: '80px' }}>
             <div style={{ fontSize: '11px', color: muted, fontWeight: '600', marginBottom: '2px' }}>Departments</div>
-            <div style={{ fontSize: '20px', fontWeight: '800', color: ink }}>{departments.length || 4}</div>
+            <div style={{ fontSize: '20px', fontWeight: '800', color: ink }}>{departments?.length ?? 0}</div>
           </div>
           <div style={{ ...surface, padding: '10px 18px', textAlign: 'center', minWidth: '80px' }}>
             <div style={{ fontSize: '11px', color: muted, fontWeight: '600', marginBottom: '2px' }}>Programmes</div>
-            <div style={{ fontSize: '20px', fontWeight: '800', color: accent }}>{masterProgrammes.length || 8}</div>
+            <div style={{ fontSize: '20px', fontWeight: '800', color: accent }}>{masterProgrammes?.length ?? 0}</div>
           </div>
         </div>
       </div>
@@ -67,76 +113,69 @@ export default function DirectorSchoolStructure() {
       </div>
 
       {/* ── HIERARCHY TREE ───────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gap: '10px' }}>
-        {departments.map((dept) => {
-          const deptProgrammes = masterProgrammes.filter(
-            (p) => p.departmentId === dept.id || p.department === dept.name || dept.id === 'dept-1'
-          );
-          const isExpanded = expandedDeptId === dept.id;
-          const isAssigned = dept.hod && dept.hod !== 'Unassigned';
+      {departments.length === 0 ? (
+        <div style={{ ...surface, padding: '24px' }}>
+          <ScreenEmptyState title="No Departments Found" description="No departments are registered under this school structure." />
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: '10px' }}>
+          {departments.map((dept) => {
+            const deptProgrammes = masterProgrammes.filter(
+              (p) => p.departmentId === dept.id || p.department === dept.name
+            );
+            const isExpanded = expandedDeptId === dept.id;
+            const isAssigned = dept.hod && dept.hod !== 'Unassigned';
 
-          return (
-            <div key={dept.id} style={{ ...surface, overflow: 'hidden' }}>
-              {/* Dept row */}
-              <div
-                onClick={() => setExpandedDeptId(isExpanded ? null : dept.id)}
-                style={{ padding: '14px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px', borderBottom: isExpanded ? '1px solid #f1f5f9' : 'none', background: isExpanded ? '#fafafa' : '#ffffff', transition: 'background .15s' }}
-              >
-                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#eef2ff', color: accent, display: 'grid', placeItems: 'center', fontWeight: '800', fontSize: '11px', flexShrink: 0 }}>
-                  {dept.code}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: ink }}>{dept.name}</div>
-                  <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>
-                    HOD: <span style={{ color: isAssigned ? '#16a34a' : '#dc2626', fontWeight: '600' }}>{dept.hod}</span>
+            return (
+              <div key={dept.id} style={{ ...surface, overflow: 'hidden' }}>
+                {/* Dept row */}
+                <div
+                  onClick={() => setExpandedDeptId(isExpanded ? null : dept.id)}
+                  style={{ padding: '14px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px', borderBottom: isExpanded ? '1px solid #f1f5f9' : 'none', background: isExpanded ? '#fafafa' : '#ffffff', transition: 'background .15s' }}
+                >
+                  <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#eef2ff', color: accent, display: 'grid', placeItems: 'center', fontWeight: '800', fontSize: '11px', flexShrink: 0 }}>
+                    {dept.code}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13.5px', fontWeight: '700', color: ink }}>{dept.name}</div>
+                    <div style={{ fontSize: '11.5px', color: muted, marginTop: '1px' }}>
+                      HOD: <span style={{ color: isAssigned ? '#16a34a' : '#dc2626', fontWeight: '600' }}>{dept.hod || 'Unassigned'}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '11px', color: muted, background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '5px', padding: '2px 8px', fontWeight: '600' }}>
+                      {deptProgrammes.length} prog.
+                    </span>
+                    <ChevronRight size={15} style={{ color: '#94a3b8', transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '11px', color: muted, background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '5px', padding: '2px 8px', fontWeight: '600' }}>
-                    {deptProgrammes.length} prog.
-                  </span>
-                  <ChevronRight size={15} style={{ color: '#94a3b8', transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />
-                </div>
-              </div>
 
-              {/* Expanded programmes */}
-              {isExpanded && (
-                <div style={{ padding: '14px 18px', background: '#fafafa' }}>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-                    Programmes under {dept.name}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '10px' }}>
-                    {deptProgrammes.map((prog) => (
-                      <div key={prog.id} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '9px', padding: '12px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                          <span style={{ fontSize: '10.5px', fontWeight: '700', color: accent, background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '4px', padding: '1px 7px' }}>
-                            {prog.code}
-                          </span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10.5px', color: '#16a34a', fontWeight: '600' }}>
-                            <Check size={11} /> Active
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '13px', fontWeight: '700', color: ink, lineHeight: '1.3', marginBottom: '4px' }}>{prog.name}</div>
-                        <div style={{ fontSize: '11.5px', color: muted }}>
-                          Coordinator: {prog.coordinator && prog.coordinator !== 'No coordinator assigned yet' && prog.coordinator !== 'Pending HOD Assignment' ? (
-                            <span style={{ color: accent, fontWeight: '700', background: '#eef2ff', padding: '1px 6px', borderRadius: '4px' }}>
-                              {prog.coordinator}
-                            </span>
-                          ) : (
-                            <span style={{ color: '#d97706', fontWeight: '700', background: '#fffbeb', padding: '1px 6px', borderRadius: '4px' }}>
-                              No coordinator assigned yet
-                            </span>
-                          )}
-                        </div>
+                {/* Programmes list */}
+                {isExpanded && (
+                  <div style={{ padding: '12px 18px 14px 50px', background: '#f8fafc' }}>
+                    {deptProgrammes.length === 0 ? (
+                      <div style={{ fontSize: '12px', color: muted, fontStyle: 'italic' }}>No programmes added to this department.</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {deptProgrammes.map((p) => (
+                          <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                            <div>
+                              <div style={{ fontSize: '13px', fontWeight: '700', color: ink }}>{p.name}</div>
+                              <div style={{ fontSize: '11.5px', color: muted }}>
+                                Code: <strong>{p.code}</strong> &nbsp;·&nbsp; Duration: {p.durationYears || 4} Years &nbsp;·&nbsp; Coordinator: <span style={{ color: p.coordinator ? '#4f46e5' : '#94a3b8', fontWeight: '600' }}>{p.coordinator || 'Unassigned'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
     </div>
   );

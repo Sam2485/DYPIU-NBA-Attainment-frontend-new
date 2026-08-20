@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen, Target, BarChart2, FileText, ArrowRight,
-  ChevronRight, Check, Clock, AlertCircle, Upload,
+  ChevronRight, Check, Clock, Upload,
   Map, ClipboardList, TrendingUp, Award, ShieldCheck,
-  PlayCircle, Settings, Layers, AlertTriangle,
+  PlayCircle, Settings,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import { ScreenLoadingState, ScreenErrorState } from '../../components/common/ScreenState';
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -29,31 +30,65 @@ export default function DashboardOverview() {
   const navigate = useNavigate();
   const { user }  = useAuth();
   const {
-    selectedCourse,
-    selectedProgramme,
+    selectedCourse = null,
+    selectedProgramme = null,
     availableCourses = [],
-    academicYear,
+    academicYear = null,
     activePOs        = [],
     attainmentConfigs = {},
     workflowProgressStore = {},
     courseVerificationStore = {},
+    ccWorkflowProgress = null,
+    loadCourseCoordinatorDashboard,
+    loadCcSetupProgress,
+    loadCourseOutcomes,
+    loadAttainmentConfig,
+    loadVerificationStatus,
+    batchId = null,
+    courseOfferingId = null,
   } = useAcademic();
 
-  const course         = selectedCourse || availableCourses[0];
-  const courseId       = course?.id || 'crs-1';
+  const [screenLoading, setScreenLoading] = useState(false);
+  const [screenError, setScreenError] = useState(null);
+
+  const course         = selectedCourse || availableCourses[0] || null;
+  const courseId       = course?.id || null;
   const courseCode     = course?.code || '—';
   const courseName     = course?.name || 'No course selected';
   const progName       = selectedProgramme?.name || course?.programme || 'Programme';
   const progCode       = selectedProgramme?.code || '';
   const courseCOs      = course?.courseOutcomes || [];
-  const config         = course?.id ? (attainmentConfigs[course.id] || {}) : {};
-  const courseProgress = workflowProgressStore[courseId] || {};
+  const courseProgress = (courseOfferingId && workflowProgressStore[courseOfferingId]) || (courseId && workflowProgressStore[courseId]) || ccWorkflowProgress || {};
+
+  const fetchCCData = async () => {
+    if (!courseId) return;
+    setScreenLoading(true);
+    setScreenError(null);
+    try {
+      await Promise.allSettled([
+        batchId && loadCourseCoordinatorDashboard ? loadCourseCoordinatorDashboard(courseId, batchId) : Promise.resolve(),
+        loadCcSetupProgress ? loadCcSetupProgress(courseOfferingId || courseId) : Promise.resolve(),
+        loadCourseOutcomes ? loadCourseOutcomes(courseId) : Promise.resolve(),
+        (courseOfferingId || courseId) && loadAttainmentConfig ? loadAttainmentConfig(courseOfferingId || courseId) : Promise.resolve(),
+        courseOfferingId && loadVerificationStatus ? loadVerificationStatus(courseOfferingId) : Promise.resolve(),
+      ]);
+    } catch (err) {
+      console.warn('DashboardOverview fetch failed:', err);
+      setScreenError(err?.customMessage || err?.message || 'Failed to load Course Coordinator dashboard.');
+    } finally {
+      setScreenLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCCData();
+  }, [courseId, courseOfferingId, batchId]);
 
   // ── Verification status & revision requests ──────────────────────────────
-  const verificationRecord = courseVerificationStore[courseId] || {};
-  const isConfigRevision = verificationRecord.configStatus === 'REVISION_REQUESTED' || verificationRecord.configStatus === 'NEEDS_REVISION' || verificationRecord.configStatus === 'REJECTED';
-  const isCoRevision = verificationRecord.coStatus === 'REVISION_REQUESTED' || verificationRecord.coStatus === 'NEEDS_REVISION' || verificationRecord.coStatus === 'REJECTED';
-  const isAtrRevision = verificationRecord.atrStatus === 'REVISION_REQUESTED' || verificationRecord.atrStatus === 'NEEDS_REVISION' || verificationRecord.atrStatus === 'REJECTED';
+  const verificationRecord = (courseOfferingId && courseVerificationStore[courseOfferingId]) || (courseId && courseVerificationStore[courseId]) || {};
+  const isConfigRevision = verificationRecord.configStatus === 'REVISION_REQUESTED' || verificationRecord.configStatus === 'NEEDS_REVISION';
+  const isCoRevision = verificationRecord.coStatus === 'REVISION_REQUESTED' || verificationRecord.coStatus === 'NEEDS_REVISION';
+  const isAtrRevision = verificationRecord.atrStatus === 'REVISION_REQUESTED' || verificationRecord.atrStatus === 'NEEDS_REVISION';
 
   const hasAnyRevision = isConfigRevision || isCoRevision || isAtrRevision;
 
@@ -65,7 +100,7 @@ export default function DashboardOverview() {
   // ── One-time card dismissal state ─────────────────────────────────────────
   const [dismissedRevisions, setDismissedRevisions] = useState(() => {
     try {
-      const saved = sessionStorage.getItem(`dypiu_dismissed_rev_${courseId}`);
+      const saved = sessionStorage.getItem(`dypiu_dismissed_rev_${courseId || 'default'}`);
       return saved ? JSON.parse(saved) : false;
     } catch {
       return false;
@@ -74,7 +109,7 @@ export default function DashboardOverview() {
 
   useEffect(() => {
     try {
-      const saved = sessionStorage.getItem(`dypiu_dismissed_rev_${courseId}`);
+      const saved = sessionStorage.getItem(`dypiu_dismissed_rev_${courseId || 'default'}`);
       setDismissedRevisions(saved ? JSON.parse(saved) : false);
     } catch {
       setDismissedRevisions(false);
@@ -84,12 +119,18 @@ export default function DashboardOverview() {
   const handleAcknowledgeRevision = () => {
     setDismissedRevisions(true);
     try {
-      sessionStorage.setItem(`dypiu_dismissed_rev_${courseId}`, JSON.stringify(true));
+      sessionStorage.setItem(`dypiu_dismissed_rev_${courseId || 'default'}`, JSON.stringify(true));
     } catch {}
   };
 
-  const stepStatus = WORKFLOW_STEPS.map((s) => {
-    return !!courseProgress[s.path];
+  const stepStatus = WORKFLOW_STEPS.map((s, idx) => {
+    if (Array.isArray(courseProgress?.stepStatus)) {
+      return !!courseProgress.stepStatus[idx];
+    }
+    if (Array.isArray(courseProgress?.completedSteps)) {
+      return courseProgress.completedSteps.includes(s.step);
+    }
+    return !!courseProgress?.[s.path] || !!courseProgress?.[s.step];
   });
 
   const completedCount = stepStatus.filter(Boolean).length;
@@ -176,6 +217,14 @@ export default function DashboardOverview() {
     }
     return { hasRevision: false };
   };
+
+  if (screenLoading && !course && availableCourses.length === 0) {
+    return <ScreenLoadingState message="Loading Course Coordinator Dashboard..." />;
+  }
+
+  if (screenError && !course && availableCourses.length === 0) {
+    return <ScreenErrorState title="Failed to load Dashboard" message={screenError} onRetry={fetchCCData} />;
+  }
 
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
@@ -364,7 +413,7 @@ export default function DashboardOverview() {
               <Award size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{activePOs.length || 12}</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{activePOs?.length ?? 0}</div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>POs in programme</div>
         </div>
 
@@ -421,7 +470,6 @@ export default function DashboardOverview() {
                   e.currentTarget.style.borderColor = '#e2e8f0';
                 }}
               >
-                {/* Exclamation mark icon for requested revision (doubled size) */}
                 {hasRev && (
                   <div style={{
                     position: 'absolute',
@@ -504,7 +552,7 @@ export default function DashboardOverview() {
                   transition: 'box-shadow .15s ease',
                   boxShadow: current ? '0 0 0 2px #c7d2fe33' : 'none',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.06)'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.05)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.boxShadow = current ? '0 0 0 2px #c7d2fe33' : 'none'; }}
               >
                 {/* Step icon circle */}

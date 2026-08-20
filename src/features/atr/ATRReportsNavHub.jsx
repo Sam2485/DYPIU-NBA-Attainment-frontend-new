@@ -51,7 +51,8 @@ export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
     activePOs = [],
     activePSOs = [],
     poPsoTargets = {},
-    programmeId = 'prog-1',
+    programmeId = null,
+    courseOfferingId = null,
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
@@ -63,8 +64,8 @@ export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
 
   const isPreviousYear = selectedYear !== (academicYear || '2025-26');
 
-  const courseId = selectedCourse?.id || 'crs-1';
-  const vRecord = courseVerificationStore[courseId] || {};
+  const courseId = courseOfferingId || selectedCourse?.id || null;
+  const vRecord = (courseId && courseVerificationStore[courseId]) || {};
   const progStatus = vRecord.programmeAtrStatus || 'DRAFT';
   const progRemarks = vRecord.programmeAtrRemarks || '';
   const verifierName = vRecord.verifiedBy || 'Programme Coordinator';
@@ -72,7 +73,7 @@ export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
 
   // Derive Programme ATR Rows dynamically per selected course
   const buildProgEntries = () => {
-    const seeds = COURSE_PROG_SEEDS[courseId] || COURSE_PROG_SEEDS['crs-1'];
+    const seeds = (courseId && COURSE_PROG_SEEDS[courseId]) || COURSE_PROG_SEEDS['crs-1'] || {};
     const normPSOs = activePSOs.map((p) => ({ ...p, competencies: p.competencies ?? [] }));
     const rawRows = [
       ...activePOs.map((po) => {

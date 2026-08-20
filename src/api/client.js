@@ -1,49 +1,150 @@
 import axios from 'axios';
 
-// Helper to resolve and normalize the API base URL
+/* ========================================================================== */
+/* Base URL                                                                   */
+/* ========================================================================== */
+
 const resolveBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
-  if (envUrl && envUrl.trim() !== '' && !envUrl.startsWith('/')) {
+
+  if (envUrl && envUrl.trim() !== '') {
     const trimmed = envUrl.trim().replace(/\/+$/, '');
-    return trimmed.endsWith('/api/v1') ? trimmed : `${trimmed}/api/v1`;
+
+    return trimmed.endsWith('/api/v1')
+      ? trimmed
+      : `${trimmed}/api/v1`;
   }
-  // Auto-detect browser host IP/domain and point to backend port 8010
-  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+
+  if (
+    typeof window !== 'undefined' &&
+    window.location?.hostname
+  ) {
     const protocol = window.location.protocol || 'http:';
     const host = window.location.hostname;
-    // return `${protocol}//${host}:8010/api/v1`;
-    return `https://localhost:8080/api/v1`
+
+    return `${protocol}//${host}:8080/api/v1`;
   }
-  // return 'http://localhost:8010/api/v1';
-  return 'https://localhost:8080/api/v1'
+
+  return 'https://localhost:8080/api/v1';
 };
 
-// Base API Client configured for backend integration
+/* ========================================================================== */
+/* In-memory authentication token                                             */
+/* ========================================================================== */
+
+/*
+ * AuthContext will set this immediately after successful login.
+ *
+ * This keeps apiClient and AuthContext synchronized without requiring
+ * apiClient to directly depend on React context.
+ */
+let authToken = null;
+
+export const setApiAuthToken = (token) => {
+  authToken = token || null;
+};
+
+export const clearApiAuthToken = () => {
+  authToken = null;
+};
+
+export const getApiAuthToken = () => {
+  return authToken;
+};
+
+/* ========================================================================== */
+/* Client                                                                     */
+/* ========================================================================== */
+
 const apiClient = axios.create({
   baseURL: resolveBaseUrl(),
+
   headers: {
     'Content-Type': 'application/json',
   },
+
   timeout: 30000,
 });
 
-// Request Interceptor: Attach JWT Token if present
+/* ========================================================================== */
+/* Request body sanitizer                                                      */
+/* ========================================================================== */
+
+const sanitizeRequestBody = (data) => {
+  if (!data) {
+    return data;
+  }
+
+  if (
+    typeof FormData !== 'undefined' &&
+    data instanceof FormData
+  ) {
+    return '[FormData]';
+  }
+
+  if (typeof data !== 'object') {
+    return data;
+  }
+
+  try {
+    const sanitized = { ...data };
+
+    [
+      'password',
+      'currentPassword',
+      'newPassword',
+      'confirmPassword',
+      'accessToken',
+      'refreshToken',
+      'token',
+      'authorization',
+    ].forEach((key) => {
+      if (key in sanitized) {
+        sanitized[key] = '[REDACTED]';
+      }
+    });
+
+    return sanitized;
+  } catch {
+    return '[Unserializable request body]';
+  }
+};
+
+/* ========================================================================== */
+/* Request Interceptor                                                        */
+/* ========================================================================== */
+
 apiClient.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem('authToken') || localStorage.getItem('authToken');
+    const token = authToken;
+
+    config.headers = config.headers || {};
+
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.Authorization =
+        `Bearer ${token}`;
     }
-    // If sending FormData (multipart file upload), let browser set Content-Type with boundary
-    if (config.data instanceof FormData) {
-      delete config.headers['Content-Type'];
-    }
+
+    console.log('[AUTH DEBUG]', {
+      url: config.url,
+      hasToken: Boolean(token),
+      hasAuthorizationHeader:
+        Boolean(config.headers.Authorization),
+      authorizationPrefix:
+        config.headers.Authorization
+          ? config.headers.Authorization.substring(0, 20) + '...'
+          : null,
+    });
+
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Format errors and handle auth expiry
+/* ========================================================================== */
+/* Response Interceptor                                                       */
+/* ========================================================================== */
+
 apiClient.interceptors.response.use(
   (response) => {
     console.log('[API RESPONSE]', {
@@ -51,12 +152,16 @@ apiClient.interceptors.response.use(
       url: response.config?.url,
       status: response.status,
       params: response.config?.params,
-      requestBody: response.config?.data,
+      requestBody: sanitizeRequestBody(
+        response.config?.data
+      ),
       response: response.data,
     });
 
-    // IMPORTANT:
-    // Preserve existing behavior.
+    /*
+     * Preserve the existing application contract:
+     * callers receive response.data rather than AxiosResponse.
+     */
     return response.data;
   },
 
@@ -66,23 +171,48 @@ apiClient.interceptors.response.use(
       url: error.config?.url,
       status: error.response?.status,
       params: error.config?.params,
-      requestBody: error.config?.data,
+      requestBody: sanitizeRequestBody(
+        error.config?.data
+      ),
       response: error.response?.data,
       message: error.message,
     });
 
+    /* ---------------------------------------------------------------------- */
+    /* Authentication expiry                                                 */
+    /* ---------------------------------------------------------------------- */
+
     if (error.response?.status === 401) {
+      /*
+       * Clear the in-memory token immediately so subsequent requests
+       * do not keep sending an expired/invalid JWT.
+       */
+      clearApiAuthToken();
+
+      /*
+       * Keep legacy cleanup for any old browser-stored auth state.
+       * This can be removed later when authentication persistence
+       * is fully cleaned up.
+       */
       sessionStorage.removeItem('authToken');
       sessionStorage.removeItem('refreshToken');
       sessionStorage.removeItem('nba_user');
       sessionStorage.removeItem('role');
       sessionStorage.removeItem('user');
+
+      localStorage.removeItem('authToken');
     }
 
-    // Extract exact backend error details
+    /* ---------------------------------------------------------------------- */
+    /* Backend error normalization                                            */
+    /* ---------------------------------------------------------------------- */
+
     if (error.response) {
-      const { status, statusText, data } =
-        error.response;
+      const {
+        status,
+        statusText,
+        data,
+      } = error.response;
 
       let detailedMessage = '';
 
@@ -112,13 +242,10 @@ apiClient.interceptors.response.use(
           }`;
       }
 
-      error.customMessage =
-        detailedMessage;
+      error.customMessage = detailedMessage;
     } else if (error.request) {
       error.customMessage =
-        'Unable to connect to backend server at ' +
-        resolveBaseUrl() +
-        '. Please ensure backend is running on port 8010.';
+        `Unable to connect to backend server at ${resolveBaseUrl()}.`;
     } else {
       error.customMessage =
         error.message ||

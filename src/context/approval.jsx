@@ -2,15 +2,13 @@ import {
   createContext,
   useContext,
   useState,
-  useEffect,
   useCallback,
 } from 'react';
 
 import { useAuth } from './auth';
 import apiClient from '../api/client';
 
-export const ApprovalContext =
-  createContext(null);
+export const ApprovalContext = createContext(null);
 
 /* ========================================================================== */
 /* Helpers                                                                    */
@@ -21,15 +19,11 @@ const unwrapResponse = (response) => {
     return null;
   }
 
-  if (
-    response?.data?.data !== undefined
-  ) {
+  if (response?.data?.data !== undefined) {
     return response.data.data;
   }
 
-  if (
-    response?.data !== undefined
-  ) {
+  if (response?.data !== undefined) {
     return response.data;
   }
 
@@ -37,81 +31,31 @@ const unwrapResponse = (response) => {
 };
 
 const unwrapList = (response) => {
-  const value =
-    unwrapResponse(response);
-
-  return Array.isArray(value)
-    ? value
-    : [];
+  const value = unwrapResponse(response);
+  return Array.isArray(value) ? value : [];
 };
 
-const normalizeApproval = (
-  approval
-) => {
+const normalizeApproval = (approval) => {
   if (!approval) {
     return null;
   }
 
   return {
     ...approval,
-
-    id:
-      approval.id ??
-      approval.approvalId ??
-      null,
-
-    status:
-      approval.status ??
-      null,
-
-    courseOfferingId:
-      approval.courseOfferingId ??
-      null,
-
-    programmeId:
-      approval.programmeId ??
-      null,
-
-    batchId:
-      approval.batchId ??
-      null,
-
-    courseId:
-      approval.courseId ??
-      null,
-
-    type:
-      approval.type ??
-      null,
-
-    resourceId:
-      approval.resourceId ??
-      null,
-
-    submittedBy:
-      approval.submittedBy ??
-      null,
-
-    submittedAt:
-      approval.submittedAt ??
-      null,
-
-    approvedBy:
-      approval.approvedBy ??
-      null,
-
-    approvedAt:
-      approval.approvedAt ??
-      null,
-
-    revisionRequestedBy:
-      approval.revisionRequestedBy ??
-      null,
-
-    revisionRequestedAt:
-      approval.revisionRequestedAt ??
-      null,
-
+    id: approval.id ?? approval.approvalId ?? null,
+    status: approval.status ?? null,
+    courseOfferingId: approval.courseOfferingId ?? null,
+    programmeId: approval.programmeId ?? null,
+    batchId: approval.batchId ?? null,
+    courseId: approval.courseId ?? null,
+    type: approval.type ?? null,
+    resourceId: approval.resourceId ?? null,
+    submittedBy: approval.submittedBy ?? null,
+    submittedAt: approval.submittedAt ?? null,
+    approvedBy: approval.approvedBy ?? null,
+    approvedAt: approval.approvedAt ?? null,
+    revisionRequestedBy: approval.revisionRequestedBy ?? null,
+    revisionRequestedAt: approval.revisionRequestedAt ?? null,
     remarks:
       approval.remarks ??
       approval.message ??
@@ -124,37 +68,23 @@ const normalizeApproval = (
 /* Provider                                                                   */
 /* ========================================================================== */
 
-export function ApprovalProvider({
-  children,
-}) {
-  const {
-    user,
-    role,
-  } = useAuth();
+export function ApprovalProvider({ children }) {
+  const { user, role } = useAuth();
 
   /* ------------------------------------------------------------------------ */
-  /* State                                                                     */
+  /* State                                                                    */
   /* ------------------------------------------------------------------------ */
 
-  const [
-    directorApprovals,
-    setDirectorApprovals,
-  ] = useState([]);
-
-  const [
-    hodApprovals,
-    setHodApprovals,
-  ] = useState([]);
+  const [directorApprovals, setDirectorApprovals] = useState([]);
+  const [hodApprovals, setHodApprovals] = useState([]);
 
   /*
-   * Component verification state indexed
-   * by CourseOffering ID.
-   *
+   * Component verification state indexed by CourseOffering ID / key.
    * Example:
-   *
    * {
    *   "offering-101": {
    *      key: "offering-101",
+   *      courseOfferingId: "offering-101",
    *      courseOutcomeStatus: "PENDING",
    *      attainmentSettingsStatus: "APPROVED",
    *      courseAtrStatus: "REVISION_REQUESTED",
@@ -162,976 +92,580 @@ export function ApprovalProvider({
    *   }
    * }
    */
-  const [
-    courseVerificationStore,
-    setCourseVerificationStore,
-  ] = useState({});
+  const [courseVerificationStore, setCourseVerificationStore] = useState({});
 
-  const [
-    loading,
-    setLoading,
-  ] = useState(false);
-
-  const [
-    error,
-    setError,
-  ] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   /* ======================================================================== */
-  /* Director Approvals                                                       */
+  /* 1. Director Approvals Loader                                             */
   /* ======================================================================== */
 
-  const loadDirectorApprovals =
-    useCallback(
-      async (
-        schoolId = null
-      ) => {
-        if (
-          role !== 'DIRECTOR' &&
-          role !== 'ADMIN'
-        ) {
-          return [];
-        }
-
+  const loadDirectorApprovals = useCallback(
+    async (schoolId = null) => {
+      try {
+        setError(null);
         const params = {};
-
         if (schoolId) {
-          params.schoolId =
-            schoolId;
+          params.schoolId = schoolId;
         }
 
-        const response =
-          await apiClient.get(
-            '/approvals/director',
-            { params }
-          );
+        const response = await apiClient.get('/approvals/director', { params });
+        const list = unwrapList(response);
+        const normalized = list.map(normalizeApproval).filter(Boolean);
 
-        const list =
-          unwrapList(response);
-
-        const normalized =
-          list
-            .map(normalizeApproval)
-            .filter(Boolean);
-
-        setDirectorApprovals(
-          normalized
-        );
-
+        setDirectorApprovals(normalized);
         return normalized;
-      },
-      [role]
-    );
+      } catch (err) {
+        console.warn('loadDirectorApprovals failed:', err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to load director approvals.');
+        return [];
+      }
+    },
+    []
+  );
 
   /* ======================================================================== */
-  /* HOD Approvals                                                            */
+  /* 2. HOD Approvals Loader                                                  */
   /* ======================================================================== */
 
-  const loadHodApprovals =
-    useCallback(
-      async (
-        programmeId = null
-      ) => {
-        if (role !== 'HOD') {
-          return [];
-        }
-
+  const loadHodApprovals = useCallback(
+    async (programmeId = null, departmentId = null) => {
+      try {
+        setError(null);
         const params = {};
-
         if (programmeId) {
-          params.programmeId =
-            programmeId;
+          params.programmeId = programmeId;
+        }
+        if (departmentId) {
+          params.departmentId = departmentId;
         }
 
-        const response =
-          await apiClient.get(
-            '/approvals/hod',
-            { params }
-          );
+        const response = await apiClient.get('/approvals/hod', { params });
+        const list = unwrapList(response);
+        const normalized = list.map(normalizeApproval).filter(Boolean);
 
-        const list =
-          unwrapList(response);
-
-        const normalized =
-          list
-            .map(normalizeApproval)
-            .filter(Boolean);
-
-        setHodApprovals(
-          normalized
-        );
-
+        setHodApprovals(normalized);
         return normalized;
-      },
-      [role]
-    );
+      } catch (err) {
+        console.warn('loadHodApprovals failed:', err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to load HOD approvals.');
+        return [];
+      }
+    },
+    []
+  );
 
   /* ======================================================================== */
-  /* Initial role-specific approval load                                      */
+  /* 3. Verification Status Loader                                            */
   /* ======================================================================== */
 
-  useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      setLoading(true);
-      setError(null);
+  const getCourseVerification = useCallback(
+    async (courseOfferingId) => {
+      if (!courseOfferingId) {
+        return null;
+      }
 
       try {
-        /*
-         * Do not make up schoolId/programmeId.
-         * Existing screens can call the explicit
-         * loading functions with their selected scope.
-         */
-        if (
-          role !== 'DIRECTOR' &&
-          role !== 'ADMIN' &&
-          role !== 'HOD'
-        ) {
-          return;
-        }
+        setError(null);
+        const response = await apiClient.get('/approvals/verification-status', {
+          params: {
+            key: courseOfferingId,
+          },
+        });
 
-        /*
-         * No unscoped approval fetch here.
-         *
-         * Director/HOD approval screens should
-         * call the scoped methods explicitly.
-         */
-      } catch (err) {
-        if (mounted) {
-          setError(
-            err?.response?.data
-              ?.message ??
-              err?.response?.data
-                ?.error ??
-              err?.message ??
-              'Failed to load approvals.'
-          );
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    load();
-
-    return () => {
-      mounted = false;
-    };
-  }, [role]);
-
-  /* ======================================================================== */
-  /* Verification Status                                                      */
-  /* ======================================================================== */
-
-  /*
-   * Backend contract:
-   *
-   * GET /approvals/verification-status?key=...
-   *
-   * `key` is the CourseOffering-scoped
-   * verification key used by the backend.
-   *
-   * For course-level workflow we pass the
-   * actual CourseOffering ID.
-   */
-
-  const getCourseVerification =
-    useCallback(
-      async (
-        courseOfferingId
-      ) => {
-        if (
-          !courseOfferingId
-        ) {
-          throw new Error(
-            'courseOfferingId is required'
-          );
-        }
-
-        const response =
-          await apiClient.get(
-            '/approvals/verification-status',
-            {
-              params: {
-                key:
-                  courseOfferingId,
-              },
-            }
-          );
-
-        const data =
-          unwrapResponse(response);
+        const data = unwrapResponse(response);
 
         if (data) {
-          setCourseVerificationStore(
-            (previous) => ({
-              ...previous,
-
-              [courseOfferingId]: {
-                ...(previous[
-                  courseOfferingId
-                ] || {}),
-
-                ...data,
-
-                key:
-                  data.key ??
-                  courseOfferingId,
-
-                courseOfferingId,
-              },
-            })
-          );
+          setCourseVerificationStore((previous) => ({
+            ...previous,
+            [courseOfferingId]: {
+              ...(previous[courseOfferingId] || {}),
+              ...data,
+              key: data.key ?? courseOfferingId,
+              courseOfferingId,
+            },
+          }));
         }
 
         return data;
-      },
-      []
-    );
+      } catch (err) {
+        console.warn(`getCourseVerification(${courseOfferingId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to load verification status.');
+        return null;
+      }
+    },
+    []
+  );
 
   /* ======================================================================== */
-  /* Course Coordinator -> Submit                                             */
+  /* 4. Formal Approval Submission                                            */
   /* ======================================================================== */
 
-  /*
-   * Formal approval submission:
-   *
-   * POST /approvals/submit
-   *
-   * We do not manufacture the ApprovalRequest
-   * DTO. The caller supplies the backend payload.
-   *
-   * The only invariant we enforce here is that
-   * courseOfferingId must be present.
-   */
+  const submitCourseVerification = useCallback(
+    async ({ courseOfferingId, ...approvalRequest }) => {
+      if (!courseOfferingId) {
+        throw new Error('courseOfferingId is required');
+      }
 
-  const submitCourseVerification =
-    useCallback(
-      async ({
-        courseOfferingId,
-        ...approvalRequest
-      }) => {
-        if (
-          !courseOfferingId
-        ) {
-          throw new Error(
-            'courseOfferingId is required'
-          );
-        }
+      try {
+        setError(null);
+        const response = await apiClient.post('/approvals/submit', {
+          ...approvalRequest,
+          courseOfferingId,
+        });
 
-        const response =
-          await apiClient.post(
-            '/approvals/submit',
-            {
-              ...approvalRequest,
-              courseOfferingId,
-            }
-          );
+        const data = unwrapResponse(response);
+        const result = normalizeApproval(data);
 
-        const data =
-          unwrapResponse(response);
-
-        const result =
-          normalizeApproval(data);
-
-        /*
-         * Only update local React state after
-         * a successful backend response.
-         */
         if (result) {
-          setCourseVerificationStore(
-            (previous) => ({
-              ...previous,
-
-              [courseOfferingId]: {
-                ...(previous[
-                  courseOfferingId
-                ] || {}),
-
-                ...result,
-
-                courseOfferingId,
-              },
-            })
-          );
+          setCourseVerificationStore((previous) => ({
+            ...previous,
+            [courseOfferingId]: {
+              ...(previous[courseOfferingId] || {}),
+              ...result,
+              courseOfferingId,
+            },
+          }));
         }
 
         return result ?? data;
-      },
-      []
-    );
+      } catch (err) {
+        console.warn(`submitCourseVerification(${courseOfferingId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to submit approval.');
+        throw err;
+      }
+    },
+    []
+  );
 
   /* ======================================================================== */
-  /* Component Verification                                                   */
+  /* 5. Component Verification (Verify / Approve)                             */
   /* ======================================================================== */
 
-  /*
-   * Backend contract:
-   *
-   * PUT/POST /approvals/verify
-   *
-   * {
-   *   key,
-   *   statusType,
-   *   statusValue,
-   *   remarksValue,
-   *   verifierName
-   * }
-   */
+  const verifyStatus = useCallback(
+    async ({
+      courseOfferingId,
+      statusType,
+      statusValue = 'APPROVED',
+      remarksValue = '',
+      verifierName,
+    }) => {
+      if (!courseOfferingId) {
+        throw new Error('courseOfferingId is required');
+      }
 
-  const verifyStatus =
-    useCallback(
-      async ({
-        courseOfferingId,
-        statusType,
-        statusValue,
-        remarksValue = '',
-        verifierName,
-      }) => {
-        if (
-          !courseOfferingId
-        ) {
-          throw new Error(
-            'courseOfferingId is required'
-          );
-        }
+      if (!statusType) {
+        throw new Error('statusType is required');
+      }
 
-        if (!statusType) {
-          throw new Error(
-            'statusType is required'
-          );
-        }
+      if (
+        statusValue !== 'APPROVED' &&
+        statusValue !== 'REVISION_REQUESTED' &&
+        statusValue !== 'PENDING'
+      ) {
+        throw new Error('statusValue must be APPROVED, REVISION_REQUESTED, or PENDING');
+      }
 
-        if (
-          statusValue !==
-            'APPROVED' &&
-          statusValue !==
-            'REVISION_REQUESTED'
-        ) {
-          throw new Error(
-            'statusValue must be APPROVED or REVISION_REQUESTED'
-          );
-        }
-
-        const response =
-          await apiClient.put(
-            '/approvals/verify',
-            {
-              key:
-                courseOfferingId,
-
-              statusType,
-
-              statusValue,
-
-              remarksValue,
-
-              verifierName:
-                verifierName ??
-                user?.name ??
-                user?.username ??
-                user?.email ??
-                null,
-            }
-          );
-
-        const data =
-          unwrapResponse(response);
-
-        setCourseVerificationStore(
-          (previous) => ({
-            ...previous,
-
-            [courseOfferingId]: {
-              ...(previous[
-                courseOfferingId
-              ] || {}),
-
-              ...(data || {}),
-
-              key:
-                data?.key ??
-                courseOfferingId,
-
-              courseOfferingId,
-            },
-          })
-        );
-
-        return data;
-      },
-      [user]
-    );
-
-  /* ======================================================================== */
-  /* Request Revision                                                         */
-  /* ======================================================================== */
-
-  /*
-   * Backend exposes a separate revision
-   * endpoint. No REJECTED state is introduced.
-   */
-
-  const requestRevision =
-    useCallback(
-      async ({
-        courseOfferingId,
-        statusType,
-        remarksValue = '',
-        verifierName,
-      }) => {
-        if (
-          !courseOfferingId
-        ) {
-          throw new Error(
-            'courseOfferingId is required'
-          );
-        }
-
-        if (!statusType) {
-          throw new Error(
-            'statusType is required'
-          );
-        }
-
-        const response =
-          await apiClient.put(
-            '/approvals/request-revision',
-            {
-              key:
-                courseOfferingId,
-
-              statusType,
-
-              statusValue:
-                'REVISION_REQUESTED',
-
-              remarksValue,
-
-              verifierName:
-                verifierName ??
-                user?.name ??
-                user?.username ??
-                user?.email ??
-                null,
-            }
-          );
-
-        const data =
-          unwrapResponse(response);
-
-        setCourseVerificationStore(
-          (previous) => ({
-            ...previous,
-
-            [courseOfferingId]: {
-              ...(previous[
-                courseOfferingId
-              ] || {}),
-
-              ...(data || {}),
-
-              key:
-                data?.key ??
-                courseOfferingId,
-
-              courseOfferingId,
-            },
-          })
-        );
-
-        return data;
-      },
-      [user]
-    );
-
-  /* ======================================================================== */
-  /* Compatibility helper                                                     */
-  /* ======================================================================== */
-
-  /*
-   * Existing screens can continue calling:
-   *
-   * updateCourseVerificationStatus(
-   *   courseOfferingId,
-   *   statusType,
-   *   statusValue,
-   *   remarksValue,
-   *   verifierName
-   * )
-   *
-   * APPROVED and REVISION_REQUESTED only.
-   */
-
-  const updateCourseVerificationStatus =
-    useCallback(
-      async (
-        courseOfferingId,
-        statusType,
-        statusValue,
-        remarksValue = '',
-        verifierName = null
-      ) => {
-        if (
-          statusValue ===
-          'REVISION_REQUESTED'
-        ) {
-          return requestRevision({
-            courseOfferingId,
-            statusType,
-            remarksValue,
-            verifierName,
-          });
-        }
-
-        return verifyStatus({
-          courseOfferingId,
+      try {
+        setError(null);
+        const payload = {
+          key: courseOfferingId,
           statusType,
           statusValue,
           remarksValue,
+          verifierName:
+            verifierName ??
+            user?.name ??
+            user?.username ??
+            user?.email ??
+            null,
+        };
+
+        const response = await apiClient.put('/approvals/verify', payload);
+        const data = unwrapResponse(response);
+
+        setCourseVerificationStore((previous) => ({
+          ...previous,
+          [courseOfferingId]: {
+            ...(previous[courseOfferingId] || {}),
+            ...(data || {}),
+            key: data?.key ?? courseOfferingId,
+            courseOfferingId,
+          },
+        }));
+
+        return data;
+      } catch (err) {
+        console.warn(`verifyStatus(${courseOfferingId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to verify status.');
+        throw err;
+      }
+    },
+    [user]
+  );
+
+  /* ======================================================================== */
+  /* 6. Request Revision                                                      */
+  /* ======================================================================== */
+
+  const requestRevision = useCallback(
+    async ({
+      courseOfferingId,
+      statusType,
+      remarksValue = '',
+      verifierName,
+    }) => {
+      if (!courseOfferingId) {
+        throw new Error('courseOfferingId is required');
+      }
+
+      if (!statusType) {
+        throw new Error('statusType is required');
+      }
+
+      try {
+        setError(null);
+        const payload = {
+          key: courseOfferingId,
+          statusType,
+          statusValue: 'REVISION_REQUESTED',
+          remarksValue,
+          verifierName:
+            verifierName ??
+            user?.name ??
+            user?.username ??
+            user?.email ??
+            null,
+        };
+
+        const response = await apiClient.post('/approvals/request-revision', payload);
+        const data = unwrapResponse(response);
+
+        setCourseVerificationStore((previous) => ({
+          ...previous,
+          [courseOfferingId]: {
+            ...(previous[courseOfferingId] || {}),
+            ...(data || {}),
+            key: data?.key ?? courseOfferingId,
+            courseOfferingId,
+          },
+        }));
+
+        return data;
+      } catch (err) {
+        console.warn(`requestRevision(${courseOfferingId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to request revision.');
+        throw err;
+      }
+    },
+    [user]
+  );
+
+  /* ======================================================================== */
+  /* 7. Verification Status Dispatcher / Compatibility Helper                 */
+  /* ======================================================================== */
+
+  const updateCourseVerificationStatus = useCallback(
+    async (
+      courseOfferingId,
+      statusType,
+      statusValue,
+      remarksValue = '',
+      verifierName = null
+    ) => {
+      if (statusValue === 'REVISION_REQUESTED') {
+        return requestRevision({
+          courseOfferingId,
+          statusType,
+          remarksValue,
           verifierName,
         });
-      },
-      [
-        verifyStatus,
-        requestRevision,
-      ]
-    );
+      }
+
+      return verifyStatus({
+        courseOfferingId,
+        statusType,
+        statusValue,
+        remarksValue,
+        verifierName,
+      });
+    },
+    [verifyStatus, requestRevision]
+  );
 
   /* ======================================================================== */
-  /* Director Formal Approval                                                 */
+  /* 8. Director Formal Approval Action                                       */
   /* ======================================================================== */
 
-  const approveDirectorSubmission =
-    useCallback(
-      async (
-        approvalId,
-        actorName
-      ) => {
-        if (!approvalId) {
-          throw new Error(
-            'approvalId is required'
-          );
-        }
+  const approveDirectorSubmission = useCallback(
+    async (approvalId, actorName) => {
+      if (!approvalId) {
+        throw new Error('approvalId is required');
+      }
 
-        const response =
-          await apiClient.post(
-            `/approvals/${approvalId}/approve`,
-            {
-              actorName:
-                actorName ??
-                user?.name ??
-                user?.username ??
-                user?.email ??
-                '',
+      try {
+        setError(null);
+        const response = await apiClient.post(`/approvals/${approvalId}/approve`, {
+          actorName:
+            actorName ??
+            user?.name ??
+            user?.username ??
+            user?.email ??
+            '',
+          actorRole: role ?? 'DIRECTOR',
+        });
 
-              actorRole:
-                role ??
-                'DIRECTOR',
-            }
-          );
-
-        const data =
-          unwrapResponse(response);
-
-        /*
-         * Refresh actual backend state.
-         */
+        const data = unwrapResponse(response);
         await loadDirectorApprovals();
-
         return data;
-      },
-      [
-        user,
-        role,
-        loadDirectorApprovals,
-      ]
-    );
+      } catch (err) {
+        console.warn(`approveDirectorSubmission(${approvalId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to approve director submission.');
+        throw err;
+      }
+    },
+    [user, role, loadDirectorApprovals]
+  );
 
   /* ======================================================================== */
-  /* HOD Formal Approval                                                      */
+  /* 9. HOD Formal Approval Action                                            */
   /* ======================================================================== */
 
-  const approveHodSubmission =
-    useCallback(
-      async (
-        approvalId,
-        actorName
-      ) => {
-        if (!approvalId) {
-          throw new Error(
-            'approvalId is required'
-          );
-        }
+  const approveHodSubmission = useCallback(
+    async (approvalId, actorName) => {
+      if (!approvalId) {
+        throw new Error('approvalId is required');
+      }
 
-        const response =
-          await apiClient.post(
-            `/approvals/${approvalId}/approve`,
-            {
-              actorName:
-                actorName ??
-                user?.name ??
-                user?.username ??
-                user?.email ??
-                '',
+      try {
+        setError(null);
+        const response = await apiClient.post(`/approvals/${approvalId}/approve`, {
+          actorName:
+            actorName ??
+            user?.name ??
+            user?.username ??
+            user?.email ??
+            '',
+          actorRole: role ?? 'HOD',
+        });
 
-              actorRole:
-                role ??
-                'HOD',
-            }
-          );
-
-        const data =
-          unwrapResponse(response);
-
+        const data = unwrapResponse(response);
         await loadHodApprovals();
-
         return data;
-      },
-      [
-        user,
-        role,
-        loadHodApprovals,
-      ]
-    );
+      } catch (err) {
+        console.warn(`approveHodSubmission(${approvalId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to approve HOD submission.');
+        throw err;
+      }
+    },
+    [user, role, loadHodApprovals]
+  );
 
   /* ======================================================================== */
-  /* Action Approval                                                          */
+  /* 10. General Action Approval                                              */
   /* ======================================================================== */
 
-  /*
-   * Backend contract:
-   *
-   * POST /approvals/{id}/action
-   *
-   * {
-   *   action,
-   *   comments,
-   *   actorName,
-   *   actorRole
-   * }
-   *
-   * We do not introduce REJECTED here.
-   * Caller should use the backend-supported
-   * action value for the intended workflow.
-   */
+  const actionApproval = useCallback(
+    async ({
+      approvalId,
+      action,
+      comments = '',
+      actorName,
+      actorRole,
+    }) => {
+      if (!approvalId) {
+        throw new Error('approvalId is required');
+      }
 
-  const actionApproval =
-    useCallback(
-      async ({
-        approvalId,
-        action,
-        comments = '',
-        actorName,
-        actorRole,
-      }) => {
-        if (!approvalId) {
-          throw new Error(
-            'approvalId is required'
-          );
-        }
+      if (!action) {
+        throw new Error('action is required');
+      }
 
-        if (!action) {
-          throw new Error(
-            'action is required'
-          );
-        }
+      try {
+        setError(null);
+        const response = await apiClient.post(`/approvals/${approvalId}/action`, {
+          action,
+          comments,
+          actorName:
+            actorName ??
+            user?.name ??
+            user?.username ??
+            user?.email ??
+            '',
+          actorRole: actorRole ?? role ?? '',
+        });
 
-        const response =
-          await apiClient.post(
-            `/approvals/${approvalId}/action`,
-            {
-              action,
+        const data = unwrapResponse(response);
 
-              comments,
-
-              actorName:
-                actorName ??
-                user?.name ??
-                user?.username ??
-                user?.email ??
-                '',
-
-              actorRole:
-                actorRole ??
-                role ??
-                '',
-            }
-          );
-
-        const data =
-          unwrapResponse(response);
-
-        /*
-         * Refresh the appropriate approval
-         * queue after action.
-         */
-        if (
-          role === 'HOD'
-        ) {
+        if (role === 'HOD') {
           await loadHodApprovals();
-        }
-
-        if (
-          role === 'DIRECTOR' ||
-          role === 'ADMIN'
-        ) {
+        } else if (role === 'DIRECTOR' || role === 'ADMIN') {
           await loadDirectorApprovals();
         }
 
         return data;
-      },
-      [
-        user,
-        role,
-        loadDirectorApprovals,
-        loadHodApprovals,
-      ]
-    );
+      } catch (err) {
+        console.warn(`actionApproval(${approvalId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to action approval.');
+        throw err;
+      }
+    },
+    [user, role, loadDirectorApprovals, loadHodApprovals]
+  );
 
   /* ======================================================================== */
-  /* General Approval Fetch                                                   */
+  /* 11. General Approval Loaders                                             */
   /* ======================================================================== */
 
-  const getApprovals =
-    useCallback(
-      async (
-        params = {}
-      ) => {
-        const response =
-          await apiClient.get(
-            '/approvals',
-            {
-              params,
-            }
-          );
-
-        return unwrapList(
-          response
-        );
-      },
-      []
-    );
-
-  /* ======================================================================== */
-  /* Approval By ID                                                           */
-  /* ======================================================================== */
-
-  const getApprovalById =
-    useCallback(
-      async (
-        approvalId
-      ) => {
-        if (!approvalId) {
-          throw new Error(
-            'approvalId is required'
-          );
-        }
-
-        const response =
-          await apiClient.get(
-            `/approvals/${approvalId}`
-          );
-
-        return unwrapResponse(
-          response
-        );
-      },
-      []
-    );
-
-  /* ======================================================================== */
-  /* Approval History                                                         */
-  /* ======================================================================== */
-
-  const getApprovalHistory =
-    useCallback(
-      async (
-        approvalId
-      ) => {
-        if (!approvalId) {
-          throw new Error(
-            'approvalId is required'
-          );
-        }
-
-        const response =
-          await apiClient.get(
-            `/approvals/${approvalId}/history`
-          );
-
-        return unwrapList(
-          response
-        );
-      },
-      []
-    );
-
-  /* ======================================================================== */
-  /* Pending Verification Count                                               */
-  /* ======================================================================== */
-
-  const getPendingVerificationsCount =
-    useCallback(
-      () => {
-        return Object.values(
-          courseVerificationStore
-        ).reduce(
-          (
-            count,
-            record
-          ) => {
-            if (!record) {
-              return count;
-            }
-
-            const hasPending =
-              Object.entries(
-                record
-              ).some(
-                ([
-                  key,
-                  value,
-                ]) => {
-                  if (
-                    key ===
-                    'key' ||
-                    key ===
-                    'courseOfferingId'
-                  ) {
-                    return false;
-                  }
-
-                  return (
-                    value ===
-                    'PENDING'
-                  );
-                }
-              );
-
-            return hasPending
-              ? count + 1
-              : count;
-          },
-          0
-        );
-      },
-      [
-        courseVerificationStore,
-      ]
-    );
-
-  /* ======================================================================== */
-  /* Refresh                                                                  */
-  /* ======================================================================== */
-
-  const refreshApprovals =
-    useCallback(
-      async ({
-        schoolId = null,
-        programmeId = null,
-      } = {}) => {
-        setLoading(true);
+  const getApprovals = useCallback(
+    async (params = {}) => {
+      try {
         setError(null);
+        const response = await apiClient.get('/approvals', { params });
+        return unwrapList(response);
+      } catch (err) {
+        console.warn('getApprovals failed:', err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to get approvals.');
+        return [];
+      }
+    },
+    []
+  );
 
-        try {
-          if (
-            role ===
-              'DIRECTOR' ||
-            role === 'ADMIN'
-          ) {
-            return await loadDirectorApprovals(
-              schoolId
-            );
-          }
+  const getApprovalById = useCallback(
+    async (approvalId) => {
+      if (!approvalId) {
+        return null;
+      }
 
-          if (
-            role === 'HOD'
-          ) {
-            return await loadHodApprovals(
-              programmeId
-            );
-          }
+      try {
+        setError(null);
+        const response = await apiClient.get(`/approvals/${approvalId}`);
+        return unwrapResponse(response);
+      } catch (err) {
+        console.warn(`getApprovalById(${approvalId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to get approval.');
+        return null;
+      }
+    },
+    []
+  );
 
-          return [];
-        } catch (err) {
-          setError(
-            err?.response?.data
-              ?.message ??
-              err?.response?.data
-                ?.error ??
-              err?.message ??
-              'Failed to refresh approvals.'
-          );
+  const getApprovalHistory = useCallback(
+    async (approvalId) => {
+      if (!approvalId) {
+        return [];
+      }
 
-          throw err;
-        } finally {
-          setLoading(false);
+      try {
+        setError(null);
+        const response = await apiClient.get(`/approvals/${approvalId}/history`);
+        return unwrapList(response);
+      } catch (err) {
+        console.warn(`getApprovalHistory(${approvalId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to get approval history.');
+        return [];
+      }
+    },
+    []
+  );
+
+  /* ======================================================================== */
+  /* 12. Pending Verification Count                                           */
+  /* ======================================================================== */
+
+  const getPendingVerificationsCount = useCallback(() => {
+    return Object.values(courseVerificationStore).reduce((count, record) => {
+      if (!record) {
+        return count;
+      }
+
+      const hasPending = Object.entries(record).some(([key, value]) => {
+        if (key === 'key' || key === 'courseOfferingId') {
+          return false;
         }
-      },
-      [
-        role,
-        loadDirectorApprovals,
-        loadHodApprovals,
-      ]
-    );
+        return value === 'PENDING';
+      });
+
+      return hasPending ? count + 1 : count;
+    }, 0);
+  }, [courseVerificationStore]);
 
   /* ======================================================================== */
-  /* Provider                                                                 */
+  /* 13. Explicit Refresh Function                                            */
   /* ======================================================================== */
+
+  const refreshApprovals = useCallback(
+    async ({ schoolId = null, programmeId = null, departmentId = null } = {}) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        if (role === 'DIRECTOR' || role === 'ADMIN') {
+          return await loadDirectorApprovals(schoolId);
+        }
+
+        if (role === 'HOD') {
+          return await loadHodApprovals(programmeId, departmentId);
+        }
+
+        return [];
+      } catch (err) {
+        setError(
+          err?.response?.data?.message ||
+          err?.message ||
+          'Failed to refresh approvals.'
+        );
+        return [];
+      } finally {
+        setLoading(false);
+      }
+    },
+    [role, loadDirectorApprovals, loadHodApprovals]
+  );
+
+  /* ======================================================================== */
+  /* Context value                                                            */
+  /* ======================================================================== */
+
+  const value = {
+    /* State */
+    directorApprovals,
+    hodApprovals,
+    courseVerificationStore,
+    loading,
+    error,
+
+    /* General approval APIs */
+    getApprovals,
+    getApprovalById,
+    getApprovalHistory,
+    submitApproval: submitCourseVerification,
+
+    /* Scoped approval queues */
+    loadDirectorApprovals,
+    loadHodApprovals,
+
+    /* Formal approval actions */
+    approveDirectorSubmission,
+    approveHodSubmission,
+    actionApproval,
+
+    /* CourseOffering verification */
+    getCourseVerification,
+    getVerificationStatus: getCourseVerification,
+    submitCourseVerification,
+    verifyStatus,
+    requestRevision,
+    reviewCourseVerification: updateCourseVerificationStatus,
+    updateCourseVerificationStatus,
+    getPendingVerificationsCount,
+    refreshApprovals,
+  };
 
   return (
-    <ApprovalContext.Provider
-      value={{
-        /* State */
-        directorApprovals,
-
-        hodApprovals,
-
-        courseVerificationStore,
-
-        loading,
-
-        error,
-
-        /* General approval APIs */
-        getApprovals,
-
-        getApprovalById,
-
-        getApprovalHistory,
-
-        /* Scoped approval queues */
-        loadDirectorApprovals,
-
-        loadHodApprovals,
-
-        /* Formal approval actions */
-        approveDirectorSubmission,
-
-        approveHodSubmission,
-
-        actionApproval,
-
-        /* CourseOffering verification */
-        getCourseVerification,
-
-        submitCourseVerification,
-
-        verifyStatus,
-
-        requestRevision,
-
-        updateCourseVerificationStatus,
-
-        getPendingVerificationsCount,
-
-        refreshApprovals,
-      }}
-    >
+    <ApprovalContext.Provider value={value}>
       {children}
     </ApprovalContext.Provider>
   );
@@ -1142,17 +676,10 @@ export function ApprovalProvider({
 /* ========================================================================== */
 
 export function useApproval() {
-  const context =
-    useContext(
-      ApprovalContext
-    );
-
+  const context = useContext(ApprovalContext);
   if (!context) {
-    throw new Error(
-      'useApproval must be used within an ApprovalProvider'
-    );
+    throw new Error('useApproval must be used within an ApprovalProvider');
   }
-
   return context;
 }
 

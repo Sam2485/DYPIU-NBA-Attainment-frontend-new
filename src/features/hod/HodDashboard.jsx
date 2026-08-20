@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   GraduationCap,
@@ -13,11 +14,11 @@ import {
   Check,
   Clock,
   TrendingUp,
-  AlertCircle,
   PlayCircle,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import { ScreenLoadingState, ScreenErrorState } from '../../components/common/ScreenState';
 
 // ── HOD 4-Step Setup Workflow Definition ─────────────────────────────────────
 const HOD_STEPS = [
@@ -32,36 +33,66 @@ export default function HodDashboard() {
   const { user } = useAuth();
   const {
     batches = [],
-    selectedBatch,
+    selectedBatch = null,
     masterProgrammes = [],
-    selectedProgramme,
+    selectedProgramme = null,
     courses = [],
     hodApprovals = [],
+    hodWorkflowProgress = null,
     hodWorkflowProgressStore = {},
     courseVerificationStore = {},
+    loadHodDashboard,
+    loadHodSetupProgress,
+    loadHodApprovals,
+    loadProgrammes,
+    loadBatches,
   } = useAcademic();
 
-  const hodProgrammes = masterProgrammes.filter(
-    (p) =>
-      p.departmentId === (user?.departmentId || 'dept-1') ||
-      p.department?.toLowerCase().includes('computer') ||
-      !p.departmentId
-  );
+  const [screenLoading, setScreenLoading] = useState(false);
+  const [screenError, setScreenError] = useState(null);
 
-  const currentProg = selectedProgramme || hodProgrammes[0] || masterProgrammes[0] || { id: 'prog-1', name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
-  const totalProgrammes = hodProgrammes.length || masterProgrammes.length || 3;
-  const totalCourses = courses.length || 6;
+  const fetchHodData = async () => {
+    setScreenLoading(true);
+    setScreenError(null);
+    try {
+      await Promise.allSettled([
+        loadProgrammes ? loadProgrammes() : Promise.resolve(),
+        loadBatches ? loadBatches() : Promise.resolve(),
+        loadHodApprovals ? loadHodApprovals() : Promise.resolve(),
+        loadHodDashboard ? loadHodDashboard() : Promise.resolve(),
+        loadHodSetupProgress ? loadHodSetupProgress() : Promise.resolve(),
+      ]);
+    } catch (err) {
+      console.warn('HodDashboard fetch failed:', err);
+      setScreenError(err?.customMessage || err?.message || 'Failed to load HOD dashboard.');
+    } finally {
+      setScreenLoading(false);
+    }
+  };
 
-  // Exact count of remaining individual approval items for HOD across department programmes:
-  // 1. Course & Coordinator Allocations (allocationStatus)
-  // 2. PO & PSO Target Levels (poPsoTargetsStatus)
-  // 3. Programme ATR (programmeAtrStatus)
-  // 4. Any additional items in hodApprovals store
+  useEffect(() => {
+    fetchHodData();
+  }, []);
+
+  const hodProgrammes = Array.isArray(masterProgrammes)
+    ? masterProgrammes.filter(
+        (p) =>
+          (user?.departmentId && p?.departmentId === user.departmentId) ||
+          (user?.department && p?.department?.toLowerCase().includes(user.department.toLowerCase())) ||
+          !p?.departmentId
+      )
+    : [];
+
+  const currentProg = selectedProgramme || hodProgrammes[0] || masterProgrammes[0] || null;
+  const totalProgrammes = hodProgrammes.length > 0 ? hodProgrammes.length : (masterProgrammes?.length ?? 0);
+  const totalCourses = courses?.length ?? 0;
+
   const pendingApprovalsCount = (() => {
     let count = 0;
     const countedKeys = new Set();
 
     hodProgrammes.forEach((p) => {
+      if (!p?.id) return;
       const allocRec = courseVerificationStore[`allocation-${p.id}`] || {};
       if (allocRec.allocationStatus === 'SUBMITTED' || allocRec.allocationStatus === 'PENDING_APPROVAL' || allocRec.allocationStatus === 'PENDING') {
         count++;
@@ -82,7 +113,7 @@ export default function HodDashboard() {
     });
 
     (hodApprovals || []).forEach((a) => {
-      if ((a.status === 'PENDING' || a.status === 'SUBMITTED') && !countedKeys.has(a.id)) {
+      if (a?.id && (a.status === 'PENDING' || a.status === 'SUBMITTED') && !countedKeys.has(a.id)) {
         count++;
       }
     });
@@ -90,12 +121,18 @@ export default function HodDashboard() {
     return count;
   })();
 
-  const activeBatch = selectedBatch?.name?.split(' ')[1] || '2025–29';
+  const activeBatch = selectedBatch?.name || (batches[0]?.name ?? 'Active Batch');
 
   // ── Per-step completion tracking ───────────────────────────────────────────
-  const progProgress = hodWorkflowProgressStore[currentProg?.id || 'prog-1'] || {};
-  const stepStatus = HOD_STEPS.map((s) => {
-    return !!progProgress[s.step];
+  const safeProgress = hodWorkflowProgress || (currentProg?.id ? hodWorkflowProgressStore[currentProg.id] : {}) || {};
+  const stepStatus = HOD_STEPS.map((s, idx) => {
+    if (Array.isArray(safeProgress.stepStatus)) {
+      return !!safeProgress.stepStatus[idx];
+    }
+    if (Array.isArray(safeProgress.completedSteps)) {
+      return safeProgress.completedSteps.includes(s.step);
+    }
+    return !!safeProgress[s.step] || !!safeProgress[`step-${s.step}`];
   });
 
   const completedCount = stepStatus.filter(Boolean).length;
@@ -153,16 +190,24 @@ export default function HodDashboard() {
     },
   ];
 
-  // ─── Style tokens ─────────────────────────────────────────────────────────
+  // ── Style tokens ─────────────────────────────────────────────────────────
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
-  const ink = '#0f172a';
-  const muted = '#64748b';
-  const accent = '#4f46e5';
+  const ink     = '#0f172a';
+  const muted   = '#64748b';
+  const accent  = '#4f46e5';
+
+  if (screenLoading && masterProgrammes.length === 0 && batches.length === 0) {
+    return <ScreenLoadingState message="Loading HOD Dashboard..." />;
+  }
+
+  if (screenError && masterProgrammes.length === 0 && batches.length === 0) {
+    return <ScreenErrorState title="Failed to load HOD Dashboard" message={screenError} onRetry={fetchHodData} />;
+  }
 
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
 
-      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+      {/* ── HEADER ────────────────────────────────────────────────────────────── */}
       <div style={{
         ...surface,
         padding: '20px 24px',
@@ -175,13 +220,13 @@ export default function HodDashboard() {
       }}>
         <div style={{ flex: 1, minWidth: '240px' }}>
           <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
-            HOD Dashboard
+            Head of Department Dashboard
           </div>
           <h1 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
-            Welcome, {user?.name || 'Head of Department'}
+            Welcome, {user?.name || 'Department HOD'}
           </h1>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            <strong style={{ color: ink }}>Department of Computer Science &amp; Engineering</strong> &nbsp;·&nbsp; {currentProg?.code}
+            {user?.department || 'Department of Computer Science & Engineering'} &nbsp;·&nbsp; Active Batch: <strong style={{ color: ink }}>{activeBatch}</strong>
           </p>
         </div>
         <div style={{ marginLeft: 'auto' }}>
@@ -197,60 +242,62 @@ export default function HodDashboard() {
           >
             <PlayCircle size={15} />
             {targetStepNum === 1 && completedCount === 0
-              ? 'Start Programme Setup Workflow (Step 1)'
+              ? 'Start Setup Workflow (Step 1)'
               : completedCount === HOD_STEPS.length
-              ? 'Manage Programme Setup'
+              ? 'Manage Department Setup'
               : `Continue Workflow (Step ${targetStepNum}: ${nextStep?.label || ''})`}
             <ArrowRight size={14} />
           </button>
         </div>
       </div>
 
-      {/* ── STAT CARDS ──────────────────────────────────────────────────────── */}
+      {/* ── STAT CARDS ────────────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px', marginBottom: '20px' }}>
-
-        {/* Active Batch */}
-        <div style={{ ...surface, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Active Batch</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#eef2ff', display: 'grid', placeItems: 'center', color: accent }}>
-              <Calendar size={15} />
-            </div>
-          </div>
-          <div style={{ fontSize: '20px', fontWeight: '800', color: ink, lineHeight: 1 }}>{activeBatch}</div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: '#16a34a', fontWeight: '600', marginTop: '5px' }}>
-            <Check size={11} /> Active cycle
-          </div>
-        </div>
 
         {/* Programmes */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Programmes</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f0f9ff', display: 'grid', placeItems: 'center', color: '#0284c7' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Degree Programmes</span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#eef2ff', display: 'grid', placeItems: 'center', color: accent }}>
               <GraduationCap size={15} />
             </div>
           </div>
           <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalProgrammes}</div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>Degree programmes</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>In your department</div>
         </div>
 
         {/* Courses */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Courses</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f0fdf4', display: 'grid', placeItems: 'center', color: '#16a34a' }}>
-              <Users size={15} />
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Total Courses</span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f0f9ff', display: 'grid', placeItems: 'center', color: '#0284c7' }}>
+              <Layers size={15} />
             </div>
           </div>
           <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalCourses}</div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>Under department</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>Across active curricula</div>
+        </div>
+
+        {/* Approvals */}
+        <div style={{ ...surface, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Pending Approvals</span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: pendingApprovalsCount > 0 ? '#fffbeb' : '#f0fdf4', display: 'grid', placeItems: 'center', color: pendingApprovalsCount > 0 ? '#d97706' : '#16a34a' }}>
+              <ShieldCheck size={15} />
+            </div>
+          </div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: pendingApprovalsCount > 0 ? '#d97706' : ink, lineHeight: 1 }}>
+            {pendingApprovalsCount}
+          </div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>
+            {pendingApprovalsCount > 0 ? 'Action required' : 'All clear'}
+          </div>
         </div>
 
         {/* Workflow Progress */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Workflow Progress</span>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Setup Progress</span>
             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: progressPct === 100 ? '#f0fdf4' : '#fffbeb', display: 'grid', placeItems: 'center', color: progressPct === 100 ? '#16a34a' : '#d97706' }}>
               <TrendingUp size={15} />
             </div>
@@ -263,7 +310,7 @@ export default function HodDashboard() {
 
       </div>
 
-      {/* ── QUICK ACTIONS ───────────────────────────────────────────────────── */}
+      {/* ── QUICK ACTIONS ─────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: '20px' }}>
         <div style={{ fontSize: '12px', fontWeight: '700', color: muted, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '12px' }}>
           Quick Actions
@@ -305,13 +352,13 @@ export default function HodDashboard() {
         </div>
       </div>
 
-      {/* ── 4-STEP WORKFLOW PROGRESS ────────────────────────────────────────── */}
+      {/* ── 4-STEP WORKFLOW PROGRESS ──────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '20px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: ink }}>Programme Setup Workflow</div>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: ink }}>Department Setup Workflow</div>
             <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>
-              {completedCount} of {HOD_STEPS.length} steps completed &nbsp;·&nbsp; Follow the guided 4-step governance process below.
+              {completedCount} of {HOD_STEPS.length} steps completed &nbsp;·&nbsp; {currentProg?.name || 'Programme Setup'}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

@@ -177,36 +177,36 @@ export default function CoordinatorReviewHub() {
   const handleTabChange = (t) => { setActiveTab(t); setSearchParams({ tab: t }); };
 
   // ── Selected course ───────────────────────────────────────────────────────
-  const [reviewCourseId, setReviewCourseId] = useState(availableCourses[0]?.id || 'crs-1');
-  const selectedCourse = availableCourses.find((c) => c.id === reviewCourseId) || availableCourses[0];
+  const [reviewCourseId, setReviewCourseId] = useState(availableCourses[0]?.id || null);
+  const selectedCourse = (reviewCourseId && availableCourses.find((c) => c.id === reviewCourseId)) || availableCourses[0] || null;
 
-  const courseReview = courseVerificationStore[reviewCourseId] || {
+  const courseReview = (reviewCourseId && courseVerificationStore[reviewCourseId]) || {
     configStatus: 'DRAFT', coStatus: 'DRAFT', atrStatus: 'DRAFT', programmeAtrStatus: 'DRAFT',
   };
 
-  const attainmentConfig = attainmentConfigs[reviewCourseId] || {
+  const attainmentConfig = (reviewCourseId && attainmentConfigs[reviewCourseId]) || {
     directWeight: 80, indirectWeight: 20, directThreshold: 60,
     directLevels:   [{ level: 1, minPercentage: 0, maxPercentage: 50 }, { level: 2, minPercentage: 50, maxPercentage: 70 }, { level: 3, minPercentage: 70, maxPercentage: 100 }],
     indirectLevels: [{ level: 1, minPercentage: 0, maxPercentage: 50 }, { level: 2, minPercentage: 50, maxPercentage: 70 }, { level: 3, minPercentage: 70, maxPercentage: 100 }],
   };
 
   const courseCOs  = selectedCourse?.courseOutcomes || [];
-  const rawAtrData = courseAtrStore[reviewCourseId] || [];
+  const rawAtrData = (reviewCourseId && courseAtrStore[reviewCourseId]) || [];
 
   const courseAtrData = (() => {
     if (courseCOs.length === 0) return rawAtrData;
     const rawMap = new Map(rawAtrData.map((i) => [i.code, i]));
-    return courseCOs.map((co, idx) => {
+    return courseCOs.map((co) => {
       const ex       = rawMap.get(co.code);
-      const target   = ex?.target ?? 2.50;
-      const actual   = ex?.actual ?? (idx % 2 === 0 ? 2.80 - idx * 0.1 : 2.10);
-      const pct      = Number(((actual / target) * 100).toFixed(2));
-      const met      = actual >= target;
+      const target   = ex?.target ?? co.targetLevel ?? 2.50;
+      const actual   = ex?.actual ?? ex?.attainment ?? null;
+      const pct      = actual !== null ? Number(((actual / target) * 100).toFixed(2)) : 0;
+      const met      = actual !== null && actual >= target;
       return {
         code: co.code, statement: co.statement, target, actual, pct, met,
         actions: ex?.actions || (met
           ? ['Maintain current teaching methodology and continuous assessment structure.']
-          : [`Conduct extra tutorial sessions on ${co.statement.slice(0, 45)}...`, 'Provide additional practice assignments and interactive problem sets.']),
+          : [`Conduct extra tutorial sessions on ${co.statement ? co.statement.slice(0, 45) : ''}...`, 'Provide additional practice assignments and interactive problem sets.']),
       };
     });
   })();
@@ -232,10 +232,10 @@ export default function CoordinatorReviewHub() {
   const handleConfirmReject = () => {
     if (!rejectModalData) return;
     const { statusType } = rejectModalData;
-    updateCourseVerificationStatus(reviewCourseId, statusType, 'REJECTED', rejectRemarksInput, user?.name || 'Programme Coordinator');
+    updateCourseVerificationStatus(reviewCourseId, statusType, 'REVISION_REQUESTED', rejectRemarksInput, user?.name || 'Programme Coordinator');
 
     if (statusType === 'coStatus') {
-      const updated = courseCOs.map((co) => ({ ...co, status: 'REJECTED' }));
+      const updated = courseCOs.map((co) => ({ ...co, status: 'REVISION_REQUESTED' }));
       updateCourseCOs(reviewCourseId, updated);
     }
 
@@ -460,8 +460,8 @@ export default function CoordinatorReviewHub() {
                 </thead>
                 <tbody>
                   {courseCOs.map((co) => {
-                    const courseCoTargets = coTargets[reviewCourseId] || {};
-                    const targetVal = courseCoTargets[co.code] || co.target || 2.50;
+                    const courseCoTargets = (reviewCourseId && coTargets[reviewCourseId]) || {};
+                    const targetVal = courseCoTargets?.[co.code] ?? co.targetLevel ?? co.target ?? 2.50;
                     const rowStatus =
                       courseReview.coStatus === 'VERIFIED' || courseReview.coStatus === 'APPROVED'
                         ? 'VERIFIED'

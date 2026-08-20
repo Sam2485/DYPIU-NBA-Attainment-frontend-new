@@ -2,17 +2,24 @@ import {
   createContext,
   useContext,
   useState,
-  useEffect,
+  useCallback,
 } from 'react';
 
 import { useAcademic } from './academic';
+import { attainmentApi } from '../api/attainment';
+import { reportsApi } from '../api/reports';
 import apiClient from '../api/client';
 
-export const AttainmentContext =
-  createContext(null);
+export const AttainmentContext = createContext(null);
+
+export const defaultLevels = [
+  { level: 1, minPercentage: 0, maxPercentage: 50 },
+  { level: 2, minPercentage: 50, maxPercentage: 70 },
+  { level: 3, minPercentage: 70, maxPercentage: 100 },
+];
 
 /* ========================================================================== */
-/* Helpers                                                                    */
+/* Response helpers                                                           */
 /* ========================================================================== */
 
 const unwrapResponse = (response) => {
@@ -20,15 +27,11 @@ const unwrapResponse = (response) => {
     return null;
   }
 
-  if (
-    response?.data?.data !== undefined
-  ) {
+  if (response?.data?.data !== undefined) {
     return response.data.data;
   }
 
-  if (
-    response?.data !== undefined
-  ) {
+  if (response?.data !== undefined) {
     return response.data;
   }
 
@@ -39,9 +42,7 @@ const unwrapResponse = (response) => {
 /* Provider                                                                   */
 /* ========================================================================== */
 
-export function AttainmentProvider({
-  children,
-}) {
+export function AttainmentProvider({ children }) {
   const {
     selectedCourseOffering,
     courseOfferingId,
@@ -52,755 +53,536 @@ export function AttainmentProvider({
   } = useAcademic();
 
   /* ------------------------------------------------------------------------ */
-  /* Backend state                                                             */
+  /* State                                                                    */
   /* ------------------------------------------------------------------------ */
 
-  const [
-    attainmentConfigs,
-    setAttainmentConfigs,
-  ] = useState(null);
+  const [attainmentConfigs, setAttainmentConfigs] = useState(null);
+  const [examinationData, setExaminationData] = useState(null);
+  const [surveyData, setSurveyData] = useState(null);
+  const [courseAttainmentStore, setCourseAttainmentStore] = useState(null);
+  const [courseAtrStore, setCourseAtrStore] = useState(null);
+  const [programmeAtrStore, setProgrammeAtrStore] = useState(null);
+  const [programmeAttainmentStore, setProgrammeAttainmentStore] = useState(null);
 
-  const [
-    courseAtrStore,
-    setCourseAtrStore,
-  ] = useState(null);
-
-  const [
-    programmeAtrStore,
-    setProgrammeAtrStore,
-  ] = useState(null);
-
-  const [
-    courseAttainmentStore,
-    setCourseAttainmentStore,
-  ] = useState(null);
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   /* ======================================================================== */
-  /* Course Offering Data                                                     */
+  /* 1. Attainment Configuration Loaders & Mutators                           */
   /* ======================================================================== */
 
-  useEffect(() => {
-    if (!courseOfferingId) {
-      setAttainmentConfigs(null);
-      setCourseAtrStore(null);
-      setCourseAttainmentStore(null);
-      return;
-    }
-
-    let mounted = true;
-
-    const loadOfferingData =
-      async () => {
-        setLoading(true);
-
-        try {
-          const [
-            configRes,
-            atrRes,
-            attainmentRes,
-          ] =
-            await Promise.allSettled([
-              /*
-               * Backend contract:
-               *
-               * GET /attainment/config/{courseId}
-               * Query: batchId
-               *
-               * IMPORTANT:
-               * This API is documented using courseId +
-               * batchId, not courseOfferingId.
-               */
-              apiClient.get(
-                `/attainment/config/${courseId}`,
-                {
-                  params: {
-                    batchId,
-                  },
-                }
-              ),
-
-              /*
-               * Course ATR is explicitly
-               * CourseOffering scoped.
-               */
-              apiClient.get(
-                `/reports/course-atr/${courseOfferingId}`
-              ),
-
-              /*
-               * Overall CO attainment is explicitly
-               * CourseOffering scoped.
-               */
-              apiClient.get(
-                `/reports/attainment-main/course/${courseOfferingId}`
-              ),
-            ]);
-
-          if (!mounted) {
-            return;
-          }
-
-          /* -------------------------------------------------------------- */
-          /* Attainment Settings                                            */
-          /* -------------------------------------------------------------- */
-
-          if (
-            configRes.status ===
-            'fulfilled'
-          ) {
-            setAttainmentConfigs(
-              unwrapResponse(
-                configRes.value
-              )
-            );
-          } else {
-            setAttainmentConfigs(
-              null
-            );
-
-            console.warn(
-              'Failed to load attainment settings:',
-              configRes.reason
-            );
-          }
-
-          /* -------------------------------------------------------------- */
-          /* Course ATR                                                     */
-          /* -------------------------------------------------------------- */
-
-          if (
-            atrRes.status ===
-            'fulfilled'
-          ) {
-            setCourseAtrStore(
-              unwrapResponse(
-                atrRes.value
-              )
-            );
-          } else {
-            setCourseAtrStore(
-              null
-            );
-
-            console.warn(
-              'Failed to load Course ATR:',
-              atrRes.reason
-            );
-          }
-
-          /* -------------------------------------------------------------- */
-          /* CO Attainment                                                  */
-          /* -------------------------------------------------------------- */
-
-          if (
-            attainmentRes.status ===
-            'fulfilled'
-          ) {
-            setCourseAttainmentStore(
-              unwrapResponse(
-                attainmentRes.value
-              )
-            );
-          } else {
-            setCourseAttainmentStore(
-              null
-            );
-
-            console.warn(
-              'Failed to load CO attainment:',
-              attainmentRes.reason
-            );
-          }
-        } catch (error) {
-          console.error(
-            'Failed to load CourseOffering attainment data:',
-            error
-          );
-
-          if (mounted) {
-            setAttainmentConfigs(null);
-            setCourseAtrStore(null);
-            setCourseAttainmentStore(null);
-          }
-        } finally {
-          if (mounted) {
-            setLoading(false);
-          }
-        }
-      };
-
-    loadOfferingData();
-
-    return () => {
-      mounted = false;
-    };
-  }, [
-    courseOfferingId,
-    courseId,
-    batchId,
-  ]);
-
-  /* ======================================================================== */
-  /* Attainment Settings                                                      */
-  /* ======================================================================== */
-
-  const updateCourseAttainmentConfig =
-    async (
-      newConfig
-    ) => {
-      if (!courseId) {
-        throw new Error(
-          'courseId is required'
-        );
-      }
-
-      if (!batchId) {
-        throw new Error(
-          'batchId is required'
-        );
-      }
-
-      /*
-       * Backend contract:
-       *
-       * POST/PUT /attainment/config/{courseId}
-       * Body: AttainmentConfiguration
-       *
-       * The endpoint is courseId + batchId scoped.
-       */
-      const payload = {
-        ...newConfig,
-        batchId,
-      };
-
-      const response =
-        await apiClient.put(
-          `/attainment/config/${courseId}`,
-          payload
-        );
-
-      const data =
-        unwrapResponse(response);
-
-      setAttainmentConfigs(data);
-
-      return data;
-    };
-
-  /* ======================================================================== */
-  /* Course ATR                                                               */
-  /* ======================================================================== */
-
-  /*
-   * Backend exposes:
-   *
-   * GET
-   * /reports/course-atr/{courseOfferingId}
-   *
-   * POST
-   * /reports/course-atr
-   *
-   * POST
-   * /reports/course-atr/{courseOfferingId}/submit
-   */
-
-  const updateCourseAtrData =
-    async (
-      newAtrData
-    ) => {
-      if (!courseOfferingId) {
-        throw new Error(
-          'courseOfferingId is required'
-        );
-      }
-
-      const response =
-        await apiClient.post(
-          '/reports/course-atr',
-          newAtrData
-        );
-
-      const data =
-        unwrapResponse(response);
-
-      setCourseAtrStore(data);
-
-      return data;
-    };
-
-  const submitCourseAtr =
-    async () => {
-      if (!courseOfferingId) {
-        throw new Error(
-          'courseOfferingId is required'
-        );
-      }
-
-      const response =
-        await apiClient.post(
-          `/reports/course-atr/${courseOfferingId}/submit`
-        );
-
-      const data =
-        unwrapResponse(response);
-
-      /*
-       * Refresh the authoritative Course ATR
-       * after submission.
-       */
-      const refreshed =
-        await apiClient.get(
-          `/reports/course-atr/${courseOfferingId}`
-        );
-
-      setCourseAtrStore(
-        unwrapResponse(
-          refreshed
-        )
-      );
-
-      return data;
-    };
-
-  /* ======================================================================== */
-  /* Programme ATR                                                            */
-  /* ======================================================================== */
-
-  /*
-   * Backend contract:
-   *
-   * GET
-   * /atr/programme/{programmeId}?batchId=...
-   *
-   * POST/PUT
-   * /atr/programme/{programmeId}
-   */
-
-  const loadProgrammeAtr =
-    async (
-      targetProgrammeId =
-        programmeId,
-      targetBatchId =
-        batchId
-    ) => {
-      if (!targetProgrammeId) {
-        setProgrammeAtrStore(
-          null
-        );
-
+  const loadAttainmentConfig = useCallback(
+    async (targetOfferingId = courseOfferingId) => {
+      if (!targetOfferingId) return null;
+      try {
+        setError(null);
+        const response = await attainmentApi.getConfig(targetOfferingId);
+        const data = unwrapResponse(response);
+        setAttainmentConfigs(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadAttainmentConfig(${targetOfferingId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to load attainment config');
         return null;
       }
+    },
+    [courseOfferingId]
+  );
 
-      const params = {};
-
-      if (targetBatchId) {
-        params.batchId =
-          targetBatchId;
+  const updateCourseAttainmentConfig = useCallback(
+    async (newConfig, targetOfferingId = courseOfferingId) => {
+      if (!targetOfferingId) {
+        throw new Error('courseOfferingId is required to save attainment config');
       }
 
-      const response =
-        await apiClient.get(
-          `/atr/programme/${targetProgrammeId}`,
-          { params }
-        );
+      const payload = {
+        courseOfferingId: targetOfferingId,
+        directWeight: newConfig.directWeight ?? 80.0,
+        indirectWeight: newConfig.indirectWeight ?? 20.0,
+        internalWeight: newConfig.internalWeight ?? 30.0,
+        externalWeight: newConfig.externalWeight ?? 70.0,
+        targetThresholdPercentage:
+          newConfig.targetThresholdPercentage ?? newConfig.directThreshold ?? 60.0,
+        status: newConfig.status ?? 'DRAFT',
+        directLevelsJson:
+          newConfig.directLevelsJson ??
+          (newConfig.directLevels ? JSON.stringify(newConfig.directLevels) : null),
+        indirectLevelsJson:
+          newConfig.indirectLevelsJson ??
+          (newConfig.indirectLevels ? JSON.stringify(newConfig.indirectLevels) : null),
+      };
 
-      const data =
-        unwrapResponse(response);
+      try {
+        setError(null);
+        const response = await attainmentApi.saveConfig(targetOfferingId, payload);
+        const data = unwrapResponse(response);
+        setAttainmentConfigs(data);
+        return data;
+      } catch (err) {
+        console.warn(`updateCourseAttainmentConfig(${targetOfferingId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to save attainment config');
+        throw err;
+      }
+    },
+    [courseOfferingId]
+  );
 
-      setProgrammeAtrStore(
-        data
-      );
+  /* ======================================================================== */
+  /* 2. Direct Examination Assessment Loaders & Mutators                      */
+  /* ======================================================================== */
 
-      return data;
-    };
+  const loadExaminationData = useCallback(
+    async (targetOfferingId = courseOfferingId) => {
+      if (!targetOfferingId) return null;
+      try {
+        setError(null);
+        const response = await attainmentApi.getExaminationAttainment(targetOfferingId);
+        const data = unwrapResponse(response);
+        setExaminationData(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadExaminationData(${targetOfferingId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to load examination data');
+        return null;
+      }
+    },
+    [courseOfferingId]
+  );
 
-  const updateProgrammeAtr =
-    async (
-      targetProgrammeId,
-      programmeAtrData
-    ) => {
+  const saveExaminationMarks = useCallback(
+    async (payload, targetOfferingId = courseOfferingId) => {
+      if (!targetOfferingId) {
+        throw new Error('courseOfferingId is required');
+      }
+      try {
+        setError(null);
+        const response = await attainmentApi.saveExaminationMarks(targetOfferingId, {
+          courseOfferingId: targetOfferingId,
+          ...payload,
+        });
+        const data = unwrapResponse(response);
+        setExaminationData(data);
+        return data;
+      } catch (err) {
+        console.warn(`saveExaminationMarks(${targetOfferingId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to save examination marks');
+        throw err;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  const uploadEndSemMarks = useCallback(
+    async ({
+      offeringId = courseOfferingId,
+      file,
+      thresholdPercentage = 60.0,
+      uploadedBy = 'Course Coordinator',
+    }) => {
+      if (!offeringId) throw new Error('courseOfferingId is required');
+      if (!file) throw new Error('Excel file is required');
+
+      const formData = new FormData();
+      formData.append('file', file);
+      if (thresholdPercentage != null) {
+        formData.append('thresholdPercentage', String(thresholdPercentage));
+      }
+      if (uploadedBy) {
+        formData.append('uploadedBy', uploadedBy);
+      }
+
+      try {
+        setError(null);
+        const response = await attainmentApi.uploadExaminationSheet(offeringId, formData);
+        const data = unwrapResponse(response);
+        setExaminationData(data);
+        return data;
+      } catch (err) {
+        console.warn(`uploadEndSemMarks(${offeringId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to upload examination sheet');
+        throw err;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  /* ======================================================================== */
+  /* 3. Indirect Survey Assessment Loaders & Mutators                         */
+  /* ======================================================================== */
+
+  const loadSurveyData = useCallback(
+    async (targetOfferingId = courseOfferingId) => {
+      if (!targetOfferingId) return null;
+      try {
+        setError(null);
+        const response = await attainmentApi.getSurveyAttainment(targetOfferingId);
+        const data = unwrapResponse(response);
+        setSurveyData(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadSurveyData(${targetOfferingId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to load survey data');
+        return null;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  const saveSurveyResponses = useCallback(
+    async (payload, targetOfferingId = courseOfferingId) => {
+      if (!targetOfferingId) {
+        throw new Error('courseOfferingId is required');
+      }
+      try {
+        setError(null);
+        const response = await attainmentApi.saveSurveyResponses(targetOfferingId, {
+          courseOfferingId: targetOfferingId,
+          ...payload,
+        });
+        const data = unwrapResponse(response);
+        setSurveyData(data);
+        return data;
+      } catch (err) {
+        console.warn(`saveSurveyResponses(${targetOfferingId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to save survey responses');
+        throw err;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  const uploadCourseSurvey = useCallback(
+    async ({
+      offeringId = courseOfferingId,
+      file,
+      thresholdPercentage = 60.0,
+      uploadedBy = 'Course Coordinator',
+    }) => {
+      if (!offeringId) throw new Error('courseOfferingId is required');
+      if (!file) throw new Error('Excel file is required');
+
+      const formData = new FormData();
+      formData.append('file', file);
+      if (thresholdPercentage != null) {
+        formData.append('thresholdPercentage', String(thresholdPercentage));
+      }
+      if (uploadedBy) {
+        formData.append('uploadedBy', uploadedBy);
+      }
+
+      try {
+        setError(null);
+        const response = await attainmentApi.uploadSurveySheet(offeringId, formData);
+        const data = unwrapResponse(response);
+        setSurveyData(data);
+        return data;
+      } catch (err) {
+        console.warn(`uploadCourseSurvey(${offeringId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to upload survey sheet');
+        throw err;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  /* ======================================================================== */
+  /* 4. CO Attainment Loader & Calculator                                     */
+  /* ======================================================================== */
+
+  const loadCourseCoAttainment = useCallback(
+    async (targetOfferingId = courseOfferingId) => {
+      if (!targetOfferingId) return null;
+      try {
+        setError(null);
+        const response = await reportsApi.getCourseAttainment(targetOfferingId);
+        const data = unwrapResponse(response);
+        setCourseAttainmentStore(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadCourseCoAttainment(${targetOfferingId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to load course CO attainment');
+        return null;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  const calculateCourseCoAttainment = useCallback(
+    async (offeringId = courseOfferingId) => {
+      if (!offeringId) {
+        throw new Error('courseOfferingId is required');
+      }
+      try {
+        setError(null);
+        const response = await reportsApi.getCourseAttainment(offeringId);
+        const data = unwrapResponse(response);
+        if (data) {
+          setCourseAttainmentStore(data);
+        }
+        return data;
+      } catch (err) {
+        console.warn(`calculateCourseCoAttainment(${offeringId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to calculate course CO attainment');
+        throw err;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  /* ======================================================================== */
+  /* 5. Course ATR Loaders & Mutators                                         */
+  /* ======================================================================== */
+
+  const loadCourseAtr = useCallback(
+    async (targetOfferingId = courseOfferingId) => {
+      if (!targetOfferingId) return null;
+      try {
+        setError(null);
+        const response = await reportsApi.getCourseAtr(targetOfferingId);
+        const data = unwrapResponse(response);
+        setCourseAtrStore(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadCourseAtr(${targetOfferingId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to load course ATR');
+        return null;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  const updateCourseAtrData = useCallback(
+    async (newAtrData) => {
+      try {
+        setError(null);
+        const response = await reportsApi.saveCourseAtr(newAtrData);
+        const data = unwrapResponse(response);
+        setCourseAtrStore(data);
+        return data;
+      } catch (err) {
+        console.warn('updateCourseAtrData failed:', err);
+        setError(err?.customMessage || err?.message || 'Failed to save course ATR');
+        throw err;
+      }
+    },
+    []
+  );
+
+  const submitCourseAtr = useCallback(
+    async (targetOfferingId = courseOfferingId) => {
+      if (!targetOfferingId) {
+        throw new Error('courseOfferingId is required');
+      }
+
+      try {
+        setError(null);
+        const response = await reportsApi.submitCourseAtr(targetOfferingId);
+        const data = unwrapResponse(response);
+
+        const refreshed = await reportsApi.getCourseAtr(targetOfferingId);
+        setCourseAtrStore(unwrapResponse(refreshed));
+
+        return data;
+      } catch (err) {
+        console.warn(`submitCourseAtr(${targetOfferingId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to submit course ATR');
+        throw err;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  /* ======================================================================== */
+  /* 6. Programme ATR Loaders & Mutators                                      */
+  /* ======================================================================== */
+
+  const loadProgrammeAtr = useCallback(
+    async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
+      if (!targetProgrammeId || !targetBatchId) {
+        setProgrammeAtrStore(null);
+        return null;
+      }
+      try {
+        setError(null);
+        const response = await apiClient.get(`/atr/programme/${targetProgrammeId}`, {
+          params: { batchId: targetBatchId },
+        });
+        const data = unwrapResponse(response);
+        setProgrammeAtrStore(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadProgrammeAtr(${targetProgrammeId}, ${targetBatchId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to load programme ATR');
+        return null;
+      }
+    },
+    [programmeId, batchId]
+  );
+
+  const updateProgrammeAtr = useCallback(
+    async (targetProgrammeId = programmeId, programmeAtrData = {}) => {
       if (!targetProgrammeId) {
-        throw new Error(
-          'programmeId is required'
-        );
+        throw new Error('programmeId is required');
       }
 
-      const response =
-        await apiClient.put(
-          `/atr/programme/${targetProgrammeId}`,
-          programmeAtrData
-        );
+      try {
+        setError(null);
+        const response = await reportsApi.saveProgrammeAtr(programmeAtrData);
+        const data = unwrapResponse(response);
+        setProgrammeAtrStore(data);
+        return data;
+      } catch (err) {
+        console.warn(`updateProgrammeAtr(${targetProgrammeId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to save programme ATR');
+        throw err;
+      }
+    },
+    [programmeId]
+  );
 
-      const data =
-        unwrapResponse(response);
+  const submitProgrammeAtr = useCallback(
+    async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
+      if (!targetProgrammeId || !targetBatchId) {
+        throw new Error('programmeId and batchId are required');
+      }
 
-      setProgrammeAtrStore(
-        data
-      );
-
-      return data;
-    };
-
-  /*
-   * Keep these aliases for existing screens,
-   * but do not simulate approval locally.
-   *
-   * Approval itself should use ApprovalContext.
-   */
-  const approveProgrammeAtr =
-    async (
-      targetProgrammeId,
-      approvalPayload
-    ) => {
-      return updateProgrammeAtr(
-        targetProgrammeId,
-        approvalPayload
-      );
-    };
-
-  const updateProgrammeAtrObservations =
-    async (
-      targetProgrammeId,
-      observationsData
-    ) => {
-      return updateProgrammeAtr(
-        targetProgrammeId,
-        observationsData
-      );
-    };
+      try {
+        setError(null);
+        const response = await reportsApi.submitProgrammeAtr(targetProgrammeId, targetBatchId);
+        const data = unwrapResponse(response);
+        await loadProgrammeAtr(targetProgrammeId, targetBatchId);
+        return data;
+      } catch (err) {
+        console.warn(`submitProgrammeAtr(${targetProgrammeId}, ${targetBatchId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to submit programme ATR');
+        throw err;
+      }
+    },
+    [programmeId, batchId, loadProgrammeAtr]
+  );
 
   /* ======================================================================== */
-  /* CO Attainment                                                            */
+  /* 7. Programme Attainment Loader                                           */
   /* ======================================================================== */
 
-  const updateCourseAttainment =
-    (
-      offeringId,
-      attainmentData
-    ) => {
-      if (!offeringId) {
-        return;
+  const loadProgrammeAttainment = useCallback(
+    async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
+      if (!targetProgrammeId || !targetBatchId) {
+        setProgrammeAttainmentStore(null);
+        return null;
       }
-
-      setCourseAttainmentStore(
-        attainmentData
-      );
-    };
-
-  const calculateCourseCoAttainment =
-    async (
-      offeringId =
-        courseOfferingId
-    ) => {
-      if (!offeringId) {
-        throw new Error(
-          'courseOfferingId is required'
+      try {
+        setError(null);
+        const response = await attainmentApi.getProgrammeAttainment(
+          targetProgrammeId,
+          targetBatchId
         );
+        const data = unwrapResponse(response);
+        setProgrammeAttainmentStore(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadProgrammeAttainment(${targetProgrammeId}, ${targetBatchId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to load programme attainment');
+        return null;
       }
-
-      const response =
-        await apiClient.get(
-          `/reports/attainment-main/course/${offeringId}`
-        );
-
-      const data =
-        unwrapResponse(response);
-
-      if (data) {
-        updateCourseAttainment(
-          offeringId,
-          data
-        );
-      }
-
-      return data;
-    };
+    },
+    [programmeId, batchId]
+  );
 
   /* ======================================================================== */
-  /* Direct Assessment Excel Upload                                           */
+  /* Context value with aliases for 100% backward compatibility               */
   /* ======================================================================== */
 
-  /*
-   * Backend contract:
-   *
-   * POST /attainment/assessment/direct/upload
-   *
-   * Multipart:
-   *   file
-   *   courseId
-   *   courseOfferingId
-   *   batchId
-   *   assessmentType
-   *   toolType
-   */
+  const value = {
+    loading,
+    error,
 
-  const uploadEndSemMarks =
-    async ({
-      offeringId =
-        courseOfferingId,
-      file,
-      assessmentType,
-      toolType,
-    }) => {
-      if (!offeringId) {
-        throw new Error(
-          'courseOfferingId is required'
-        );
-      }
+    courseOfferingId,
+    selectedCourseOffering,
+    courseId,
+    batchId,
+    programmeId,
+    selectedProgramme,
 
-      if (!courseId) {
-        throw new Error(
-          'courseId is required'
-        );
-      }
+    /* 1. Attainment Settings */
+    attainmentConfigs,
+    activeAttainmentConfig: attainmentConfigs,
+    attainmentSettings: attainmentConfigs,
+    loadAttainmentConfig,
+    loadAttainmentSettings: loadAttainmentConfig,
+    updateCourseAttainmentConfig,
+    saveAttainmentSettings: updateCourseAttainmentConfig,
 
-      if (!batchId) {
-        throw new Error(
-          'batchId is required'
-        );
-      }
+    /* 2. Direct Assessment */
+    examinationData,
+    directAssessmentData: examinationData,
+    loadExaminationData,
+    loadDirectAssessment: loadExaminationData,
+    loadExamination: loadExaminationData,
+    saveExaminationMarks,
+    saveDirectAssessment: saveExaminationMarks,
+    saveExamination: saveExaminationMarks,
+    uploadEndSemMarks,
+    uploadDirectAssessment: uploadEndSemMarks,
+    uploadExamination: uploadEndSemMarks,
 
-      if (!file) {
-        throw new Error(
-          'Excel file is required'
-        );
-      }
+    /* 3. Indirect Assessment */
+    surveyData,
+    indirectAssessmentData: surveyData,
+    loadSurveyData,
+    loadIndirectAssessment: loadSurveyData,
+    loadSurvey: loadSurveyData,
+    saveSurveyResponses,
+    saveIndirectAssessment: saveSurveyResponses,
+    saveSurvey: saveSurveyResponses,
+    uploadCourseSurvey,
+    uploadIndirectAssessment: uploadCourseSurvey,
+    uploadSurvey: uploadCourseSurvey,
 
-      const formData =
-        new FormData();
+    /* 4. CO Attainment */
+    courseAttainmentStore,
+    coAttainment: courseAttainmentStore,
+    loadCourseCoAttainment,
+    loadCOAttainment: loadCourseCoAttainment,
+    calculateCourseCoAttainment,
 
-      formData.append(
-        'file',
-        file
-      );
+    /* 5. Course ATR */
+    courseAtrStore,
+    courseATR: courseAtrStore,
+    loadCourseAtr,
+    loadCourseATR: loadCourseAtr,
+    updateCourseAtrData,
+    saveCourseATR: updateCourseAtrData,
+    submitCourseAtr,
+    submitCourseATR: submitCourseAtr,
 
-      formData.append(
-        'courseId',
-        courseId
-      );
+    /* 6. Programme ATR */
+    programmeAtrStore,
+    programmeATR: programmeAtrStore,
+    loadProgrammeAtr,
+    loadProgrammeATR: loadProgrammeAtr,
+    updateProgrammeAtr,
+    saveProgrammeATR: updateProgrammeAtr,
+    submitProgrammeAtr,
+    submitProgrammeATR: submitProgrammeAtr,
 
-      formData.append(
-        'courseOfferingId',
-        offeringId
-      );
-
-      formData.append(
-        'batchId',
-        batchId
-      );
-
-      if (
-        assessmentType !==
-        undefined &&
-        assessmentType !==
-        null
-      ) {
-        formData.append(
-          'assessmentType',
-          assessmentType
-        );
-      }
-
-      if (
-        toolType !==
-        undefined &&
-        toolType !==
-        null
-      ) {
-        formData.append(
-          'toolType',
-          toolType
-        );
-      }
-
-      const response =
-        await apiClient.post(
-          '/attainment/assessment/direct/upload',
-          formData
-        );
-
-      const data =
-        unwrapResponse(response);
-
-      setCourseAttainmentStore(
-        data
-      );
-
-      return data;
-    };
-
-  /* ======================================================================== */
-  /* Indirect Assessment Excel Upload                                         */
-  /* ======================================================================== */
-
-  /*
-   * Backend contract:
-   *
-   * POST /attainment/assessment/indirect/upload
-   *
-   * Multipart:
-   *   file
-   *   courseId
-   *   courseOfferingId
-   *   batchId
-   */
-
-  const uploadCourseSurvey =
-    async ({
-      offeringId =
-        courseOfferingId,
-      file,
-    }) => {
-      if (!offeringId) {
-        throw new Error(
-          'courseOfferingId is required'
-        );
-      }
-
-      if (!courseId) {
-        throw new Error(
-          'courseId is required'
-        );
-      }
-
-      if (!batchId) {
-        throw new Error(
-          'batchId is required'
-        );
-      }
-
-      if (!file) {
-        throw new Error(
-          'Excel file is required'
-        );
-      }
-
-      const formData =
-        new FormData();
-
-      formData.append(
-        'file',
-        file
-      );
-
-      formData.append(
-        'courseId',
-        courseId
-      );
-
-      formData.append(
-        'courseOfferingId',
-        offeringId
-      );
-
-      formData.append(
-        'batchId',
-        batchId
-      );
-
-      const response =
-        await apiClient.post(
-          '/attainment/assessment/indirect/upload',
-          formData
-        );
-
-      const data =
-        unwrapResponse(response);
-
-      setCourseAttainmentStore(
-        data
-      );
-
-      return data;
-    };
-
-  /* ======================================================================== */
-  /* Context Value                                                            */
-  /* ======================================================================== */
+    /* 7. Programme Attainment */
+    programmeAttainmentStore,
+    loadProgrammeAttainment,
+  };
 
   return (
-    <AttainmentContext.Provider
-      value={{
-        loading,
-
-        courseOfferingId,
-
-        selectedCourseOffering,
-
-        courseId,
-
-        batchId,
-
-        programmeId,
-
-        selectedProgramme,
-
-        /* Attainment Settings */
-        attainmentConfigs,
-
-        activeAttainmentConfig:
-          attainmentConfigs,
-
-        updateCourseAttainmentConfig,
-
-        /* CO Attainment */
-        courseAttainmentStore,
-
-        updateCourseAttainment,
-
-        calculateCourseCoAttainment,
-
-        /* Direct Assessment */
-        uploadEndSemMarks,
-
-        /* Indirect Assessment */
-        uploadCourseSurvey,
-
-        /* Course ATR */
-        courseAtrStore,
-
-        updateCourseAtrData,
-
-        submitCourseAtr,
-
-        /* Programme ATR */
-        programmeAtrStore,
-
-        loadProgrammeAtr,
-
-        updateProgrammeAtr,
-
-        approveProgrammeAtr,
-
-        updateProgrammeAtrObservations,
-      }}
-    >
+    <AttainmentContext.Provider value={value}>
       {children}
     </AttainmentContext.Provider>
   );
 }
 
-/* ========================================================================== */
-/* Hook                                                                       */
-/* ========================================================================== */
-
 export function useAttainment() {
-  const context =
-    useContext(
-      AttainmentContext
-    );
-
+  const context = useContext(AttainmentContext);
   if (!context) {
-    throw new Error(
-      'useAttainment must be used within an AttainmentProvider'
-    );
+    throw new Error('useAttainment must be used within an AttainmentProvider');
   }
-
   return context;
 }
 

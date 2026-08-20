@@ -19,6 +19,7 @@ import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import CourseATR from '../atr/CourseATR';
 import ProgrammeATR from '../atr/ProgrammeATR';
+import ErrorBoundary from '../../components/common/ErrorBoundary';
 import * as XLSX from 'xlsx';
 
 // ── Default Batches Option List ──────────────────────────────────────────────
@@ -92,13 +93,13 @@ const SEMESTER_GROUPS = [
 export default function ReportsHub() {
   const { user, role } = useAuth();
   const {
-    programmeId = 'prog-1',
+    programmeId = null,
     setProgrammeId = () => {},
     masterProgrammes = [],
-    courseId = 'crs-1',
+    courseId = null,
     setCourseId = () => {},
-    selectedProgramme,
-    selectedCourse,
+    selectedProgramme = null,
+    selectedCourse = null,
     activePOs = [],
     activePSOs = [],
     activeCOs = [],

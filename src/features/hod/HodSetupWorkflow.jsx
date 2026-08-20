@@ -4,6 +4,7 @@ import { UserCheck, Calendar, Layers, CheckCircle2, ArrowRight, ArrowLeft, Save,
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
+import ErrorBoundary from '../../components/common/ErrorBoundary';
 
 const STEPS = [
   { number: 1, title: 'Programme Coordinator', desc: 'Assign coordinator for programme', path: '/hod/programme-coordinators', icon: UserCheck,   color: '#4f46e5', bg: '#eef2ff' },
@@ -121,8 +122,16 @@ export default function HodSetupWorkflow() {
   const [outcomeTab, setOutcomeTab] = useState('PO');
 
   // ── Per-step completion flags ──────────────────────────────────────────────
-  const progProgress = hodWorkflowProgressStore[selectedProgramme?.id || 'prog-1'] || {};
-  const stepDone = STEPS.map((s) => !!progProgress[s.number]);
+  const progProgress = (selectedProgramme?.id && hodWorkflowProgressStore[selectedProgramme.id]) || {};
+  const stepDone = STEPS.map((s, idx) => {
+    if (Array.isArray(progProgress?.stepStatus)) {
+      return !!progProgress.stepStatus[idx];
+    }
+    if (Array.isArray(progProgress?.completedSteps)) {
+      return progProgress.completedSteps.includes(s.number);
+    }
+    return !!progProgress?.[s.number] || !!progProgress?.[s.path];
+  });
   const completedCount = stepDone.filter(Boolean).length;
   const progressPct = Math.round((completedCount / STEPS.length) * 100);
 
@@ -488,6 +497,11 @@ export default function HodSetupWorkflow() {
         </div>
       </div>
 
+      {/* ── STEP CONTENT WITH ISOLATED ERROR BOUNDARY ────────────────────────── */}
+      <ErrorBoundary
+        fallbackTitle={`Step ${currentStep} Error (${STEPS[currentStep - 1]?.title || 'Setup Step'})`}
+        fallbackMessage={`An error occurred while loading this setup step. You can retry or switch to another step.`}
+      >
       {/* ── STEP 1: PROGRAMME COORDINATOR SETUP ─────────────────────────────── */}
       {currentStep === 1 && (
         <div style={{ ...surface, padding: '24px' }}>
@@ -1020,6 +1034,7 @@ export default function HodSetupWorkflow() {
           </div>
         </div>
       )}
+      </ErrorBoundary>
 
       {/* ── STEPPER BOTTOM FOOTER NAV ─────────────────────────────────────── */}
       <div style={{

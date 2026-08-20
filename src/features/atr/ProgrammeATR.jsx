@@ -95,9 +95,9 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const buildList = () => [
     ...normPOs.map((po) => {
       const target  = progTargets.poTargets?.[po.code] ?? 1.80;
-      const actual  = Number(Math.min(3.0, target * (0.88 + (po.code.charCodeAt(2) % 5) * 0.04)).toFixed(2));
-      const pct     = Number(((actual / target) * 100).toFixed(1));
-      const met     = actual >= target;
+      const actual  = po.attainment ?? null;
+      const pct     = actual !== null ? Number(((actual / target) * 100).toFixed(1)) : 0;
+      const met     = actual !== null && actual >= target;
       return {
         code: po.code, type: 'PO', statement: po.statement,
         target, actual, pct, met,
@@ -110,9 +110,9 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     }),
     ...normPSOs.map((pso) => {
       const target  = progTargets.psoTargets?.[pso.code] ?? 1.80;
-      const actual  = Number(Math.min(3.0, target * (0.88 + (pso.code.charCodeAt(3) % 5) * 0.04)).toFixed(2));
-      const pct     = Number(((actual / target) * 100).toFixed(1));
-      const met     = actual >= target;
+      const actual  = pso.attainment ?? null;
+      const pct     = actual !== null ? Number(((actual / target) * 100).toFixed(1)) : 0;
+      const met     = actual !== null && actual >= target;
       return {
         code: pso.code, type: 'PSO', statement: pso.statement,
         target, actual, pct, met,

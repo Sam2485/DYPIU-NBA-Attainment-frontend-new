@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, X, Trash2 } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
+import ErrorBoundary from '../../components/common/ErrorBoundary';
 
 const STEPS = [
   { number: 1, title: 'School Info',     desc: 'Metadata & Dean allocation',      path: '/director/school-structure',     icon: Building2,     color: '#4f46e5', bg: '#eef2ff' },
@@ -74,8 +75,15 @@ export default function DirectorSetupWorkflow() {
   const [newProgDuration, setNewProgDuration] = useState(4);
 
   // ── Per-step completion flags ──────────────────────────────────────────────
-  const stepDone = STEPS.map((s) => {
-    return !!directorWorkflowProgress[s.number];
+  const safeProgress = directorWorkflowProgress ?? {};
+  const stepDone = STEPS.map((s, idx) => {
+    if (Array.isArray(safeProgress.stepStatus)) {
+      return !!safeProgress.stepStatus[idx];
+    }
+    if (Array.isArray(safeProgress.completedSteps)) {
+      return safeProgress.completedSteps.includes(s.number);
+    }
+    return !!safeProgress[s.number] || !!safeProgress[`step-${s.number}`];
   });
 
   const completedCount = stepDone.filter(Boolean).length;
@@ -314,6 +322,10 @@ export default function DirectorSetupWorkflow() {
 
       {/* ── STEP CONTENT ──────────────────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '24px', marginBottom: '20px' }}>
+        <ErrorBoundary
+          fallbackTitle={`Step ${currentStep} Error (${currentStepMeta.title})`}
+          fallbackMessage={`An error occurred while rendering ${currentStepMeta.title}. You can retry or navigate to another step.`}
+        >
 
         {/* STEP 1 */}
         {currentStep === 1 && (
@@ -553,6 +565,7 @@ export default function DirectorSetupWorkflow() {
           </div>
         )}
 
+        </ErrorBoundary>
       </div>{/* end step content */}
 
 

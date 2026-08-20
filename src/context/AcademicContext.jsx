@@ -8,7 +8,6 @@ import {
   AttainmentContext,
   AttainmentProvider,
   useAttainment,
-  defaultLevels,
 } from './attainment';
 
 import {
@@ -32,6 +31,19 @@ import {
   PC_WORKFLOW_STEPS,
 } from './dashboard';
 
+export const MASTER_FACULTY_LIST = [
+  'Course Coordinator',
+  'Programme Coordinator',
+  'Head of Department (HOD)',
+  'School Director',
+];
+
+export const defaultLevels = [
+  { level: 1, minPercentage: 0, maxPercentage: 50 },
+  { level: 2, minPercentage: 50, maxPercentage: 70 },
+  { level: 3, minPercentage: 70, maxPercentage: 100 },
+];
+
 /* -------------------------------------------------------------------------- */
 /* Context exports                                                            */
 /* -------------------------------------------------------------------------- */
@@ -43,7 +55,6 @@ export {
   AttainmentContext,
   AttainmentProvider,
   useAttainment,
-  defaultLevels,
 
   ApprovalContext,
   ApprovalProvider,

@@ -39,7 +39,7 @@ export default function COTargetSettingHub({ hideFooter = false }) {
     }));
   };
 
-  const targetCourseId = selectedCourse?.id || courseId || 'crs-1';
+  const targetCourseId = selectedCourse?.id || courseId || null;
 
   const handleSaveCoTargets = () => {
     if (selectedCourse?.id) {

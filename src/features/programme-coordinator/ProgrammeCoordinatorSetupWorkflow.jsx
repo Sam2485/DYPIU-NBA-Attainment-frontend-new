@@ -9,6 +9,7 @@ import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext'
 import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
+import ErrorBoundary from '../../components/common/ErrorBoundary';
 import ProgrammeATR from '../atr/ProgrammeATR';
 
 // ── Style tokens (identical to HodSetupWorkflow) ─────────────────────────────
@@ -117,8 +118,16 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const programmeSemesters = Array.from({ length: totalSemesters }, (_, i) => `Sem ${ROMAN_NUMERALS[i] || i + 1}`);
 
   // ── Per-step completion flags ──────────────────────────────────────────────
-  const progProgress = pcWorkflowProgressStore[selectedProgramme.id || 'prog-1'] || {};
-  const stepDone = STEPS.map((s) => !!progProgress[s.number]);
+  const progProgress = (selectedProgramme?.id && pcWorkflowProgressStore[selectedProgramme.id]) || {};
+  const stepDone = STEPS.map((s, idx) => {
+    if (Array.isArray(progProgress?.stepStatus)) {
+      return !!progProgress.stepStatus[idx];
+    }
+    if (Array.isArray(progProgress?.completedSteps)) {
+      return progProgress.completedSteps.includes(s.number);
+    }
+    return !!progProgress?.[s.number] || !!progProgress?.[s.path];
+  });
   const completedCount = stepDone.filter(Boolean).length;
   const progressPct = Math.round((completedCount / STEPS.length) * 100);
 
@@ -401,6 +410,10 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
 
       {/* ── STEP CONTENT ──────────────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '24px', marginBottom: '20px' }}>
+        <ErrorBoundary
+          fallbackTitle={`Step ${currentStep} Error (${STEPS[currentStep - 1]?.title || 'Setup Step'})`}
+          fallbackMessage={`An error occurred while loading this setup step. You can retry or switch to another step.`}
+        >
 
         {/* ── STEP 1: PROGRAMME SETUP (ADD COURSES) ──────────────────────── */}
         {currentStep === 1 && (
@@ -808,6 +821,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
           </div>
         )}
 
+        </ErrorBoundary>
       </div>{/* end step content */}
 
       {/* ── FOOTER NAV ────────────────────────────────────────────────────── */}

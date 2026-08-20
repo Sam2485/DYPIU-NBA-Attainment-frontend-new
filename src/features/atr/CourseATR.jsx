@@ -46,10 +46,10 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
     ? allCourses.find((c) => c.id === courseId) || selectedCourse
     : selectedCourse;
 
-  const activeCourseId = courseId || currentCourse?.id || selectedCourse?.id || 'crs-1';
+  const activeCourseId = courseId || currentCourse?.id || selectedCourse?.id || null;
   const activeCOs      = currentCourse?.courseOutcomes || [];
 
-  const verificationData = courseVerificationStore[activeCourseId] || {};
+  const verificationData = (activeCourseId && courseVerificationStore[activeCourseId]) || {};
   const atrStatus = verificationData.atrStatus || 'DRAFT';
   const atrRemarks = verificationData.atrRemarks || '';
   const verifiedBy = verificationData.verifiedBy || 'Programme Coordinator';
@@ -60,20 +60,20 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
 
   // Build ATR list from COs
   const buildList = () => {
-    const saved    = courseAtrStore[activeCourseId] || [];
+    const saved    = (activeCourseId && courseAtrStore[activeCourseId]) || [];
     const savedMap = new Map(saved.map((i) => [i.code, i]));
     if (activeCOs.length === 0) return saved;
-    return activeCOs.map((co, idx) => {
+    return activeCOs.map((co) => {
       const ex     = savedMap.get(co.code);
-      const target = ex?.target ?? 2.50;
-      const actual = ex?.actual ?? (idx % 2 === 0 ? 2.80 - idx * 0.1 : 2.10);
-      const pct    = Number(((actual / target) * 100).toFixed(2));
-      const met    = actual >= target;
+      const target = ex?.target ?? co.targetLevel ?? 2.50;
+      const actual = ex?.actual ?? co.attainment ?? null;
+      const pct    = actual !== null ? Number(((actual / target) * 100).toFixed(2)) : 0;
+      const met    = actual !== null && actual >= target;
       return {
         code: co.code, statement: co.statement, target, actual, pct, met,
         remark:  ex?.remark  ?? (met  ? 'Target achieved. Maintain current teaching methodology and continuous assessment structure.' : ''),
         actions: ex?.actions ?? (met  ? [] : [
-          `Conduct extra tutorial sessions on ${co.statement.slice(0, 45)}...`,
+          `Conduct extra tutorial sessions on ${co.statement ? co.statement.slice(0, 45) : ''}...`,
           'Provide additional practice numericals and interactive assignment problem sets.',
         ]),
       };

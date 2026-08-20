@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen,
@@ -9,13 +10,13 @@ import {
   Check,
   Clock,
   TrendingUp,
-  AlertCircle,
   PlayCircle,
   FileText,
   ShieldCheck,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import { ScreenLoadingState, ScreenErrorState } from '../../components/common/ScreenState';
 
 // ── Programme Coordinator 4-Step Setup Workflow Definition ───────────────────
 const PC_STEPS = [
@@ -30,25 +31,64 @@ export default function ProgrammeCoordinatorDashboard() {
   const { user } = useAuth();
   const {
     masterProgrammes = [],
-    programmeId      = 'prog-1',
-    courses          = [],
-    selectedBatch    = { name: 'Batch 2025-29' },
-    activePOs        = [],
-    activePSOs       = [],
+    programmeId = null,
+    batchId = null,
+    courses = [],
+    selectedBatch = null,
+    batches = [],
+    activePOs = [],
+    activePSOs = [],
     courseVerificationStore = {},
+    pcWorkflowProgress = null,
     pcWorkflowProgressStore = {},
+    loadProgrammeCoordinatorDashboard,
+    loadPcSetupProgress,
+    loadProgrammeOutcomes,
+    loadCourses,
+    loadBatches,
+    loadProgrammes,
   } = useAcademic();
 
+  const [screenLoading, setScreenLoading] = useState(false);
+  const [screenError, setScreenError] = useState(null);
+
   const selectedProgramme =
-    masterProgrammes.find((p) => p.id === programmeId) ||
+    (Array.isArray(masterProgrammes) && masterProgrammes.find((p) => p.id === programmeId)) ||
     masterProgrammes[0] ||
-    { id: 'prog-1', name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
+    null;
 
-  const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === selectedProgramme.id);
+  const activeProgId = selectedProgramme?.id || programmeId;
 
-  // Exact count of remaining individual approval items across all courses under the programme:
-  // Settings (configStatus), CO Outcomes (coStatus), Course ATR (atrStatus)
+  const fetchPcData = async () => {
+    setScreenLoading(true);
+    setScreenError(null);
+    try {
+      await Promise.allSettled([
+        loadProgrammes ? loadProgrammes() : Promise.resolve(),
+        loadBatches ? loadBatches({ targetProgrammeId: activeProgId }) : Promise.resolve(),
+        loadCourses ? loadCourses({ targetProgrammeId: activeProgId }) : Promise.resolve(),
+        activeProgId && loadProgrammeOutcomes ? loadProgrammeOutcomes(activeProgId) : Promise.resolve(),
+        activeProgId && loadProgrammeCoordinatorDashboard ? loadProgrammeCoordinatorDashboard(activeProgId) : Promise.resolve(),
+        activeProgId && batchId && loadPcSetupProgress ? loadPcSetupProgress(activeProgId, batchId) : Promise.resolve(),
+      ]);
+    } catch (err) {
+      console.warn('ProgrammeCoordinatorDashboard fetch failed:', err);
+      setScreenError(err?.customMessage || err?.message || 'Failed to load Programme Coordinator dashboard.');
+    } finally {
+      setScreenLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPcData();
+  }, [activeProgId, batchId]);
+
+  const progCourses = Array.isArray(courses)
+    ? courses.filter((c) => !c?.programmeId || (activeProgId && c.programmeId === activeProgId))
+    : [];
+
   const pendingVerifications = progCourses.reduce((total, c) => {
+    if (!c?.id) return total;
     const rec = courseVerificationStore[c.id] || {};
     let count = 0;
     if (rec.configStatus === 'SUBMITTED' || rec.configStatus === 'PENDING_APPROVAL' || rec.configStatus === 'PENDING') {
@@ -63,12 +103,18 @@ export default function ProgrammeCoordinatorDashboard() {
     return total + count;
   }, 0);
 
-  const activeBatchLabel = selectedBatch?.name?.split(' ')[1] || '2025–29';
+  const activeBatchLabel = selectedBatch?.name || (batches[0]?.name ?? 'Active Batch');
 
   // ── Per-step completion tracking ───────────────────────────────────────────
-  const progProgress = pcWorkflowProgressStore[selectedProgramme.id || 'prog-1'] || {};
-  const stepStatus = PC_STEPS.map((s) => {
-    return !!progProgress[s.step];
+  const safeProgress = pcWorkflowProgress || (activeProgId ? pcWorkflowProgressStore[activeProgId] : {}) || {};
+  const stepStatus = PC_STEPS.map((s, idx) => {
+    if (Array.isArray(safeProgress.stepStatus)) {
+      return !!safeProgress.stepStatus[idx];
+    }
+    if (Array.isArray(safeProgress.completedSteps)) {
+      return safeProgress.completedSteps.includes(s.step);
+    }
+    return !!safeProgress[s.step] || !!safeProgress[`step-${s.step}`];
   });
 
   const completedCount = stepStatus.filter(Boolean).length;
@@ -79,49 +125,49 @@ export default function ProgrammeCoordinatorDashboard() {
   // ── Quick actions ─────────────────────────────────────────────────────────
   const quickActions = [
     {
-      id:    'setup',
+      id: 'setup',
       title: 'Course Management',
-      desc:  'Add courses, assign coordinators, and view course structures.',
-      path:  '/academic',
-      icon:  BookOpen,
+      desc: 'Add courses, assign coordinators, and view course structures.',
+      path: '/academic',
+      icon: BookOpen,
       iconColor: '#4f46e5',
       iconBg: '#eef2ff',
     },
     {
-      id:   'targets',
+      id: 'targets',
       title: 'Target Settings',
-      desc:  'Set PO and PSO benchmark target levels (1.0 – 3.0 scale).',
-      path:  '/programme-coordinator/target-settings',
-      icon:  Target,
+      desc: 'Set PO and PSO benchmark target levels (1.0 – 3.0 scale).',
+      path: '/programme-coordinator/target-settings',
+      icon: Target,
       iconColor: '#7c3aed',
       iconBg: '#f5f3ff',
     },
     {
-      id:   'programme-atr',
+      id: 'programme-atr',
       title: 'Programme ATR',
-      desc:  'Formulate PO/PSO gap analysis, observations & Action Taken Report.',
-      path:  '/programme-atr',
-      icon:  Layers,
+      desc: 'Formulate PO/PSO gap analysis, observations & Action Taken Report.',
+      path: '/programme-atr',
+      icon: Layers,
       iconColor: '#0284c7',
       iconBg: '#f0f9ff',
     },
     {
-      id:    'verification',
+      id: 'verification',
       title: 'Approvals & Verification',
-      desc:  'Review CO mapping, attainment, and Course ATR from coordinators.',
-      path:  '/coordinator-review',
-      icon:  ShieldCheck,
+      desc: 'Review CO mapping, attainment, and Course ATR from coordinators.',
+      path: '/coordinator-review',
+      icon: ShieldCheck,
       iconColor: '#059669',
       iconBg: '#f0fdf4',
       badge: pendingVerifications > 0 ? `${pendingVerifications} pending` : null,
       badgeWarn: pendingVerifications > 0,
     },
     {
-      id:   'reports',
+      id: 'reports',
       title: 'Reports & Downloads',
-      desc:  'Access consolidated Course & Programme Attainment and ATR Reports.',
-      path:  '/reports',
-      icon:  FileText,
+      desc: 'Access consolidated Course & Programme Attainment and ATR Reports.',
+      path: '/reports',
+      icon: FileText,
       iconColor: '#d97706',
       iconBg: '#fffbeb',
     },
@@ -129,9 +175,17 @@ export default function ProgrammeCoordinatorDashboard() {
 
   // ── Style tokens ─────────────────────────────────────────────────────────
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
-  const ink     = '#0f172a';
-  const muted   = '#64748b';
-  const accent  = '#4f46e5';
+  const ink = '#0f172a';
+  const muted = '#64748b';
+  const accent = '#4f46e5';
+
+  if (screenLoading && masterProgrammes.length === 0) {
+    return <ScreenLoadingState message="Loading Programme Coordinator Dashboard..." />;
+  }
+
+  if (screenError && masterProgrammes.length === 0) {
+    return <ScreenErrorState title="Failed to load Dashboard" message={screenError} onRetry={fetchPcData} />;
+  }
 
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
@@ -155,7 +209,9 @@ export default function ProgrammeCoordinatorDashboard() {
             Welcome, {user?.name || 'Programme Coordinator'}
           </h1>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            <strong style={{ color: ink }}>{selectedProgramme.name}</strong> &nbsp;·&nbsp; {selectedProgramme.code}
+            <strong style={{ color: ink }}>{selectedProgramme?.name || 'Programme Overview'}</strong>
+            {selectedProgramme?.code ? ` · ${selectedProgramme.code}` : ''}
+            &nbsp;·&nbsp; Batch: <strong style={{ color: ink }}>{activeBatchLabel}</strong>
           </p>
         </div>
         <div style={{ marginLeft: 'auto' }}>
@@ -171,10 +227,10 @@ export default function ProgrammeCoordinatorDashboard() {
           >
             <PlayCircle size={15} />
             {targetStepNum === 1 && completedCount === 0
-              ? 'Start Programme Workflow (Step 1)'
+              ? 'Start Programme Setup (Step 1)'
               : completedCount === PC_STEPS.length
-              ? 'Manage Programme Workflow'
-              : `Continue Workflow (Step ${targetStepNum}: ${nextStep?.label || ''})`}
+              ? 'Manage Programme Setup'
+              : `Continue Setup (Step ${targetStepNum}: ${nextStep?.label || ''})`}
             <ArrowRight size={14} />
           </button>
         </div>
@@ -183,48 +239,54 @@ export default function ProgrammeCoordinatorDashboard() {
       {/* ── STAT CARDS ────────────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px', marginBottom: '20px' }}>
 
-        {/* Active Batch */}
+        {/* Courses */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Active Batch</span>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Programme Courses</span>
             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#eef2ff', display: 'grid', placeItems: 'center', color: accent }}>
               <BookOpen size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '20px', fontWeight: '800', color: ink, lineHeight: 1 }}>{activeBatchLabel}</div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: '#16a34a', fontWeight: '600', marginTop: '5px' }}>
-            <Check size={11} /> Active cycle
-          </div>
-        </div>
-
-        {/* Total Courses */}
-        <div style={{ ...surface, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Courses</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f0f9ff', display: 'grid', placeItems: 'center', color: '#0284c7' }}>
-              <BookOpen size={15} />
-            </div>
-          </div>
           <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{progCourses.length}</div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>Under programme</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>In active curriculum</div>
         </div>
 
-        {/* PO/PSO Targets */}
+        {/* POs & PSOs */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>PO / PSO</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f0fdf4', display: 'grid', placeItems: 'center', color: '#16a34a' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>POs & PSOs</span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f5f3ff', display: 'grid', placeItems: 'center', color: '#7c3aed' }}>
               <Target size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{activePOs.length} / {activePSOs.length}</div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>POs &amp; PSOs configured</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>
+            {activePOs.length + activePSOs.length}
+          </div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>
+            {activePOs.length} POs &nbsp;·&nbsp; {activePSOs.length} PSOs
+          </div>
+        </div>
+
+        {/* Pending Verifications */}
+        <div style={{ ...surface, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Pending Verifications</span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: pendingVerifications > 0 ? '#fffbeb' : '#f0fdf4', display: 'grid', placeItems: 'center', color: pendingVerifications > 0 ? '#d97706' : '#16a34a' }}>
+              <ShieldCheck size={15} />
+            </div>
+          </div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: pendingVerifications > 0 ? '#d97706' : ink, lineHeight: 1 }}>
+            {pendingVerifications}
+          </div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>
+            {pendingVerifications > 0 ? 'From Course Coordinators' : 'All up to date'}
+          </div>
         </div>
 
         {/* Workflow Progress */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Workflow Progress</span>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Setup Progress</span>
             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: progressPct === 100 ? '#f0fdf4' : '#fffbeb', display: 'grid', placeItems: 'center', color: progressPct === 100 ? '#16a34a' : '#d97706' }}>
               <TrendingUp size={15} />
             </div>
@@ -263,8 +325,8 @@ export default function ProgrammeCoordinatorDashboard() {
                       <span style={{
                         fontSize: '10.5px', fontWeight: '700', borderRadius: '5px', padding: '1px 7px',
                         background: action.badgeWarn ? '#fffbeb' : '#f0fdf4',
-                        color:      action.badgeWarn ? '#b45309' : '#16a34a',
-                        border:     `1px solid ${action.badgeWarn ? '#fde68a' : '#bbf7d0'}`,
+                        color: action.badgeWarn ? '#b45309' : '#16a34a',
+                        border: `1px solid ${action.badgeWarn ? '#fde68a' : '#bbf7d0'}`,
                       }}>
                         {action.badge}
                       </span>
@@ -279,13 +341,13 @@ export default function ProgrammeCoordinatorDashboard() {
         </div>
       </div>
 
-      {/* ── 4-STEP WORKFLOW PROGRESS ────────────────────────────────────────── */}
+      {/* ── 4-STEP WORKFLOW PROGRESS ──────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '20px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: ink }}>Programme Progress</div>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: ink }}>Programme Setup Workflow</div>
             <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>
-              {completedCount} of {PC_STEPS.length} steps completed &nbsp;·&nbsp; Programme setup &amp; OBE readiness workflow below.
+              {completedCount} of {PC_STEPS.length} steps completed &nbsp;·&nbsp; {selectedProgramme?.name || 'Programme Setup'}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

@@ -44,6 +44,8 @@ import HodSetupWorkflowPage from '../pages/hod/HodSetupWorkflowPage';
 import HodProgrammeCoordinatorsPage from '../pages/hod/HodProgrammeCoordinatorsPage';
 import CourseCoordinatorWorkflowPage from '../pages/CourseCoordinatorWorkflowPage';
 
+import ErrorBoundary from '../components/common/ErrorBoundary';
+
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
@@ -52,7 +54,11 @@ function ProtectedRoute({ children }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  return children;
+  return (
+    <ErrorBoundary isScreen>
+      {children}
+    </ErrorBoundary>
+  );
 }
 
 export default function AppRoutes() {

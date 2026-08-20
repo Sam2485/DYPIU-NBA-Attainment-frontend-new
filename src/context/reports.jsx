@@ -1,7 +1,6 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useMemo,
   useState,
   useCallback,
@@ -10,8 +9,7 @@ import {
 import { useAcademic } from './academic';
 import { reportsApi } from '../api/reports';
 
-export const ReportsContext =
-  createContext(null);
+export const ReportsContext = createContext(null);
 
 /* ========================================================================== */
 /* Helpers                                                                    */
@@ -22,15 +20,11 @@ const unwrap = (response) => {
     return null;
   }
 
-  if (
-    response?.data?.data !== undefined
-  ) {
+  if (response?.data?.data !== undefined) {
     return response.data.data;
   }
 
-  if (
-    response?.data !== undefined
-  ) {
+  if (response?.data !== undefined) {
     return response.data;
   }
 
@@ -39,19 +33,14 @@ const unwrap = (response) => {
 
 const unwrapList = (response) => {
   const data = unwrap(response);
-
-  return Array.isArray(data)
-    ? data
-    : [];
+  return Array.isArray(data) ? data : [];
 };
 
 /* ========================================================================== */
 /* Provider                                                                   */
 /* ========================================================================== */
 
-export function ReportsProvider({
-  children,
-}) {
+export function ReportsProvider({ children }) {
   const {
     selectedCourse,
     selectedCourseOffering,
@@ -63,645 +52,508 @@ export function ReportsProvider({
     academicYear,
   } = useAcademic();
 
-  const [
-    activeReportTab,
-    setActiveReportTab,
-  ] = useState('co-attainment');
-
-  const [
-    filterYear,
-    setFilterYear,
-  ] = useState(
-    academicYear ?? null
-  );
+  const [activeReportTab, setActiveReportTab] = useState('co-attainment');
+  const [filterYear, setFilterYear] = useState(academicYear ?? null);
 
   /* ------------------------------------------------------------------------ */
   /* Backend report state                                                     */
   /* ------------------------------------------------------------------------ */
 
-  const [
-    reportFilters,
-    setReportFilters,
-  ] = useState(null);
+  const [reportFilters, setReportFilters] = useState(null);
+  const [reportsSummary, setReportsSummary] = useState(null);
+  const [courseReports, setCourseReports] = useState([]);
+  const [programmeReports, setProgrammeReports] = useState([]);
+  const [selectedCourseAtr, setSelectedCourseAtr] = useState(null);
+  const [selectedProgrammeAtr, setSelectedProgrammeAtr] = useState(null);
+  const [courseAttainmentReport, setCourseAttainmentReport] = useState(null);
+  const [programmeAttainmentReport, setProgrammeAttainmentReport] = useState(null);
+  const [batchComparison, setBatchComparison] = useState(null);
+  const [batchSummary, setBatchSummary] = useState(null);
+  const [historicalTrends, setHistoricalTrends] = useState([]);
 
-  const [
-    reportsSummary,
-    setReportsSummary,
-  ] = useState(null);
-
-  const [
-    courseReports,
-    setCourseReports,
-  ] = useState([]);
-
-  const [
-    programmeReports,
-    setProgrammeReports,
-  ] = useState([]);
-
-  const [
-    selectedCourseAtr,
-    setSelectedCourseAtr,
-  ] = useState(null);
-
-  const [
-    selectedProgrammeAtr,
-    setSelectedProgrammeAtr,
-  ] = useState(null);
-
-  const [
-    courseAttainmentReport,
-    setCourseAttainmentReport,
-  ] = useState(null);
-
-  const [
-    programmeAttainmentReport,
-    setProgrammeAttainmentReport,
-  ] = useState(null);
-
-  const [
-    batchComparison,
-    setBatchComparison,
-  ] = useState(null);
-
-  const [
-    batchSummary,
-    setBatchSummary,
-  ] = useState(null);
-
-  const [
-    historicalTrends,
-    setHistoricalTrends,
-  ] = useState([]);
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(false);
-
-  const [
-    error,
-    setError,
-  ] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   /* ======================================================================== */
-  /* Report Filters                                                           */
+  /* 1. Report Filters Loader                                                 */
   /* ======================================================================== */
 
-  const loadReportFilters =
-    useCallback(
-      async () => {
-        try {
-          const response =
-            await reportsApi.getFilters();
-
-          const data =
-            unwrap(response);
-
-          setReportFilters(
-            data
-          );
-
-          return data;
-        } catch (err) {
-          console.error(
-            'Failed to load report filters:',
-            err
-          );
-
-          throw err;
-        }
-      },
-      []
-    );
+  const loadReportFilters = useCallback(async () => {
+    try {
+      setError(null);
+      const response = await reportsApi.getFilters();
+      const data = unwrap(response);
+      setReportFilters(data);
+      return data;
+    } catch (err) {
+      console.warn('loadReportFilters failed:', err);
+      setError(err?.response?.data?.message || err?.message || 'Failed to load report filters.');
+      return null;
+    }
+  }, []);
 
   /* ======================================================================== */
-  /* Reports Summary                                                          */
+  /* 2. Reports Summary Loader                                                */
   /* ======================================================================== */
 
-  const loadReportsSummary =
-    useCallback(
-      async ({
-        targetProgrammeId =
-          programmeId,
-        targetCourseId =
-          courseId,
-        targetBatchId =
-          batchId,
-      } = {}) => {
+  const loadReportsSummary = useCallback(
+    async ({
+      targetProgrammeId = programmeId,
+      targetCourseId = courseId,
+      targetBatchId = batchId,
+    } = {}) => {
+      try {
+        setError(null);
         const params = {};
+        if (targetProgrammeId) params.programmeId = targetProgrammeId;
+        if (targetCourseId) params.courseId = targetCourseId;
+        if (targetBatchId) params.batchId = targetBatchId;
 
-        if (
-          targetProgrammeId
-        ) {
-          params.programmeId =
-            targetProgrammeId;
-        }
-
-        if (
-          targetCourseId
-        ) {
-          params.courseId =
-            targetCourseId;
-        }
-
-        if (
-          targetBatchId
-        ) {
-          params.batchId =
-            targetBatchId;
-        }
-
-        const response =
-          await reportsApi.getReportsSummary(
-            params
-          );
-
-        const data =
-          unwrap(response);
-
-        setReportsSummary(
-          data
-        );
-
+        const response = await reportsApi.getReportsSummary(params);
+        const data = unwrap(response);
+        setReportsSummary(data);
         return data;
-      },
-      [
-        programmeId,
-        courseId,
-        batchId,
-      ]
-    );
+      } catch (err) {
+        console.warn('loadReportsSummary failed:', err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to load reports summary.');
+        return null;
+      }
+    },
+    [programmeId, courseId, batchId]
+  );
 
   /* ======================================================================== */
-  /* Course ATR List                                                          */
+  /* 3. Course ATR List Loader                                                */
   /* ======================================================================== */
 
-  const loadCourseAtrReports =
-    useCallback(
-      async ({
-        targetProgrammeId =
-          programmeId,
-        targetCourseId =
-          courseId,
-        targetBatchId =
-          batchId,
-      } = {}) => {
+  const loadCourseAtrReports = useCallback(
+    async ({
+      targetProgrammeId = programmeId,
+      targetCourseId = courseId,
+      targetBatchId = batchId,
+    } = {}) => {
+      try {
+        setError(null);
         const params = {};
+        if (targetProgrammeId) params.programmeId = targetProgrammeId;
+        if (targetCourseId) params.courseId = targetCourseId;
+        if (targetBatchId) params.batchId = targetBatchId;
 
-        if (
-          targetProgrammeId
-        ) {
-          params.programmeId =
-            targetProgrammeId;
-        }
-
-        if (
-          targetCourseId
-        ) {
-          params.courseId =
-            targetCourseId;
-        }
-
-        if (
-          targetBatchId
-        ) {
-          params.batchId =
-            targetBatchId;
-        }
-
-        const response =
-          await reportsApi.getCourseAtrs(
-            params
-          );
-
-        const data =
-          unwrapList(response);
-
-        setCourseReports(
-          data
-        );
-
+        const response = await reportsApi.getCourseAtrs(params);
+        const data = unwrapList(response);
+        setCourseReports(data);
         return data;
-      },
-      [
-        programmeId,
-        courseId,
-        batchId,
-      ]
-    );
+      } catch (err) {
+        console.warn('loadCourseAtrReports failed:', err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to load course ATR reports.');
+        return [];
+      }
+    },
+    [programmeId, courseId, batchId]
+  );
 
   /* ======================================================================== */
-  /* Programme ATR List                                                       */
+  /* 4. Programme ATR List Loader                                             */
   /* ======================================================================== */
 
-  const loadProgrammeAtrReports =
-    useCallback(
-      async ({
-        targetProgrammeId =
-          programmeId,
-        targetBatchId =
-          batchId,
-      } = {}) => {
+  const loadProgrammeAtrReports = useCallback(
+    async ({
+      targetProgrammeId = programmeId,
+      targetBatchId = batchId,
+    } = {}) => {
+      try {
+        setError(null);
         const params = {};
+        if (targetProgrammeId) params.programmeId = targetProgrammeId;
+        if (targetBatchId) params.batchId = targetBatchId;
 
-        if (
-          targetProgrammeId
-        ) {
-          params.programmeId =
-            targetProgrammeId;
-        }
+        const response = await reportsApi.getProgrammeAtrs(params);
+        const data = unwrapList(response);
+        setProgrammeReports(data);
+        return data;
+      } catch (err) {
+        console.warn('loadProgrammeAtrReports failed:', err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to load programme ATR reports.');
+        return [];
+      }
+    },
+    [programmeId, batchId]
+  );
 
-        if (
+  /* ======================================================================== */
+  /* 5. Selected Course ATR Loader                                            */
+  /* ======================================================================== */
+
+  const loadSelectedCourseAtr = useCallback(
+    async (targetCourseOfferingId = courseOfferingId) => {
+      if (!targetCourseOfferingId) {
+        setSelectedCourseAtr(null);
+        return null;
+      }
+
+      try {
+        setError(null);
+        const response = await reportsApi.getCourseAtr(targetCourseOfferingId);
+        const data = unwrap(response);
+        setSelectedCourseAtr(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadSelectedCourseAtr(${targetCourseOfferingId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to load course ATR.');
+        return null;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  /* ======================================================================== */
+  /* 6. Selected Programme ATR Loader                                         */
+  /* ======================================================================== */
+
+  const loadSelectedProgrammeAtr = useCallback(
+    async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
+      if (!targetProgrammeId || !targetBatchId) {
+        setSelectedProgrammeAtr(null);
+        return null;
+      }
+
+      try {
+        setError(null);
+        const response = await reportsApi.getProgrammeAtr(targetProgrammeId, targetBatchId);
+        const data = unwrap(response);
+        setSelectedProgrammeAtr(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadSelectedProgrammeAtr(${targetProgrammeId}, ${targetBatchId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to load programme ATR.');
+        return null;
+      }
+    },
+    [programmeId, batchId]
+  );
+
+  /* ======================================================================== */
+  /* 7. Course Attainment Report Loader                                       */
+  /* ======================================================================== */
+
+  const loadCourseAttainmentReport = useCallback(
+    async (targetCourseOfferingId = courseOfferingId) => {
+      if (!targetCourseOfferingId) {
+        setCourseAttainmentReport(null);
+        return null;
+      }
+
+      try {
+        setError(null);
+        const response = await reportsApi.getCourseAttainment(targetCourseOfferingId);
+        const data = unwrap(response);
+        setCourseAttainmentReport(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadCourseAttainmentReport(${targetCourseOfferingId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to load course attainment report.');
+        return null;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  /* ======================================================================== */
+  /* 8. Programme Attainment Report Loader                                     */
+  /* ======================================================================== */
+
+  const loadProgrammeAttainmentReport = useCallback(
+    async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
+      if (!targetProgrammeId || !targetBatchId) {
+        setProgrammeAttainmentReport(null);
+        return null;
+      }
+
+      try {
+        setError(null);
+        const response = await reportsApi.getProgrammeAttainment(
+          targetProgrammeId,
           targetBatchId
-        ) {
-          params.batchId =
-            targetBatchId;
-        }
-
-        const response =
-          await reportsApi.getProgrammeAtrs(
-            params
-          );
-
-        const data =
-          unwrapList(response);
-
-        setProgrammeReports(
-          data
         );
-
+        const data = unwrap(response);
+        setProgrammeAttainmentReport(data);
         return data;
-      },
-      [
-        programmeId,
-        batchId,
-      ]
-    );
+      } catch (err) {
+        console.warn(`loadProgrammeAttainmentReport(${targetProgrammeId}, ${targetBatchId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to load programme attainment report.');
+        return null;
+      }
+    },
+    [programmeId, batchId]
+  );
 
   /* ======================================================================== */
-  /* Selected Course ATR                                                      */
+  /* 9. Batch Summary Loader                                                  */
   /* ======================================================================== */
 
-  const loadSelectedCourseAtr =
-    useCallback(
-      async (
-        targetCourseOfferingId =
-          courseOfferingId
-      ) => {
-        if (
-          !targetCourseOfferingId
-        ) {
-          setSelectedCourseAtr(
-            null
-          );
+  const loadBatchSummary = useCallback(
+    async (targetBatchId = batchId) => {
+      if (!targetBatchId) {
+        setBatchSummary(null);
+        return null;
+      }
 
-          return null;
-        }
+      try {
+        setError(null);
+        const response = await reportsApi.getBatchSummary(targetBatchId);
+        const data = unwrap(response);
+        setBatchSummary(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadBatchSummary(${targetBatchId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to load batch summary.');
+        return null;
+      }
+    },
+    [batchId]
+  );
 
-        const response =
-          await reportsApi.getCourseAtr(
-            targetCourseOfferingId
-          );
+  /* ======================================================================== */
+  /* 10. Batch Comparison Loader                                              */
+  /* ======================================================================== */
 
-        const data =
-          unwrap(response);
+  const loadBatchComparison = useCallback(
+    async (targetProgrammeId = programmeId, targetBatchIds = []) => {
+      if (!targetProgrammeId || !Array.isArray(targetBatchIds) || targetBatchIds.length === 0) {
+        setBatchComparison(null);
+        return null;
+      }
 
-        setSelectedCourseAtr(
-          data
+      try {
+        setError(null);
+        const response = await reportsApi.getBatchComparison(
+          targetProgrammeId,
+          targetBatchIds
         );
-
+        const data = unwrap(response);
+        setBatchComparison(data);
         return data;
-      },
-      [courseOfferingId]
-    );
+      } catch (err) {
+        console.warn(`loadBatchComparison(${targetProgrammeId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to load batch comparison.');
+        return null;
+      }
+    },
+    [programmeId]
+  );
 
   /* ======================================================================== */
-  /* Selected Programme ATR                                                   */
+  /* 11. Historical / Trend Data Loader                                       */
   /* ======================================================================== */
 
-  const loadSelectedProgrammeAtr =
-    useCallback(
-      async (
-        targetProgrammeId =
-          programmeId,
-        targetBatchId =
-          batchId
-      ) => {
-        if (
-          !targetProgrammeId ||
-          !targetBatchId
-        ) {
-          setSelectedProgrammeAtr(
-            null
-          );
-
-          return null;
-        }
-
-        const response =
-          await reportsApi.getProgrammeAtr(
-            targetProgrammeId,
-            targetBatchId
-          );
-
-        const data =
-          unwrap(response);
-
-        setSelectedProgrammeAtr(
-          data
-        );
-
-        return data;
-      },
-      [
-        programmeId,
-        batchId,
-      ]
-    );
-
-  /* ======================================================================== */
-  /* Course Attainment                                                        */
-  /* ======================================================================== */
-
-  const loadCourseAttainmentReport =
-    useCallback(
-      async (
-        targetCourseOfferingId =
-          courseOfferingId
-      ) => {
-        if (
-          !targetCourseOfferingId
-        ) {
-          setCourseAttainmentReport(
-            null
-          );
-
-          return null;
-        }
-
-        const response =
-          await reportsApi.getCourseAttainment(
-            targetCourseOfferingId
-          );
-
-        const data =
-          unwrap(response);
-
-        setCourseAttainmentReport(
-          data
-        );
-
-        return data;
-      },
-      [courseOfferingId]
-    );
-
-  /* ======================================================================== */
-  /* Programme Attainment                                                     */
-  /* ======================================================================== */
-
-  const loadProgrammeAttainmentReport =
-    useCallback(
-      async (
-        targetProgrammeId =
-          programmeId,
-        targetBatchId =
-          batchId
-      ) => {
-        if (
-          !targetProgrammeId ||
-          !targetBatchId
-        ) {
-          setProgrammeAttainmentReport(
-            null
-          );
-
-          return null;
-        }
-
-        const response =
-          await reportsApi.getProgrammeAttainment(
-            targetProgrammeId,
-            targetBatchId
-          );
-
-        const data =
-          unwrap(response);
-
-        setProgrammeAttainmentReport(
-          data
-        );
-
-        return data;
-      },
-      [
-        programmeId,
-        batchId,
-      ]
-    );
-
-  /* ======================================================================== */
-  /* Batch Summary                                                            */
-  /* ======================================================================== */
-
-  const loadBatchSummary =
-    useCallback(
-      async (
-        targetBatchId =
-          batchId
-      ) => {
-        if (!targetBatchId) {
-          setBatchSummary(
-            null
-          );
-
-          return null;
-        }
-
-        const response =
-          await reportsApi.getBatchSummary(
-            targetBatchId
-          );
-
-        const data =
-          unwrap(response);
-
-        setBatchSummary(
-          data
-        );
-
-        return data;
-      },
-      [batchId]
-    );
-
-  /* ======================================================================== */
-  /* Batch Comparison                                                         */
-  /* ======================================================================== */
-
-  const loadBatchComparison =
-    useCallback(
-      async (
-        targetProgrammeId =
-          programmeId,
-        targetBatchIds = []
-      ) => {
-        if (
-          !targetProgrammeId ||
-          !Array.isArray(
-            targetBatchIds
-          ) ||
-          targetBatchIds.length === 0
-        ) {
-          setBatchComparison(
-            null
-          );
-
-          return null;
-        }
-
-        const response =
-          await reportsApi.getBatchComparison(
-            targetProgrammeId,
-            targetBatchIds
-          );
-
-        const data =
-          unwrap(response);
-
-        setBatchComparison(
-          data
-        );
-
-        return data;
-      },
-      [programmeId]
-    );
-
-  /* ======================================================================== */
-  /* Historical / Trend Data                                                  */
-  /* ======================================================================== */
-
-  /*
-   * Do not generate historical values locally.
-   *
-   * Only accept data explicitly returned by the
-   * backend report API.
-   *
-   * Since the catalog does not define a dedicated
-   * historical-trend endpoint, we expose the
-   * backend report response where applicable.
-   */
-
-  const loadHistoricalReports =
-    useCallback(
-      async ({
-        targetProgrammeId =
-          programmeId,
-        targetCourseId =
-          courseId,
-        targetBatchId =
-          batchId,
-      } = {}) => {
-        const summary =
-          await loadReportsSummary({
-            targetProgrammeId,
-            targetCourseId,
-            targetBatchId,
-          });
+  const loadHistoricalReports = useCallback(
+    async ({
+      targetProgrammeId = programmeId,
+      targetCourseId = courseId,
+      targetBatchId = batchId,
+    } = {}) => {
+      try {
+        setError(null);
+        const summary = await loadReportsSummary({
+          targetProgrammeId,
+          targetCourseId,
+          targetBatchId,
+        });
 
         let history = [];
-
-        if (
-          Array.isArray(
-            summary?.historicalTrends
-          )
-        ) {
-          history =
-            summary.historicalTrends;
-        } else if (
-          Array.isArray(
-            summary?.historical
-          )
-        ) {
-          history =
-            summary.historical;
+        if (Array.isArray(summary?.historicalTrends)) {
+          history = summary.historicalTrends;
+        } else if (Array.isArray(summary?.historical)) {
+          history = summary.historical;
         }
 
-        setHistoricalTrends(
-          history
-        );
-
+        setHistoricalTrends(history);
         return history;
-      },
-      [
-        programmeId,
-        courseId,
-        batchId,
-        loadReportsSummary,
-      ]
-    );
+      } catch (err) {
+        console.warn('loadHistoricalReports failed:', err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to load historical reports.');
+        return [];
+      }
+    },
+    [programmeId, courseId, batchId, loadReportsSummary]
+  );
 
   /* ======================================================================== */
-  /* Automatic hydration                                                      */
+  /* Derived Reports Data                                                     */
   /* ======================================================================== */
 
-  useEffect(() => {
-    let mounted = true;
-
-    const loadSelectedReports =
-      async () => {
-        setLoading(true);
-        setError(null);
-
-        try {
-          await Promise.allSettled([
-            loadReportFilters(),
-
-            loadReportsSummary(),
-
-            loadCourseAtrReports(),
-
-            loadProgrammeAtrReports(),
-
-            loadSelectedCourseAtr(),
-
-            loadSelectedProgrammeAtr(),
-
-            loadCourseAttainmentReport(),
-
-            loadProgrammeAttainmentReport(),
-
-            loadBatchSummary(),
-
-            loadHistoricalReports(),
-          ]);
-        } catch (err) {
-          if (mounted) {
-            setError(
-              err?.customMessage ??
-              err?.message ??
-              'Failed to load reports.'
-            );
-          }
-        } finally {
-          if (mounted) {
-            setLoading(false);
-          }
-        }
-      };
-
-    loadSelectedReports();
-
-    return () => {
-      mounted = false;
-    };
+  const courseAttainmentSummary = useMemo(() => {
+    if (selectedCourseOffering && courseAttainmentReport) {
+      return [
+        {
+          ...courseAttainmentReport,
+          courseOfferingId,
+          courseId,
+          batchId,
+        },
+      ];
+    }
+    return Array.isArray(courseReports) ? courseReports : [];
   }, [
-    programmeId,
-    batchId,
-    courseId,
+    selectedCourseOffering,
+    courseAttainmentReport,
     courseOfferingId,
+    courseId,
+    batchId,
+    courseReports,
+  ]);
+
+  const programmeAttainmentSummary = useMemo(() => {
+    if (!programmeAttainmentReport) {
+      return [];
+    }
+
+    if (Array.isArray(programmeAttainmentReport?.poAttainment)) {
+      return programmeAttainmentReport.poAttainment;
+    }
+
+    if (Array.isArray(programmeAttainmentReport?.poAttainmentSummary)) {
+      return programmeAttainmentReport.poAttainmentSummary;
+    }
+
+    if (Array.isArray(programmeAttainmentReport?.programOutcomeAttainment)) {
+      return programmeAttainmentReport.programOutcomeAttainment;
+    }
+
+    return [];
+  }, [programmeAttainmentReport]);
+
+  const programmePSOAttainmentSummary = useMemo(() => {
+    if (!programmeAttainmentReport) {
+      return [];
+    }
+
+    if (Array.isArray(programmeAttainmentReport?.psoAttainment)) {
+      return programmeAttainmentReport.psoAttainment;
+    }
+
+    if (Array.isArray(programmeAttainmentReport?.psoAttainmentSummary)) {
+      return programmeAttainmentReport.psoAttainmentSummary;
+    }
+
+    if (Array.isArray(programmeAttainmentReport?.programSpecificOutcomeAttainment)) {
+      return programmeAttainmentReport.programSpecificOutcomeAttainment;
+    }
+
+    return [];
+  }, [programmeAttainmentReport]);
+
+  /* ======================================================================== */
+  /* 12. Export & Print                                                       */
+  /* ======================================================================== */
+
+  const exportReportAsCSV = useCallback(
+    async (reportType = 'course') => {
+      try {
+        const params = {};
+        if (programmeId) params.programmeId = programmeId;
+        if (courseId) params.courseId = courseId;
+        if (batchId) params.batchId = batchId;
+        params.reportType = reportType;
+
+        const response = await reportsApi.exportExcel(params);
+        const blob = response?.data ?? response;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `OBE_${reportType}_Report_${academicYear || 'report'}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return blob;
+      } catch (err) {
+        console.warn(`exportReportAsCSV(${reportType}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to export CSV report.');
+        throw err;
+      }
+    },
+    [programmeId, courseId, batchId, academicYear]
+  );
+
+  const exportReportAsPDF = useCallback(
+    async (reportType = 'course') => {
+      try {
+        const params = {};
+        if (programmeId) params.programmeId = programmeId;
+        if (courseId) params.courseId = courseId;
+        if (batchId) params.batchId = batchId;
+        params.reportType = reportType;
+
+        const response = await reportsApi.exportPdf(params);
+        const blob = response?.data ?? response;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `OBE_${reportType}_Report_${academicYear || 'report'}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return blob;
+      } catch (err) {
+        console.warn(`exportReportAsPDF(${reportType}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to export PDF report.');
+        throw err;
+      }
+    },
+    [programmeId, courseId, batchId, academicYear]
+  );
+
+  const printReport = useCallback(() => {
+    window.print();
+  }, []);
+
+  /* ======================================================================== */
+  /* Context Value                                                            */
+  /* ======================================================================== */
+
+  const value = {
+    /* UI state */
+    activeReportTab,
+    setActiveReportTab,
+    filterYear,
+    setFilterYear,
+    availableYears: reportFilters?.years ?? [],
+
+    /* Backend report responses */
+    reportFilters,
+    reportsSummary,
+    courseReports,
+    programmeReports,
+    selectedCourseAtr,
+    selectedProgrammeAtr,
+    courseAttainmentReport,
+    programmeAttainmentReport,
+    batchComparison,
+    batchSummary,
+    historicalTrends,
+
+    /* Derived report collections */
+    courseAttainmentSummary,
+    programmeAttainmentSummary,
+    programmePSOAttainmentSummary,
+
+    /* Current selections */
+    selectedCourse,
+    selectedCourseOffering,
+    courseOfferingId,
+    selectedProgramme,
+    academicYear,
+    programmeId,
+    courseId,
+    batchId,
+
+    /* Loading / Error */
+    loading,
+    error,
+
+    /* Loaders */
     loadReportFilters,
     loadReportsSummary,
     loadCourseAtrReports,
@@ -711,412 +563,17 @@ export function ReportsProvider({
     loadCourseAttainmentReport,
     loadProgrammeAttainmentReport,
     loadBatchSummary,
+    loadBatchComparison,
     loadHistoricalReports,
-  ]);
 
-  /* ======================================================================== */
-  /* Backend-driven Course Summary                                            */
-  /* ======================================================================== */
-
-  const courseAttainmentSummary =
-    useMemo(() => {
-      /*
-       * When the backend returns a selected
-       * CourseOffering report, expose it directly.
-       */
-      if (
-        selectedCourseOffering &&
-        courseAttainmentReport
-      ) {
-        return [
-          {
-            ...courseAttainmentReport,
-
-            courseOfferingId:
-              courseOfferingId,
-
-            courseId:
-              courseId,
-
-            batchId:
-              batchId,
-          },
-        ];
-      }
-
-      /*
-       * Aggregate report endpoint is already
-       * authoritative. Do not calculate values.
-       */
-      return Array.isArray(
-        courseReports
-      )
-        ? courseReports
-        : [];
-    }, [
-      selectedCourseOffering,
-      courseAttainmentReport,
-      courseOfferingId,
-      courseId,
-      batchId,
-      courseReports,
-    ]);
-
-  /* ======================================================================== */
-  /* Programme PO / PSO Reports                                               */
-  /* ======================================================================== */
-
-  const programmeAttainmentSummary =
-    useMemo(() => {
-      if (
-        !programmeAttainmentReport
-      ) {
-        return [];
-      }
-
-      /*
-       * Do not manufacture PO values.
-       *
-       * Return the backend's actual PO dataset
-       * whenever the response contains it.
-       */
-      if (
-        Array.isArray(
-          programmeAttainmentReport
-            ?.poAttainment
-        )
-      ) {
-        return programmeAttainmentReport
-          .poAttainment;
-      }
-
-      if (
-        Array.isArray(
-          programmeAttainmentReport
-            ?.poAttainmentSummary
-        )
-      ) {
-        return programmeAttainmentReport
-          .poAttainmentSummary;
-      }
-
-      if (
-        Array.isArray(
-          programmeAttainmentReport
-            ?.programOutcomeAttainment
-        )
-      ) {
-        return programmeAttainmentReport
-          .programOutcomeAttainment;
-      }
-
-      return [];
-    }, [
-      programmeAttainmentReport,
-    ]);
-
-  const programmePSOAttainmentSummary =
-    useMemo(() => {
-      if (
-        !programmeAttainmentReport
-      ) {
-        return [];
-      }
-
-      if (
-        Array.isArray(
-          programmeAttainmentReport
-            ?.psoAttainment
-        )
-      ) {
-        return programmeAttainmentReport
-          .psoAttainment;
-      }
-
-      if (
-        Array.isArray(
-          programmeAttainmentReport
-            ?.psoAttainmentSummary
-        )
-      ) {
-        return programmeAttainmentReport
-          .psoAttainmentSummary;
-      }
-
-      if (
-        Array.isArray(
-          programmeAttainmentReport
-            ?.programSpecificOutcomeAttainment
-        )
-      ) {
-        return programmeAttainmentReport
-          .programSpecificOutcomeAttainment;
-      }
-
-      return [];
-    }, [
-      programmeAttainmentReport,
-    ]);
-
-  /* ======================================================================== */
-  /* CSV Export                                                               */
-  /* ======================================================================== */
-
-  const exportReportAsCSV =
-    async (
-      reportType = 'course'
-    ) => {
-      const params = {};
-
-      if (programmeId) {
-        params.programmeId =
-          programmeId;
-      }
-
-      if (courseId) {
-        params.courseId =
-          courseId;
-      }
-
-      if (batchId) {
-        params.batchId =
-          batchId;
-      }
-
-      params.reportType =
-        reportType;
-
-      const response =
-        await reportsApi.exportExcel(
-          params
-        );
-
-      /*
-       * Binary response.
-       *
-       * Do not pass the Blob through the
-       * normal JSON unwrapping logic.
-       */
-      const blob =
-        response?.data ??
-        response;
-
-      const url =
-        URL.createObjectURL(
-          blob
-        );
-
-      const link =
-        document.createElement(
-          'a'
-        );
-
-      link.href =
-        url;
-
-      link.download =
-        `OBE_${reportType}_Report_${academicYear || 'report'}.xlsx`;
-
-      document.body.appendChild(
-        link
-      );
-
-      link.click();
-
-      document.body.removeChild(
-        link
-      );
-
-      URL.revokeObjectURL(
-        url
-      );
-
-      return blob;
-    };
-
-  /* ======================================================================== */
-  /* PDF Export                                                               */
-  /* ======================================================================== */
-
-  const exportReportAsPDF =
-    async (
-      reportType = 'course'
-    ) => {
-      const params = {};
-
-      if (programmeId) {
-        params.programmeId =
-          programmeId;
-      }
-
-      if (courseId) {
-        params.courseId =
-          courseId;
-      }
-
-      if (batchId) {
-        params.batchId =
-          batchId;
-      }
-
-      params.reportType =
-        reportType;
-
-      const response =
-        await reportsApi.exportPdf(
-          params
-        );
-
-      const blob =
-        response?.data ??
-        response;
-
-      const url =
-        URL.createObjectURL(
-          blob
-        );
-
-      const link =
-        document.createElement(
-          'a'
-        );
-
-      link.href =
-        url;
-
-      link.download =
-        `OBE_${reportType}_Report_${academicYear || 'report'}.pdf`;
-
-      document.body.appendChild(
-        link
-      );
-
-      link.click();
-
-      document.body.removeChild(
-        link
-      );
-
-      URL.revokeObjectURL(
-        url
-      );
-
-      return blob;
-    };
-
-  /* ======================================================================== */
-  /* Print                                                                    */
-  /* ======================================================================== */
-
-  const printReport =
-    () => {
-      window.print();
-    };
-
-  /* ======================================================================== */
-  /* Provider                                                                 */
-  /* ======================================================================== */
+    /* Export / Print */
+    exportReportAsCSV,
+    exportReportAsPDF,
+    printReport,
+  };
 
   return (
-    <ReportsContext.Provider
-      value={{
-        /* UI state */
-        activeReportTab,
-
-        setActiveReportTab,
-
-        filterYear,
-
-        setFilterYear,
-
-        availableYears:
-          reportFilters
-            ?.years ??
-          [],
-
-        /* Backend report responses */
-        reportFilters,
-
-        reportsSummary,
-
-        courseReports,
-
-        programmeReports,
-
-        selectedCourseAtr,
-
-        selectedProgrammeAtr,
-
-        courseAttainmentReport,
-
-        programmeAttainmentReport,
-
-        batchComparison,
-
-        batchSummary,
-
-        historicalTrends,
-
-        /* Derived report collections */
-        courseAttainmentSummary,
-
-        programmeAttainmentSummary,
-
-        programmePSOAttainmentSummary,
-
-        /* Current selections */
-        selectedCourse,
-
-        selectedCourseOffering,
-
-        courseOfferingId,
-
-        selectedProgramme,
-
-        academicYear,
-
-        programmeId,
-
-        courseId,
-
-        batchId,
-
-        /* Loading/error */
-        loading,
-
-        error,
-
-        /* Loaders */
-        loadReportFilters,
-
-        loadReportsSummary,
-
-        loadCourseAtrReports,
-
-        loadProgrammeAtrReports,
-
-        loadSelectedCourseAtr,
-
-        loadSelectedProgrammeAtr,
-
-        loadCourseAttainmentReport,
-
-        loadProgrammeAttainmentReport,
-
-        loadBatchSummary,
-
-        loadBatchComparison,
-
-        loadHistoricalReports,
-
-        /* Export / print */
-        exportReportAsCSV,
-
-        exportReportAsPDF,
-
-        printReport,
-      }}
-    >
+    <ReportsContext.Provider value={value}>
       {children}
     </ReportsContext.Provider>
   );
@@ -1127,17 +584,10 @@ export function ReportsProvider({
 /* ========================================================================== */
 
 export function useReports() {
-  const context =
-    useContext(
-      ReportsContext
-    );
-
+  const context = useContext(ReportsContext);
   if (!context) {
-    throw new Error(
-      'useReports must be used within a ReportsProvider'
-    );
+    throw new Error('useReports must be used within a ReportsProvider');
   }
-
   return context;
 }
 
