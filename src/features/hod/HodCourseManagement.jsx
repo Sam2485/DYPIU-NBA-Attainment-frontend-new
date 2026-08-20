@@ -17,7 +17,10 @@ export default function HodCourseManagement() {
     addCourse = () => {},
     updateCourse = () => {},
     deleteCourse = () => {},
+    facultyList = [],
   } = useAcademic();
+
+  const activeFaculties = facultyList.length > 0 ? facultyList : ['Course Coordinator', 'Programme Coordinator', 'Head of Department (HOD)', 'School Director'];
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -33,7 +36,7 @@ export default function HodCourseManagement() {
   const [newCode, setNewCode] = useState('');
   const [newName, setNewName] = useState('');
   const [newSem, setNewSem] = useState(programmeSemesters[0] || 'Sem I');
-  const [newCoordinator, setNewCoordinator] = useState(MASTER_FACULTY_LIST[0] || 'Dr. Raj Shaikh');
+  const [newCoordinator, setNewCoordinator] = useState(activeFaculties[0] || 'Course Coordinator');
 
   // Inline Edit Row State
   const [editingCourseId, setEditingCourseId] = useState(null);
@@ -229,7 +232,7 @@ export default function HodCourseManagement() {
                 minWidth: '220px',
               }}
             >
-              {MASTER_FACULTY_LIST.map((fac) => {
+              {activeFaculties.map((fac) => {
                 const isHod = assignedHods.includes(fac);
                 return (
                   <option key={fac} value={fac} disabled={isHod} style={{ color: isHod ? '#94a3b8' : '#0f172a' }}>
@@ -290,7 +293,7 @@ export default function HodCourseManagement() {
               onChange={(e) => setNewCoordinator(e.target.value)}
               style={{ ...inputStyle, cursor: 'pointer', color: accent, fontWeight: '600' }}
             >
-              {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+              {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
             </select>
           </div>
           <button
@@ -405,7 +408,7 @@ export default function HodCourseManagement() {
                         onChange={(e) => setEditCoordinator(e.target.value)}
                         style={{ ...inputStyle, height: '34px', fontSize: '12px', cursor: 'pointer', color: accent, fontWeight: '600' }}
                       >
-                        {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                        {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
                       </select>
                     ) : (
                       <select
@@ -413,7 +416,7 @@ export default function HodCourseManagement() {
                         onChange={(e) => assignCourseCoordinator(c.id, e.target.value)}
                         style={{ ...inputStyle, height: '34px', fontSize: '12px', cursor: 'pointer', color: accent, fontWeight: '600' }}
                       >
-                        {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                        {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
                       </select>
                     )}
                   </td>

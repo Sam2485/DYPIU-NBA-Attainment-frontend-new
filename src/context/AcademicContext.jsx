@@ -99,12 +99,14 @@ export function useAcademic() {
   const attainment = useAttainment();
   const approval = useApproval();
   const dashboard = useDashboard();
+  const userCtx = useUser();
 
   return {
     ...academic,
     ...attainment,
     ...approval,
     ...dashboard,
+    ...userCtx,
   };
 }
 

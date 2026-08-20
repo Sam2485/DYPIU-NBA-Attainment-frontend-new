@@ -10,7 +10,7 @@ export default function EndSemMarksHub({ hideFooter = false }) {
       course: 'CS301 - Data Structures & Algorithms',
       recordsProcessed: 60,
       status: 'SUCCESS',
-      uploadedBy: 'Dr. Raj Shaikh',
+      uploadedBy: 'Course Coordinator',
       uploadedAt: '2026-08-02 14:30',
     },
   ]);

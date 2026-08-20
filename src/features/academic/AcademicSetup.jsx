@@ -36,7 +36,10 @@ export default function AcademicSetup() {
     deleteCourse = () => {},
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
+    facultyList = [],
   } = useAcademic();
+
+  const activeFaculties = facultyList.length > 0 ? facultyList : ['Course Coordinator', 'Programme Coordinator', 'Head of Department (HOD)', 'School Director'];
 
   const selectedProgramme =
     masterProgrammes.find((p) => p.id === programmeId) ||
@@ -66,7 +69,7 @@ export default function AcademicSetup() {
   const [newCode,  setNewCode]  = useState('');
   const [newName,  setNewName]  = useState('');
   const [newSem,   setNewSem]   = useState('Sem V');
-  const [newCoord, setNewCoord] = useState(MASTER_FACULTY_LIST[0] || '');
+  const [newCoord, setNewCoord] = useState(activeFaculties[0] || 'Course Coordinator');
 
   const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === programmeId);
   const normPSOs    = activePSOs.map((p) => ({ ...p, competencies: p.competencies ?? [] }));
@@ -229,7 +232,7 @@ export default function AcademicSetup() {
                 <div>
                   <label style={labelStyle}>Course Coordinator</label>
                   <select value={newCoord} onChange={(e) => setNewCoord(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', color: accent, fontWeight: '600' }}>
-                    {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                    {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
                 <button type="submit" style={{ height: '40px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
@@ -280,7 +283,7 @@ export default function AcademicSetup() {
                             background: isAllocationApproved ? '#f8fafc' : '#ffffff',
                           }}
                         >
-                          {MASTER_FACULTY_LIST.map((f) => <option key={f} value={f}>{f}</option>)}
+                          {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
                         </select>
                       </td>
                       <td style={{ textAlign: 'center' }}>

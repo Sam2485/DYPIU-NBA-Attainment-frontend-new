@@ -1,61 +1,34 @@
 import { useState } from 'react';
 import AuditTable from '../../components/tables/AuditTable';
 import { Shield, Plus } from 'lucide-react';
+import { useUser } from '../../context/user';
 
 export default function UserManagement() {
-  const [users, setUsers] = useState([
-    {
-      id: '1',
-      name: 'Dr. Raj Shaikh',
-      email: 'raj.shaikh@dypiu.ac.in',
-      role: 'SUPER_ADMIN',
-      department: 'School of Computer Science',
-      programme: 'B.Tech CSE',
-      status: 'ACTIVE',
-    },
-    {
-      id: '2',
-      name: 'Prof. Ananya Roy',
-      email: 'ananya.roy@dypiu.ac.in',
-      role: 'HOD',
-      department: 'School of Computer Science',
-      programme: 'B.Tech CSE',
-      status: 'ACTIVE',
-    },
-    {
-      id: '3',
-      name: 'Dr. Sameer Khan',
-      email: 'sameer.khan@dypiu.ac.in',
-      role: 'FACULTY',
-      department: 'School of Computer Science',
-      programme: 'B.Tech CSE',
-      status: 'ACTIVE',
-    },
-  ]);
+  const { users = [], addUser = () => {}, updateUser = () => {}, deleteUser = () => {} } = useUser();
 
   const handleAddUser = () => {
-    setUsers([
-      ...users,
-      {
-        id: String(Date.now()),
-        name: 'New Faculty Member',
-        email: 'faculty@dypiu.ac.in',
-        role: 'FACULTY',
-        department: 'School of Computer Science',
-        programme: 'B.Tech CSE',
-        status: 'ACTIVE',
-      },
-    ]);
+    addUser({
+      name: 'New Faculty Member',
+      email: `faculty_${Date.now()}@dypiu.ac.in`,
+      role: 'FACULTY',
+      department: 'Department of Computer Science & Engineering',
+      programme: 'B.Tech Computer Science & Engineering',
+      status: 'ACTIVE',
+    });
   };
 
   const handleChangeCell = (index, field, value) => {
-    const updated = [...users];
-    updated[index][field] = value;
-    setUsers(updated);
+    const target = users[index];
+    if (target) {
+      updateUser(target.id, { ...target, [field]: value });
+    }
   };
 
   const handleDeleteUser = (index) => {
-    setUsers(users.filter((_, i) => i !== index));
+    const target = users[index];
+    if (target) {
+      deleteUser(target.id);
+    }
   };
 
   return (

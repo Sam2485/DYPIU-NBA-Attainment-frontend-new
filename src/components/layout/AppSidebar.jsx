@@ -941,7 +941,7 @@ export default function AppSidebar() {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ color: '#f9fafb', fontSize: 12, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {(user?.name || 'Dr. Raj Shaikh').split(' ').slice(0, 3).join(' ')}
+            {(user?.name || roleText || 'Academic User').split(' ').slice(0, 3).join(' ')}
           </div>
           <div style={{ color: '#9ca3af', fontSize: 10.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {roleText}

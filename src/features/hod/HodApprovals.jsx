@@ -208,7 +208,7 @@ export default function HodApprovals() {
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
 
-  const verifierName = user?.name || 'Dr. Raj Shaikh (HOD)';
+  const verifierName = user?.name || 'Head of Department (HOD)';
 
   const currentDept =
     departments.find((d) => d.hod === user?.name || d.hodEmail === user?.email) ||

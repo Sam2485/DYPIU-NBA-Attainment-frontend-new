@@ -19,23 +19,15 @@ export const MASTER_BATCHES = [
 ];
 
 export const INITIAL_SCHOOLS = [
-  { id: 'sch-1', code: 'SET', name: 'School of Engineering & Technology', dean: 'Dr. R. K. Deshmukh', estYear: '2019', email: 'set.director@dypiu.ac.in' },
-  { id: 'sch-2', code: 'SOM', name: 'School of Management Studies', dean: 'Dr. P. S. Mehta', estYear: '2020', email: 'som.director@dypiu.ac.in' },
+  { id: 'sch-1', code: 'SET', name: 'School of Engineering & Technology', dean: 'School Director', estYear: '2019', email: 'director@dypiu.ac.in' },
 ];
 
 export const INITIAL_DEPARTMENTS = [
-  { id: 'dept-1', schoolId: 'sch-1', code: 'CSE', name: 'Department of Computer Science & Engineering', hod: 'Dr. Raj Shaikh', hodEmail: 'raj.shaikh@dypiu.ac.in', status: 'ACTIVE' },
-  { id: 'dept-2', schoolId: 'sch-1', code: 'ENTC', name: 'Department of Electronics & Telecommunication', hod: 'Prof. Ananya Roy', hodEmail: 'ananya.roy@dypiu.ac.in', status: 'ACTIVE' },
-  { id: 'dept-3', schoolId: 'sch-1', code: 'IT', name: 'Department of Information Technology', hod: 'Dr. Vikram Joshi', hodEmail: 'vikram.joshi@dypiu.ac.in', status: 'ACTIVE' },
-  { id: 'dept-4', schoolId: 'sch-2', code: 'MGMT', name: 'Department of Management Studies', hod: 'Dr. Sameer Khan', hodEmail: 'sameer.khan@dypiu.ac.in', status: 'ACTIVE' },
+  { id: 'dept-1', schoolId: 'sch-1', code: 'CSE', name: 'Department of Computer Science & Engineering', hod: 'Head of Department (HOD)', hodEmail: 'hod@dypiu.ac.in', status: 'ACTIVE' },
 ];
 
 export const INITIAL_MASTER_PROGRAMMES_LIST = [
-  { id: 'prog-1', departmentId: 'dept-1', code: 'BE-COMP', name: 'B.Tech Computer Science & Engineering', durationYears: 4, department: 'Department of Computer Science & Engineering', coordinator: 'Dr. A. K. Sharma', status: 'ACTIVE' },
-  { id: 'prog-2', departmentId: 'dept-1', code: 'BE-AI', name: 'B.Tech AI & Data Science', durationYears: 4, department: 'Department of Computer Science & Engineering', coordinator: 'Prof. R. V. Patel', status: 'ACTIVE' },
-  { id: 'prog-3', departmentId: 'dept-4', code: 'MBA', name: 'Master of Business Administration', durationYears: 2, department: 'Department of Management Studies', coordinator: 'Dr. S. N. Deshmukh', status: 'ACTIVE' },
-  { id: 'prog-4', departmentId: 'dept-2', code: 'BE-ENTC', name: 'B.Tech Electronics & Telecommunication', durationYears: 4, department: 'Department of Electronics & Telecommunication', coordinator: 'Prof. Ananya Roy', status: 'ACTIVE' },
-  { id: 'prog-5', departmentId: 'dept-1', code: 'ME-COMP', name: 'M.Tech Computer Science & Engineering', durationYears: 2, department: 'Department of Computer Science & Engineering', coordinator: 'Dr. Vikram Joshi', status: 'ACTIVE' },
+  { id: 'prog-1', departmentId: 'dept-1', code: 'BE-COMP', name: 'B.Tech Computer Science & Engineering', durationYears: 4, department: 'Department of Computer Science & Engineering', coordinator: 'Programme Coordinator', coordinatorEmail: 'pc@dypiu.ac.in', status: 'ACTIVE' },
 ];
 
 export const MASTER_PROGRAMMES = INITIAL_MASTER_PROGRAMMES_LIST;
@@ -55,17 +47,6 @@ export const INITIAL_PROGRAMME_OUTCOMES = {
     { code: 'PO11', statement: '11. Demonstrate knowledge and understanding of engineering management principles' },
     { code: 'PO12', statement: '12. Recognize the need for, and have the preparation and ability to engage in independent learning' },
   ],
-  'prog-2': [
-    { code: 'PO1', statement: '1. Mathematical and Statistical Foundations for AI & DS' },
-    { code: 'PO2', statement: '2. Machine Learning Algorithm Formulation & Optimization' },
-    { code: 'PO3', statement: '3. Deep Learning & Neural Network Architecture Design' },
-    { code: 'PO4', statement: '4. Data Engineering and Big Data Analytics Pipeline' },
-  ],
-  'prog-3': [
-    { code: 'PO1', statement: '1. Business Environment & Strategic Management Fundamentals' },
-    { code: 'PO2', statement: '2. Financial Analysis, Corporate Accounting & Managerial Economics' },
-    { code: 'PO3', statement: '3. Organizational Behavior & Human Resource Strategy' },
-  ],
 };
 
 export const INITIAL_PSO_OUTCOMES = {
@@ -74,13 +55,6 @@ export const INITIAL_PSO_OUTCOMES = {
     { code: 'PSO2', statement: 'Problem-Solving Skills: Apply algorithmic principles to real-world problems' },
     { code: 'PSO3', statement: 'Successful Career and Entrepreneurship: Adapt to emerging software technologies' },
   ],
-  'prog-2': [
-    { code: 'PSO1', statement: 'AI System Deployment and Model Lifecycle Management' },
-    { code: 'PSO2', statement: 'Data Insights and Predictive Analytics Solutions' },
-  ],
-  'prog-3': [
-    { code: 'PSO1', statement: 'Strategic Leadership in Corporate Operations' },
-  ],
 };
 
 export const INITIAL_PEO_OUTCOMES = {
@@ -88,13 +62,6 @@ export const INITIAL_PEO_OUTCOMES = {
     { code: 'PEO1', statement: 'Graduates will establish successful careers in software engineering, technology consulting, and research.' },
     { code: 'PEO2', statement: 'Graduates will pursue higher studies and continuous professional learning in advanced computing domains.' },
     { code: 'PEO3', statement: 'Graduates will demonstrate leadership, teamwork, ethical values, and societal responsibility in corporate environments.' },
-  ],
-  'prog-2': [
-    { code: 'PEO1', statement: 'Graduates will deploy ethical AI, data analytics, and machine learning solutions across industries.' },
-    { code: 'PEO2', statement: 'Graduates will engage in innovation, research, and entrepreneurship in data science.' },
-  ],
-  'prog-3': [
-    { code: 'PEO1', statement: 'Graduates will lead business enterprises, strategic management initiatives, and corporate operations.' },
   ],
 };
 
@@ -105,8 +72,9 @@ export const INITIAL_COURSES = [
     name: 'Computer Network and Security',
     programmeId: 'prog-1',
     semester: 'Sem I',
-    faculty: 'Dr. Raj Shaikh / Prof. XYZ',
-    assignedFaculty: ['Dr. Raj Shaikh', 'Prof. XYZ'],
+    faculty: 'Course Coordinator',
+    assignedFaculty: ['Course Coordinator'],
+    coordinator: 'Course Coordinator',
     courseOutcomes: [
       { code: 'C321.1', statement: 'Interpret fundamental concepts of Computer Networks, architectures, protocols and technologies' },
       { code: 'C321.2', statement: 'Demonstrate the working and functions of data link layer for flow and error control' },
@@ -114,48 +82,6 @@ export const INITIAL_COURSES = [
       { code: 'C321.4', statement: 'Implement client-server applications using sockets' },
       { code: 'C321.5', statement: 'Analyze role of application layer with its protocols, client-server architectures' },
       { code: 'C321.6', statement: 'Interpret the basics of Network Security for secured communication' },
-    ],
-  },
-  {
-    id: 'crs-2',
-    code: 'CS301',
-    name: 'Data Structures & Algorithms',
-    programmeId: 'prog-1',
-    semester: 'Sem III',
-    faculty: 'Dr. Raj Shaikh / Prof. Ananya Roy',
-    assignedFaculty: ['Dr. Raj Shaikh', 'Prof. Ananya Roy'],
-    courseOutcomes: [
-      { code: 'CS301.1', statement: 'Analyze time and space complexity of sorting and searching algorithms' },
-      { code: 'CS301.2', statement: 'Implement linear data structures (stacks, queues, linked lists)' },
-      { code: 'CS301.3', statement: 'Apply non-linear graph algorithms (BFS, DFS, Dijkstra)' },
-      { code: 'CS301.4', statement: 'Design dynamic programming and greedy algorithm solutions' },
-    ],
-  },
-  {
-    id: 'crs-3',
-    code: 'AI201',
-    name: 'Machine Learning Fundamentals',
-    programmeId: 'prog-2',
-    semester: 'Sem IV',
-    faculty: 'Dr. Vikram Joshi',
-    assignedFaculty: ['Dr. Vikram Joshi'],
-    courseOutcomes: [
-      { code: 'AI201.1', statement: 'Understand supervised and unsupervised learning algorithms' },
-      { code: 'AI201.2', statement: 'Implement linear and logistic regression models' },
-      { code: 'AI201.3', statement: 'Evaluate model performance using precision, recall, and ROC curves' },
-    ],
-  },
-  {
-    id: 'crs-4',
-    code: 'MBA101',
-    name: 'Organizational Behavior',
-    programmeId: 'prog-3',
-    semester: 'Sem I',
-    faculty: 'Dr. Sameer Khan',
-    assignedFaculty: ['Dr. Sameer Khan'],
-    courseOutcomes: [
-      { code: 'MBA101.1', statement: 'Analyze individual and group dynamics in corporate organizations' },
-      { code: 'MBA101.2', statement: 'Evaluate leadership models and conflict resolution strategies' },
     ],
   },
 ];
