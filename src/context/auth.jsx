@@ -1,242 +1,420 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+} from 'react';
+
 import apiClient from '../api/client';
 
 export const AuthContext = createContext(null);
 
-export const SIMULATED_ACCOUNTS = {
-  'director@dypiu.ac.in': {
-    id: 1,
-    name: 'School Director',
-    email: 'director@dypiu.ac.in',
-    username: 'director',
-    role: 'DIRECTOR',
-    roleLabel: 'School Director',
-    department: 'School of Engineering & Technology',
-    programme: 'All Programmes',
-    avatar: 'SD',
-  },
-  'hod@dypiu.ac.in': {
-    id: 2,
-    name: 'Head of Department (HOD)',
-    email: 'hod@dypiu.ac.in',
-    username: 'hod',
-    hodEmail: 'hod@dypiu.ac.in',
-    role: 'HOD',
-    roleLabel: 'Head of Department (HOD)',
-    department: 'Department of Computer Science & Engineering',
-    programme: 'CSE Department',
-    avatar: 'HD',
-  },
-  'pc@dypiu.ac.in': {
-    id: 3,
-    name: 'Programme Coordinator',
-    email: 'pc@dypiu.ac.in',
-    username: 'pc',
-    coordinatorEmail: 'pc@dypiu.ac.in',
-    role: 'PROGRAMME_COORDINATOR',
-    roleLabel: 'Programme Coordinator',
-    department: 'Department of Computer Science & Engineering',
-    programme: 'B.Tech Computer Science & Engineering',
-    avatar: 'PC',
-  },
-  'cc@dypiu.ac.in': {
-    id: 4,
-    name: 'Course Coordinator',
-    email: 'cc@dypiu.ac.in',
-    username: 'cc',
-    role: 'FACULTY',
-    roleLabel: 'Course Coordinator',
-    department: 'Department of Computer Science & Engineering',
-    programme: 'B.Tech Computer Science & Engineering',
-    avatar: 'CC',
-  },
-};
-
-const EMAIL_ALIASES = {
-  'director': 'director@dypiu.ac.in',
-  'director@dypiu': 'director@dypiu.ac.in',
-  'director@dypiu.ac.in': 'director@dypiu.ac.in',
-  'hod': 'hod@dypiu.ac.in',
-  'hod@dypiu': 'hod@dypiu.ac.in',
-  'hod@dypiu.ac.in': 'hod@dypiu.ac.in',
-  'pc': 'pc@dypiu.ac.in',
-  'pc@dypiu': 'pc@dypiu.ac.in',
-  'pc@dypiu.ac.in': 'pc@dypiu.ac.in',
-  'cc': 'cc@dypiu.ac.in',
-  'cc@dypiu': 'cc@dypiu.ac.in',
-  'cc@dypiu.ac.in': 'cc@dypiu.ac.in',
-};
+/*
+ * Backend-authoritative authentication.
+ *
+ * IMPORTANT:
+ * - No simulated accounts
+ * - No email aliases
+ * - No hardcoded users
+ * - No localStorage
+ * - No sessionStorage
+ * - No hardcoded department/programme values
+ * - No role switching
+ *
+ * The backend is the source of truth for:
+ *   user
+ *   role
+ *   department
+ *   programme
+ *   school
+ *   permissions
+ */
 
 const getRoleLabel = (role) => {
   switch (role) {
-    case 'DIRECTOR': return 'School Director';
-    case 'HOD': return 'Head of Department (HOD)';
-    case 'PROGRAMME_COORDINATOR': return 'Programme Coordinator';
+    case 'DIRECTOR':
+      return 'School Director';
+
+    case 'HOD':
+      return 'Head of Department (HOD)';
+
+    case 'PROGRAMME_COORDINATOR':
+      return 'Programme Coordinator';
+
     case 'FACULTY':
-    case 'COURSE_COORDINATOR': return 'Course Coordinator';
-    case 'MODULE_COORDINATOR': return 'Module Coordinator';
-    case 'ADMIN': return 'System Administrator';
-    default: return role || 'Faculty';
+    case 'COURSE_COORDINATOR':
+      return 'Course Coordinator';
+
+    case 'MODULE_COORDINATOR':
+      return 'Module Coordinator';
+
+    case 'ADMIN':
+      return 'System Administrator';
+
+    default:
+      return role || 'User';
   }
 };
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem('nba_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  /*
+   * Authentication state exists only in React memory.
+   *
+   * No browser storage is used.
+   */
+  const [user, setUser] = useState(null);
 
-  const [role, setRole] = useState(() => {
+  const [role, setRole] = useState(null);
+
+  const [token, setToken] = useState(null);
+
+  const [loading, setLoading] = useState(false);
+
+  /* -------------------------------------------------------------------- */
+  /* Login                                                                */
+  /* -------------------------------------------------------------------- */
+
+  const login = async (
+    email,
+    password
+  ) => {
+    const trimmedEmail =
+      (email || '').trim();
+
+    if (!trimmedEmail || !password) {
+      return {
+        success: false,
+        error:
+          'Please provide both email and password.',
+      };
+    }
+
+    setLoading(true);
+
     try {
-      const savedRole = sessionStorage.getItem('role');
-      if (savedRole) return savedRole;
-      const savedUser = sessionStorage.getItem('nba_user');
-      if (savedUser) {
-        const parsed = JSON.parse(savedUser);
-        return parsed?.role || null;
+      /*
+       * Send exactly what the backend authentication API expects.
+       *
+       * Do not send fake username/email aliases.
+       */
+      const response =
+        await apiClient.post(
+          '/auth/login',
+          {
+            email: trimmedEmail,
+            password,
+          }
+        );
+
+      /*
+       * Support the actual backend response envelope:
+       *
+       * {
+       *   accessToken,
+       *   refreshToken,
+       *   user
+       * }
+       *
+       * or:
+       *
+       * {
+       *   data: {
+       *     accessToken,
+       *     user
+       *   }
+       * }
+       */
+      const authData =
+        response?.data?.data ??
+        response?.data ??
+        response;
+
+      const accessToken =
+        authData?.accessToken ??
+        authData?.token ??
+        null;
+
+      const refreshToken =
+        authData?.refreshToken ??
+        null;
+
+      const backendUser =
+        authData?.user ??
+        authData?.userData ??
+        null;
+
+      if (!accessToken) {
+        return {
+          success: false,
+          error:
+            'Authentication response does not contain an access token.',
+        };
       }
-      return null;
-    } catch {
-      return null;
-    }
-  });
 
-  const [token, setToken] = useState(() => sessionStorage.getItem('authToken') || null);
-
-  useEffect(() => {
-    if (user && role) {
-      sessionStorage.setItem('nba_user', JSON.stringify({ ...user, role }));
-      sessionStorage.setItem('role', role);
-    } else {
-      sessionStorage.removeItem('nba_user');
-      sessionStorage.removeItem('role');
-    }
-  }, [user, role]);
-
-  const login = async (rawEmail, password) => {
-    const trimmedEmail = (rawEmail || '').trim();
-    const resolvedEmail = EMAIL_ALIASES[trimmedEmail.toLowerCase()] || trimmedEmail;
-
-    if (!resolvedEmail || !password) {
-      return { success: false, error: 'Please provide both email and password.' };
-    }
-
-    try {
-      const res = await apiClient.post('/auth/login', {
-        email: resolvedEmail,
-        username: resolvedEmail,
-        password: password,
-      });
-
-      const authData = res?.data || res;
-      const accessToken = authData?.accessToken || authData?.token;
-      const refreshToken = authData?.refreshToken;
-      const backendUser = authData?.user;
-
-      if (!accessToken || !backendUser) {
-        return { success: false, error: 'Invalid response from server.' };
+      if (!backendUser) {
+        return {
+          success: false,
+          error:
+            'Authentication response does not contain user information.',
+        };
       }
 
-      const userRole = backendUser.role || 'FACULTY';
+      /*
+       * NEVER manufacture organisational information.
+       *
+       * These values must come from the backend.
+       */
+      const userRole =
+        backendUser.role ??
+        null;
+
+      if (!userRole) {
+        return {
+          success: false,
+          error:
+            'Authentication response does not contain a user role.',
+        };
+      }
+
       const userPayload = {
-        id: backendUser.id,
-        name: backendUser.name || backendUser.username,
-        email: backendUser.email || resolvedEmail,
-        username: backendUser.username,
-        role: userRole,
-        roleLabel: getRoleLabel(userRole),
-        department: backendUser.department || 'Department of Computer Science & Engineering',
-        programme: backendUser.programme || 'B.Tech Computer Science & Engineering',
-        schoolId: backendUser.schoolId,
-        departmentId: backendUser.departmentId,
-        programmeId: backendUser.programmeId,
-        avatar: (backendUser.name || 'User')
-          .split(' ')
-          .map((n) => n[0])
-          .slice(0, 2)
-          .join('')
-          .toUpperCase(),
+        id:
+          backendUser.id,
+
+        username:
+          backendUser.username,
+
+        name:
+          backendUser.name ??
+          backendUser.username ??
+          null,
+
+        email:
+          backendUser.email ??
+          trimmedEmail,
+
+        role:
+          userRole,
+
+        roleLabel:
+          getRoleLabel(userRole),
+
+        /*
+         * Organisational scope.
+         * These remain null when the backend does not provide them.
+         */
+        schoolId:
+          backendUser.schoolId ??
+          backendUser.school_id ??
+          null,
+
+        departmentId:
+          backendUser.departmentId ??
+          backendUser.department_id ??
+          null,
+
+        programmeId:
+          backendUser.programmeId ??
+          backendUser.programme_id ??
+          null,
+
+        school:
+          backendUser.school ??
+          null,
+
+        department:
+          backendUser.department ??
+          null,
+
+        programme:
+          backendUser.programme ??
+          null,
+
+        isActive:
+          backendUser.isActive ??
+          backendUser.is_active ??
+          true,
+
+        /*
+         * Preserve additional backend fields rather than
+         * inventing frontend values.
+         */
+        ...(backendUser.hodEmail !== undefined
+          ? {
+              hodEmail:
+                backendUser.hodEmail,
+            }
+          : {}),
+
+        ...(backendUser.coordinatorEmail !== undefined
+          ? {
+              coordinatorEmail:
+                backendUser.coordinatorEmail,
+            }
+          : {}),
       };
 
-      sessionStorage.setItem('authToken', accessToken);
-      if (refreshToken) sessionStorage.setItem('refreshToken', refreshToken);
-      sessionStorage.setItem('nba_user', JSON.stringify(userPayload));
-      sessionStorage.setItem('role', userRole);
-
+      /*
+       * Store authentication only in memory.
+       *
+       * apiClient's interceptor should use the same token
+       * from the application's authentication mechanism.
+       */
       setToken(accessToken);
+
       setUser(userPayload);
+
       setRole(userRole);
 
-      let targetPath = '/dashboard';
-      if (userRole === 'DIRECTOR') targetPath = '/director/dashboard';
-      else if (userRole === 'HOD') targetPath = '/hod/dashboard';
-      else if (userRole === 'PROGRAMME_COORDINATOR') targetPath = '/programme-coordinator/dashboard';
-      else if (userRole === 'ADMIN') targetPath = '/director/dashboard';
-      else targetPath = '/dashboard';
+      /*
+       * Determine destination strictly from the authenticated
+       * backend role.
+       */
+      let targetPath;
+
+      switch (userRole) {
+        case 'DIRECTOR':
+          targetPath =
+            '/director/dashboard';
+          break;
+
+        case 'HOD':
+          targetPath =
+            '/hod/dashboard';
+          break;
+
+        case 'PROGRAMME_COORDINATOR':
+          targetPath =
+            '/programme-coordinator/dashboard';
+          break;
+
+        case 'FACULTY':
+        case 'COURSE_COORDINATOR':
+          targetPath =
+            '/course-coordinator/dashboard';
+          break;
+
+        case 'ADMIN':
+          targetPath =
+            '/director/dashboard';
+          break;
+
+        default:
+          targetPath =
+            '/dashboard';
+      }
 
       return {
         success: true,
-        user: userPayload,
-        role: userRole,
+
+        user:
+          userPayload,
+
+        role:
+          userRole,
+
+        accessToken,
+
+        refreshToken,
+
         targetPath,
       };
-    } catch (err) {
-      console.error('Login error:', err);
-      const errMsg =
-        err?.customMessage ||
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
+    } catch (error) {
+      console.error(
+        'Login error:',
+        error
+      );
+
+      const errorMessage =
+        error?.customMessage ??
+        error?.response?.data?.message ??
+        error?.response?.data?.error ??
+        error?.message ??
         'Authentication failed. Please check your credentials.';
+
+      /*
+       * Do not create a user or role when authentication fails.
+       */
+      setUser(null);
+      setRole(null);
+      setToken(null);
+
       return {
         success: false,
-        error: errMsg,
+        error: errorMessage,
       };
+    } finally {
+      setLoading(false);
     }
   };
 
-  const switchRole = (newRole) => {
-    setRole(newRole);
-    if (user) {
-      setUser((prev) => (prev ? { ...prev, role: newRole, roleLabel: getRoleLabel(newRole) } : null));
-    }
-  };
+  /* -------------------------------------------------------------------- */
+  /* Logout                                                               */
+  /* -------------------------------------------------------------------- */
 
   const logout = async () => {
     try {
-      await apiClient.post('/auth/logout');
-    } catch (e) {
-      // ignore
+      /*
+       * Tell backend to invalidate/logout the current session
+       * if the backend exposes this endpoint.
+       */
+      await apiClient.post(
+        '/auth/logout'
+      );
+    } catch (error) {
+      /*
+       * Even if the server logout request fails,
+       * local authentication state must be destroyed.
+       */
+      console.warn(
+        'Backend logout request failed:',
+        error
+      );
     } finally {
       setUser(null);
       setRole(null);
       setToken(null);
-      sessionStorage.removeItem('authToken');
-      sessionStorage.removeItem('refreshToken');
-      sessionStorage.removeItem('nba_user');
-      sessionStorage.removeItem('role');
-      sessionStorage.removeItem('user');
-      window.location.href = '/login';
+
+      /*
+       * Do not remove localStorage/sessionStorage keys because
+       * this implementation does not use browser storage.
+       */
+      window.location.href =
+        '/login';
     }
   };
 
-  const isAuthenticated = Boolean(user && role && (token || sessionStorage.getItem('authToken')));
+  /* -------------------------------------------------------------------- */
+  /* Authentication State                                                 */
+  /* -------------------------------------------------------------------- */
+
+  const isAuthenticated =
+    Boolean(
+      user &&
+      role &&
+      token
+    );
+
+  /* -------------------------------------------------------------------- */
+  /* Provider                                                              */
+  /* -------------------------------------------------------------------- */
 
   return (
     <AuthContext.Provider
       value={{
         user,
+
         role,
+
         token,
+
+        loading,
+
         login,
+
         logout,
-        switchRole,
+
         isAuthenticated,
-        simulatedAccounts: SIMULATED_ACCOUNTS,
+
+        getRoleLabel,
       }}
     >
       {children}
@@ -244,10 +422,21 @@ export function AuthProvider({ children }) {
   );
 }
 
+/* ---------------------------------------------------------------------- */
+/* Hook                                                                   */
+/* ---------------------------------------------------------------------- */
+
 export function useAuth() {
-  const context = useContext(AuthContext);
+  const context =
+    useContext(
+      AuthContext
+    );
+
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error(
+      'useAuth must be used within an AuthProvider'
+    );
   }
+
   return context;
 }

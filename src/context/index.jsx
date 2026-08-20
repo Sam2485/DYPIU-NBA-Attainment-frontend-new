@@ -6,31 +6,40 @@ import { ApprovalProvider, useApproval } from './approval';
 import { ReportsProvider, useReports } from './reports';
 import { DashboardProvider, useDashboard } from './dashboard';
 
+/* -------------------------------------------------------------------------- */
+/* Context exports                                                            */
+/* -------------------------------------------------------------------------- */
+
 export {
-  // Auth
   AuthProvider,
   useAuth,
-  // User
+
   UserProvider,
   useUser,
-  // Academic
+
   AcademicProvider,
   useAcademic,
-  // Attainment
+
   AttainmentProvider,
   useAttainment,
-  // Approval
+
   ApprovalProvider,
   useApproval,
-  // Reports
+
   ReportsProvider,
   useReports,
-  // Dashboard
+
   DashboardProvider,
   useDashboard,
 };
 
-export function AppProvider({ children }) {
+/* -------------------------------------------------------------------------- */
+/* Application Provider                                                       */
+/* -------------------------------------------------------------------------- */
+
+export function AppProvider({
+  children,
+}) {
   return (
     <AuthProvider>
       <UserProvider>
