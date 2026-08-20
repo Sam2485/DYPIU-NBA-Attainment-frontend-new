@@ -77,7 +77,7 @@ export default function LoginPage() {
     {
       key: 'DIRECTOR',
       title: 'Director',
-      email: 'director@gmail.com',
+      email: 'director@dypiu.ac.in',
       badge: 'Institution Head',
       desc: 'School Level Approvals & Governance',
       color: '#3b82f6',
@@ -87,7 +87,7 @@ export default function LoginPage() {
     {
       key: 'HOD',
       title: 'HOD',
-      email: 'hod@gmail.com',
+      email: 'hod@dypiu.ac.in',
       badge: 'Department Head',
       desc: 'Batch & Programme Setup Workflow',
       color: '#10b981',
@@ -97,7 +97,7 @@ export default function LoginPage() {
     {
       key: 'PROGRAMME_COORDINATOR',
       title: 'Programme Coordinator',
-      email: 'pc@gmail.com',
+      email: 'pc@dypiu.ac.in',
       badge: 'Programme Lead',
       desc: 'PO Target Setting & Reviews',
       color: '#8b5cf6',
@@ -107,7 +107,7 @@ export default function LoginPage() {
     {
       key: 'FACULTY',
       title: 'Course Coordinator',
-      email: 'cc@gmail.com',
+      email: 'cc@dypiu.ac.in',
       badge: 'Faculty / CC',
       desc: 'Course Outcomes, Mapping & Attainment',
       color: '#f59e0b',

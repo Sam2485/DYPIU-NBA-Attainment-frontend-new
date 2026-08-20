@@ -4,55 +4,67 @@ import apiClient from '../api/client';
 export const AuthContext = createContext(null);
 
 export const SIMULATED_ACCOUNTS = {
-  'director@gmail.com': {
+  'director@dypiu.ac.in': {
     id: 1,
-    name: 'Dr. R. K. Deshmukh',
-    email: 'director@gmail.com',
+    name: 'School Director',
+    email: 'director@dypiu.ac.in',
+    username: 'director',
     role: 'DIRECTOR',
     roleLabel: 'School Director',
     department: 'School of Engineering & Technology',
     programme: 'All Programmes',
-    avatar: 'RD',
+    avatar: 'SD',
   },
-  'hod@gmail.com': {
+  'hod@dypiu.ac.in': {
     id: 2,
-    name: 'Dr. Raj Shaikh',
-    email: 'hod@gmail.com',
-    hodEmail: 'hod@gmail.com',
+    name: 'Head of Department (HOD)',
+    email: 'hod@dypiu.ac.in',
+    username: 'hod',
+    hodEmail: 'hod@dypiu.ac.in',
     role: 'HOD',
     roleLabel: 'Head of Department (HOD)',
     department: 'Department of Computer Science & Engineering',
     programme: 'CSE Department',
-    avatar: 'RS',
+    avatar: 'HD',
   },
-  'pc@gmail.com': {
+  'pc@dypiu.ac.in': {
     id: 3,
-    name: 'Dr. A. K. Sharma',
-    email: 'pc@gmail.com',
-    coordinatorEmail: 'pc@gmail.com',
+    name: 'Programme Coordinator',
+    email: 'pc@dypiu.ac.in',
+    username: 'pc',
+    coordinatorEmail: 'pc@dypiu.ac.in',
     role: 'PROGRAMME_COORDINATOR',
     roleLabel: 'Programme Coordinator',
     department: 'Department of Computer Science & Engineering',
     programme: 'B.Tech Computer Science & Engineering',
-    avatar: 'AS',
+    avatar: 'PC',
   },
-  'cc@gmail.com': {
+  'cc@dypiu.ac.in': {
     id: 4,
-    name: 'Dr. Raj Shaikh',
-    email: 'cc@gmail.com',
+    name: 'Course Coordinator',
+    email: 'cc@dypiu.ac.in',
+    username: 'cc',
     role: 'FACULTY',
     roleLabel: 'Course Coordinator',
     department: 'Department of Computer Science & Engineering',
     programme: 'B.Tech Computer Science & Engineering',
-    avatar: 'RS',
+    avatar: 'CC',
   },
 };
 
 const EMAIL_ALIASES = {
-  'hod@gmail': 'hod@gmail.com',
-  'director@gmail': 'director@gmail.com',
-  'pc@gmail': 'pc@gmail.com',
-  'cc@gmail': 'cc@gmail.com',
+  'director': 'director@dypiu.ac.in',
+  'director@dypiu': 'director@dypiu.ac.in',
+  'director@dypiu.ac.in': 'director@dypiu.ac.in',
+  'hod': 'hod@dypiu.ac.in',
+  'hod@dypiu': 'hod@dypiu.ac.in',
+  'hod@dypiu.ac.in': 'hod@dypiu.ac.in',
+  'pc': 'pc@dypiu.ac.in',
+  'pc@dypiu': 'pc@dypiu.ac.in',
+  'pc@dypiu.ac.in': 'pc@dypiu.ac.in',
+  'cc': 'cc@dypiu.ac.in',
+  'cc@dypiu': 'cc@dypiu.ac.in',
+  'cc@dypiu.ac.in': 'cc@dypiu.ac.in',
 };
 
 const getRoleLabel = (role) => {
