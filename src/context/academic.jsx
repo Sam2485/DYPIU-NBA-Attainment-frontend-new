@@ -224,10 +224,11 @@ export function AcademicProvider({ children }) {
     );
   };
 
-  // Academic Year
+  // Academic Year & Selection States
   const [academicYear, setAcademicYear] = useState('2025-26');
   const availableYears = ['2024-25', '2025-26', '2026-27'];
   const [programmeId, setProgrammeIdState] = useState('prog-1');
+  const [courseId, setCourseId] = useState('crs-1');
 
   // PO & PSO Targets
   const [poPsoTargets, setPoPsoTargets] = useState(() => {
@@ -337,6 +338,53 @@ export function AcademicProvider({ children }) {
       };
     }
   });
+
+  // Derived stores and states
+  const poStore = poStoreByYear[academicYear] || INITIAL_PROGRAMME_OUTCOMES;
+  const psoStore = psoStoreByYear[academicYear] || INITIAL_PSO_OUTCOMES;
+  const coursesStore = coursesStoreByYear[academicYear] || INITIAL_COURSES;
+  const activePEOs = (peoStoreByYear[academicYear] || {})[programmeId] || INITIAL_PEO_OUTCOMES['prog-1'];
+
+  // Course Filter
+  const availableCourses = coursesStore.filter((c) => {
+    if (c.programmeId !== programmeId) return false;
+    if (role === 'FACULTY') {
+      const facultyName = user?.name || 'Dr. Raj Shaikh';
+      const assigned = c.assignedFaculty || [];
+      return (
+        assigned.length === 0 ||
+        assigned.some(
+          (f) =>
+            f.toLowerCase().includes(facultyName.toLowerCase()) ||
+            facultyName.toLowerCase().includes(f.toLowerCase())
+        )
+      );
+    }
+    return true;
+  });
+
+  const selectedProgramme =
+    masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || MASTER_PROGRAMMES[0];
+  const selectedCourse =
+    coursesStore.find((c) => c.id === courseId) ||
+    availableCourses.find((c) => c.id === courseId) ||
+    availableCourses[0] ||
+    coursesStore[0];
+
+  const activePOs = poStore[programmeId] || [];
+  const activePSOs = psoStore[programmeId] || [];
+  const activeCOs = selectedCourse ? selectedCourse.courseOutcomes || [] : [];
+
+  const setProgrammeId = (newProgId) => {
+    if (role === 'PROGRAMME_COORDINATOR' && newProgId !== 'prog-1') {
+      return;
+    }
+    setProgrammeIdState(newProgId);
+    const newAvail = coursesStore.filter((c) => c.programmeId === newProgId);
+    if (newAvail.length > 0) {
+      setCourseId(newAvail[0].id);
+    }
+  };
 
   // Cross-tab synchronization via storage event listener
   useEffect(() => {
@@ -576,54 +624,6 @@ export function AcademicProvider({ children }) {
     loadCos();
     return () => { isMounted = false; };
   }, [courseId, selectedCourse?.id, academicYear]);
-
-  const poStore = poStoreByYear[academicYear] || INITIAL_PROGRAMME_OUTCOMES;
-  const psoStore = psoStoreByYear[academicYear] || INITIAL_PSO_OUTCOMES;
-  const coursesStore = coursesStoreByYear[academicYear] || INITIAL_COURSES;
-  const activePEOs = (peoStoreByYear[academicYear] || {})[programmeId] || INITIAL_PEO_OUTCOMES['prog-1'];
-
-  // Course Filter
-  const availableCourses = coursesStore.filter((c) => {
-    if (c.programmeId !== programmeId) return false;
-    if (role === 'FACULTY') {
-      const facultyName = user?.name || 'Dr. Raj Shaikh';
-      const assigned = c.assignedFaculty || [];
-      return (
-        assigned.length === 0 ||
-        assigned.some(
-          (f) =>
-            f.toLowerCase().includes(facultyName.toLowerCase()) ||
-            facultyName.toLowerCase().includes(f.toLowerCase())
-        )
-      );
-    }
-    return true;
-  });
-
-  const [courseId, setCourseId] = useState('crs-1');
-
-  const setProgrammeId = (newProgId) => {
-    if (role === 'PROGRAMME_COORDINATOR' && newProgId !== 'prog-1') {
-      return;
-    }
-    setProgrammeIdState(newProgId);
-    const newAvail = coursesStore.filter((c) => c.programmeId === newProgId);
-    if (newAvail.length > 0) {
-      setCourseId(newAvail[0].id);
-    }
-  };
-
-  const selectedProgramme =
-    masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || MASTER_PROGRAMMES[0];
-  const selectedCourse =
-    coursesStore.find((c) => c.id === courseId) ||
-    availableCourses.find((c) => c.id === courseId) ||
-    availableCourses[0] ||
-    coursesStore[0];
-
-  const activePOs = poStore[programmeId] || [];
-  const activePSOs = psoStore[programmeId] || [];
-  const activeCOs = selectedCourse ? selectedCourse.courseOutcomes || [] : [];
 
   // Update handlers
   const updateSchoolInfo = async (schoolId, updatedFields) => {
