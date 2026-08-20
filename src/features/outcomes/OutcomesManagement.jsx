@@ -1242,7 +1242,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
                                         <CheckCircle2 size={13} /> Approve
                                       </button>
                                     )}
-                                    {isPending && (
+                                    {isSubmitted && (
                                       <button
                                         className="btn btn-danger"
                                         style={{ padding: '4px 8px', fontSize: '11px' }}

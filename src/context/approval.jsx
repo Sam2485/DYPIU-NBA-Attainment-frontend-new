@@ -186,7 +186,7 @@ export const INITIAL_COURSE_VERIFICATION_STORE = {
 };
 
 export function ApprovalProvider({ children }) {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
 
   const [directorApprovalsStore, setDirectorApprovalsStore] = useState(() => {
     try {
