@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './auth';
+import apiClient from '../api/client';
 
 export const AcademicContext = createContext(null);
 
@@ -358,6 +359,224 @@ export function AcademicProvider({ children }) {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  // Real Backend Data Loader
+  useEffect(() => {
+    let isMounted = true;
+    const loadBackendAcademicData = async () => {
+      try {
+        const [schoolsRes, deptsRes, progsRes, batchesRes, coursesRes] = await Promise.allSettled([
+          apiClient.get('/academic/schools'),
+          apiClient.get('/academic/departments'),
+          apiClient.get('/academic/programmes'),
+          apiClient.get('/academic/batches'),
+          apiClient.get('/academic/courses'),
+        ]);
+
+        if (!isMounted) return;
+
+        if (schoolsRes.status === 'fulfilled' && schoolsRes.value) {
+          const list = schoolsRes.value?.data || schoolsRes.value;
+          if (Array.isArray(list) && list.length > 0) {
+            const mapped = list.map((s) => ({
+              id: s.id,
+              code: s.code,
+              name: s.name,
+              dean: s.directorName || s.director || 'Dr. R. K. Deshmukh',
+              director: s.directorName || s.director || 'Dr. R. K. Deshmukh',
+              directorEmail: s.directorEmail || s.email,
+              estYear: s.estYear || '2019',
+              email: s.directorEmail || s.email || 'director@dypiu.ac.in',
+            }));
+            setSchoolsStore(mapped);
+            if (!mapped.some((s) => s.id === selectedSchoolId)) {
+              setSelectedSchoolId(mapped[0].id);
+            }
+          }
+        }
+
+        if (deptsRes.status === 'fulfilled' && deptsRes.value) {
+          const list = deptsRes.value?.data || deptsRes.value;
+          if (Array.isArray(list) && list.length > 0) {
+            const mapped = list.map((d) => ({
+              id: d.id,
+              schoolId: d.schoolId || 'sch-1',
+              code: d.code,
+              name: d.name,
+              hod: d.hod || 'Dr. Raj Shaikh',
+              hodEmail: d.hodEmail || 'hod@gmail.com',
+              status: d.status || 'ACTIVE',
+            }));
+            setDepartmentsStore(mapped);
+          }
+        }
+
+        if (progsRes.status === 'fulfilled' && progsRes.value) {
+          const list = progsRes.value?.data || progsRes.value;
+          if (Array.isArray(list) && list.length > 0) {
+            const mapped = list.map((p) => ({
+              id: p.id,
+              departmentId: p.departmentId || 'dept-1',
+              code: p.code,
+              name: p.name,
+              durationYears: p.durationYears || 4,
+              department: p.departmentName || p.department || 'Department of Computer Science & Engineering',
+              coordinator: p.coordinator || 'Dr. A. K. Sharma',
+              coordinatorEmail: p.coordinatorEmail || 'pc@gmail.com',
+              status: p.status || 'ACTIVE',
+            }));
+            setMasterProgrammesStore(mapped);
+          }
+        }
+
+        if (batchesRes.status === 'fulfilled' && batchesRes.value) {
+          const list = batchesRes.value?.data || batchesRes.value;
+          if (Array.isArray(list) && list.length > 0) {
+            const mapped = list.map((b) => ({
+              id: b.id,
+              programmeId: b.programmeId || 'prog-1',
+              programmeCode: b.programmeCode || 'BE-COMP',
+              programmeName: b.programmeName || 'B.Tech Computer Science & Engineering',
+              durationYears: b.durationYears || 4,
+              name: b.name || `Batch ${b.startYear || '2025'}-${b.endYear || '29'}`,
+              startYear: b.startYear || '2025-26',
+              endYear: b.endYear || '2028-29',
+              yearLevel: b.yearLevel || b.currentYear || 'Year 1 (Freshmen)',
+              status: b.status || 'ACTIVE',
+            }));
+            setBatches(mapped);
+          }
+        }
+
+        if (coursesRes.status === 'fulfilled' && coursesRes.value) {
+          const list = coursesRes.value?.data || coursesRes.value;
+          if (Array.isArray(list) && list.length > 0) {
+            const mapped = list.map((c) => ({
+              id: c.id,
+              code: c.code,
+              name: c.name,
+              programmeId: c.programmeId || 'prog-1',
+              semester: c.semester || 'Sem I',
+              faculty: c.coordinatorName || c.faculty || 'Dr. Raj Shaikh',
+              assignedFaculty: c.assignedFaculty || (c.coordinatorName ? [c.coordinatorName] : ['Dr. Raj Shaikh']),
+              coordinator: c.coordinatorName || c.coordinator || 'Dr. Raj Shaikh',
+              courseOutcomes: c.courseOutcomes || [],
+            }));
+            setCoursesStoreByYear((prev) => ({
+              ...prev,
+              [academicYear]: mapped,
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn('Backend initial academic data load warning:', err);
+      }
+    };
+
+    loadBackendAcademicData();
+    return () => { isMounted = false; };
+  }, [academicYear]);
+
+  // Load Outcomes for selected programme
+  useEffect(() => {
+    if (!programmeId) return;
+    let isMounted = true;
+    const loadOutcomes = async () => {
+      try {
+        const [posRes, psosRes, peosRes, targetsRes] = await Promise.allSettled([
+          apiClient.get(`/outcomes/programmes/${programmeId}/pos`),
+          apiClient.get(`/outcomes/programmes/${programmeId}/psos`),
+          apiClient.get(`/outcomes/programmes/${programmeId}/peos`),
+          apiClient.get(`/outcomes/programmes/${programmeId}/targets`),
+        ]);
+
+        if (!isMounted) return;
+
+        if (posRes.status === 'fulfilled' && posRes.value) {
+          const pos = posRes.value?.data || posRes.value;
+          if (Array.isArray(pos) && pos.length > 0) {
+            setPoStoreByYear((prev) => ({
+              ...prev,
+              [academicYear]: {
+                ...(prev[academicYear] || {}),
+                [programmeId]: pos,
+              },
+            }));
+          }
+        }
+
+        if (psosRes.status === 'fulfilled' && psosRes.value) {
+          const psos = psosRes.value?.data || psosRes.value;
+          if (Array.isArray(psos) && psos.length > 0) {
+            setPsoStoreByYear((prev) => ({
+              ...prev,
+              [academicYear]: {
+                ...(prev[academicYear] || {}),
+                [programmeId]: psos,
+              },
+            }));
+          }
+        }
+
+        if (peosRes.status === 'fulfilled' && peosRes.value) {
+          const peos = peosRes.value?.data || peosRes.value;
+          if (Array.isArray(peos) && peos.length > 0) {
+            setPeoStoreByYear((prev) => ({
+              ...prev,
+              [academicYear]: {
+                ...(prev[academicYear] || {}),
+                [programmeId]: peos,
+              },
+            }));
+          }
+        }
+
+        if (targetsRes.status === 'fulfilled' && targetsRes.value) {
+          const tg = targetsRes.value?.data || targetsRes.value;
+          if (tg && (tg.poTargets || tg.psoTargets)) {
+            setPoPsoTargets((prev) => ({
+              ...prev,
+              [programmeId]: {
+                poTargets: tg.poTargets || prev[programmeId]?.poTargets || {},
+                psoTargets: tg.psoTargets || prev[programmeId]?.psoTargets || {},
+              },
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn('Backend load outcomes warning:', err);
+      }
+    };
+
+    loadOutcomes();
+    return () => { isMounted = false; };
+  }, [programmeId, academicYear]);
+
+  // Load Course Outcomes for selected course
+  useEffect(() => {
+    const currentCid = selectedCourse?.id || courseId;
+    if (!currentCid) return;
+    let isMounted = true;
+    const loadCos = async () => {
+      try {
+        const res = await apiClient.get(`/outcomes/courses/${currentCid}/cos`);
+        if (!isMounted) return;
+        const cos = res?.data || res;
+        if (Array.isArray(cos) && cos.length > 0) {
+          setCoursesStoreByYear((prev) => ({
+            ...prev,
+            [academicYear]: (prev[academicYear] || []).map((c) =>
+              c.id === currentCid ? { ...c, courseOutcomes: cos } : c
+            ),
+          }));
+        }
+      } catch (err) {
+        // quiet fallback
+      }
+    };
+    loadCos();
+    return () => { isMounted = false; };
+  }, [courseId, selectedCourse?.id, academicYear]);
+
   const poStore = poStoreByYear[academicYear] || INITIAL_PROGRAMME_OUTCOMES;
   const psoStore = psoStoreByYear[academicYear] || INITIAL_PSO_OUTCOMES;
   const coursesStore = coursesStoreByYear[academicYear] || INITIAL_COURSES;
@@ -407,27 +626,56 @@ export function AcademicProvider({ children }) {
   const activeCOs = selectedCourse ? selectedCourse.courseOutcomes || [] : [];
 
   // Update handlers
-  const updateSchoolInfo = (schoolId, updatedFields) => {
+  const updateSchoolInfo = async (schoolId, updatedFields) => {
     setSchoolsStore((prev) =>
       prev.map((s) => (s.id === schoolId ? { ...s, ...updatedFields } : s))
     );
+    try {
+      await apiClient.put(`/academic/schools/${schoolId}`, updatedFields);
+    } catch (err) {
+      console.warn('Backend update school warning:', err);
+    }
   };
 
-  const addDepartment = (newDept) => {
+  const addDepartment = async (newDept) => {
     setDepartmentsStore((prev) => [...prev, newDept]);
+    try {
+      const payload = {
+        id: newDept.id || `dept-${Date.now()}`,
+        schoolId: newDept.schoolId || selectedSchoolId,
+        code: newDept.code,
+        name: newDept.name,
+        hod: newDept.hod,
+        hodEmail: newDept.hodEmail,
+        status: newDept.status || 'ACTIVE',
+      };
+      await apiClient.post('/academic/departments', payload);
+    } catch (err) {
+      console.warn('Backend add department warning:', err);
+    }
   };
 
-  const updateDepartment = (deptId, updatedFields) => {
+  const updateDepartment = async (deptId, updatedFields) => {
     setDepartmentsStore((prev) =>
       prev.map((d) => (d.id === deptId ? { ...d, ...updatedFields } : d))
     );
+    try {
+      await apiClient.put(`/academic/departments/${deptId}`, updatedFields);
+    } catch (err) {
+      console.warn('Backend update department warning:', err);
+    }
   };
 
-  const deleteDepartment = (deptId) => {
+  const deleteDepartment = async (deptId) => {
     setDepartmentsStore((prev) => prev.filter((d) => d.id !== deptId));
+    try {
+      await apiClient.delete(`/academic/departments/${deptId}`);
+    } catch (err) {
+      console.warn('Backend delete department warning:', err);
+    }
   };
 
-  const addProgramme = (newProg) => {
+  const addProgramme = async (newProg) => {
     const formattedProg = {
       ...newProg,
       coordinator: newProg.coordinator && newProg.coordinator !== 'Pending HOD Assignment' ? newProg.coordinator : 'No coordinator assigned yet',
@@ -437,25 +685,50 @@ export function AcademicProvider({ children }) {
       try { localStorage.setItem('dypiu_master_programmes', JSON.stringify(updated)); } catch {}
       return updated;
     });
+    try {
+      const payload = {
+        id: newProg.id || `prog-${Date.now()}`,
+        departmentId: newProg.departmentId || departmentsStore[0]?.id || 'dept-1',
+        code: newProg.code,
+        name: newProg.name,
+        durationYears: parseInt(newProg.durationYears || 4, 10),
+        coordinator: newProg.coordinator,
+        coordinatorEmail: newProg.coordinatorEmail,
+        status: newProg.status || 'ACTIVE',
+      };
+      await apiClient.post('/academic/programmes', payload);
+    } catch (err) {
+      console.warn('Backend add programme warning:', err);
+    }
   };
 
-  const updateProgramme = (progId, updatedFields) => {
+  const updateProgramme = async (progId, updatedFields) => {
     setMasterProgrammesStore((prev) => {
       const updated = prev.map((p) => (p.id === progId ? { ...p, ...updatedFields } : p));
       try { localStorage.setItem('dypiu_master_programmes', JSON.stringify(updated)); } catch {}
       return updated;
     });
+    try {
+      await apiClient.put(`/academic/programmes/${progId}`, updatedFields);
+    } catch (err) {
+      console.warn('Backend update programme warning:', err);
+    }
   };
 
-  const deleteProgramme = (progId) => {
+  const deleteProgramme = async (progId) => {
     setMasterProgrammesStore((prev) => {
       const updated = prev.filter((p) => p.id !== progId);
       try { localStorage.setItem('dypiu_master_programmes', JSON.stringify(updated)); } catch {}
       return updated;
     });
+    try {
+      await apiClient.delete(`/academic/programmes/${progId}`);
+    } catch (err) {
+      console.warn('Backend delete programme warning:', err);
+    }
   };
 
-  const updateProgrammePOs = (progId, newPOs) => {
+  const updateProgrammePOs = async (progId, newPOs) => {
     setPoStoreByYear((prev) => ({
       ...prev,
       [academicYear]: {
@@ -463,9 +736,14 @@ export function AcademicProvider({ children }) {
         [progId]: newPOs,
       },
     }));
+    try {
+      await apiClient.post(`/outcomes/programmes/${progId}/pos`, newPOs);
+    } catch (err) {
+      console.warn('Backend update POs warning:', err);
+    }
   };
 
-  const updateProgrammePSOs = (progId, newPSOs) => {
+  const updateProgrammePSOs = async (progId, newPSOs) => {
     setPsoStoreByYear((prev) => ({
       ...prev,
       [academicYear]: {
@@ -473,9 +751,14 @@ export function AcademicProvider({ children }) {
         [progId]: newPSOs,
       },
     }));
+    try {
+      await apiClient.post(`/outcomes/programmes/${progId}/psos`, newPSOs);
+    } catch (err) {
+      console.warn('Backend update PSOs warning:', err);
+    }
   };
 
-  const updateProgrammePEOs = (targetProgId, newPeos) => {
+  const updateProgrammePEOs = async (targetProgId, newPeos) => {
     setPeoStoreByYear((prev) => ({
       ...prev,
       [academicYear]: {
@@ -483,9 +766,14 @@ export function AcademicProvider({ children }) {
         [targetProgId]: newPeos,
       },
     }));
+    try {
+      await apiClient.post(`/outcomes/programmes/${targetProgId}/peos`, newPeos);
+    } catch (err) {
+      console.warn('Backend update PEOs warning:', err);
+    }
   };
 
-  const updateCourseCOs = (targetCourseId, newCOs) => {
+  const updateCourseCOs = async (targetCourseId, newCOs) => {
     setCoursesStoreByYear((prev) => {
       const updated = {
         ...prev,
@@ -496,9 +784,14 @@ export function AcademicProvider({ children }) {
       try { localStorage.setItem('dypiu_courses_by_year', JSON.stringify(updated)); } catch {}
       return updated;
     });
+    try {
+      await apiClient.post(`/outcomes/courses/${targetCourseId}/cos`, newCOs);
+    } catch (err) {
+      console.warn('Backend update COs warning:', err);
+    }
   };
 
-  const updateCourseFacultyAllocation = (targetCourseId, assignedFacultyArray) => {
+  const updateCourseFacultyAllocation = async (targetCourseId, assignedFacultyArray) => {
     setCoursesStoreByYear((prev) => {
       const updated = {
         ...prev,
@@ -515,9 +808,17 @@ export function AcademicProvider({ children }) {
       try { localStorage.setItem('dypiu_courses_by_year', JSON.stringify(updated)); } catch {}
       return updated;
     });
+    try {
+      await apiClient.put(`/academic/courses/${targetCourseId}`, {
+        coordinatorName: assignedFacultyArray.join(' / '),
+        faculty: assignedFacultyArray.join(' / '),
+      });
+    } catch (err) {
+      console.warn('Backend update faculty allocation warning:', err);
+    }
   };
 
-  const assignCourseCoordinator = (targetCourseId, facultyName) => {
+  const assignCourseCoordinator = async (targetCourseId, facultyName) => {
     setCoursesStoreByYear((prev) => {
       const updated = {
         ...prev,
@@ -534,9 +835,17 @@ export function AcademicProvider({ children }) {
       try { localStorage.setItem('dypiu_courses_by_year', JSON.stringify(updated)); } catch {}
       return updated;
     });
+    try {
+      await apiClient.put(`/academic/courses/${targetCourseId}`, {
+        coordinatorName: facultyName,
+        coordinator: facultyName,
+      });
+    } catch (err) {
+      console.warn('Backend assign coordinator warning:', err);
+    }
   };
 
-  const addCourse = (newCourse) => {
+  const addCourse = async (newCourse) => {
     setCoursesStoreByYear((prev) => {
       const updated = {
         ...prev,
@@ -545,9 +854,22 @@ export function AcademicProvider({ children }) {
       try { localStorage.setItem('dypiu_courses_by_year', JSON.stringify(updated)); } catch {}
       return updated;
     });
+    try {
+      const payload = {
+        id: newCourse.id || `crs-${Date.now()}`,
+        code: newCourse.code,
+        name: newCourse.name,
+        programmeId: newCourse.programmeId || programmeId,
+        semester: newCourse.semester || 'Sem I',
+        status: 'ACTIVE',
+      };
+      await apiClient.post('/academic/courses', payload);
+    } catch (err) {
+      console.warn('Backend add course warning:', err);
+    }
   };
 
-  const updateCourse = (targetCourseId, updatedFields) => {
+  const updateCourse = async (targetCourseId, updatedFields) => {
     setCoursesStoreByYear((prev) => {
       const updated = {
         ...prev,
@@ -558,9 +880,14 @@ export function AcademicProvider({ children }) {
       try { localStorage.setItem('dypiu_courses_by_year', JSON.stringify(updated)); } catch {}
       return updated;
     });
+    try {
+      await apiClient.put(`/academic/courses/${targetCourseId}`, updatedFields);
+    } catch (err) {
+      console.warn('Backend update course warning:', err);
+    }
   };
 
-  const deleteCourse = (targetCourseId) => {
+  const deleteCourse = async (targetCourseId) => {
     setCoursesStoreByYear((prev) => {
       const updated = {
         ...prev,
@@ -569,6 +896,11 @@ export function AcademicProvider({ children }) {
       try { localStorage.setItem('dypiu_courses_by_year', JSON.stringify(updated)); } catch {}
       return updated;
     });
+    try {
+      await apiClient.delete(`/academic/courses/${targetCourseId}`);
+    } catch (err) {
+      console.warn('Backend delete course warning:', err);
+    }
   };
 
   // Batch Students Store

@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './auth';
+import apiClient from '../api/client';
 
 export const ApprovalContext = createContext(null);
 
@@ -233,7 +234,33 @@ export function ApprovalProvider({ children }) {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  const approveDirectorSubmission = (appId, directorName) => {
+  // Real backend loader for Approvals
+  useEffect(() => {
+    let isMounted = true;
+    const loadApprovals = async () => {
+      try {
+        if (role === 'DIRECTOR' || role === 'ADMIN') {
+          const res = await apiClient.get('/approvals/director');
+          const data = res?.data || res;
+          if (isMounted && Array.isArray(data) && data.length > 0) {
+            setDirectorApprovalsStore(data);
+          }
+        } else if (role === 'HOD') {
+          const res = await apiClient.get('/approvals/hod');
+          const data = res?.data || res;
+          if (isMounted && Array.isArray(data) && data.length > 0) {
+            setHodApprovalsStore(data);
+          }
+        }
+      } catch (err) {
+        console.warn('Backend load approvals warning:', err);
+      }
+    };
+    loadApprovals();
+    return () => { isMounted = false; };
+  }, [role]);
+
+  const approveDirectorSubmission = async (appId, directorName) => {
     setDirectorApprovalsStore((prev) => {
       const updated = prev.map((a) =>
         a.id === appId
@@ -248,9 +275,17 @@ export function ApprovalProvider({ children }) {
       try { localStorage.setItem('dypiu_director_approvals', JSON.stringify(updated)); } catch {}
       return updated;
     });
+
+    try {
+      await apiClient.post(`/approvals/${appId}/approve`, {
+        approvedBy: directorName || user?.name || 'School Director',
+      });
+    } catch (err) {
+      console.warn('Backend approve director submission warning:', err);
+    }
   };
 
-  const rejectDirectorSubmission = (appId, remarks) => {
+  const rejectDirectorSubmission = async (appId, remarks) => {
     setDirectorApprovalsStore((prev) => {
       const updated = prev.map((a) =>
         a.id === appId
@@ -264,9 +299,17 @@ export function ApprovalProvider({ children }) {
       try { localStorage.setItem('dypiu_director_approvals', JSON.stringify(updated)); } catch {}
       return updated;
     });
+
+    try {
+      await apiClient.post(`/approvals/${appId}/reject`, {
+        remarks: remarks || 'Review and resubmit.',
+      });
+    } catch (err) {
+      console.warn('Backend reject director submission warning:', err);
+    }
   };
 
-  const approveHodSubmission = (appId, hodName) => {
+  const approveHodSubmission = async (appId, hodName) => {
     setHodApprovalsStore((prev) => {
       const updated = prev.map((a) =>
         a.id === appId
@@ -281,9 +324,17 @@ export function ApprovalProvider({ children }) {
       try { localStorage.setItem('dypiu_hod_approvals', JSON.stringify(updated)); } catch {}
       return updated;
     });
+
+    try {
+      await apiClient.post(`/approvals/${appId}/approve`, {
+        approvedBy: hodName || user?.name || 'Head of Department (HOD)',
+      });
+    } catch (err) {
+      console.warn('Backend approve HOD submission warning:', err);
+    }
   };
 
-  const rejectHodSubmission = (appId, remarks) => {
+  const rejectHodSubmission = async (appId, remarks) => {
     setHodApprovalsStore((prev) => {
       const updated = prev.map((a) =>
         a.id === appId
@@ -297,9 +348,17 @@ export function ApprovalProvider({ children }) {
       try { localStorage.setItem('dypiu_hod_approvals', JSON.stringify(updated)); } catch {}
       return updated;
     });
+
+    try {
+      await apiClient.post(`/approvals/${appId}/reject`, {
+        remarks: remarks || 'Review and resubmit.',
+      });
+    } catch (err) {
+      console.warn('Backend reject HOD submission warning:', err);
+    }
   };
 
-  const updateCourseVerificationStatus = (targetCourseId, statusType, statusValue, remarksValue = '', verifierName = null) => {
+  const updateCourseVerificationStatus = async (targetCourseId, statusType, statusValue, remarksValue = '', verifierName = null) => {
     const remarkKey = statusType.replace('Status', 'Remarks');
     setCourseVerificationStore((prev) => {
       const updated = {
@@ -322,6 +381,18 @@ export function ApprovalProvider({ children }) {
       try { localStorage.setItem('dypiu_course_verification', JSON.stringify(updated)); } catch {}
       return updated;
     });
+
+    try {
+      await apiClient.post('/approvals/verify', {
+        courseOfferingId: targetCourseId,
+        verificationType: statusType,
+        status: statusValue,
+        remarks: remarksValue,
+        verifiedBy: verifierName || user?.name,
+      });
+    } catch (err) {
+      console.warn('Backend update course verification warning:', err);
+    }
   };
 
   const getPendingVerificationsCount = () => {

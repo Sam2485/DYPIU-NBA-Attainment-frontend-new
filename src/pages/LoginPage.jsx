@@ -47,20 +47,23 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, role, navigate, location]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    setTimeout(() => {
-      const result = login(email, password);
+    try {
+      const result = await login(email, password);
       setIsLoading(false);
-      if (result.success) {
+      if (result && result.success) {
         navigate(result.targetPath, { replace: true });
       } else {
-        setError(result.error);
+        setError(result?.error || 'Authentication failed');
       }
-    }, 250);
+    } catch (err) {
+      setIsLoading(false);
+      setError(err?.response?.data?.message || err?.message || 'Authentication failed');
+    }
   };
 
   const handleSelectDemoRole = (roleKey, roleEmail) => {
