@@ -1,14 +1,19 @@
 import axios from 'axios';
 
-// Helper to resolve and normalize the API base URL from environment or default
+// Helper to resolve and normalize the API base URL
 const resolveBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
-  if (!envUrl || envUrl.trim() === '') {
-    return '/api/v1';
+  if (envUrl && envUrl.trim() !== '' && !envUrl.startsWith('/')) {
+    const trimmed = envUrl.trim().replace(/\/+$/, '');
+    return trimmed.endsWith('/api/v1') ? trimmed : `${trimmed}/api/v1`;
   }
-  const trimmed = envUrl.trim().replace(/\/+$/, '');
-  // If the provided base URL already ends with /api/v1, use it as is; otherwise append /api/v1
-  return trimmed.endsWith('/api/v1') ? trimmed : `${trimmed}/api/v1`;
+  // Auto-detect browser host IP/domain and point to backend port 8010
+  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+    const protocol = window.location.protocol || 'http:';
+    const host = window.location.hostname;
+    return `${protocol}//${host}:8010/api/v1`;
+  }
+  return 'http://localhost:8010/api/v1';
 };
 
 // Base API Client configured for backend integration
@@ -17,6 +22,7 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000,
 });
 
 // Request Interceptor: Attach JWT Token if present
@@ -35,7 +41,7 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle global errors (e.g. 401 Unauthorized)
+// Response Interceptor: Format errors and handle auth expiry
 apiClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
@@ -46,6 +52,28 @@ apiClient.interceptors.response.use(
       sessionStorage.removeItem('role');
       sessionStorage.removeItem('user');
     }
+
+    // Extract exact backend error details
+    if (error.response) {
+      const { status, statusText, data } = error.response;
+      let detailedMessage = '';
+      if (typeof data === 'string' && data.includes('<title>')) {
+        const match = data.match(/<title>(.*?)<\/title>/i);
+        detailedMessage = `Server Error (${status}): ${match ? match[1] : statusText}`;
+      } else if (data?.message) {
+        detailedMessage = data.message;
+      } else if (data?.error) {
+        detailedMessage = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+      } else {
+        detailedMessage = `HTTP ${status}: ${statusText || 'Request failed'}`;
+      }
+      error.customMessage = detailedMessage;
+    } else if (error.request) {
+      error.customMessage = 'Unable to connect to backend server at ' + resolveBaseUrl() + '. Please ensure backend is running on port 8010.';
+    } else {
+      error.customMessage = error.message || 'An unexpected error occurred.';
+    }
+
     return Promise.reject(error);
   }
 );

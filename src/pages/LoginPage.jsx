@@ -62,7 +62,13 @@ export default function LoginPage() {
       }
     } catch (err) {
       setIsLoading(false);
-      setError(err?.response?.data?.message || err?.message || 'Authentication failed');
+      setError(
+        err?.customMessage ||
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'Authentication failed'
+      );
     }
   };
 

@@ -186,7 +186,12 @@ export function AuthProvider({ children }) {
       };
     } catch (err) {
       console.error('Login error:', err);
-      const errMsg = err?.response?.data?.message || err?.message || 'Authentication failed. Please check your credentials.';
+      const errMsg =
+        err?.customMessage ||
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'Authentication failed. Please check your credentials.';
       return {
         success: false,
         error: errMsg,
