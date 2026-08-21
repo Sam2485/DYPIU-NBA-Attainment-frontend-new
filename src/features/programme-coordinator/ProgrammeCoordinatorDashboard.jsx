@@ -30,46 +30,38 @@ export default function ProgrammeCoordinatorDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const {
-    masterProgrammes = [],
     programmeId = null,
-    batchId = null,
-    courses = [],
+    setProgrammeId,
     selectedBatch = null,
     batches = [],
-    activePOs = [],
-    activePSOs = [],
-    courseVerificationStore = {},
-    pcWorkflowProgress = null,
-    pcWorkflowProgressStore = {},
+    programmeCoordinatorDashboard = null,
     loadProgrammeCoordinatorDashboard,
-    loadPcSetupProgress,
-    loadProgrammeOutcomes,
-    loadCourses,
     loadBatches,
-    loadProgrammes,
   } = useAcademic();
 
   const [screenLoading, setScreenLoading] = useState(false);
   const [screenError, setScreenError] = useState(null);
 
-  const selectedProgramme =
-    (Array.isArray(masterProgrammes) && masterProgrammes.find((p) => p.id === programmeId)) ||
-    masterProgrammes[0] ||
-    null;
+  const selectedProgramme = programmeCoordinatorDashboard?.programme ?? null;
 
-  const activeProgId = selectedProgramme?.id || programmeId;
+  // The coordinator is scoped to the programme assigned in the authenticated
+  // user payload. Keep that programme selected before navigating to setup.
+  const activeProgId = user?.programmeId || programmeId || programmeCoordinatorDashboard?.programmeId;
+
+  useEffect(() => {
+    if (activeProgId && programmeId !== activeProgId) {
+      setProgrammeId(activeProgId);
+    }
+  }, [activeProgId, programmeId, setProgrammeId]);
 
   const fetchPcData = async () => {
     setScreenLoading(true);
     setScreenError(null);
     try {
-      await Promise.allSettled([
-        loadProgrammes ? loadProgrammes() : Promise.resolve(),
-        loadBatches ? loadBatches({ targetProgrammeId: activeProgId }) : Promise.resolve(),
-        loadCourses ? loadCourses({ targetProgrammeId: activeProgId }) : Promise.resolve(),
-        activeProgId && loadProgrammeOutcomes ? loadProgrammeOutcomes(activeProgId) : Promise.resolve(),
-        activeProgId && loadProgrammeCoordinatorDashboard ? loadProgrammeCoordinatorDashboard(activeProgId) : Promise.resolve(),
-        activeProgId && batchId && loadPcSetupProgress ? loadPcSetupProgress(activeProgId, batchId) : Promise.resolve(),
+      if (!activeProgId) return;
+      await Promise.all([
+        loadProgrammeCoordinatorDashboard(activeProgId),
+        loadBatches({ targetProgrammeId: activeProgId }),
       ]);
     } catch (err) {
       console.warn('ProgrammeCoordinatorDashboard fetch failed:', err);
@@ -81,38 +73,25 @@ export default function ProgrammeCoordinatorDashboard() {
 
   useEffect(() => {
     fetchPcData();
-  }, [activeProgId, batchId]);
+  }, [activeProgId, loadBatches, loadProgrammeCoordinatorDashboard]);
 
-  const progCourses = Array.isArray(courses)
-    ? courses.filter((c) => !c?.programmeId || (activeProgId && c.programmeId === activeProgId))
-    : [];
-
-  const pendingVerifications = progCourses.reduce((total, c) => {
-    if (!c?.id) return total;
-    const rec = courseVerificationStore[c.id] || {};
-    let count = 0;
-    if (rec.configStatus === 'SUBMITTED' || rec.configStatus === 'PENDING_APPROVAL' || rec.configStatus === 'PENDING') {
-      count++;
-    }
-    if (rec.coStatus === 'SUBMITTED' || rec.coStatus === 'PENDING_APPROVAL' || rec.coStatus === 'PENDING') {
-      count++;
-    }
-    if (rec.atrStatus === 'SUBMITTED' || rec.atrStatus === 'PENDING_APPROVAL' || rec.atrStatus === 'PENDING') {
-      count++;
-    }
-    return total + count;
-  }, 0);
-
-  const activeBatchLabel = selectedBatch?.name || (batches[0]?.name ?? 'Active Batch');
+  const dashboardStatistics = programmeCoordinatorDashboard?.statistics ?? {};
+  const courseCount = dashboardStatistics.coursesCount ?? dashboardStatistics.courses ?? 0;
+  const pendingVerifications = dashboardStatistics.pendingVerifications ?? 0;
+  const activeBatchLabel = programmeCoordinatorDashboard?.activeBatch || selectedBatch?.name || batches[0]?.name || '—';
 
   // ── Per-step completion tracking ───────────────────────────────────────────
-  const safeProgress = pcWorkflowProgress || (activeProgId ? pcWorkflowProgressStore[activeProgId] : {}) || {};
+  const safeProgress = programmeCoordinatorDashboard?.setupProgress ?? {};
+  const workflowProgress = programmeCoordinatorDashboard?.workflowProgress ?? {};
   const stepStatus = PC_STEPS.map((s, idx) => {
+    if (Object.prototype.hasOwnProperty.call(workflowProgress, String(s.step))) {
+      return Boolean(workflowProgress[String(s.step)]);
+    }
     if (Array.isArray(safeProgress.stepStatus)) {
       return !!safeProgress.stepStatus[idx];
     }
     if (Array.isArray(safeProgress.completedSteps)) {
-      return safeProgress.completedSteps.includes(s.step);
+      return safeProgress.completedSteps.some((step) => Number(step) === s.step);
     }
     return !!safeProgress[s.step] || !!safeProgress[`step-${s.step}`];
   });
@@ -179,11 +158,11 @@ export default function ProgrammeCoordinatorDashboard() {
   const muted = '#64748b';
   const accent = '#4f46e5';
 
-  if (screenLoading && masterProgrammes.length === 0) {
+  if (screenLoading && !programmeCoordinatorDashboard) {
     return <ScreenLoadingState message="Loading Programme Coordinator Dashboard..." />;
   }
 
-  if (screenError && masterProgrammes.length === 0) {
+  if (screenError && !programmeCoordinatorDashboard) {
     return <ScreenErrorState title="Failed to load Dashboard" message={screenError} onRetry={fetchPcData} />;
   }
 
@@ -247,7 +226,7 @@ export default function ProgrammeCoordinatorDashboard() {
               <BookOpen size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{progCourses.length}</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{courseCount}</div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>In active curriculum</div>
         </div>
 
@@ -259,12 +238,8 @@ export default function ProgrammeCoordinatorDashboard() {
               <Target size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>
-            {activePOs.length + activePSOs.length}
-          </div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>
-            {activePOs.length} POs &nbsp;·&nbsp; {activePSOs.length} PSOs
-          </div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>—</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>Not provided by dashboard</div>
         </div>
 
         {/* Pending Verifications */}

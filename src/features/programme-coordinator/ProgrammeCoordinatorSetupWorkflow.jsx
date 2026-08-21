@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   BookOpen, Target, CheckCircle2,
@@ -40,10 +40,14 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const hasLoadedProgrammes = useRef(false);
   const {
     masterProgrammes = [],
     programmeId,
     setProgrammeId,
+    batches = [],
+    batchId,
+    setBatchId,
     activePOs  = [],
     activePSOs = [],
     courses    = [],
@@ -57,7 +61,51 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     pcWorkflowProgressStore = {},
     markPcWorkflowStepComplete = () => {},
     facultyList = [],
+    loadProgrammes = () => Promise.resolve([]),
+    loadBatches = () => Promise.resolve([]),
   } = useAcademic();
+
+  // Context data is initially empty while the selected programme is restored.
+  // Defaults in destructuring do not cover an explicit null value, so normalize
+  // each record store before indexing it.
+  const safePoPsoTargets = poPsoTargets ?? {};
+  const safeCourseVerificationStore = courseVerificationStore ?? {};
+  const safePcWorkflowProgressStore = pcWorkflowProgressStore ?? {};
+
+  // Programme data is loaded only when this workflow opens. The authenticated
+  // coordinator's programme remains the initial selection when it is present.
+  useEffect(() => {
+    if (hasLoadedProgrammes.current) return undefined;
+    hasLoadedProgrammes.current = true;
+    let isCurrent = true;
+
+    loadProgrammes(user?.departmentId).then((loadedProgrammes) => {
+      if (!isCurrent || programmeId || !user?.programmeId) return;
+      if (loadedProgrammes.some((programme) => programme.id === user.programmeId)) {
+        setProgrammeId(user.programmeId);
+      }
+    }).catch(() => {});
+
+    return () => { isCurrent = false; };
+  }, [loadProgrammes, programmeId, setProgrammeId, user?.departmentId, user?.programmeId]);
+
+  // Batches are scoped to the currently selected programme. Select the first
+  // active returned batch only when no valid batch is already selected.
+  useEffect(() => {
+    if (!programmeId) return;
+    let isCurrent = true;
+
+    loadBatches({ targetProgrammeId: programmeId }).then((loadedBatches) => {
+      if (!isCurrent) return;
+      const hasSelectedBatch = loadedBatches.some((batch) => batch.id === batchId);
+      if (!hasSelectedBatch) {
+        const initialBatch = loadedBatches.find((batch) => batch.status === 'ACTIVE') || loadedBatches[0];
+        setBatchId(initialBatch?.id ?? null);
+      }
+    }).catch(() => {});
+
+    return () => { isCurrent = false; };
+  }, [batchId, loadBatches, programmeId, setBatchId]);
 
   const activeFaculties = facultyList.length > 0 ? facultyList : ['Course Coordinator', 'Programme Coordinator', 'Head of Department (HOD)', 'School Director'];
 
@@ -83,7 +131,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     { id: 'prog-1', name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP', durationYears: 4 };
 
   const allocationKey = `allocation-${programmeId}`;
-  const allocationRecord = courseVerificationStore[allocationKey] || {};
+  const allocationRecord = safeCourseVerificationStore[allocationKey] || {};
   const allocationStatus = allocationRecord.allocationStatus || 'DRAFT';
   const allocationRemarks = allocationRecord.allocationRemarks || '';
 
@@ -97,7 +145,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   };
 
   const targetsKey = `targets-${programmeId}`;
-  const targetsRecord = courseVerificationStore[targetsKey] || courseVerificationStore[allocationKey] || {};
+  const targetsRecord = safeCourseVerificationStore[targetsKey] || safeCourseVerificationStore[allocationKey] || {};
   const targetsStatus = targetsRecord.poPsoTargetsStatus || targetsRecord.targetsStatus || 'DRAFT';
   const targetsRemarks = targetsRecord.poPsoTargetsRemarks || targetsRecord.targetsRemarks || '';
 
@@ -118,7 +166,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const programmeSemesters = Array.from({ length: totalSemesters }, (_, i) => `Sem ${ROMAN_NUMERALS[i] || i + 1}`);
 
   // ── Per-step completion flags ──────────────────────────────────────────────
-  const progProgress = (selectedProgramme?.id && pcWorkflowProgressStore[selectedProgramme.id]) || {};
+  const progProgress = (selectedProgramme?.id && safePcWorkflowProgressStore[selectedProgramme.id]) || {};
   const stepDone = STEPS.map((s, idx) => {
     if (Array.isArray(progProgress?.stepStatus)) {
       return !!progProgress.stepStatus[idx];
@@ -166,7 +214,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === programmeId);
 
   // ── Step 2 – PO/PSO Targets ──────────────────────────────────────────────
-  const existingTargets = poPsoTargets[programmeId] || {};
+  const existingTargets = safePoPsoTargets[programmeId] || {};
   const [poTargetDraft,  setPoTargetDraft]  = useState(() => {
     const seed = existingTargets.poTargets || {};
     const out  = {};
@@ -253,7 +301,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
               const currentStatus =
                 currentStep === 1 ? allocationStatus :
                 currentStep === 2 ? targetsStatus :
-                currentStep === 3 ? (courseVerificationStore[`prog-atr-${programmeId}`]?.programmeAtrStatus || courseVerificationStore[allocationKey]?.programmeAtrStatus || 'DRAFT') :
+                currentStep === 3 ? (safeCourseVerificationStore[`prog-atr-${programmeId}`]?.programmeAtrStatus || safeCourseVerificationStore[allocationKey]?.programmeAtrStatus || 'DRAFT') :
                 'DRAFT';
 
               const isApp = currentStatus === 'APPROVED' || currentStatus === 'VERIFIED';
@@ -298,7 +346,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
               onChange={(e) => {
                 const nextProgId = e.target.value;
                 setProgrammeId(nextProgId);
-                const nextProgState = pcWorkflowProgressStore[nextProgId] || {};
+                const nextProgState = safePcWorkflowProgressStore[nextProgId] || {};
                 const nextIncompleteIdx = STEPS.findIndex((s) => !nextProgState[s.number]);
                 const nextStepNum = nextIncompleteIdx !== -1 ? nextIncompleteIdx + 1 : 1;
                 goToStep(nextStepNum);
@@ -321,6 +369,34 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
             >
               {masterProgrammes.map((p) => (
                 <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+              ))}
+            </select>
+            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
+          </div>
+          <div style={{ position: 'relative' }}>
+            <select
+              value={batchId ?? ''}
+              onChange={(e) => setBatchId(e.target.value || null)}
+              disabled={!programmeId || batches.length === 0}
+              style={{
+                height: '38px',
+                fontSize: '13px',
+                fontWeight: '700',
+                color: accent,
+                border: '1.5px solid #c7d2fe',
+                borderRadius: '8px',
+                padding: '0 32px 0 12px',
+                background: '#f5f3ff',
+                minWidth: '190px',
+                outline: 'none',
+                appearance: 'none',
+                cursor: !programmeId || batches.length === 0 ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              <option value="">{batches.length === 0 ? 'No batches available' : 'Select batch'}</option>
+              {batches.map((batch) => (
+                <option key={batch.id} value={batch.id}>{batch.name}</option>
               ))}
             </select>
             <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />

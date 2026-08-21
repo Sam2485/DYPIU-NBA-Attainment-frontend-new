@@ -13,6 +13,8 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
     activePOs = [],
     activePSOs = [],
     activeCOs = [],
+    coMapping = {},
+    coAttainment = {},
   } = useAcademic();
 
   const [activeTab, setActiveTab] = useState('summary'); // 'summary' or 'competency'
@@ -22,22 +24,13 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
   const psoList = (activePSOs || []).map((p) => p?.code || p).filter(Boolean);
   const courseOutcomes = activeCOs || [];
 
-  const courseAttainmentStore = {
-    'crs-1': { overallCOAttainment: 2.07 },
-    'crs-2': { overallCOAttainment: 2.55 },
-    'crs-3': { overallCOAttainment: 2.73 },
-    'crs-4': { overallCOAttainment: 2.60 },
-  };
+  const activeData = (selectedCourse?.id && coAttainment?.[selectedCourse.id]) || selectedCourse || {};
 
-  const activeData = courseAttainmentStore[selectedCourse?.id || 'crs-1'] || { overallCOAttainment: 2.07 };
-
-  // Helper: Get sample mapping strength for a CO and PO/PSO
+  // Helper: Get mapping strength for a CO and PO/PSO from real coMapping store
   const getMappingStrength = (coCode, targetCode) => {
-    if (!coCode) return '-';
-    if (targetCode === 'PO1' || targetCode === 'PO2' || targetCode === 'PSO1') return 3;
-    if (targetCode === 'PO3' || targetCode === 'PSO2') return 2;
-    if (targetCode === 'PO4' || targetCode === 'PO12' || targetCode === 'PSO3') return coCode.endsWith('.5') || coCode.endsWith('.6') ? 1 : 2;
-    return '-';
+    if (!coCode || !targetCode || !selectedCourse?.id) return '-';
+    const val = coMapping?.[selectedCourse.id]?.[`${coCode}-${targetCode}`];
+    return (val !== undefined && val !== null) ? val : '-';
   };
 
   // Helper: Calculate Average for a PO or PSO column
@@ -128,11 +121,11 @@ export default function POPSOAttainmentEngine({ hideFooter = false }) {
                     Table 1: Mapping of CO to PO/PSO
                   </th>
                   <th colSpan={poList.length || 1} style={{ textAlign: 'center', background: '#f1f5f9', color: '#0f172a' }}>
-                    PO1 - PO{poList.length} ({poList.length} POs)
+                    Programme Outcomes ({poList.length} POs)
                   </th>
                   {psoList.length > 0 && (
                     <th colSpan={psoList.length} style={{ textAlign: 'center', background: '#e2e8f0', color: '#0f172a' }}>
-                      PSO1 - PSO{psoList.length} ({psoList.length} PSOs)
+                      Programme Specific Outcomes ({psoList.length} PSOs)
                     </th>
                   )}
                 </tr>

@@ -521,45 +521,26 @@ export function AcademicProvider({ children }) {
       }
 
       try {
-        const requests = [
-          apiClient.get(`/outcomes/programmes/${targetProgrammeId}/pos`),
-          apiClient.get(`/outcomes/programmes/${targetProgrammeId}/psos`),
-          apiClient.get(`/outcomes/programmes/${targetProgrammeId}/peos`),
-          apiClient.get(`/academic/programmes/${targetProgrammeId}/competencies`),
-        ];
-        if (includeTargets) {
-          requests.push(apiClient.get(`/academic/programmes/${targetProgrammeId}/targets`));
-        }
-        const results = await Promise.allSettled(requests);
+        // Load the documented outcome resources in order. Competencies are a
+        // separate backend resource and are not required to render this tab.
+        const poResponse = await apiClient.get(`/outcomes/programmes/${targetProgrammeId}/pos`);
+        const psoResponse = await apiClient.get(`/outcomes/programmes/${targetProgrammeId}/psos`);
+        const peoResponse = await apiClient.get(`/outcomes/programmes/${targetProgrammeId}/peos`);
 
-        const competencies = results[3].status === 'fulfilled'
-          ? unwrapList(results[3].value)
-          : [];
-        const withCompetencies = (outcomes) => outcomes.map((outcome) => ({
+        const withStatement = (outcomes) => outcomes.map((outcome) => ({
           ...outcome,
-          // The contract returns name/description; the existing UI edits a
-          // statement field, so this is a display adapter rather than fallback data.
-          statement: outcome?.description ?? outcome?.name ?? '',
-          competencies: competencies
-            .filter((item) => item?.poCode === outcome?.code)
-            .map((item, index) => ({
-              ...item,
-              id: item?.id ?? `${item?.poCode ?? outcome?.code}-${item?.competencyCode ?? index}`,
-              order: index + 1,
-            })),
+          statement: outcome?.statement ?? outcome?.description ?? outcome?.name ?? '',
         }));
 
-        if (results[0].status === 'fulfilled') {
-          setActivePOs(withCompetencies(unwrapList(results[0].value)));
-        }
-        if (results[1].status === 'fulfilled') {
-          setActivePSOs(withCompetencies(unwrapList(results[1].value)));
-        }
-        if (results[2].status === 'fulfilled') {
-          setActivePEOs(withCompetencies(unwrapList(results[2].value)));
-        }
-        if (includeTargets && results[4]?.status === 'fulfilled') {
-          setPoPsoTargets(unwrap(results[4].value));
+        setActivePOs(withStatement(unwrapList(poResponse)));
+        setActivePSOs(withStatement(unwrapList(psoResponse)));
+        setActivePEOs(withStatement(unwrapList(peoResponse)));
+
+        if (includeTargets) {
+          const targetResponse = await apiClient.get(
+            `/academic/programmes/${targetProgrammeId}/targets`
+          );
+          setPoPsoTargets(unwrap(targetResponse));
         }
       } catch (err) {
         console.warn(`loadProgrammeOutcomes(${targetProgrammeId}) failed:`, err);
@@ -1156,6 +1137,65 @@ export function AcademicProvider({ children }) {
     [programmeId, batchId]
   );
 
+  /* --- Programme Outcome Drafts and Save --- */
+  // Draft updates are deliberately local. The HOD workflow commits all outcome
+  // definitions only when its Save & Continue action is used.
+  const updateProgrammePOs = useCallback((_targetProgrammeId, nextPOs) => {
+    setActivePOs(nextPOs);
+  }, []);
+
+  const updateProgrammePSOs = useCallback((_targetProgrammeId, nextPSOs) => {
+    setActivePSOs(nextPSOs);
+  }, []);
+
+  const updateProgrammePEOs = useCallback((_targetProgrammeId, nextPEOs) => {
+    setActivePEOs(nextPEOs);
+  }, []);
+
+  const saveProgrammeOutcomeDefinitions = useCallback(
+    async (targetProgrammeId, { pos = activePOs, psos = activePSOs, peos = activePEOs } = {}) => {
+      if (!targetProgrammeId) {
+        throw new Error('A programmeId is required to save programme outcomes.');
+      }
+
+      const nestedOutcomePayload = (items) => items.map((item) => ({
+        code: item.code?.trim() ?? '',
+        statement: (item.statement ?? item.description ?? '').trim(),
+        competencies: (item.competencies || []).map((competency, index) => ({
+          code: `${item.code}.${index + 1}`,
+          statement: competency.statement?.trim() ?? '',
+        })),
+      }));
+
+      const poPayload = nestedOutcomePayload(pos);
+      const psoPayload = nestedOutcomePayload(psos);
+      const peoPayload = peos.map((item) => ({
+        code: item.code?.trim() ?? '',
+        name: item.name?.trim() ?? '',
+        description: (item.description ?? item.statement ?? '').trim(),
+      }));
+      const invalidOutcome = [...poPayload, ...psoPayload].some(
+        (item) => !item.code || !item.statement || item.competencies.some((competency) => !competency.statement)
+      ) || peoPayload.some((item) => !item.code || !item.name || !item.description);
+      if (invalidOutcome) {
+        throw new Error('Enter a code and outcome statement for every PO and PSO, plus a statement for each competency.');
+      }
+
+      const poResponse = await apiClient.post(`/outcomes/programmes/${targetProgrammeId}/pos`, poPayload);
+      const psoResponse = await apiClient.post(`/outcomes/programmes/${targetProgrammeId}/psos`, psoPayload);
+      const peoResponse = await apiClient.post(`/outcomes/programmes/${targetProgrammeId}/peos`, peoPayload);
+
+      const normalizeOutcomeDraft = (item) => ({
+        ...item,
+        statement: item?.statement ?? item?.description ?? '',
+      });
+      setActivePOs(unwrapList(poResponse).map(normalizeOutcomeDraft));
+      setActivePSOs(unwrapList(psoResponse).map((item) => normalizeOutcomeDraft(item)));
+      setActivePEOs(unwrapList(peoResponse).map((item) => normalizeOutcomeDraft(item)));
+    },
+    [activePEOs, activePOs, activePSOs]
+  );
+
   /* --- Student Mutators --- */
   const createStudent = useCallback(
     async (targetBatchId, studentData) => {
@@ -1302,6 +1342,10 @@ export function AcademicProvider({ children }) {
     activePEOs,
     poPsoTargets,
     loadProgrammeOutcomes,
+    updateProgrammePOs,
+    updateProgrammePSOs,
+    updateProgrammePEOs,
+    saveProgrammeOutcomeDefinitions,
     loadProgrammeTargets,
     updatePoPsoTargets,
     saveProgrammeTargets: updatePoPsoTargets,

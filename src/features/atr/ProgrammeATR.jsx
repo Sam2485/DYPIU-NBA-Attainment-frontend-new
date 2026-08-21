@@ -36,19 +36,14 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
 
   const [showHistory, setShowHistory] = useState(false);
 
-  // Carry-forward mock data for previous academic cycle
-  const prevCycleActions = [
-    { code: 'PO1', actionPlan: 'Conducted bridge courses in engineering mathematics and computational logic.', impact: 'Attainment improved from 1.72 to 1.88 across core computing courses.' },
-    { code: 'PO3', actionPlan: 'Introduced capstone project milestones with industry mentor evaluations.', impact: 'Design of solutions attainment rose by +0.18 over benchmark.' },
-    { code: 'PO5', actionPlan: 'Conducted hands-on tool workshops on Git, Docker, and modern CI/CD pipelines.', impact: 'Modern tool usage attainment increased from 1.65 to 1.92.' },
-    { code: 'PSO2', actionPlan: 'Organized industry bootcamps on full-stack testing and secure software development.', impact: 'PSO2 attainment exceeded target with 91.4% achievement rate.' },
-  ];
+  // Carry-forward data for previous academic cycle
+  const prevCycleActions = [];
 
-  const activeProgId = propProgrammeId || programmeId || 'prog-1';
-  const currentProg = masterProgrammes.find((p) => p.id === activeProgId) || selectedProgramme || masterProgrammes[0];
-  const targetCourseId = courseId || selectedCourse?.id || 'crs-1';
-  const progAtrKey = `prog-atr-${activeProgId}`;
-  const vRecord = courseVerificationStore[progAtrKey] || courseVerificationStore[`allocation-${activeProgId}`] || courseVerificationStore[targetCourseId] || {};
+  const activeProgId = propProgrammeId || programmeId || null;
+  const currentProg = (masterProgrammes || []).find((p) => p.id === activeProgId) || selectedProgramme || null;
+  const targetCourseId = courseId || selectedCourse?.id || null;
+  const progAtrKey = activeProgId ? `prog-atr-${activeProgId}` : '';
+  const vRecord = (progAtrKey && courseVerificationStore[progAtrKey]) || (activeProgId && courseVerificationStore[`allocation-${activeProgId}`]) || (targetCourseId && courseVerificationStore[targetCourseId]) || {};
   const reportStatus = vRecord.programmeAtrStatus || 'DRAFT';
   const verificationRemarks = vRecord.programmeAtrRemarks || '';
   const verifierName = vRecord.verifiedBy || 'Head of Department (HOD)';
@@ -56,41 +51,17 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const isFaculty     = role === 'FACULTY';
   const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' || role === 'HOD';
 
-  const defaultBatches = [
-    { id: 'batch-2025-29', name: 'Batch 2025–29' },
-    { id: 'batch-2024-28', name: 'Batch 2024–28' },
-    { id: 'batch-2023-27', name: 'Batch 2023–27' },
-    { id: 'batch-2022-26', name: 'Batch 2022–26 (Archived)' },
-  ];
-  const batchList = batches.length > 0 ? batches : defaultBatches;
-  const [selectedBatchId, setSelectedBatchId] = useState('batch-2023-27');
-  const currentBatchObj = batchList.find((b) => b.id === selectedBatchId) || batchList[0];
-  const isPreviousBatch = selectedBatchId === 'batch-2022-26' || currentBatchObj?.name?.includes('Archived') || currentBatchObj?.name?.includes('Graduated');
+  const batchList = batches || [];
+  const [selectedBatchId, setSelectedBatchId] = useState(() => batches?.[0]?.id || '');
+  const currentBatchObj = batchList.find((b) => b.id === selectedBatchId) || batchList[0] || null;
+  const isPreviousBatch = currentBatchObj?.name?.includes('Archived') || currentBatchObj?.name?.includes('Graduated');
   const locked = readOnly || isPreviousBatch || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
 
   // ── Build PO/PSO ATR list ──────────────────────────────────────────
-  const progTargets = poPsoTargets[activeProgId] || { poTargets: {}, psoTargets: {} };
+  const progTargets = (activeProgId && poPsoTargets?.[activeProgId]) || { poTargets: {}, psoTargets: {} };
 
-  const normPOs = activePOs.length > 0 ? activePOs : [
-    { code: 'PO1',  statement: 'Apply knowledge of mathematics, science and engineering fundamentals to complex engineering problems.' },
-    { code: 'PO2',  statement: 'Identify, formulate and analyze complex engineering problems using first principles.' },
-    { code: 'PO3',  statement: 'Design solutions for complex problems with consideration for public health and safety.' },
-    { code: 'PO4',  statement: 'Use research methods including design of experiments to provide valid conclusions.' },
-    { code: 'PO5',  statement: 'Create, select and apply modern engineering tools to complex activities.' },
-    { code: 'PO6',  statement: 'Apply reasoning to assess societal, health, safety and legal issues in engineering practice.' },
-    { code: 'PO7',  statement: 'Understand impact of engineering solutions in environmental context and sustainable development.' },
-    { code: 'PO8',  statement: 'Apply ethical principles and commit to professional ethics and norms of engineering practice.' },
-    { code: 'PO9',  statement: 'Function effectively as an individual, member or leader in diverse teams.' },
-    { code: 'PO10', statement: 'Communicate effectively on complex engineering activities with the engineering community.' },
-    { code: 'PO11', statement: 'Demonstrate knowledge of engineering and management principles as member and leader in a team.' },
-    { code: 'PO12', statement: 'Recognize the need for and ability to engage in independent and life-long learning.' },
-  ];
-
-  const normPSOs = activePSOs.length > 0 ? activePSOs : [
-    { code: 'PSO1', statement: 'Demonstrate principles and working of hardware and software aspects of computer systems.' },
-    { code: 'PSO2', statement: 'Use professional engineering practices for development, maintenance and testing of software solutions.' },
-    { code: 'PSO3', statement: 'Provide effective and efficient real-time solutions using practical knowledge in IT domain.' },
-  ];
+  const normPOs = activePOs || [];
+  const normPSOs = activePSOs || [];
 
   const buildList = () => [
     ...normPOs.map((po) => {
@@ -402,7 +373,13 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
       </div>
 
       <div style={{ display: 'grid', gap: '14px', marginBottom: '28px' }}>
-        {poList.map((po) => renderCard(po, accent))}
+        {poList.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '24px', background: '#f8fafc', borderRadius: '8px', color: '#94a3b8', fontSize: '13px' }}>
+            No Programme Outcomes defined.
+          </div>
+        ) : (
+          poList.map((po) => renderCard(po, accent))
+        )}
       </div>
 
       {/* ── PSO SECTION HEADING ───────────────────────────────────────────── */}
@@ -413,7 +390,13 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
       </div>
 
       <div style={{ display: 'grid', gap: '14px' }}>
-        {psoList.map((pso) => renderCard(pso, '#0284c7'))}
+        {psoList.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '24px', background: '#f0f9ff', borderRadius: '8px', color: '#94a3b8', fontSize: '13px' }}>
+            No Programme Specific Outcomes defined.
+          </div>
+        ) : (
+          psoList.map((pso) => renderCard(pso, '#0284c7'))
+        )}
       </div>
 
       {/* ── FOOTER ────────────────────────────────────────────────────────── */}

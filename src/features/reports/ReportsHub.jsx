@@ -197,18 +197,12 @@ export default function ReportsHub() {
   // Dynamic Lists
   const poList = (activePOs || []).map((p) => p?.code || p).filter(Boolean);
   const psoList = (activePSOs || []).map((p) => p?.code || p).filter(Boolean);
-  const coList = activeCOs.length > 0 ? activeCOs : [
-    { code: 'CO1', statement: 'Understand fundamental algorithms and theoretical concepts.' },
-    { code: 'CO2', statement: 'Analyze computational complexity and data structure efficiency.' },
-    { code: 'CO3', statement: 'Design software modules using object-oriented principles.' },
-    { code: 'CO4', statement: 'Implement database connectivity and backend API protocols.' },
-    { code: 'CO5', statement: 'Conduct system verification and automated unit testing.' },
-  ];
+  const coList = activeCOs || [];
 
   // Batches
-  const batchList = batches.length > 0 ? batches : DEFAULT_BATCHES;
-  const currentBatchObj = batchList.find((b) => b.id === selectedBatchId) || batchList[0];
-  const isFinalSemCompleted = currentBatchObj?.isCompleted || currentBatchObj?.name?.includes('Completed') || currentBatchObj?.name?.includes('Graduated') || currentBatchObj?.name?.includes('2023–27') || currentBatchObj?.name?.includes('2022–26');
+  const batchList = batches || [];
+  const currentBatchObj = batchList.find((b) => b.id === selectedBatchId) || batchList[0] || {};
+  const isFinalSemCompleted = currentBatchObj?.isCompleted || currentBatchObj?.name?.includes('Completed') || currentBatchObj?.name?.includes('Graduated');
 
   // Effective Attainment View Mode (Force Course Coordinator to 'course-attainment')
   const effectiveAttainmentViewMode = isCourseCoordinator ? 'course-attainment' : attainmentViewMode;
@@ -223,34 +217,31 @@ export default function ReportsHub() {
 
     if (activeMainTab === 'attainment-reports') {
       if (effectiveAttainmentViewMode === 'course-attainment') {
-        filename = `Course_Attainment_${currentCourseObj.code}_${currentBatchObj.id}.xlsx`;
+        filename = `Course_Attainment_${currentCourseObj?.code || 'Course'}_${currentBatchObj?.id || 'batch'}.xlsx`;
         sheetData = [
           [`D. Y. PATIL INTERNATIONAL UNIVERSITY, AKURDI PUNE`],
-          [`COURSE ATTAINMENT REPORT — ${currentBatchObj.name}`],
-          [`Programme: ${currentProgramme.code} - ${currentProgramme.name}`],
-          [`Course: ${currentCourseObj.code} - ${currentCourseObj.name}`],
+          [`COURSE ATTAINMENT REPORT — ${currentBatchObj?.name || 'Batch'}`],
+          [`Programme: ${currentProgramme?.code || ''} - ${currentProgramme?.name || ''}`],
+          [`Course: ${currentCourseObj?.code || ''} - ${currentCourseObj?.name || ''}`],
           [],
           [`1. TABLE 1: CO TO PO/PSO MAPPING MATRIX`],
           ['Sr No', 'CO Code', ...poList, ...psoList],
           ...coList.map((co, idx) => [
             idx + 1,
             co.code,
-            ...poList.map((po) => (po === 'PO1' || po === 'PO2' ? 3 : po === 'PO3' ? 2 : 1)),
-            ...psoList.map((pso) => (pso === 'PSO1' ? 3 : 2)),
+            ...poList.map((po) => coMapping?.[currentCourseObj?.id]?.[`${co.code}-${po}`] ?? '-'),
+            ...psoList.map((pso) => coMapping?.[currentCourseObj?.id]?.[`${co.code}-${pso}`] ?? '-'),
           ]),
-          ['', 'Average Mapping Strength', ...poList.map(() => 2.17), ...psoList.map(() => 2.0)],
           [],
           [`2. TABLE 2: PO & PSO ATTAINMENT VALUES`],
           ['Course Code', ...poList, ...psoList],
-          [currentCourseObj.code, ...poList.map(() => 1.83), ...psoList.map(() => 1.70)],
+          [currentCourseObj?.code || '', ...poList.map((po) => progTargets?.poTargets?.[po] ?? '-'), ...psoList.map((pso) => progTargets?.psoTargets?.[pso] ?? '-')],
           [],
           [`3. TABLE 3: CO ATTAINMENT (DIRECT + INDIRECT)`],
           ['Assessment Type', 'Metric', ...coList.map((co) => co.code)],
-          ['Direct Examination', '% Students ≥ Threshold (60%)', ...coList.map(() => '60%')],
-          ['Direct Examination', 'Direct Attainment Level (0-3)', ...coList.map(() => 2.8)],
-          ['Indirect Survey', '% Positive Feedback Rating', ...coList.map(() => '82%')],
-          ['Indirect Survey', 'Indirect Attainment Level (0-3)', ...coList.map(() => 2.5)],
-          ['Combined CO Attainment', '(80% Direct + 20% Indirect)', ...coList.map(() => 2.74)],
+          ['Direct Examination', 'Direct Attainment Level (0-3)', ...coList.map((co) => co.directAttainment ?? '-')],
+          ['Indirect Survey', 'Indirect Attainment Level (0-3)', ...coList.map((co) => co.indirectAttainment ?? '-')],
+          ['Combined CO Attainment', 'Overall CO Attainment', ...coList.map((co) => co.attainment ?? '-')],
         ];
       } else {
         filename = `Programme_Attainment_${currentProgramme.code}_${currentBatchObj.name}.xlsx`;

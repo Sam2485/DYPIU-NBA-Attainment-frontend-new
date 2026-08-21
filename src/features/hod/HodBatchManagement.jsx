@@ -394,7 +394,6 @@ export default function HodBatchManagement() {
                   <th style={{ width: '60px', textAlign: 'center' }}>#</th>
                   <th style={{ width: '160px', textAlign: 'center' }}>PRN No.</th>
                   <th style={{ minWidth: '240px', textAlign: 'center' }}>Student Name</th>
-                  <th style={{ minWidth: '220px', textAlign: 'center' }}>Institutional Email</th>
                   <th style={{ width: '110px', textAlign: 'center' }}>Status</th>
                   <th style={{ width: '130px', textAlign: 'center' }}>Actions</th>
                 </tr>
@@ -402,7 +401,7 @@ export default function HodBatchManagement() {
               <tbody>
                 {filteredStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#64748b', fontSize: '13px' }}>
+                    <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: '#64748b', fontSize: '13px' }}>
                       No students enrolled in this batch yet. Click <strong>+ Add Student</strong> to add records.
                     </td>
                   </tr>
@@ -416,7 +415,6 @@ export default function HodBatchManagement() {
                         </span>
                       </td>
                       <td style={{ textAlign: 'center', fontWeight: '800', color: '#0f172a' }}>{std.name}</td>
-                      <td style={{ textAlign: 'center', fontSize: '12.5px', color: '#475569' }}>{std.email}</td>
                       <td style={{ textAlign: 'center' }}>
                         <span style={{ fontSize: '11px', fontWeight: '800', background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: '5px', textTransform: 'uppercase' }}>
                           {std.status || 'ENROLLED'}

@@ -576,7 +576,7 @@ export function ApprovalProvider({ children }) {
   /* ======================================================================== */
 
   const getPendingVerificationsCount = useCallback(() => {
-    return Object.values(courseVerificationStore).reduce((count, record) => {
+    return Object.values(courseVerificationStore ?? {}).reduce((count, record) => {
       if (!record) {
         return count;
       }

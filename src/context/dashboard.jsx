@@ -680,7 +680,7 @@ export function DashboardProvider({ children }) {
       poCount: activePOs.length,
       psoCount: activePSOs.length,
       attainment: courseAttainmentStore,
-      verification: courseVerificationStore[courseOfferingId] ?? null,
+      verification: (courseVerificationStore ?? {})[courseOfferingId] ?? null,
       workflowProgress: progress,
       stepStatus,
       totalStepsCount: CC_WORKFLOW_STEPS.length,

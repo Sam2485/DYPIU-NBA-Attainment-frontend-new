@@ -51,15 +51,12 @@ export default function COMappingMatrix({ hideFooter = false }) {
       return poObj.competencies.map((c) => ({ ...c, keywords: c.keywords || {} }));
     }
 
-    return [
-      { id: `comp-${poCode}-1`, statement: `Demonstrate competency statement 1 for ${poCode}`, keywords: {} },
-      { id: `comp-${poCode}-2`, statement: `Demonstrate competency statement 2 for ${poCode}`, keywords: {} },
-    ];
+    return [];
   };
 
   // Helper to get PSO competencies dynamically
   const getCoursePsoCompetencies = (psoCode) => {
-    const courseStore = psoKeywordsStore[selectedCourse.id] || {};
+    const courseStore = (selectedCourse?.id && psoKeywordsStore[selectedCourse.id]) || {};
     if (courseStore[psoCode]) return courseStore[psoCode];
 
     const psoObj = activePSOs.find((p) => p.code === psoCode);
@@ -67,10 +64,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
       return psoObj.competencies.map((c) => ({ ...c, keywords: c.keywords || {} }));
     }
 
-    return [
-      { id: `psocomp-${psoCode}-1`, statement: `Demonstrate PSO competency statement 1 for ${psoCode}`, keywords: {} },
-      { id: `psocomp-${psoCode}-2`, statement: `Demonstrate PSO competency statement 2 for ${psoCode}`, keywords: {} },
-    ];
+    return [];
   };
 
   // Handler for PO Keyword edit
@@ -299,7 +293,14 @@ export default function COMappingMatrix({ hideFooter = false }) {
                       </tr>
                     </thead>
                     <tbody>
-                      {comps.map((comp, compIdx) => (
+                      {comps.length === 0 ? (
+                        <tr>
+                          <td colSpan={2 + courseOutcomes.length * 2} style={{ textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '12px' }}>
+                            No competencies defined for {poDef.code}.
+                          </td>
+                        </tr>
+                      ) : (
+                        comps.map((comp, compIdx) => (
                         <tr key={comp.id || compIdx}>
                           <td style={{ width: '400px', minWidth: '400px', fontSize: '11.5px', color: '#1e293b', lineHeight: 1.35 }}>
                             {comp.statement}
@@ -337,7 +338,8 @@ export default function COMappingMatrix({ hideFooter = false }) {
                             );
                           })}
                         </tr>
-                      ))}
+                      ))
+                      )}
 
                       {/* PO Calculation Summary Rows */}
                       <tr style={{ background: '#f8fafc', fontWeight: '600' }}>
@@ -443,7 +445,14 @@ export default function COMappingMatrix({ hideFooter = false }) {
                         </tr>
                       </thead>
                       <tbody>
-                        {comps.map((comp, compIdx) => (
+                        {comps.length === 0 ? (
+                          <tr>
+                            <td colSpan={2 + courseOutcomes.length * 2} style={{ textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '12px' }}>
+                              No competencies defined for {psoDef.code}.
+                            </td>
+                          </tr>
+                        ) : (
+                          comps.map((comp, compIdx) => (
                           <tr key={comp.id || compIdx}>
                             <td style={{ width: '400px', minWidth: '400px', fontSize: '11.5px', color: '#1e293b', lineHeight: 1.35 }}>
                               {comp.statement}
@@ -481,7 +490,8 @@ export default function COMappingMatrix({ hideFooter = false }) {
                               );
                             })}
                           </tr>
-                        ))}
+                        ))
+                        )}
 
                         {/* PSO Calculation Summary Rows */}
                         <tr style={{ background: '#f8fafc', fontWeight: '600' }}>

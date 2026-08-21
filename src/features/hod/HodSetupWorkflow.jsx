@@ -40,6 +40,7 @@ export default function HodSetupWorkflow() {
     updateProgrammePOs = () => {},
     updateProgrammePSOs = () => {},
     updateProgrammePEOs = () => {},
+    saveProgrammeOutcomeDefinitions = () => Promise.resolve(),
     hodWorkflowProgressStore = {},
     markHodWorkflowStepComplete = () => {},
     programmeCoordinators = [],
@@ -67,7 +68,7 @@ export default function HodSetupWorkflow() {
     });
   };
 
-  const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || { id: 'prog-1', name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
+  const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || {};
 
   const currentDept = departments.find((d) => d.id === selectedProgramme.departmentId || d.name === selectedProgramme.department)
     || hodDashboard?.department
@@ -265,31 +266,46 @@ export default function HodSetupWorkflow() {
   };
   const handleEndYearChange = (val) => setEndYearInput(val.replace(/\D/g, '').slice(0, 4));
 
-  const handleCreateBatch = (e) => {
+  const handleCreateBatch = async (e) => {
     e.preventDefault();
     const s = parseInt(startYearInput, 10), en = parseInt(endYearInput, 10);
-    if (!s || s <= 2020 || !en || en <= s) return;
-    const startAY = `${s}-${String(s + 1).slice(-2)}`, endAY = `${en - 1}-${String(en).slice(-2)}`;
-    const nb = { id: `batch-${selectedProgramme.code.toLowerCase()}-${s}-${String(en).slice(-2)}`, programmeId, programmeName: selectedProgramme.name, programmeCode: selectedProgramme.code, name: `Batch ${s}-${String(en).slice(-2)} (${selectedProgramme.code}) — AY ${startAY} to ${endAY}`, startYear: startAY, endYear: endAY, status: 'INITIALIZED' };
-    addBatch(nb); setBatchId(nb.id);
+    if (!s || s <= 2020 || !en || en <= s || !selectedProgramme?.id) return;
+
+    // POST /academic/batches accepts this exact contract shape. In particular,
+    // years are numbers and academicYear is the full four-digit range.
+    const batch = await addBatch({
+      id: `batch-${selectedProgramme.code.toLowerCase()}-${s}-${String(en).slice(-2)}`,
+      name: `${s}-${en} Batch`,
+      programmeId: selectedProgramme.id,
+      startYear: s,
+      endYear: en,
+      academicYear: `${s}-${en}`,
+      status: 'ACTIVE',
+    });
+    if (batch?.id) setBatchId(batch.id);
   };
 
   // ── PO HANDLERS ─────────────────────────────────────────────────────────────
   const handleAddPO = () => {
-    const n = activePOs.length + 1;
     const newPo = {
-      code: `PO${n}`,
-      statement: `New Programme Outcome ${n}...`,
-      status: 'VERIFIED',
-      competencies: [{ id: `comp-PO${n}-1`, order: 1, statement: `Competency 1 for PO${n}` }],
+      code: '',
+      statement: '',
+      competencies: [],
     };
     updateProgrammePOs(programmeId, [...activePOs, newPo]);
   };
   const handleUpdatePOCode = (i, v) => {
     updateProgrammePOs(programmeId, activePOs.map((p, idx) => (idx === i ? { ...p, code: v } : p)));
   };
+  const handleUpdatePOField = (i, field, value) => {
+    updateProgrammePOs(programmeId, activePOs.map((p, idx) => (
+      idx === i ? { ...p, [field]: value } : p
+    )));
+  };
   const handleUpdatePOStatement = (i, v) => {
-    updateProgrammePOs(programmeId, activePOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
+    updateProgrammePOs(programmeId, activePOs.map((p, idx) => (
+      idx === i ? { ...p, statement: v, description: v } : p
+    )));
   };
   const handleDeletePO = (i) => {
     const item = activePOs[i];
@@ -306,8 +322,10 @@ export default function HodSetupWorkflow() {
       activePOs.map((p, i) => {
         if (i !== pi) return p;
         const comps = p.competencies || [];
-        const n = comps.length + 1;
-        return { ...p, competencies: [...comps, { id: `comp-${p.code}-${n}`, order: n, statement: `Competency ${n} for ${p.code}` }] };
+        return { ...p, competencies: [...comps, {
+          code: `${p.code || ''}.${comps.length + 1}`,
+          statement: '',
+        }] };
       }),
     );
   };
@@ -318,6 +336,17 @@ export default function HodSetupWorkflow() {
         if (i !== pi) return p;
         const comps = [...(p.competencies || [])];
         comps[ci] = { ...comps[ci], statement: v };
+        return { ...p, competencies: comps };
+      }),
+    );
+  };
+  const handleUpdatePOCompetencyField = (pi, ci, field, value) => {
+    updateProgrammePOs(
+      programmeId,
+      activePOs.map((p, i) => {
+        if (i !== pi) return p;
+        const comps = [...(p.competencies || [])];
+        comps[ci] = { ...comps[ci], [field]: value };
         return { ...p, competencies: comps };
       }),
     );
@@ -336,25 +365,31 @@ export default function HodSetupWorkflow() {
   // ── PSO HANDLERS ────────────────────────────────────────────────────────────
   const normalisedPSOs = activePSOs.map((pso) => ({
     ...pso,
-    competencies: pso.competencies || [
-      { id: `psocomp-${pso.code}-1`, order: 1, statement: `Demonstrate specialized competency for ${pso.code}` },
-    ],
+    // The supplied PSO response has no competency field, so do not generate
+    // UI-only competency data that was not returned by the backend.
+    competencies: pso.competencies || [],
   }));
 
   const handleAddPSO = () => {
-    const n = normalisedPSOs.length + 1;
     const newPso = {
-      code: `PSO${n}`,
-      statement: `New Programme Specific Outcome ${n}...`,
-      competencies: [{ id: `psocomp-PSO${n}-1`, order: 1, statement: `Competency 1 for PSO${n}` }],
+      code: '',
+      statement: '',
+      competencies: [],
     };
     updateProgrammePSOs(programmeId, [...normalisedPSOs, newPso]);
   };
   const handleUpdatePSOCode = (i, v) => {
     updateProgrammePSOs(programmeId, normalisedPSOs.map((p, idx) => (idx === i ? { ...p, code: v } : p)));
   };
+  const handleUpdatePSOField = (i, field, value) => {
+    updateProgrammePSOs(programmeId, normalisedPSOs.map((p, idx) => (
+      idx === i ? { ...p, [field]: value } : p
+    )));
+  };
   const handleUpdatePSOStatement = (i, v) => {
-    updateProgrammePSOs(programmeId, normalisedPSOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
+    updateProgrammePSOs(programmeId, normalisedPSOs.map((p, idx) => (
+      idx === i ? { ...p, statement: v, description: v } : p
+    )));
   };
   const handleDeletePSO = (i) => {
     const item = normalisedPSOs[i];
@@ -371,8 +406,10 @@ export default function HodSetupWorkflow() {
       normalisedPSOs.map((p, i) => {
         if (i !== pi) return p;
         const comps = p.competencies || [];
-        const n = comps.length + 1;
-        return { ...p, competencies: [...comps, { id: `psocomp-${p.code}-${n}`, order: n, statement: `Competency ${n} for ${p.code}` }] };
+        return { ...p, competencies: [...comps, {
+          code: `${p.code || ''}.${comps.length + 1}`,
+          statement: '',
+        }] };
       }),
     );
   };
@@ -383,6 +420,17 @@ export default function HodSetupWorkflow() {
         if (i !== pi) return p;
         const comps = [...(p.competencies || [])];
         comps[ci] = { ...comps[ci], statement: v };
+        return { ...p, competencies: comps };
+      }),
+    );
+  };
+  const handleUpdatePSOCompetencyField = (pi, ci, field, value) => {
+    updateProgrammePSOs(
+      programmeId,
+      normalisedPSOs.map((p, i) => {
+        if (i !== pi) return p;
+        const comps = [...(p.competencies || [])];
+        comps[ci] = { ...comps[ci], [field]: value };
         return { ...p, competencies: comps };
       }),
     );
@@ -400,11 +448,22 @@ export default function HodSetupWorkflow() {
 
   // ── PEO HANDLERS ────────────────────────────────────────────────────────────
   const handleAddPEO = () => {
-    const n = activePEOs.length + 1;
-    updateProgrammePEOs(programmeId, [...activePEOs, { code: `PEO${n}`, statement: `New Programme Educational Objective ${n}...` }]);
+    updateProgrammePEOs(programmeId, [...activePEOs, {
+      code: '',
+      name: '',
+      description: '',
+      statement: '',
+    }]);
   };
   const handleUpdatePEOStatement = (i, v) => {
-    updateProgrammePEOs(programmeId, activePEOs.map((p, idx) => (idx === i ? { ...p, statement: v } : p)));
+    updateProgrammePEOs(programmeId, activePEOs.map((p, idx) => (
+      idx === i ? { ...p, statement: v, name: v, description: v } : p
+    )));
+  };
+  const handleUpdatePEOField = (i, field, value) => {
+    updateProgrammePEOs(programmeId, activePEOs.map((p, idx) => (
+      idx === i ? { ...p, [field]: value } : p
+    )));
   };
   const handleDeletePEO = (i) => {
     const item = activePEOs[i];
@@ -422,6 +481,18 @@ export default function HodSetupWorkflow() {
     if (currentStep === 1) {
       const updatedProgramme = await handleSaveCoordinator();
       if (!updatedProgramme) return;
+    }
+    if (currentStep === 3) {
+      try {
+        await saveProgrammeOutcomeDefinitions(selectedProgramme.id, {
+          pos: activePOs,
+          psos: normalisedPSOs,
+          peos: activePEOs,
+        });
+      } catch (error) {
+        alert(error?.message || 'Unable to save programme outcomes.');
+        return;
+      }
     }
     markHodWorkflowStepComplete(selectedProgramme.id, currentStep);
     if (currentStep < STEPS.length) {
@@ -867,16 +938,18 @@ export default function HodSetupWorkflow() {
             <div style={{ display: 'grid', gap: '12px' }}>
               {activePOs.map((po, idx) => (
                 <div key={idx} style={{ ...surface, padding: '16px', borderLeft: `3px solid ${accent}` }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: po.competencies?.length ? '12px' : 0, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: po.competencies?.length ? '12px' : 0, flexWrap: 'nowrap' }}>
                     <input
                       type="text"
-                      value={po.code}
+                      placeholder="Code"
+                      value={po.code || ''}
                       onChange={(e) => handleUpdatePOCode(idx, e.target.value)}
-                      style={{ ...inputStyle, width: '80px', fontWeight: '800', color: accent, textAlign: 'center' }}
+                      style={{ ...inputStyle, width: '82px', flexShrink: 0, fontWeight: '800', color: accent, textAlign: 'center' }}
                     />
                     <input
                       type="text"
-                      value={po.statement}
+                      placeholder="Outcome name"
+                      value={po.statement || ''}
                       onChange={(e) => handleUpdatePOStatement(idx, e.target.value)}
                       style={{ ...inputStyle, flex: 1, minWidth: '200px' }}
                     />
@@ -918,7 +991,7 @@ export default function HodSetupWorkflow() {
                               <td>
                                 <input
                                   type="text"
-                                  value={comp.statement}
+                                  value={comp.statement || ''}
                                   onChange={(e) => handleUpdatePOCompetency(idx, ci, e.target.value)}
                                   style={{ ...inputStyle, height: '34px', fontSize: '12px' }}
                                 />
@@ -956,16 +1029,18 @@ export default function HodSetupWorkflow() {
             <div style={{ display: 'grid', gap: '12px' }}>
               {normalisedPSOs.map((pso, idx) => (
                 <div key={idx} style={{ ...surface, padding: '16px', borderLeft: '3px solid #059669' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: pso.competencies.length ? '12px' : 0, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: pso.competencies.length ? '12px' : 0, flexWrap: 'nowrap' }}>
                     <input
                       type="text"
-                      value={pso.code}
+                      placeholder="Code"
+                      value={pso.code || ''}
                       onChange={(e) => handleUpdatePSOCode(idx, e.target.value)}
-                      style={{ ...inputStyle, width: '80px', fontWeight: '800', color: '#059669', textAlign: 'center' }}
+                      style={{ ...inputStyle, width: '82px', flexShrink: 0, fontWeight: '800', color: '#059669', textAlign: 'center' }}
                     />
                     <input
                       type="text"
-                      value={pso.statement}
+                      placeholder="Outcome name"
+                      value={pso.statement || ''}
                       onChange={(e) => handleUpdatePSOStatement(idx, e.target.value)}
                       style={{ ...inputStyle, flex: 1, minWidth: '200px' }}
                     />
@@ -1007,7 +1082,7 @@ export default function HodSetupWorkflow() {
                               <td>
                                 <input
                                   type="text"
-                                  value={comp.statement}
+                                  value={comp.statement || ''}
                                   onChange={(e) => handleUpdatePSOCompetency(idx, ci, e.target.value)}
                                   style={{ ...inputStyle, height: '34px', fontSize: '12px' }}
                                 />
@@ -1045,16 +1120,18 @@ export default function HodSetupWorkflow() {
             <div style={{ display: 'grid', gap: '12px' }}>
               {activePEOs.map((peo, idx) => (
                 <div key={idx} style={{ ...surface, padding: '16px', borderLeft: '3px solid #0284c7' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
                     <input
                       type="text"
-                      value={peo.code}
-                      readOnly
-                      style={{ ...inputStyle, width: '80px', fontWeight: '800', color: '#0284c7', textAlign: 'center', background: '#f8fafc' }}
+                      placeholder="Code"
+                      value={peo.code || ''}
+                      onChange={(e) => handleUpdatePEOField(idx, 'code', e.target.value)}
+                      style={{ ...inputStyle, width: '82px', flexShrink: 0, fontWeight: '800', color: '#0284c7', textAlign: 'center' }}
                     />
                     <input
                       type="text"
-                      value={peo.statement}
+                      placeholder="Objective statement"
+                      value={peo.statement ?? peo.description ?? peo.name ?? ''}
                       onChange={(e) => handleUpdatePEOStatement(idx, e.target.value)}
                       style={{ ...inputStyle, flex: 1, minWidth: '200px' }}
                     />
@@ -1099,16 +1176,16 @@ export default function HodSetupWorkflow() {
               <div style={{ fontSize: '11px', fontWeight: '800', color: muted, textTransform: 'uppercase', marginBottom: '6px' }}>Tab 1: Programme Coordinator</div>
               <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{selectedProgramme.name} ({selectedProgramme.code})</div>
               <div style={{ fontSize: '13px', color: accent, fontWeight: '700', marginTop: '6px' }}>
-                Assigned Coordinator: <span style={{ background: '#eef2ff', padding: '2px 8px', borderRadius: '6px', border: '1px solid #c7d2fe' }}>{selectedProgramme.coordinator || selectedCoordinator || 'Dr. A. K. Sharma'}</span>
+                Assigned Coordinator: <span style={{ background: '#eef2ff', padding: '2px 8px', borderRadius: '6px', border: '1px solid #c7d2fe' }}>{selectedProgramme.coordinator || '—'}</span>
               </div>
             </div>
 
             {/* Tab 2 Summary */}
             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
               <div style={{ fontSize: '11px', fontWeight: '800', color: muted, textTransform: 'uppercase', marginBottom: '6px' }}>Tab 2: Active Student Batch</div>
-              <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{activeBatchObj?.name || 'Batch 2025-29'}</div>
+              <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{activeBatchObj?.name || '—'}</div>
               <div style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700', marginTop: '6px' }}>
-                Lifecycle Status: <span style={{ background: '#dcfce7', padding: '2px 8px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>{activeBatchObj?.status || 'INITIALIZED'}</span>
+                Lifecycle Status: <span style={{ background: '#dcfce7', padding: '2px 8px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>{activeBatchObj?.status || '—'}</span>
               </div>
             </div>
 

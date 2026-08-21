@@ -44,9 +44,9 @@ export default function AttainmentConfig() {
   }, [selectedCourse]);
 
   // Step 5: PO & PSO Target Levels state for active Programme (Scale 1.0 - 3.0)
-  const currentProgTargets = poPsoTargets[programmeId] || {
-    poTargets: { PO1: 2.50, PO2: 2.50, PO3: 2.20, PO4: 2.20, PO5: 2.00, PO6: 2.00, PO7: 2.00, PO8: 2.50, PO9: 2.50, PO10: 2.50, PO11: 2.00, PO12: 2.00 },
-    psoTargets: { PSO1: 2.50, PSO2: 2.20, PSO3: 2.00 },
+  const currentProgTargets = (programmeId && poPsoTargets?.[programmeId]) || {
+    poTargets: {},
+    psoTargets: {},
   };
 
   const [localPoTargets, setLocalPoTargets] = useState(currentProgTargets.poTargets || {});

@@ -105,16 +105,19 @@ export default function AppSidebar() {
   // Helper to extract clean 4-digit span e.g. "2025-2029" from batch object
   const getBatchYearSpan = (b) => {
     if (!b) return '';
-    const startMatch = (b.startYear || '').match(/^(\d{4})/);
+    // The batch contract returns numeric startYear/endYear values.
+    const startYear = String(b.startYear ?? '');
+    const endYear = String(b.endYear ?? '');
+    const startMatch = startYear.match(/^(\d{4})/);
     const startY = startMatch ? parseInt(startMatch[1], 10) : null;
 
     let endY = null;
-    if (b.endYear) {
-      const endMatch = b.endYear.match(/(\d{2,4})$/);
+    if (endYear) {
+      const endMatch = endYear.match(/(\d{2,4})$/);
       if (endMatch) {
         const val = endMatch[1];
         if (val.length === 2) {
-          endY = parseInt(b.endYear.slice(0, 2) + val, 10);
+          endY = parseInt(endYear.slice(0, 2) + val, 10);
         } else if (val.length === 4) {
           endY = parseInt(val, 10);
         }

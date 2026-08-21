@@ -3,42 +3,6 @@ import { Save, History, Printer, CheckCircle2, ChevronDown, Layers, FileText, Al
 import { useAcademic } from '../../context/AcademicContext';
 import CourseATR from './CourseATR';
 
-// Course-specific baseline seeds for Programme ATR
-const COURSE_PROG_SEEDS = {
-  'crs-1': {
-    PO1: { target: 2.0, actual: 2.45, met: true },
-    PO2: { target: 2.0, actual: 1.85, met: false },
-    PO3: { target: 2.0, actual: 2.60, met: true },
-    PO4: { target: 2.0, actual: 2.10, met: true },
-    PSO1: { target: 2.0, actual: 2.15, met: true },
-    PSO2: { target: 2.0, actual: 1.70, met: false },
-  },
-  'crs-2': {
-    PO1: { target: 2.0, actual: 1.75, met: false },
-    PO2: { target: 2.0, actual: 2.70, met: true },
-    PO3: { target: 2.0, actual: 2.10, met: true },
-    PO4: { target: 2.0, actual: 1.80, met: false },
-    PSO1: { target: 2.0, actual: 1.80, met: false },
-    PSO2: { target: 2.0, actual: 2.50, met: true },
-  },
-  'crs-3': {
-    PO1: { target: 2.0, actual: 2.80, met: true },
-    PO2: { target: 2.0, actual: 2.40, met: true },
-    PO3: { target: 2.0, actual: 1.90, met: false },
-    PO4: { target: 2.0, actual: 2.30, met: true },
-    PSO1: { target: 2.0, actual: 2.65, met: true },
-    PSO2: { target: 2.0, actual: 2.30, met: true },
-  },
-  'crs-4': {
-    PO1: { target: 2.0, actual: 1.95, met: false },
-    PO2: { target: 2.0, actual: 2.35, met: true },
-    PO3: { target: 2.0, actual: 2.75, met: true },
-    PO4: { target: 2.0, actual: 1.70, met: false },
-    PSO1: { target: 2.0, actual: 1.88, met: false },
-    PSO2: { target: 2.0, actual: 2.42, met: true },
-  },
-};
-
 export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
   const {
     availableCourses = [],
@@ -73,21 +37,25 @@ export default function ATRReportsNavHub({ initialTab = 'course-atr' }) {
 
   // Derive Programme ATR Rows dynamically per selected course
   const buildProgEntries = () => {
-    const seeds = (courseId && COURSE_PROG_SEEDS[courseId]) || COURSE_PROG_SEEDS['crs-1'] || {};
-    const normPSOs = activePSOs.map((p) => ({ ...p, competencies: p.competencies ?? [] }));
+    const progTargets = (programmeId && poPsoTargets?.[programmeId]) || { poTargets: {}, psoTargets: {} };
+    const normPSOs = (activePSOs || []).map((p) => ({ ...p, competencies: p.competencies ?? [] }));
     const rawRows = [
-      ...activePOs.map((po) => {
-        const seed = seeds[po.code] || { target: 2.0, actual: 2.20, met: true };
+      ...(activePOs || []).map((po) => {
+        const target = progTargets.poTargets?.[po.code] ?? 2.0;
+        const actual = po.attainment ?? null;
+        const met = actual !== null && actual >= target;
         return {
           code: po.code, type: 'PO', statement: po.statement,
-          target: seed.target, actual: seed.actual, met: seed.met,
+          target, actual, met,
         };
       }),
       ...normPSOs.map((pso) => {
-        const seed = seeds[pso.code] || { target: 2.0, actual: 2.10, met: true };
+        const target = progTargets.psoTargets?.[pso.code] ?? 2.0;
+        const actual = pso.attainment ?? null;
+        const met = actual !== null && actual >= target;
         return {
           code: pso.code, type: 'PSO', statement: pso.statement,
-          target: seed.target, actual: seed.actual, met: seed.met,
+          target, actual, met,
         };
       }),
     ];
