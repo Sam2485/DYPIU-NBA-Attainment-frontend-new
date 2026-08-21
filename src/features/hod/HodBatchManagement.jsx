@@ -53,7 +53,11 @@ export default function HodBatchManagement() {
   const {
     masterProgrammes = [],
     batches = [],
-    toggleBatchActiveStatus = () => {},
+    user,
+    loadProgrammes = () => Promise.resolve([]),
+    loadBatches = () => Promise.resolve([]),
+    createBatch = () => Promise.resolve(null),
+    updateBatch = () => Promise.resolve(null),
     deleteBatch             = () => {},
     getStudentsByBatch      = () => [],
     addStudentToBatch       = () => {},
@@ -61,14 +65,26 @@ export default function HodBatchManagement() {
     deleteStudentFromBatch  = () => {},
   } = useAcademic();
 
-  const [selectedProgrammeId, setSelectedProgrammeId] = useState(masterProgrammes[0]?.id || 'prog-1');
+  const [selectedProgrammeId, setSelectedProgrammeId] = useState('');
 
   const selectedProgramme =
-    masterProgrammes.find((p) => p.id === selectedProgrammeId) ||
-    masterProgrammes[0] ||
-    { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP', durationYears: 4 };
+    masterProgrammes.find((p) => p.id === selectedProgrammeId) ?? null;
 
-  const durationYears = selectedProgramme.durationYears || 4;
+  const durationYears = selectedProgramme?.durationYears ?? 4;
+
+  useEffect(() => {
+    const loadProgrammeData = async () => {
+      const programmes = await loadProgrammes(user?.departmentId ?? null);
+      setSelectedProgrammeId((currentId) => currentId || programmes[0]?.id || '');
+    };
+
+    loadProgrammeData().catch(() => {});
+  }, [loadProgrammes, user?.departmentId]);
+
+  useEffect(() => {
+    if (!selectedProgrammeId) return;
+    loadBatches({ targetProgrammeId: selectedProgrammeId }).catch(() => {});
+  }, [loadBatches, selectedProgrammeId]);
 
   // ── Add-form state ────────────────────────────────────────────────────────
   const [startYearInput, setStartYearInput] = useState('2025');
@@ -102,7 +118,7 @@ export default function HodBatchManagement() {
     if (!isNaN(n) && n > 2020) setEndYearInput(String(n + durationYears));
   }, [selectedProgrammeId, durationYears]);
 
-  const programmeBatches   = batches.filter((b) => !b.programmeId || b.programmeId === selectedProgrammeId);
+  const programmeBatches   = batches.filter((b) => b.programmeId === selectedProgrammeId);
   const activeBatchesCount = programmeBatches.filter((b) => b.status === 'ACTIVE').length;
 
   // ── Add batch handlers ───────────────────────────────────────────────────
@@ -132,6 +148,51 @@ export default function HodBatchManagement() {
       setToastMessage('🗑️ Batch deleted successfully.');
       setTimeout(() => setToastMessage(null), 3000);
     }
+  };
+
+  const handleCreateBatch = async (event) => {
+    event.preventDefault();
+    const startYear = Number.parseInt(startYearInput, 10);
+    const endYear = Number.parseInt(endYearInput, 10);
+
+    if (!selectedProgramme || !Number.isInteger(startYear) || !Number.isInteger(endYear)) {
+      setBatchError('Select a programme and enter valid batch years.');
+      return;
+    }
+    if (endYear !== startYear + durationYears) {
+      setBatchError(`End year must be ${startYear + durationYears} for this ${durationYears}-year programme.`);
+      return;
+    }
+
+    const programmeKey = (selectedProgramme.code || selectedProgramme.id)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-');
+    const batch = await createBatch({
+      id: `batch-${programmeKey}-${startYear}-${endYear}`,
+      name: `${startYear}-${endYear} Batch`,
+      programmeId: selectedProgramme.id,
+      startYear,
+      endYear,
+      academicYear: `${startYear}-${endYear}`,
+      status: 'ACTIVE',
+    });
+
+    if (batch) {
+      setBatchError('');
+      setToastMessage('Batch created successfully.');
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
+
+  const handleToggleBatchStatus = async (batch) => {
+    await updateBatch(batch.id, {
+      name: batch.name,
+      programmeId: batch.programmeId,
+      startYear: batch.startYear,
+      endYear: batch.endYear,
+      academicYear: batch.academicYear,
+      status: batch.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
+    });
   };
 
   // ── Student Roster Handlers ─────────────────────────────────────────────
@@ -584,7 +645,7 @@ export default function HodBatchManagement() {
               Batch Setup
             </h2>
             <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: '#64748b' }}>
-              Initialize a {durationYears}-year academic batch for <strong style={{ color: accent }}>{selectedProgramme.name}</strong>. Start year must be after 2020.
+              Initialize a {durationYears}-year academic batch for <strong style={{ color: accent }}>{selectedProgramme?.name ?? '—'}</strong>. Start year must be after 2020.
             </p>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {[
@@ -636,7 +697,7 @@ export default function HodBatchManagement() {
       {/* Add Batch Form */}
       <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px' }}>
         <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '12px' }}>Add Batch Year</div>
-        <form onSubmit={(e) => e.preventDefault()}>
+        <form onSubmit={handleCreateBatch}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', alignItems: 'flex-end' }}>
             <div>
               <label style={labelStyle}>Start Year *</label>
@@ -678,7 +739,7 @@ export default function HodBatchManagement() {
         <div style={{ ...surface, padding: '40px', textAlign: 'center' }}>
           <Calendar size={32} style={{ color: '#94a3b8', marginBottom: '10px' }} />
           <div style={{ fontSize: '14px', fontWeight: '700', color: ink, marginBottom: '4px' }}>No batches yet</div>
-          <div style={{ fontSize: '12.5px', color: muted }}>Use the form above to add the first {durationYears}-year batch for {selectedProgramme.name}.</div>
+          <div style={{ fontSize: '12.5px', color: muted }}>Use the form above to add the first {durationYears}-year batch for {selectedProgramme?.name ?? 'the selected programme'}.</div>
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '12px' }}>
@@ -731,7 +792,7 @@ export default function HodBatchManagement() {
 
                     <button
                       type="button"
-                      onClick={() => toggleBatchActiveStatus(batch.id)}
+                      onClick={() => handleToggleBatchStatus(batch)}
                       style={{
                         height: '32px', padding: '0 12px', fontSize: '12px', fontWeight: '600',
                         border: isActive ? '1px solid #fca5a5' : '1px solid #a7f3d0',

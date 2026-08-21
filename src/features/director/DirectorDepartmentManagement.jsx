@@ -1,19 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, UserCheck, Search, Check, X, AlertCircle, Trash2, Edit2 } from 'lucide-react';
-import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
+import { Plus, UserCheck, Search, Check, X, AlertCircle, Trash2 } from 'lucide-react';
+import { useAcademic } from '../../context/AcademicContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
 export default function DirectorDepartmentManagement() {
   const {
     departments = [],
+    selectedSchoolId,
+    hods = [],
+    loadSchools = () => Promise.resolve([]),
+    loadDepartments = () => Promise.resolve([]),
+    loadHods = () => Promise.resolve([]),
     addDepartment = () => {},
     updateDepartment = () => {},
     deleteDepartment = () => {},
-    facultyList = [],
   } = useAcademic();
-
-  const activeFaculties = facultyList.length > 0 ? facultyList : ['Head of Department (HOD)', 'Programme Coordinator', 'Course Coordinator', 'School Director'];
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -23,7 +25,7 @@ export default function DirectorDepartmentManagement() {
 
   const [deptName, setDeptName] = useState('');
   const [deptCode, setDeptCode] = useState('');
-  const [selectedHod, setSelectedHod] = useState(activeFaculties[0] || '');
+  const [selectedHod, setSelectedHod] = useState('');
   const [hodEmail, setHodEmail] = useState('');
 
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -33,10 +35,24 @@ export default function DirectorDepartmentManagement() {
   const inputStyle = { height: '40px', fontSize: '13px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 12px', background: '#ffffff', color: ink, width: '100%', outline: 'none', fontFamily: 'inherit' };
   const labelStyle = { display: 'block', fontSize: '11.5px', fontWeight: '600', color: muted, marginBottom: '5px' };
 
+  useEffect(() => {
+    const loadDirectorDepartmentData = async () => {
+      const schools = await loadSchools();
+      const schoolId = selectedSchoolId ?? schools[0]?.id;
+
+      await Promise.allSettled([
+        loadDepartments(schoolId),
+        loadHods(),
+      ]);
+    };
+
+    loadDirectorDepartmentData().catch(() => {});
+  }, [loadDepartments, loadHods, loadSchools, selectedSchoolId]);
+
   const handleOpenAdd = () => {
     setEditingDept(null);
     setDeptName(''); setDeptCode('');
-    setSelectedHod(activeFaculties[0] || '');
+    setSelectedHod('');
     setHodEmail('');
     setShowModal(true);
   };
@@ -44,7 +60,7 @@ export default function DirectorDepartmentManagement() {
   const handleOpenEdit = (dept) => {
     setEditingDept(dept);
     setDeptName(dept.name); setDeptCode(dept.code);
-    setSelectedHod(dept.hod || activeFaculties[0] || '');
+    setSelectedHod(dept.hod || '');
     setHodEmail(dept.hodEmail || '');
     setShowModal(true);
   };
@@ -62,19 +78,31 @@ export default function DirectorDepartmentManagement() {
     }
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!deptName || !deptCode) return;
+    if (!deptName || !deptCode || !selectedSchoolId) return;
+
+    const hod = hods.find((item) => item.name === selectedHod);
     const payload = {
-      name: deptName, code: deptCode, hod: selectedHod,
-      hodEmail: hodEmail || `${selectedHod.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`,
+      id: editingDept?.id ?? `dept-${deptCode.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      name: deptName.trim(),
+      code: deptCode.trim().toUpperCase(),
+      schoolId: selectedSchoolId,
+      hod: selectedHod,
+      hodEmail: hodEmail.trim() || hod?.email || '',
+      status: editingDept?.status ?? 'ACTIVE',
     };
-    if (editingDept) {
-      updateDepartment(editingDept.id, payload);
-    } else {
-      addDepartment(payload);
+
+    try {
+      if (editingDept) {
+        await updateDepartment(editingDept.id, payload);
+      } else {
+        await addDepartment(payload);
+      }
+      setShowModal(false);
+    } catch (error) {
+      console.error('Failed to save department:', error);
     }
-    setShowModal(false);
   };
 
   const filteredDepts = departments.filter(
@@ -156,7 +184,7 @@ export default function DirectorDepartmentManagement() {
                       </div>
                     </td>
                     <td style={{ fontSize: '12px', color: muted }}>
-                      {dept.hodEmail || `${(dept.hod || '').toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`}
+                      {dept.hodEmail || '—'}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       {isAssigned ? (
@@ -224,8 +252,9 @@ export default function DirectorDepartmentManagement() {
               </div>
               <div>
                 <label style={labelStyle}>Assign HOD *</label>
-                <select value={selectedHod} onChange={(e) => { setSelectedHod(e.target.value); setHodEmail(`${e.target.value.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`); }} style={{ ...inputStyle, cursor: 'pointer' }}>
-                  {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
+                <select value={selectedHod} onChange={(e) => { const hod = hods.find((item) => item.name === e.target.value); setSelectedHod(e.target.value); setHodEmail(hod?.email || ''); }} style={{ ...inputStyle, cursor: 'pointer' }}>
+                  <option value="">Select HOD</option>
+                  {hods.map((hod) => <option key={hod.id} value={hod.name}>{hod.name}</option>)}
                 </select>
               </div>
               <div>

@@ -1,0 +1,765 @@
+ Database Schema Specification                                                                                                                                                                       
+                                                                                                                                                                                                       
+  This project uses PostgreSQL managed through Flyway migrations (V1 through V5). Below is the complete relational schema of all 43 database tables, grouped by domain.                                
+  ──────                                                                                                                                                                                               
+  ## 1. Academic Hierarchy & Organizational Scope                                                                                                                                                      
+                                                                                                                                                                                                       
+  ### schools                                                                                                                                                                                          
+                                                                                                                                                                                                       
+  Stores the top-level institutional school entities (e.g., School of Engineering).                                                                                                                    
+                                                                                                                                                                                                       
+   Column                                          │ Data Type                                       │ Constraints & Defaults                         │ Description
+  ─────────────────────────────────────────────────┼─────────────────────────────────────────────────┼────────────────────────────────────────────────┼────────────────────────────────────────────────
+   id                                              │ VARCHAR(50)                                     │ PRIMARY KEY                                    │ Unique school identifier (e.g., sch-soe)
+   code                                            │ VARCHAR(20)                                     │ NOT NULL, UNIQUE                               │ School code (e.g., SOET)
+   name                                            │ VARCHAR(255)                                    │ NOT NULL                                       │ Full school name
+   director_id                                     │ BIGINT                                          │ UNIQUE                                         │ User ID of the assigned Director
+   director_name                                   │ VARCHAR(255)                                    │ NULL                                           │ Name of the Director
+   director                                        │ VARCHAR(150)                                    │ NULL                                           │ Alternate director label
+   director_email                                  │ VARCHAR(150)                                    │ UNIQUE                                         │ Director official email address
+   est_year                                        │ VARCHAR(10)                                     │ NULL                                           │ Establishment year
+   created_at                                      │ TIMESTAMPTZ                                     │ DEFAULT CURRENT_TIMESTAMP                      │ Record creation timestamp
+   updated_at                                      │ TIMESTAMPTZ                                     │ DEFAULT CURRENT_TIMESTAMP                      │ Last updated timestamp
+  ──────                                                                                                                                                                                               
+  ### departments                                                                                                                                                                                      
+                                                                                                                                                                                                       
+  Academic departments belonging to a School.                                                                                                                                                          
+                                                                                                                                                                                                       
+   Column                                          │ Data Type                                       │ Constraints & Defaults                         │ Description
+  ─────────────────────────────────────────────────┼─────────────────────────────────────────────────┼────────────────────────────────────────────────┼────────────────────────────────────────────────
+   id                                              │ VARCHAR(50)                                     │ PRIMARY KEY                                    │ Unique department identifier (e.g., dept-cse)
+   school_id                                       │ VARCHAR(50)                                     │ NOT NULL, FK -> schools(id) ON DELETE CASCADE  │ Parent school reference
+   code                                            │ VARCHAR(20)                                     │ NOT NULL                                       │ Department code (e.g., CSE)
+   name                                            │ VARCHAR(255)                                    │ NOT NULL                                       │ Department name
+   hod                                             │ VARCHAR(150)                                    │ NULL                                           │ Name of Head of Department
+   hod_email                                       │ VARCHAR(150)                                    │ NULL                                           │ HOD official email address
+   status                                          │ VARCHAR(20)                                     │ NOT NULL DEFAULT 'ACTIVE'                      │ Status (ACTIVE / INACTIVE)
+   created_at                                      │ TIMESTAMPTZ                                     │ DEFAULT CURRENT_TIMESTAMP                      │ Record creation timestamp
+   updated_at                                      │ TIMESTAMPTZ                                     │ DEFAULT CURRENT_TIMESTAMP                      │ Last updated timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_department_school_code (school_id, code)                                                                                                                                    
+  ──────                                                                                                                                                                                               
+  ### programmes                                                                                                                                                                                       
+                                                                                                                                                                                                       
+  Degree programmes offered by a Department.                                                                                                                                                           
+                                                                                                                                                                                                       
+   Column                                       │ Data Type                                   │ Constraints & Defaults                            │ Description
+  ──────────────────────────────────────────────┼─────────────────────────────────────────────┼───────────────────────────────────────────────────┼────────────────────────────────────────────────────
+   id                                           │ VARCHAR(50)                                 │ PRIMARY KEY                                       │ Unique programme identifier (e.g., prog-btech-cse)
+   department_id                                │ VARCHAR(50)                                 │ NOT NULL, FK -> departments(id) ON DELETE CASCADE │ Parent department reference
+   code                                         │ VARCHAR(20)                                 │ NOT NULL, UNIQUE                                  │ Programme code (e.g., BT-CSE)
+   name                                         │ VARCHAR(255)                                │ NOT NULL                                          │ Full degree name
+   duration_years                               │ INTEGER                                     │ NOT NULL DEFAULT 4                                │ Degree duration in years
+   department_name                              │ VARCHAR(255)                                │ NULL                                              │ Denormalized department name
+   coordinator                                  │ VARCHAR(150)                                │ NULL                                              │ Programme Coordinator name
+   coordinator_email                            │ VARCHAR(150)                                │ NULL                                              │ PC email address
+   status                                       │ VARCHAR(20)                                 │ NOT NULL DEFAULT 'ACTIVE'                         │ Status
+   created_at                                   │ TIMESTAMPTZ                                 │ DEFAULT CURRENT_TIMESTAMP                         │ Creation timestamp
+   updated_at                                   │ TIMESTAMPTZ                                 │ DEFAULT CURRENT_TIMESTAMP                         │ Update timestamp
+  ──────                                                                                                                                                                                               
+  ### users                                                                                                                                                                                            
+                                                                                                                                                                                                       
+  System users with role-based access control and organizational scoping.                                                                                                                              
+                                                                                                                                                                                                       
+   Column                                    │ Data Type                                │ Constraints & Defaults                   │ Description
+  ───────────────────────────────────────────┼──────────────────────────────────────────┼──────────────────────────────────────────┼───────────────────────────────────────────────────────────────────
+   id                                        │ BIGSERIAL                                │ PRIMARY KEY                              │ Auto-incrementing user ID
+   username                                  │ VARCHAR(100)                             │ NOT NULL, UNIQUE                         │ Unique username for login
+   email                                     │ VARCHAR(150)                             │ NOT NULL, UNIQUE                         │ Official email address
+   password_hash                             │ VARCHAR(255)                             │ NOT NULL                                 │ BCrypt encrypted password
+   name                                      │ VARCHAR(150)                             │ NOT NULL                                 │ Full Name
+   role                                      │ VARCHAR(50)                              │ NOT NULL                                 │ Role (DIRECTOR, HOD, PROGRAMME_COORDINATOR, FACULTY, IQAC, ADMIN)
+   department                                │ VARCHAR(255)                             │ NULL                                     │ Department name label
+   programme                                 │ VARCHAR(255)                             │ NULL                                     │ Programme name label
+   school_id                                 │ VARCHAR(50)                              │ FK -> schools(id) ON DELETE SET NULL     │ Assigned School scope
+   department_id                             │ VARCHAR(50)                              │ FK -> departments(id) ON DELETE SET NULL │ Assigned Department scope
+   programme_id                              │ VARCHAR(50)                              │ FK -> programmes(id) ON DELETE SET NULL  │ Assigned Programme scope
+   is_active                                 │ BOOLEAN                                  │ NOT NULL DEFAULT TRUE                    │ Active account status flag
+   created_at                                │ TIMESTAMPTZ                              │ DEFAULT CURRENT_TIMESTAMP                │ Creation timestamp
+   updated_at                                │ TIMESTAMPTZ                              │ DEFAULT CURRENT_TIMESTAMP                │ Update timestamp
+  ──────                                                                                                                                                                                               
+  ### batches                                                                                                                                                                                          
+                                                                                                                                                                                                       
+  Student cohorts associated with a degree Programme.                                                                                                                                                  
+                                                                                                                                                                                                       
+   Column                                        │ Data Type                                     │ Constraints & Defaults                           │ Description
+  ───────────────────────────────────────────────┼───────────────────────────────────────────────┼──────────────────────────────────────────────────┼──────────────────────────────────────────────────
+   id                                            │ VARCHAR(50)                                   │ PRIMARY KEY                                      │ Unique batch ID (e.g., batch-cse-2022-26)
+   programme_id                                  │ VARCHAR(50)                                   │ NOT NULL, FK -> programmes(id) ON DELETE CASCADE │ Associated programme
+   programme_code                                │ VARCHAR(20)                                   │ NULL                                             │ Denormalized programme code
+   programme_name                                │ VARCHAR(255)                                  │ NULL                                             │ Denormalized programme name
+   duration_years                                │ INTEGER                                       │ NOT NULL DEFAULT 4                               │ Cohort duration
+   name                                          │ VARCHAR(255)                                  │ NOT NULL                                         │ Cohort label (e.g., 2022-2026 Batch)
+   start_year                                    │ INTEGER                                       │ NOT NULL                                         │ Inception year (e.g., 2022)
+   end_year                                      │ INTEGER                                       │ NOT NULL                                         │ Graduation year (e.g., 2026)
+   previous_batch_id                             │ VARCHAR(50)                                   │ FK -> batches(id) ON DELETE SET NULL             │ Preceding batch for continuous attainment trends
+   year_level                                    │ VARCHAR(100)                                  │ NULL                                             │ Current academic year level (e.g., Final Year)
+   status                                        │ VARCHAR(20)                                   │ NOT NULL DEFAULT 'ACTIVE'                        │ Batch lifecycle status
+   created_at                                    │ TIMESTAMPTZ                                   │ DEFAULT CURRENT_TIMESTAMP                        │ Creation timestamp
+   updated_at                                    │ TIMESTAMPTZ                                   │ DEFAULT CURRENT_TIMESTAMP                        │ Update timestamp
+                                                                                                                                                                                                       
+  • Check Constraints:                                                                                                                                                                                 
+  chk_batch_year_range (end_year > start_year)                                                                                                                                                         
+  chk_batch_duration (end_year - start_year = duration_years)                                                                                                                                          
+  ──────                                                                                                                                                                                               
+  ### semesters                                                                                                                                                                                        
+                                                                                                                                                                                                       
+  Semesters defined under a specific Batch.                                                                                                                                                            
+                                                                                                                                                                                                       
+   Column                                          │ Data Type                                       │ Constraints & Defaults                         │ Description
+  ─────────────────────────────────────────────────┼─────────────────────────────────────────────────┼────────────────────────────────────────────────┼────────────────────────────────────────────────
+   id                                              │ VARCHAR(50)                                     │ PRIMARY KEY                                    │ Unique semester ID
+   batch_id                                        │ VARCHAR(50)                                     │ NOT NULL, FK -> batches(id) ON DELETE CASCADE  │ Parent batch
+   semester_num                                    │ INTEGER                                         │ NOT NULL                                       │ Numeric index (1 to 8 / 10)
+   name                                            │ VARCHAR(50)                                     │ NOT NULL                                       │ Display name (e.g., Semester 3)
+   status                                          │ VARCHAR(20)                                     │ NOT NULL DEFAULT 'ACTIVE'                      │ Status
+   created_at                                      │ TIMESTAMPTZ                                     │ DEFAULT CURRENT_TIMESTAMP                      │ Creation timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_batch_semester (batch_id, semester_num)                                                                                                                                     
+  • Check Constraints: chk_semester_number (semester_num >= 1)                                                                                                                                         
+  ──────                                                                                                                                                                                               
+  ### courses                                                                                                                                                                                          
+                                                                                                                                                                                                       
+  Master catalog definition of courses.                                                                                                                                                                
+                                                                                                                                                                                                       
+   Column                                        │ Data Type                                    │ Constraints & Defaults                           │ Description
+  ───────────────────────────────────────────────┼──────────────────────────────────────────────┼──────────────────────────────────────────────────┼───────────────────────────────────────────────────
+   id                                            │ VARCHAR(50)                                  │ PRIMARY KEY                                      │ Master course ID (e.g., crs-cs301)
+   code                                          │ VARCHAR(50)                                  │ NOT NULL                                         │ Course code (e.g., CS301)
+   name                                          │ VARCHAR(255)                                 │ NOT NULL                                         │ Course title (e.g., Data Structures & Algorithms)
+   programme_id                                  │ VARCHAR(50)                                  │ NOT NULL, FK -> programmes(id) ON DELETE CASCADE │ Degree programme
+   credits                                       │ INTEGER                                      │ NOT NULL DEFAULT 4                               │ Academic credit value
+   course_type                                   │ VARCHAR(50)                                  │ NOT NULL DEFAULT 'CORE'                          │ Type (CORE, ELECTIVE, LAB)
+   status                                        │ VARCHAR(30)                                  │ NOT NULL DEFAULT 'ACTIVE'                        │ Status
+   created_at                                    │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                        │ Creation timestamp
+   updated_at                                    │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                        │ Update timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_course_programme_code (programme_id, code)                                                                                                                                  
+  ──────                                                                                                                                                                                               
+  ### course_offerings                                                                                                                                                                                 
+                                                                                                                                                                                                       
+  The batch- and semester-specific instance of a Course (Core entity for Faculty & Calculations).                                                                                                      
+                                                                                                                                                                                                       
+   Column                                          │ Data Type                                      │ Constraints & Defaults                         │ Description
+  ─────────────────────────────────────────────────┼────────────────────────────────────────────────┼────────────────────────────────────────────────┼─────────────────────────────────────────────────
+   id                                              │ VARCHAR(50)                                    │ PRIMARY KEY                                    │ Offering ID (e.g., offering-101)
+   course_id                                       │ VARCHAR(50)                                    │ NOT NULL, FK -> courses(id) ON DELETE CASCADE  │ Referenced master course
+   batch_id                                        │ VARCHAR(50)                                    │ NOT NULL, FK -> batches(id) ON DELETE CASCADE  │ Cohort batch reference
+   semester                                        │ INTEGER                                        │ NOT NULL                                       │ Semester number in which it is taught
+   course_coordinator_id                           │ BIGINT                                         │ FK -> users(id) ON DELETE SET NULL             │ Assigned Course Coordinator User ID
+   course_coordinator_name                         │ VARCHAR(255)                                   │ NULL                                           │ Assigned CC name
+   assigned_faculty                                │ TEXT                                           │ NULL                                           │ Comma-separated list or JSON of instructors
+   status                                          │ VARCHAR(30)                                    │ NOT NULL DEFAULT 'ACTIVE'                      │ Lifecycle status (ALLOCATED, ACTIVE, COMPLETED)
+   created_at                                      │ TIMESTAMPTZ                                    │ DEFAULT CURRENT_TIMESTAMP                      │ Creation timestamp
+   updated_at                                      │ TIMESTAMPTZ                                    │ DEFAULT CURRENT_TIMESTAMP                      │ Update timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uk_batch_course_sem (batch_id, course_id, semester)                                                                                                                            
+  • Check Constraints: chk_offering_semester (semester >= 1)                                                                                                                                           
+  ──────                                                                                                                                                                                               
+  ### students                                                                                                                                                                                         
+                                                                                                                                                                                                       
+  Enrolled students scoped by Batch.                                                                                                                                                                   
+                                                                                                                                                                                                       
+   Column                                          │ Data Type                                       │ Constraints & Defaults                         │ Description
+  ─────────────────────────────────────────────────┼─────────────────────────────────────────────────┼────────────────────────────────────────────────┼────────────────────────────────────────────────
+   id                                              │ VARCHAR(50)                                     │ PRIMARY KEY                                    │ Student UUID
+   batch_id                                        │ VARCHAR(50)                                     │ NOT NULL, FK -> batches(id) ON DELETE CASCADE  │ Enrolled batch cohort
+   prn                                             │ VARCHAR(50)                                     │ NOT NULL, UNIQUE                               │ Permanent Registration Number
+   name                                            │ VARCHAR(150)                                    │ NOT NULL                                       │ Student full name
+   email                                           │ VARCHAR(150)                                    │ NOT NULL                                       │ Official student email
+   status                                          │ VARCHAR(20)                                     │ NOT NULL DEFAULT 'ENROLLED'                    │ Enrollment status
+   created_at                                      │ TIMESTAMPTZ                                     │ DEFAULT CURRENT_TIMESTAMP                      │ Creation timestamp
+   updated_at                                      │ TIMESTAMPTZ                                     │ DEFAULT CURRENT_TIMESTAMP                      │ Update timestamp
+  ──────                                                                                                                                                                                               
+  ## 2. Outcome Framework & Curriculum Mappings                                                                                                                                                        
+                                                                                                                                                                                                       
+  ### programme_outcomes                                                                                                                                                                               
+                                                                                                                                                                                                       
+  Master Program Outcomes (PO1 to PO12) under a Programme.                                                                                                                                             
+                                                                                                                                                                                                       
+   Column                                         │ Data Type                                      │ Constraints & Defaults                           │ Description
+  ────────────────────────────────────────────────┼────────────────────────────────────────────────┼──────────────────────────────────────────────────┼────────────────────────────────────────────────
+   id                                             │ VARCHAR(50)                                    │ PRIMARY KEY                                      │ PO ID
+   programme_id                                   │ VARCHAR(50)                                    │ NOT NULL, FK -> programmes(id) ON DELETE CASCADE │ Programme reference
+   code                                           │ VARCHAR(20)                                    │ NOT NULL                                         │ PO code (PO1 - PO12)
+   statement                                      │ TEXT                                           │ NOT NULL                                         │ Graduate attribute statement
+   created_at                                     │ TIMESTAMPTZ                                    │ DEFAULT CURRENT_TIMESTAMP                        │ Creation timestamp
+   updated_at                                     │ TIMESTAMPTZ                                    │ DEFAULT CURRENT_TIMESTAMP                        │ Update timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_programme_po (programme_id, code)                                                                                                                                           
+  ──────                                                                                                                                                                                               
+  ### po_competencies                                                                                                                                                                                  
+                                                                                                                                                                                                       
+  Competencies and performance indicators linked to a PO.                                                                                                                                              
+                                                                                                                                                                                                       
+   Column                                       │ Data Type                                   │ Constraints & Defaults                                   │ Description
+  ──────────────────────────────────────────────┼─────────────────────────────────────────────┼──────────────────────────────────────────────────────────┼─────────────────────────────────────────────
+   id                                           │ VARCHAR(50)                                 │ PRIMARY KEY                                              │ Competency ID
+   po_id                                        │ VARCHAR(50)                                 │ NOT NULL, FK -> programme_outcomes(id) ON DELETE CASCADE │ Parent PO reference
+   code                                         │ VARCHAR(30)                                 │ NOT NULL                                                 │ Sub-code (e.g., 1.1)
+   statement                                    │ TEXT                                        │ NOT NULL                                                 │ Competency description
+   created_at                                   │ TIMESTAMPTZ                                 │ DEFAULT CURRENT_TIMESTAMP                                │ Creation timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_po_competency (po_id, code)                                                                                                                                                 
+  ──────                                                                                                                                                                                               
+  ### programme_specific_outcomes                                                                                                                                                                      
+                                                                                                                                                                                                       
+  Program Specific Outcomes (PSO1 to PSO3).                                                                                                                                                            
+                                                                                                                                                                                                       
+   Column                                         │ Data Type                                      │ Constraints & Defaults                           │ Description
+  ────────────────────────────────────────────────┼────────────────────────────────────────────────┼──────────────────────────────────────────────────┼────────────────────────────────────────────────
+   id                                             │ VARCHAR(50)                                    │ PRIMARY KEY                                      │ PSO ID
+   programme_id                                   │ VARCHAR(50)                                    │ NOT NULL, FK -> programmes(id) ON DELETE CASCADE │ Programme reference
+   code                                           │ VARCHAR(20)                                    │ NOT NULL                                         │ PSO code (PSO1, PSO2, etc.)
+   statement                                      │ TEXT                                           │ NOT NULL                                         │ PSO attribute statement
+   created_at                                     │ TIMESTAMPTZ                                    │ DEFAULT CURRENT_TIMESTAMP                        │ Creation timestamp
+   updated_at                                     │ TIMESTAMPTZ                                    │ DEFAULT CURRENT_TIMESTAMP                        │ Update timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_programme_pso (programme_id, code)                                                                                                                                          
+  ──────                                                                                                                                                                                               
+  ### pso_competencies                                                                                                                                                                                 
+                                                                                                                                                                                                       
+  Competency breakdowns for PSOs.                                                                                                                                                                      
+                                                                                                                                                                                                       
+   Column                                    │ Data Type                                │ Constraints & Defaults                                            │ Description
+  ───────────────────────────────────────────┼──────────────────────────────────────────┼───────────────────────────────────────────────────────────────────┼──────────────────────────────────────────
+   id                                        │ VARCHAR(50)                              │ PRIMARY KEY                                                       │ Competency ID
+   pso_id                                    │ VARCHAR(50)                              │ NOT NULL, FK -> programme_specific_outcomes(id) ON DELETE CASCADE │ Parent PSO reference
+   code                                      │ VARCHAR(30)                              │ NOT NULL                                                          │ Sub-code (e.g., PSO1.1)
+   statement                                 │ TEXT                                     │ NOT NULL                                                          │ Competency description
+   created_at                                │ TIMESTAMPTZ                              │ DEFAULT CURRENT_TIMESTAMP                                         │ Creation timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_pso_competency (pso_id, code)                                                                                                                                               
+  ──────                                                                                                                                                                                               
+  ### peo_outcomes                                                                                                                                                                                     
+                                                                                                                                                                                                       
+  Program Educational Objectives (PEOs).                                                                                                                                                               
+                                                                                                                                                                                                       
+   Column                                         │ Data Type                                      │ Constraints & Defaults                           │ Description
+  ────────────────────────────────────────────────┼────────────────────────────────────────────────┼──────────────────────────────────────────────────┼────────────────────────────────────────────────
+   id                                             │ VARCHAR(50)                                    │ PRIMARY KEY                                      │ PEO ID
+   programme_id                                   │ VARCHAR(50)                                    │ NOT NULL, FK -> programmes(id) ON DELETE CASCADE │ Programme reference
+   code                                           │ VARCHAR(20)                                    │ NOT NULL                                         │ PEO code (PEO1, PEO2, etc.)
+   statement                                      │ TEXT                                           │ NOT NULL                                         │ Objective statement
+   created_at                                     │ TIMESTAMPTZ                                    │ DEFAULT CURRENT_TIMESTAMP                        │ Creation timestamp
+   updated_at                                     │ TIMESTAMPTZ                                    │ DEFAULT CURRENT_TIMESTAMP                        │ Update timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_programme_peo (programme_id, code)                                                                                                                                          
+  ──────                                                                                                                                                                                               
+  ### course_outcomes                                                                                                                                                                                  
+                                                                                                                                                                                                       
+  Course Outcomes defined per Course Offering.                                                                                                                                                         
+                                                                                                                                                                                                       
+   Column                                       │ Data Type                                    │ Constraints & Defaults                                 │ Description
+  ──────────────────────────────────────────────┼──────────────────────────────────────────────┼────────────────────────────────────────────────────────┼──────────────────────────────────────────────
+   id                                           │ VARCHAR(50)                                  │ PRIMARY KEY                                            │ CO ID
+   course_offering_id                           │ VARCHAR(50)                                  │ NOT NULL, FK -> course_offerings(id) ON DELETE CASCADE │ Parent course offering
+   code                                         │ VARCHAR(30)                                  │ NOT NULL                                               │ CO code (CO1 - CO6)
+   statement                                    │ TEXT                                         │ NOT NULL                                               │ Outcome statement
+   target_level                                 │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 2.50                                  │ Attainment benchmark target (scale 0-3)
+   blooms_level                                 │ VARCHAR(50)                                  │ DEFAULT 'L3 - Apply'                                   │ Revised Bloom's Taxonomy Level
+   created_at                                   │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                              │ Creation timestamp
+   updated_at                                   │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                              │ Update timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uk_offering_co_code (course_offering_id, code)                                                                                                                                 
+  • Check Constraints: chk_co_target_level (target_level >= 0 AND target_level <= 3)                                                                                                                   
+  ──────                                                                                                                                                                                               
+  ### co_po_mappings                                                                                                                                                                                   
+                                                                                                                                                                                                       
+  Direct articulation correlation levels (0, 1, 2, 3) between CO and PO.                                                                                                                               
+                                                                                                                                                                                                       
+   Column                                        │ Data Type                                    │ Constraints & Defaults                                │ Description
+  ───────────────────────────────────────────────┼──────────────────────────────────────────────┼───────────────────────────────────────────────────────┼──────────────────────────────────────────────
+   id                                            │ VARCHAR(50)                                  │ PRIMARY KEY                                           │ Mapping ID
+   course_outcome_id                             │ VARCHAR(50)                                  │ NOT NULL, FK -> course_outcomes(id) ON DELETE CASCADE │ Referenced CO
+   po_code                                       │ VARCHAR(20)                                  │ NOT NULL                                              │ Target PO code (e.g., PO1)
+   mapping_level                                 │ INTEGER                                      │ NOT NULL DEFAULT 0                                    │ Correlation (0=None, 1=Low, 2=Med, 3=High)
+   created_at                                    │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                             │ Creation timestamp
+   updated_at                                    │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                             │ Update timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_co_po (course_outcome_id, po_code)                                                                                                                                          
+  • Check Constraints: chk_co_po_mapping_level (mapping_level BETWEEN 0 AND 3)                                                                                                                         
+  ──────                                                                                                                                                                                               
+  ### co_pso_mappings                                                                                                                                                                                  
+                                                                                                                                                                                                       
+  Correlation levels between CO and PSO.                                                                                                                                                               
+                                                                                                                                                                                                       
+   Column                                        │ Data Type                                    │ Constraints & Defaults                                │ Description
+  ───────────────────────────────────────────────┼──────────────────────────────────────────────┼───────────────────────────────────────────────────────┼──────────────────────────────────────────────
+   id                                            │ VARCHAR(50)                                  │ PRIMARY KEY                                           │ Mapping ID
+   course_outcome_id                             │ VARCHAR(50)                                  │ NOT NULL, FK -> course_outcomes(id) ON DELETE CASCADE │ Referenced CO
+   pso_code                                      │ VARCHAR(20)                                  │ NOT NULL                                              │ Target PSO code (e.g., PSO1)
+   mapping_level                                 │ INTEGER                                      │ NOT NULL DEFAULT 0                                    │ Correlation (0, 1, 2, 3)
+   created_at                                    │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                             │ Creation timestamp
+   updated_at                                    │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                             │ Update timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_co_pso (course_outcome_id, pso_code)                                                                                                                                        
+  • Check Constraints: chk_co_pso_mapping_level (mapping_level BETWEEN 0 AND 3)                                                                                                                        
+  ──────                                                                                                                                                                                               
+  ### programme_targets                                                                                                                                                                                
+                                                                                                                                                                                                       
+  Batch-specific target attainment thresholds for POs and PSOs.                                                                                                                                        
+                                                                                                                                                                                                       
+   Column                                          │ Data Type                                       │ Constraints & Defaults                         │ Description
+  ─────────────────────────────────────────────────┼─────────────────────────────────────────────────┼────────────────────────────────────────────────┼────────────────────────────────────────────────
+   id                                              │ VARCHAR(50)                                     │ PRIMARY KEY                                    │ Target ID
+   batch_id                                        │ VARCHAR(50)                                     │ NOT NULL, FK -> batches(id) ON DELETE CASCADE  │ Target Batch cohort
+   outcome_type                                    │ VARCHAR(10)                                     │ NOT NULL DEFAULT 'PO'                          │ PO or PSO
+   outcome_code                                    │ VARCHAR(20)                                     │ NOT NULL                                       │ Outcome Code (PO1, PSO1)
+   target_value                                    │ NUMERIC(4,2)                                    │ NOT NULL DEFAULT 2.50                          │ Benchmark score (0 to 3)
+   created_at                                      │ TIMESTAMPTZ                                     │ DEFAULT CURRENT_TIMESTAMP                      │ Creation timestamp
+   updated_at                                      │ TIMESTAMPTZ                                     │ DEFAULT CURRENT_TIMESTAMP                      │ Update timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_batch_outcome_target (batch_id, outcome_type, outcome_code)                                                                                                                 
+  • Check Constraints: chk_programme_target (target_value >= 0 AND target_value <= 3)                                                                                                                  
+  ──────                                                                                                                                                                                               
+  ### course_co_targets                                                                                                                                                                                
+                                                                                                                                                                                                       
+  Master targets defined at the Course catalog level.                                                                                                                                                  
+                                                                                                                                                                                                       
+   Column                                          │ Data Type                                       │ Constraints & Defaults                         │ Description
+  ─────────────────────────────────────────────────┼─────────────────────────────────────────────────┼────────────────────────────────────────────────┼────────────────────────────────────────────────
+   id                                              │ VARCHAR(50)                                     │ PRIMARY KEY                                    │ Target ID
+   course_id                                       │ VARCHAR(50)                                     │ NOT NULL, FK -> courses(id) ON DELETE CASCADE  │ Course reference
+   co_code                                         │ VARCHAR(30)                                     │ NOT NULL                                       │ Target CO code
+   target_value                                    │ NUMERIC(4,2)                                    │ NOT NULL DEFAULT 2.50                          │ Expected score
+   created_at                                      │ TIMESTAMPTZ                                     │ DEFAULT CURRENT_TIMESTAMP                      │ Creation timestamp
+   updated_at                                      │ TIMESTAMPTZ                                     │ DEFAULT CURRENT_TIMESTAMP                      │ Update timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_course_co_target (course_id, co_code)                                                                                                                                       
+  • Check Constraints: chk_course_co_target (target_value >= 0 AND target_value <= 3)                                                                                                                  
+  ──────                                                                                                                                                                                               
+  ### course_mapping_keywords                                                                                                                                                                          
+                                                                                                                                                                                                       
+  Keyword tags used for semantic verification of CO-PO mappings.                                                                                                                                       
+                                                                                                                                                                                                       
+   Column                                       │ Data Type                                    │ Constraints & Defaults                                 │ Description
+  ──────────────────────────────────────────────┼──────────────────────────────────────────────┼────────────────────────────────────────────────────────┼──────────────────────────────────────────────
+   id                                           │ VARCHAR(50)                                  │ PRIMARY KEY                                            │ Keyword record ID
+   course_offering_id                           │ VARCHAR(50)                                  │ NOT NULL, FK -> course_offerings(id) ON DELETE CASCADE │ Course offering reference
+   keyword_type                                 │ VARCHAR(20)                                  │ NOT NULL                                               │ PO or PSO
+   keywords_json                                │ TEXT                                         │ NOT NULL                                               │ JSON array of keywords
+   created_at                                   │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                              │ Creation timestamp
+   updated_at                                   │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                              │ Update timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_offering_keyword_type (course_offering_id, keyword_type)                                                                                                                    
+  • Check Constraints: chk_keyword_type (keyword_type IN ('PO', 'PSO'))                                                                                                                                
+  ──────                                                                                                                                                                                               
+  ## 3. Assessment & Attainment Calculation Engine                                                                                                                                                     
+                                                                                                                                                                                                       
+  ### attainment_configurations                                                                                                                                                                        
+                                                                                                                                                                                                       
+  Attainment weightages (Direct 80% / Indirect 20%) per Course Offering.                                                                                                                               
+                                                                                                                                                                                                       
+   Column                                       │ Data Type                                    │ Constraints & Defaults                                 │ Description
+  ──────────────────────────────────────────────┼──────────────────────────────────────────────┼────────────────────────────────────────────────────────┼──────────────────────────────────────────────
+   id                                           │ VARCHAR(50)                                  │ PRIMARY KEY                                            │ Config ID
+   course_offering_id                           │ VARCHAR(50)                                  │ NOT NULL, FK -> course_offerings(id) ON DELETE CASCADE │ Offering reference
+   direct_weight                                │ NUMERIC(5,2)                                 │ NOT NULL DEFAULT 80.00                                 │ Direct assessment weight % (80%)
+   indirect_weight                              │ NUMERIC(5,2)                                 │ NOT NULL DEFAULT 20.00                                 │ Indirect survey weight % (20%)
+   direct_threshold                             │ NUMERIC(5,2)                                 │ NOT NULL DEFAULT 60.00                                 │ Target student score % benchmark
+   indirect_threshold                           │ NUMERIC(5,2)                                 │ NOT NULL DEFAULT 60.00                                 │ Survey threshold %
+   direct_levels_json                           │ TEXT                                         │ NULL                                                   │ JSON level scale definitions (Level 1, 2, 3)
+   indirect_levels_json                         │ TEXT                                         │ NULL                                                   │ JSON survey scale definitions
+   status                                       │ VARCHAR(30)                                  │ NOT NULL DEFAULT 'DRAFT'                               │ Status (DRAFT, PENDING, APPROVED)
+   submitted_by                                 │ VARCHAR(150)                                 │ NULL                                                   │ User who submitted configuration
+   submitted_at                                 │ TIMESTAMPTZ                                  │ NULL                                                   │ Submission timestamp
+   created_at                                   │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                              │ Creation timestamp
+   updated_at                                   │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                              │ Update timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_attainment_config_offering (course_offering_id)                                                                                                                             
+  ──────                                                                                                                                                                                               
+  ### attainment_levels                                                                                                                                                                                
+                                                                                                                                                                                                       
+  Discrete percentage rubrics for Attainment Levels 1, 2, and 3.                                                                                                                                       
+                                                                                                                                                                                                       
+   Column                                    │ Data Type                                 │ Constraints & Defaults                                          │ Description
+  ───────────────────────────────────────────┼───────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┼───────────────────────────────────────────
+   id                                        │ VARCHAR(50)                               │ PRIMARY KEY                                                     │ Level rubric ID
+   config_id                                 │ VARCHAR(50)                               │ NOT NULL, FK -> attainment_configurations(id) ON DELETE CASCADE │ Parent configuration
+   type                                      │ VARCHAR(20)                               │ NOT NULL                                                        │ DIRECT or INDIRECT
+   level_val                                 │ INTEGER                                   │ NOT NULL                                                        │ Level value (1, 2, 3)
+   min_percentage                            │ NUMERIC(5,2)                              │ NOT NULL                                                        │ Minimum student % to achieve level
+   max_percentage                            │ NUMERIC(5,2)                              │ NOT NULL                                                        │ Maximum % ceiling
+   created_at                                │ TIMESTAMPTZ                               │ DEFAULT CURRENT_TIMESTAMP                                       │ Creation timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_attainment_level (config_id, type, level_val)                                                                                                                               
+  • Check Constraints:                                                                                                                                                                                 
+  chk_attainment_level_type (type IN ('DIRECT', 'INDIRECT'))                                                                                                                                           
+  chk_attainment_level_value (level_val BETWEEN 1 AND 3)                                                                                                                                               
+  chk_attainment_percentage_range (min_percentage >= 0 AND max_percentage <= 100 AND max_percentage >= min_percentage)                                                                                 
+  ──────                                                                                                                                                                                               
+  ### end_sem_marks_uploads                                                                                                                                                                            
+                                                                                                                                                                                                       
+  Audit log of raw examination marks spreadsheet uploads.                                                                                                                                              
+                                                                                                                                                                                                       
+   Column                                       │ Data Type                                    │ Constraints & Defaults                                 │ Description
+  ──────────────────────────────────────────────┼──────────────────────────────────────────────┼────────────────────────────────────────────────────────┼──────────────────────────────────────────────
+   id                                           │ VARCHAR(50)                                  │ PRIMARY KEY                                            │ Upload record ID
+   course_offering_id                           │ VARCHAR(50)                                  │ NOT NULL, FK -> course_offerings(id) ON DELETE CASCADE │ Target Offering
+   file_name                                    │ VARCHAR(255)                                 │ NOT NULL                                               │ Original filename uploaded
+   file_path                                    │ VARCHAR(500)                                 │ NOT NULL                                               │ Local filesystem storage path
+   uploaded_by                                  │ VARCHAR(150)                                 │ NOT NULL                                               │ Uploader username
+   uploaded_at                                  │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                              │ Upload timestamp
+   record_count                                 │ INTEGER                                      │ DEFAULT 0                                              │ Number of parsed student marks
+   status                                       │ VARCHAR(30)                                  │ NOT NULL DEFAULT 'COMPLETED'                           │ Parsing status
+  ──────                                                                                                                                                                                               
+  ### student_co_marks                                                                                                                                                                                 
+                                                                                                                                                                                                       
+  Individual student scores evaluated against each Course Outcome.                                                                                                                                     
+                                                                                                                                                                                                       
+   Column                                       │ Data Type                                    │ Constraints & Defaults                                 │ Description
+  ──────────────────────────────────────────────┼──────────────────────────────────────────────┼────────────────────────────────────────────────────────┼──────────────────────────────────────────────
+   id                                           │ VARCHAR(50)                                  │ PRIMARY KEY                                            │ Mark entry ID
+   upload_id                                    │ VARCHAR(50)                                  │ FK -> end_sem_marks_uploads(id) ON DELETE CASCADE      │ Source file upload reference
+   course_offering_id                           │ VARCHAR(50)                                  │ NOT NULL, FK -> course_offerings(id) ON DELETE CASCADE │ Offering reference
+   student_id                                   │ VARCHAR(50)                                  │ NOT NULL, FK -> students(id) ON DELETE CASCADE         │ Enrolled student reference
+   prn                                          │ VARCHAR(50)                                  │ NOT NULL                                               │ Student PRN
+   student_name                                 │ VARCHAR(150)                                 │ NULL                                                   │ Student name
+   co_code                                      │ VARCHAR(30)                                  │ NOT NULL                                               │ Evaluated CO code (CO1, CO2)
+   marks_obtained                               │ NUMERIC(8,2)                                 │ NOT NULL                                               │ Raw marks scored
+   max_marks                                    │ NUMERIC(8,2)                                 │ NOT NULL DEFAULT 100.00                                │ Out of marks
+   percentage                                   │ NUMERIC(5,2)                                 │ NULL                                                   │ Computed percentage
+   created_at                                   │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                              │ Record timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_student_co_mark (course_offering_id, student_id, co_code)                                                                                                                   
+  ──────                                                                                                                                                                                               
+  ### course_end_surveys                                                                                                                                                                               
+                                                                                                                                                                                                       
+  Course exit survey header per Offering.                                                                                                                                                              
+                                                                                                                                                                                                       
+   Column                                       │ Data Type                                    │ Constraints & Defaults                                 │ Description
+  ──────────────────────────────────────────────┼──────────────────────────────────────────────┼────────────────────────────────────────────────────────┼──────────────────────────────────────────────
+   id                                           │ VARCHAR(50)                                  │ PRIMARY KEY                                            │ Survey ID
+   course_offering_id                           │ VARCHAR(50)                                  │ NOT NULL, FK -> course_offerings(id) ON DELETE CASCADE │ Offering reference
+   total_respondents                            │ INTEGER                                      │ DEFAULT 0                                              │ Total participating students
+   created_at                                   │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                              │ Creation timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_course_end_survey (course_offering_id)                                                                                                                                      
+  ──────                                                                                                                                                                                               
+  ### survey_responses                                                                                                                                                                                 
+                                                                                                                                                                                                       
+  Student submission envelope for course end survey.                                                                                                                                                   
+                                                                                                                                                                                                       
+   Column                                       │ Data Type                                   │ Constraints & Defaults                                   │ Description
+  ──────────────────────────────────────────────┼─────────────────────────────────────────────┼──────────────────────────────────────────────────────────┼─────────────────────────────────────────────
+   id                                           │ VARCHAR(50)                                 │ PRIMARY KEY                                              │ Response envelope ID
+   survey_id                                    │ VARCHAR(50)                                 │ NOT NULL, FK -> course_end_surveys(id) ON DELETE CASCADE │ Survey header reference
+   student_id                                   │ VARCHAR(50)                                 │ FK -> students(id) ON DELETE SET NULL                    │ Student reference
+   prn                                          │ VARCHAR(50)                                 │ NULL                                                     │ Student PRN
+   submitted_at                                 │ TIMESTAMPTZ                                 │ DEFAULT CURRENT_TIMESTAMP                                │ Timestamp
+  ──────                                                                                                                                                                                               
+  ### survey_response_details                                                                                                                                                                          
+                                                                                                                                                                                                       
+  Likert ratings (1 to 3) submitted by students per Course Outcome.                                                                                                                                    
+                                                                                                                                                                                                       
+   Column                                       │ Data Type                                    │ Constraints & Defaults                                 │ Description
+  ──────────────────────────────────────────────┼──────────────────────────────────────────────┼────────────────────────────────────────────────────────┼──────────────────────────────────────────────
+   id                                           │ VARCHAR(50)                                  │ PRIMARY KEY                                            │ Detail item ID
+   response_id                                  │ VARCHAR(50)                                  │ NOT NULL, FK -> survey_responses(id) ON DELETE CASCADE │ Parent response
+   co_code                                      │ VARCHAR(30)                                  │ NOT NULL                                               │ Rated CO (CO1)
+   rating                                       │ INTEGER                                      │ NOT NULL                                               │ Rating score (1, 2, or 3)
+   created_at                                   │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                              │ Timestamp
+                                                                                                                                                                                                       
+  • Check Constraints: chk_survey_rating (rating BETWEEN 1 AND 3)                                                                                                                                      
+  ──────                                                                                                                                                                                               
+  ### programme_exit_surveys                                                                                                                                                                           
+                                                                                                                                                                                                       
+  Cohort-wide graduation exit survey per Batch.                                                                                                                                                        
+                                                                                                                                                                                                       
+   Column                                         │ Data Type                                      │ Constraints & Defaults                           │ Description
+  ────────────────────────────────────────────────┼────────────────────────────────────────────────┼──────────────────────────────────────────────────┼────────────────────────────────────────────────
+   id                                             │ VARCHAR(50)                                    │ PRIMARY KEY                                      │ Exit survey ID
+   programme_id                                   │ VARCHAR(50)                                    │ NOT NULL, FK -> programmes(id) ON DELETE CASCADE │ Programme reference
+   batch_id                                       │ VARCHAR(50)                                    │ NOT NULL, FK -> batches(id) ON DELETE CASCADE    │ Cohort batch reference
+   total_respondents                              │ INTEGER                                        │ DEFAULT 0                                        │ Number of survey responses
+   avg_exit_score                                 │ NUMERIC(4,2)                                   │ DEFAULT 2.50                                     │ Average indirect score
+   created_at                                     │ TIMESTAMPTZ                                    │ DEFAULT CURRENT_TIMESTAMP                        │ Creation timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_programme_exit_survey (programme_id, batch_id)                                                                                                                              
+  ──────                                                                                                                                                                                               
+  ### uploaded_documents                                                                                                                                                                               
+                                                                                                                                                                                                       
+  Master repository of uploaded Excel audit sheets with metadata.                                                                                                                                      
+                                                                                                                                                                                                       
+   Column                                     │ Data Type                                  │ Constraints & Defaults                        │ Description
+  ────────────────────────────────────────────┼────────────────────────────────────────────┼───────────────────────────────────────────────┼───────────────────────────────────────────────────────────
+   id                                         │ VARCHAR(255)                               │ PRIMARY KEY                                   │ Document ID
+   batch_id                                   │ VARCHAR(50)                                │ NOT NULL, FK -> batches(id) ON DELETE CASCADE │ Batch context
+   course_offering_id                         │ VARCHAR(50)                                │ FK -> course_offerings(id) ON DELETE CASCADE  │ Offering context
+   document_type                              │ VARCHAR(50)                                │ NOT NULL                                      │ INTERNAL_EXAMINATION_SHEET, COURSE_END_SURVEY_SHEET, etc.
+   file_name                                  │ VARCHAR(255)                               │ NOT NULL                                      │ Original client filename
+   saved_file_name                            │ VARCHAR(255)                               │ NOT NULL                                      │ Unique sanitized disk filename
+   saved_path                                 │ VARCHAR(500)                               │ NOT NULL                                      │ Absolute storage path
+   file_size                                  │ BIGINT                                     │ NULL                                          │ Size in bytes
+   records_processed                          │ INTEGER                                    │ NULL                                          │ Total rows parsed
+   threshold_percentage                       │ NUMERIC(5,2)                               │ NULL                                          │ Applied threshold %
+   uploaded_by                                │ VARCHAR(150)                               │ NULL                                          │ Uploading coordinator
+   uploaded_at                                │ TIMESTAMPTZ                                │ DEFAULT CURRENT_TIMESTAMP                     │ Audit timestamp
+  ──────                                                                                                                                                                                               
+  ### calculation_runs                                                                                                                                                                                 
+                                                                                                                                                                                                       
+  Execution runs of the Attainment Engine.                                                                                                                                                             
+                                                                                                                                                                                                       
+   Column                                          │ Data Type                                       │ Constraints & Defaults                         │ Description
+  ─────────────────────────────────────────────────┼─────────────────────────────────────────────────┼────────────────────────────────────────────────┼────────────────────────────────────────────────
+   id                                              │ VARCHAR(50)                                     │ PRIMARY KEY                                    │ Run ID
+   course_offering_id                              │ VARCHAR(50)                                     │ FK -> course_offerings(id) ON DELETE CASCADE   │ Present for course-level runs
+   programme_id                                    │ VARCHAR(50)                                     │ FK -> programmes(id) ON DELETE CASCADE         │ Present for programme-level runs
+   batch_id                                        │ VARCHAR(50)                                     │ FK -> batches(id) ON DELETE CASCADE            │ Present for programme-level runs
+   run_type                                        │ VARCHAR(30)                                     │ NOT NULL                                       │ COURSE_CO or PROGRAMME_PO_PSO
+   run_date                                        │ TIMESTAMPTZ                                     │ DEFAULT CURRENT_TIMESTAMP                      │ Execution timestamp
+   status                                          │ VARCHAR(30)                                     │ NOT NULL DEFAULT 'COMPLETED'                   │ Status
+   executed_by                                     │ VARCHAR(150)                                    │ NULL                                           │ User who triggered run
+  ──────                                                                                                                                                                                               
+  ### direct_co_attainments                                                                                                                                                                            
+                                                                                                                                                                                                       
+  Computed Direct Examination Attainment results per CO.                                                                                                                                               
+                                                                                                                                                                                                       
+   Column                                       │ Data Type                                    │ Constraints & Defaults                                 │ Description
+  ──────────────────────────────────────────────┼──────────────────────────────────────────────┼────────────────────────────────────────────────────────┼──────────────────────────────────────────────
+   id                                           │ VARCHAR(50)                                  │ PRIMARY KEY                                            │ Attainment ID
+   run_id                                       │ VARCHAR(50)                                  │ NOT NULL, FK -> calculation_runs(id) ON DELETE CASCADE │ Calculation run
+   course_offering_id                           │ VARCHAR(50)                                  │ NOT NULL, FK -> course_offerings(id) ON DELETE CASCADE │ Offering reference
+   co_code                                      │ VARCHAR(30)                                  │ NOT NULL                                               │ CO code
+   students_attempted                           │ INTEGER                                      │ NOT NULL DEFAULT 0                                     │ Total students who took exam
+   students_attained                            │ INTEGER                                      │ NOT NULL DEFAULT 0                                     │ Students scoring >= threshold
+   percentage_attained                          │ NUMERIC(5,2)                                 │ NOT NULL DEFAULT 0.00                                  │ Attainment percentage
+   attainment_level                             │ INTEGER                                      │ NOT NULL DEFAULT 1                                     │ Discrete Level (1, 2, 3)
+   attainment_score                             │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 1.00                                  │ Attainment score on 3-point scale
+   created_at                                   │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                              │ Creation timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_run_direct_co (run_id, co_code)                                                                                                                                             
+  ──────                                                                                                                                                                                               
+  ### indirect_co_attainments                                                                                                                                                                          
+                                                                                                                                                                                                       
+  Computed Indirect Course Survey Attainment results per CO.                                                                                                                                           
+                                                                                                                                                                                                       
+   Column                                       │ Data Type                                    │ Constraints & Defaults                                 │ Description
+  ──────────────────────────────────────────────┼──────────────────────────────────────────────┼────────────────────────────────────────────────────────┼──────────────────────────────────────────────
+   id                                           │ VARCHAR(50)                                  │ PRIMARY KEY                                            │ Attainment ID
+   run_id                                       │ VARCHAR(50)                                  │ NOT NULL, FK -> calculation_runs(id) ON DELETE CASCADE │ Calculation run
+   course_offering_id                           │ VARCHAR(50)                                  │ NOT NULL, FK -> course_offerings(id) ON DELETE CASCADE │ Offering reference
+   co_code                                      │ VARCHAR(30)                                  │ NOT NULL                                               │ CO code
+   total_responses                              │ INTEGER                                      │ NOT NULL DEFAULT 0                                     │ Number of student responses
+   avg_survey_score                             │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 2.50                                  │ Average survey rating
+   percentage_attained                          │ NUMERIC(5,2)                                 │ NOT NULL DEFAULT 0.00                                  │ Indirect attainment %
+   attainment_level                             │ INTEGER                                      │ NOT NULL DEFAULT 1                                     │ Attainment level (1, 2, 3)
+   attainment_score                             │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 1.00                                  │ Final indirect score
+   created_at                                   │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                              │ Timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_run_indirect_co (run_id, co_code)                                                                                                                                           
+  ──────                                                                                                                                                                                               
+  ### overall_co_attainments                                                                                                                                                                           
+                                                                                                                                                                                                       
+  Final combined CO Attainment (80% Direct + 20% Indirect).                                                                                                                                            
+                                                                                                                                                                                                       
+   Column                                       │ Data Type                                    │ Constraints & Defaults                                 │ Description
+  ──────────────────────────────────────────────┼──────────────────────────────────────────────┼────────────────────────────────────────────────────────┼──────────────────────────────────────────────
+   id                                           │ VARCHAR(50)                                  │ PRIMARY KEY                                            │ Result ID
+   run_id                                       │ VARCHAR(50)                                  │ NOT NULL, FK -> calculation_runs(id) ON DELETE CASCADE │ Calculation run
+   course_offering_id                           │ VARCHAR(50)                                  │ NOT NULL, FK -> course_offerings(id) ON DELETE CASCADE │ Offering reference
+   co_code                                      │ VARCHAR(30)                                  │ NOT NULL                                               │ CO code
+   direct_score                                 │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 0.00                                  │ Direct component (80%)
+   indirect_score                               │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 0.00                                  │ Indirect component (20%)
+   overall_attainment                           │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 0.00                                  │ Combined score = 0.8Direct + 0.2Indirect
+   target_score                                 │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 2.50                                  │ Benchmark threshold target
+   is_target_achieved                           │ BOOLEAN                                      │ NOT NULL DEFAULT FALSE                                 │ overall_attainment >= target_score
+   created_at                                   │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                              │ Timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_run_overall_co (run_id, co_code)                                                                                                                                            
+  ──────                                                                                                                                                                                               
+  ### po_attainments                                                                                                                                                                                   
+                                                                                                                                                                                                       
+  Consolidated Program Outcome Attainment per Batch.                                                                                                                                                   
+                                                                                                                                                                                                       
+   Column                                       │ Data Type                                    │ Constraints & Defaults                                 │ Description
+  ──────────────────────────────────────────────┼──────────────────────────────────────────────┼────────────────────────────────────────────────────────┼──────────────────────────────────────────────
+   id                                           │ VARCHAR(50)                                  │ PRIMARY KEY                                            │ PO Attainment ID
+   run_id                                       │ VARCHAR(50)                                  │ NOT NULL, FK -> calculation_runs(id) ON DELETE CASCADE │ Run reference
+   programme_id                                 │ VARCHAR(50)                                  │ NOT NULL, FK -> programmes(id) ON DELETE CASCADE       │ Programme reference
+   batch_id                                     │ VARCHAR(50)                                  │ NOT NULL, FK -> batches(id) ON DELETE CASCADE          │ Batch cohort reference
+   po_code                                      │ VARCHAR(20)                                  │ NOT NULL                                               │ PO code (PO1 - PO12)
+   direct_attainment                            │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 0.00                                  │ Weighted course mapping direct average
+   indirect_attainment                          │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 0.00                                  │ Programme exit survey average
+   final_attainment                             │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 0.00                                  │ Final PO attainment (0.8Direct + 0.2Exit)
+   target_attainment                            │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 2.50                                  │ Batch PO target
+   is_target_achieved                           │ BOOLEAN                                      │ NOT NULL DEFAULT FALSE                                 │ Target achievement boolean
+   created_at                                   │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                              │ Timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_run_po (run_id, po_code)                                                                                                                                                    
+  ──────                                                                                                                                                                                               
+  ### pso_attainments                                                                                                                                                                                  
+                                                                                                                                                                                                       
+  Consolidated Program Specific Outcome Attainment per Batch.                                                                                                                                          
+                                                                                                                                                                                                       
+   Column                                       │ Data Type                                    │ Constraints & Defaults                                 │ Description
+  ──────────────────────────────────────────────┼──────────────────────────────────────────────┼────────────────────────────────────────────────────────┼──────────────────────────────────────────────
+   id                                           │ VARCHAR(50)                                  │ PRIMARY KEY                                            │ PSO Attainment ID
+   run_id                                       │ VARCHAR(50)                                  │ NOT NULL, FK -> calculation_runs(id) ON DELETE CASCADE │ Run reference
+   programme_id                                 │ VARCHAR(50)                                  │ NOT NULL, FK -> programmes(id) ON DELETE CASCADE       │ Programme reference
+   batch_id                                     │ VARCHAR(50)                                  │ NOT NULL, FK -> batches(id) ON DELETE CASCADE          │ Batch cohort reference
+   pso_code                                     │ VARCHAR(20)                                  │ NOT NULL                                               │ PSO code (PSO1 - PSO3)
+   direct_attainment                            │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 0.00                                  │ Weighted course PSO direct average
+   indirect_attainment                          │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 0.00                                  │ Exit survey PSO score
+   final_attainment                             │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 0.00                                  │ Final score
+   target_attainment                            │ NUMERIC(4,2)                                 │ NOT NULL DEFAULT 2.50                                  │ Batch PSO target
+   is_target_achieved                           │ BOOLEAN                                      │ NOT NULL DEFAULT FALSE                                 │ Target achievement boolean
+   created_at                                   │ TIMESTAMPTZ                                  │ DEFAULT CURRENT_TIMESTAMP                              │ Timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uq_run_pso (run_id, pso_code)                                                                                                                                                  
+  ──────                                                                                                                                                                                               
+  ## 4. ATR, Governance Approvals & Setup Progress                                                                                                                                                     
+                                                                                                                                                                                                       
+  ### course_atrs                                                                                                                                                                                      
+                                                                                                                                                                                                       
+  Course-level Action Taken Report entries (one per Course Outcome).                                                                                                                                   
+                                                                                                                                                                                                       
+   Column                                │ Data Type                            │ Constraints & Defaults                                 │ Description
+  ───────────────────────────────────────┼──────────────────────────────────────┼────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────
+   id                                    │ VARCHAR(50)                          │ PRIMARY KEY                                            │ Course ATR ID
+   course_offering_id                    │ VARCHAR(50)                          │ NOT NULL, FK -> course_offerings(id) ON DELETE CASCADE │ Offering reference
+   co_code                               │ VARCHAR(30)                          │ NOT NULL                                               │ Evaluated CO code
+   title                                 │ VARCHAR(255)                         │ NULL                                                   │ Report title
+   target_score                          │ NUMERIC(4,2)                         │ NOT NULL                                               │ Target benchmark score
+   actual_score                          │ NUMERIC(4,2)                         │ NOT NULL                                               │ Calculated attainment score
+   pct_achieved                          │ NUMERIC(5,2)                         │ NOT NULL                                               │ % of target attained
+   status                                │ VARCHAR(50)                          │ NOT NULL                                               │ DRAFT, SUBMITTED_FOR_VERIFICATION, APPROVED, NEEDS_REVISION
+   statement                             │ TEXT                                 │ NULL                                                   │ Observation / root cause analysis
+   actions_json                          │ TEXT                                 │ NULL                                                   │ Corrective action plan JSON
+   submitted_by                          │ VARCHAR(150)                         │ NULL                                                   │ Course Coordinator username
+   submitted_at                          │ TIMESTAMPTZ                          │ NULL                                                   │ Submission timestamp
+   verification_comments                 │ TEXT                                 │ NULL                                                   │ Reviewer notes from Programme Coordinator
+   verified_at                           │ TIMESTAMPTZ                          │ NULL                                                   │ Verification timestamp
+   verified_by                           │ VARCHAR(150)                         │ NULL                                                   │ Reviewer username
+   created_at                            │ TIMESTAMPTZ                          │ DEFAULT CURRENT_TIMESTAMP                              │ Record creation timestamp
+   updated_at                            │ TIMESTAMPTZ                          │ DEFAULT CURRENT_TIMESTAMP                              │ Last updated timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uk_offering_co_atr (course_offering_id, co_code)                                                                                                                               
+  ──────                                                                                                                                                                                               
+  ### programme_atrs                                                                                                                                                                                   
+                                                                                                                                                                                                       
+  Programme-level Action Taken Report entries (one per Programme + Batch).                                                                                                                             
+                                                                                                                                                                                                       
+   Column                                   │ Data Type                               │ Constraints & Defaults                           │ Description
+  ──────────────────────────────────────────┼─────────────────────────────────────────┼──────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────
+   id                                       │ VARCHAR(50)                             │ PRIMARY KEY                                      │ Programme ATR ID
+   programme_id                             │ VARCHAR(50)                             │ NOT NULL, FK -> programmes(id) ON DELETE CASCADE │ Programme reference
+   batch_id                                 │ VARCHAR(50)                             │ NOT NULL, FK -> batches(id) ON DELETE CASCADE    │ Batch cohort reference
+   status                                   │ VARCHAR(30)                             │ NOT NULL DEFAULT 'DRAFT'                         │ DRAFT, SUBMITTED_FOR_VERIFICATION, APPROVED, NEEDS_REVISION
+   submitted_by                             │ VARCHAR(150)                            │ NULL                                             │ Submitting PC
+   submitted_at                             │ TIMESTAMPTZ                             │ NULL                                             │ Submission timestamp
+   approved_by                              │ VARCHAR(150)                            │ NULL                                             │ Approver (HOD) username
+   approved_at                              │ TIMESTAMPTZ                             │ NULL                                             │ Approval timestamp
+   verified_by                              │ VARCHAR(150)                            │ NULL                                             │ Verifier username
+   verified_at                              │ TIMESTAMPTZ                             │ NULL                                             │ Verification timestamp
+   verification_comments                    │ TEXT                                    │ NULL                                             │ Review feedback
+   observations_json                        │ TEXT                                    │ NULL                                             │ Detailed observation items & action plan JSON
+   created_at                               │ TIMESTAMPTZ                             │ DEFAULT CURRENT_TIMESTAMP                        │ Record timestamp
+   updated_at                               │ TIMESTAMPTZ                             │ DEFAULT CURRENT_TIMESTAMP                        │ Record timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uk_programme_batch_atr (programme_id, batch_id)                                                                                                                                
+  ──────                                                                                                                                                                                               
+  ### approval_requests                                                                                                                                                                                
+                                                                                                                                                                                                       
+  Universal audit queue for multi-level workflow approvals.                                                                                                                                            
+                                                                                                                                                                                                       
+   Column                │ Data Type            │ Constraints & Defaults                       │ Description
+  ───────────────────────┼──────────────────────┼──────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────
+   id                    │ VARCHAR(50)          │ PRIMARY KEY                                  │ Request ID
+   type                  │ VARCHAR(50)          │ NOT NULL                                     │ COURSE_ALLOCATION, CO_DEFINITION, PO_PSO_TARGETS, COURSE_ATR, PROGRAMME_ATR, ATTAINMENT_CONFIGURATION
+   title                 │ VARCHAR(255)         │ NOT NULL                                     │ Summary headline
+   resource_id           │ VARCHAR(50)          │ NOT NULL                                     │ Identity of the target resource
+   school_id             │ VARCHAR(50)          │ FK -> schools(id) ON DELETE CASCADE          │ Optional school scope
+   department_id         │ VARCHAR(50)          │ FK -> departments(id) ON DELETE CASCADE      │ Optional department scope
+   programme_id          │ VARCHAR(50)          │ FK -> programmes(id) ON DELETE CASCADE       │ Optional programme scope
+   batch_id              │ VARCHAR(50)          │ FK -> batches(id) ON DELETE CASCADE          │ Optional batch scope
+   course_id             │ VARCHAR(50)          │ FK -> courses(id) ON DELETE CASCADE          │ Optional course scope
+   course_offering_id    │ VARCHAR(50)          │ FK -> course_offerings(id) ON DELETE CASCADE │ Optional offering scope
+   submitted_by          │ VARCHAR(150)         │ NOT NULL                                     │ Submitter
+   submitted_at          │ TIMESTAMPTZ          │ DEFAULT CURRENT_TIMESTAMP                    │ Submission timestamp
+   status                │ VARCHAR(30)          │ NOT NULL DEFAULT 'PENDING'                   │ PENDING, APPROVED, NEEDS_REVISION, REJECTED
+   approved_by           │ VARCHAR(150)         │ NULL                                         │ Approver identity
+   approved_at           │ TIMESTAMPTZ          │ NULL                                         │ Approval timestamp
+   remarks               │ TEXT                 │ NULL                                         │ Approver/reviewer comments
+   details               │ TEXT                 │ NULL                                         │ Additional context payload JSON
+   created_at            │ TIMESTAMPTZ          │ DEFAULT CURRENT_TIMESTAMP                    │ Creation timestamp
+   updated_at            │ TIMESTAMPTZ          │ DEFAULT CURRENT_TIMESTAMP                    │ Update timestamp
+  ──────                                                                                                                                                                                               
+  ### approval_history                                                                                                                                                                                 
+                                                                                                                                                                                                       
+  Chronological event audit trail for each approval request.                                                                                                                                           
+                                                                                                                                                                                                       
+   Column                                    │ Data Type                                │ Constraints & Defaults                                  │ Description
+  ───────────────────────────────────────────┼──────────────────────────────────────────┼─────────────────────────────────────────────────────────┼────────────────────────────────────────────────────
+   id                                        │ VARCHAR(50)                              │ PRIMARY KEY                                             │ Audit history ID
+   approval_request_id                       │ VARCHAR(50)                              │ NOT NULL, FK -> approval_requests(id) ON DELETE CASCADE │ Parent approval request
+   actor_id                                  │ BIGINT                                   │ FK -> users(id) ON DELETE SET NULL                      │ Performing user ID
+   actor_name                                │ VARCHAR(150)                             │ NOT NULL                                                │ Performing actor name
+   actor_role                                │ VARCHAR(50)                              │ NOT NULL                                                │ Acting role (HOD, DIRECTOR, PROGRAMME_COORDINATOR)
+   action                                    │ VARCHAR(50)                              │ NOT NULL                                                │ SUBMIT, APPROVE, REQUEST_REVISION, REJECT
+   comments                                  │ TEXT                                     │ NULL                                                    │ Written feedback
+   timestamp                                 │ TIMESTAMPTZ                              │ DEFAULT CURRENT_TIMESTAMP                               │ Event timestamp
+  ──────                                                                                                                                                                                               
+  ### director_setup_progress                                                                                                                                                                          
+                                                                                                                                                                                                       
+  Onboarding progress tracker for School Directors.                                                                                                                                                    
+                                                                                                                                                                                                       
+   Column                                   │ Data Type                               │ Constraints & Defaults                                │ Description
+  ──────────────────────────────────────────┼─────────────────────────────────────────┼───────────────────────────────────────────────────────┼────────────────────────────────────────────────────────
+   id                                       │ VARCHAR(50)                             │ PRIMARY KEY                                           │ Tracker ID
+   school_id                                │ VARCHAR(50)                             │ NOT NULL, UNIQUE, FK -> schools(id) ON DELETE CASCADE │ School reference
+   current_step                             │ INTEGER                                 │ NOT NULL DEFAULT 1                                    │ Current wizard step index
+   current_step_enum                        │ VARCHAR(30)                             │ NOT NULL DEFAULT 'SCHOOL'                             │ Step name enum (SCHOOL, DEPARTMENT, PROGRAMME, REVIEW)
+   overall_status                           │ VARCHAR(30)                             │ NOT NULL DEFAULT 'IN_PROGRESS'                        │ NOT_STARTED, IN_PROGRESS, COMPLETED
+   completed_steps                          │ VARCHAR(500)                            │ DEFAULT ''                                            │ Comma-separated list of completed steps
+   pending_steps                            │ VARCHAR(500)                            │ DEFAULT 'school,department,programme,review'          │ Pending steps
+   updated_at                               │ TIMESTAMPTZ                             │ DEFAULT CURRENT_TIMESTAMP                             │ Last updated timestamp
+  ──────                                                                                                                                                                                               
+  ### hod_setup_progress                                                                                                                                                                               
+                                                                                                                                                                                                       
+  Onboarding progress tracker for Department HODs.                                                                                                                                                     
+                                                                                                                                                                                                       
+   Column                                      │ Data Type                                   │ Constraints & Defaults                                    │ Description
+  ─────────────────────────────────────────────┼─────────────────────────────────────────────┼───────────────────────────────────────────────────────────┼─────────────────────────────────────────────
+   id                                          │ VARCHAR(50)                                 │ PRIMARY KEY                                               │ Tracker ID
+   department_id                               │ VARCHAR(50)                                 │ NOT NULL, UNIQUE, FK -> departments(id) ON DELETE CASCADE │ Department reference
+   hod_email                                   │ VARCHAR(150)                                │ NULL                                                      │ HOD email
+   current_step                                │ INTEGER                                     │ NOT NULL DEFAULT 1                                        │ Step index
+   overall_status                              │ VARCHAR(30)                                 │ NOT NULL DEFAULT 'IN_PROGRESS'                            │ IN_PROGRESS, COMPLETED
+   completed_steps                             │ VARCHAR(500)                                │ DEFAULT ''                                                │ Completed steps list
+   pending_steps                               │ VARCHAR(500)                                │ DEFAULT 'batch,outcomes,coordinators,review'              │ Pending steps
+   updated_at                                  │ TIMESTAMPTZ                                 │ DEFAULT CURRENT_TIMESTAMP                                 │ Last updated timestamp
+  ──────                                                                                                                                                                                               
+  ### pc_setup_progress                                                                                                                                                                                
+                                                                                                                                                                                                       
+  Setup progress tracker for Programme Coordinators (Programme + Batch scoped).                                                                                                                        
+                                                                                                                                                                                                       
+   Column                                         │ Data Type                                      │ Constraints & Defaults                           │ Description
+  ────────────────────────────────────────────────┼────────────────────────────────────────────────┼──────────────────────────────────────────────────┼────────────────────────────────────────────────
+   id                                             │ VARCHAR(50)                                    │ PRIMARY KEY                                      │ Tracker ID
+   programme_id                                   │ VARCHAR(50)                                    │ NOT NULL, FK -> programmes(id) ON DELETE CASCADE │ Programme reference
+   batch_id                                       │ VARCHAR(50)                                    │ NOT NULL, FK -> batches(id) ON DELETE CASCADE    │ Batch cohort reference
+   coordinator_email                              │ VARCHAR(150)                                   │ NULL                                             │ PC email
+   current_step                                   │ INTEGER                                        │ NOT NULL DEFAULT 1                               │ Current step index
+   overall_status                                 │ VARCHAR(50)                                    │ NOT NULL DEFAULT 'IN_PROGRESS'                   │ IN_PROGRESS, COMPLETED
+   completed_steps                                │ VARCHAR(500)                                   │ DEFAULT ''                                       │ Completed steps
+   pending_steps                                  │ VARCHAR(500)                                   │ DEFAULT 'courses,targets,review'                 │ Pending steps
+   updated_at                                     │ TIMESTAMPTZ                                    │ DEFAULT CURRENT_TIMESTAMP                        │ Last updated timestamp
+                                                                                                                                                                                                       
+  • Unique Constraints: uk_pc_setup_programme_batch (programme_id, batch_id)                                                                                                                           
+  ──────                                                                                                                                                                                               
+  ### cc_setup_progress                                                                                                                                                                                
+                                                                                                                                                                                                       
+  Course Coordinator 6-step wizard tracker (Course Offering scoped).                                                                                                                                   
+                                                                                                                                                                                                       
+   Column                                 │ Data Type                              │ Constraints & Defaults                                                    │ Description
+  ────────────────────────────────────────┼────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────
+   id                                     │ VARCHAR(50)                            │ PRIMARY KEY                                                               │ Tracker ID
+   course_offering_id                     │ VARCHAR(50)                            │ NOT NULL, UNIQUE, FK -> course_offerings(id) ON DELETE CASCADE            │ Offering reference
+   coordinator_email                      │ VARCHAR(150)                           │ NULL                                                                      │ Course Coordinator email
+   current_step                           │ INTEGER                                │ NOT NULL DEFAULT 1                                                        │ Wizard step (1 to 6)
+   overall_status                         │ VARCHAR(50)                            │ NOT NULL DEFAULT 'IN_PROGRESS'                                            │ IN_PROGRESS, COMPLETED
+   completed_steps                        │ VARCHAR(500)                           │ DEFAULT ''                                                                │ Completed steps
+   pending_steps                          │ VARCHAR(500)                           │ DEFAULT 'cos,co_targets,co_mapping,direct,indirect,attainment,course_atr' │ Remaining steps
+   updated_at                             │ TIMESTAMPTZ                            │ DEFAULT CURRENT_TIMESTAMP                                                 │ Last updated timestamp

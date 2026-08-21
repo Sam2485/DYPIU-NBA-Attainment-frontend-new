@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Users,
   Edit2,
@@ -10,77 +10,93 @@ import {
   Search,
   Sparkles,
 } from 'lucide-react';
-import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
+import { useAcademic } from '../../context/AcademicContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function HodProgrammeCoordinators() {
+  const { user } = useAuth();
   const {
     masterProgrammes = [],
-    updateProgramme = () => {},
-    assignProgrammeCoordinator = () => {},
-    facultyList = [],
+    programmeCoordinators = [],
+    hodCoordinatorAssignments = [],
+    loadProgrammes = () => Promise.resolve([]),
+    loadProgrammeCoordinators = () => Promise.resolve([]),
+    loadHodCoordinators = () => Promise.resolve([]),
+    assignHodCoordinator = () => Promise.resolve(null),
   } = useAcademic();
-
-  const activeFaculties = facultyList.length > 0 ? facultyList : ['Programme Coordinator', 'Head of Department (HOD)', 'Course Coordinator', 'School Director'];
 
   const [searchQuery, setSearchQuery] = useState('');
   const [editingProg, setEditingProg] = useState(null);
   const [selectedCoordinator, setSelectedCoordinator] = useState('');
-  const [customCoordinator, setCustomCoordinator] = useState('');
-  const [isCustomMode, setIsCustomMode] = useState(false);
   const [successToast, setSuccessToast] = useState(null);
 
+  useEffect(() => {
+    Promise.allSettled([
+      loadProgrammes(user?.departmentId),
+      loadProgrammeCoordinators(),
+      loadHodCoordinators(user?.departmentId),
+    ]);
+  }, [loadHodCoordinators, loadProgrammeCoordinators, loadProgrammes, user?.departmentId]);
+
+  const assignmentsByProgrammeId = useMemo(
+    () => new Map(hodCoordinatorAssignments.map((assignment) => [assignment.programmeId, assignment])),
+    [hodCoordinatorAssignments]
+  );
+
+  const departmentProgrammes = masterProgrammes.filter(
+    (programme) => !user?.departmentId || programme.departmentId === user.departmentId
+  );
+
   // Filter programmes for display
-  const filteredProgrammes = masterProgrammes.filter(
+  const filteredProgrammes = departmentProgrammes.filter(
     (p) =>
       p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.coordinator?.toLowerCase().includes(searchQuery.toLowerCase())
+      (assignmentsByProgrammeId.get(p.id)?.coordinator ?? p.coordinator ?? '')
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase())
   );
 
-  const assignedCount = masterProgrammes.filter(
-    (p) => p.coordinator && p.coordinator !== 'Pending HOD Assignment' && p.coordinator !== 'No coordinator assigned yet'
+  const assignedCount = departmentProgrammes.filter(
+    (programme) => assignmentsByProgrammeId.get(programme.id)?.coordinator ?? programme.coordinator
   ).length;
 
-  const unassignedCount = masterProgrammes.length - assignedCount;
+  const unassignedCount = departmentProgrammes.length - assignedCount;
 
   const handleOpenEditModal = (prog) => {
     setEditingProg(prog);
-    const existing = prog.coordinator || '';
-    if (activeFaculties.includes(existing)) {
-      setSelectedCoordinator(existing);
-      setIsCustomMode(false);
-      setCustomCoordinator('');
-    } else if (existing && existing !== 'Pending HOD Assignment' && existing !== 'No coordinator assigned yet') {
-      setSelectedCoordinator('CUSTOM');
-      setIsCustomMode(true);
-      setCustomCoordinator(existing);
-    } else {
-      setSelectedCoordinator(activeFaculties[0] || '');
-      setIsCustomMode(false);
-      setCustomCoordinator('');
-    }
+    const existingCoordinator = assignmentsByProgrammeId.get(prog.id)?.coordinator ?? prog.coordinator;
+    const coordinator = programmeCoordinators.find((item) => item.name === existingCoordinator);
+    setSelectedCoordinator(coordinator?.id != null ? String(coordinator.id) : '');
   };
 
-  const handleSaveCoordinator = () => {
+  const handleSaveCoordinator = async () => {
     if (!editingProg) return;
 
-    const finalName = isCustomMode ? customCoordinator.trim() : selectedCoordinator;
-    if (!finalName) {
-      alert('Please select or enter a valid faculty name for Programme Coordinator.');
+    const coordinator = programmeCoordinators.find(
+      (item) => String(item.id) === String(selectedCoordinator)
+    );
+    if (!coordinator?.name || !coordinator.email) {
+      alert('Please select a registered Programme Coordinator.');
       return;
     }
 
-    if (assignProgrammeCoordinator && typeof assignProgrammeCoordinator === 'function') {
-      assignProgrammeCoordinator(editingProg.id, finalName);
+    try {
+      await assignHodCoordinator({
+        programmeId: editingProg.id,
+        coordinator: coordinator.name,
+        coordinatorEmail: coordinator.email,
+      });
+
+      setSuccessToast(`Programme Coordinator for ${editingProg.code} updated to "${coordinator.name}".`);
+      setEditingProg(null);
+
+      setTimeout(() => {
+        setSuccessToast(null);
+      }, 4000);
+    } catch (error) {
+      console.error('Failed to assign Programme Coordinator:', error);
     }
-    updateProgramme(editingProg.id, { coordinator: finalName });
-
-    setSuccessToast(`🎉 Programme Coordinator for ${editingProg.code} updated to "${finalName}"!`);
-    setEditingProg(null);
-
-    setTimeout(() => {
-      setSuccessToast(null);
-    }, 4000);
   };
 
   return (
@@ -118,7 +134,7 @@ export default function HodProgrammeCoordinators() {
               <BookOpen size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a' }}>{masterProgrammes.length}</div>
+          <div style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a' }}>{departmentProgrammes.length}</div>
         </div>
 
         <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px' }}>
@@ -199,7 +215,9 @@ export default function HodProgrammeCoordinators() {
                 </tr>
               ) : (
                 filteredProgrammes.map((prog, idx) => {
-                  const isAssigned = prog.coordinator && prog.coordinator !== 'Pending HOD Assignment' && prog.coordinator !== 'No coordinator assigned yet';
+                  const assignment = assignmentsByProgrammeId.get(prog.id);
+                  const coordinatorName = assignment?.coordinator ?? prog.coordinator;
+                  const isAssigned = Boolean(coordinatorName);
                   return (
                     <tr key={prog.id}>
                       <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>{idx + 1}</td>
@@ -210,13 +228,13 @@ export default function HodProgrammeCoordinators() {
                       </td>
                       <td style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>{prog.name}</td>
                       <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>
-                        {prog.durationYears ? `${prog.durationYears} Years` : '4 Years'}
+                        {prog.durationYears != null ? `${prog.durationYears} Years` : '—'}
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         {isAssigned ? (
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 12px', borderRadius: '8px' }}>
                             <UserCheck size={14} style={{ color: '#059669' }} />
-                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>{prog.coordinator}</span>
+                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>{coordinatorName}</span>
                           </div>
                         ) : (
                           <span style={{ fontSize: '12px', fontWeight: '700', color: '#d97706', background: '#fffbeb', border: '1px solid #fde68a', padding: '3px 10px', borderRadius: '6px' }}>
@@ -314,16 +332,8 @@ export default function HodProgrammeCoordinators() {
                   Select Faculty Member
                 </label>
                 <select
-                  value={isCustomMode ? 'CUSTOM' : selectedCoordinator}
-                  onChange={(e) => {
-                    if (e.target.value === 'CUSTOM') {
-                      setIsCustomMode(true);
-                      setSelectedCoordinator('CUSTOM');
-                    } else {
-                      setIsCustomMode(false);
-                      setSelectedCoordinator(e.target.value);
-                    }
-                  }}
+                  value={selectedCoordinator}
+                  onChange={(e) => setSelectedCoordinator(e.target.value)}
                   style={{
                     width: '100%',
                     padding: '9px 12px',
@@ -337,37 +347,14 @@ export default function HodProgrammeCoordinators() {
                     background: '#ffffff',
                   }}
                 >
-                  {activeFaculties.map((fac) => (
-                    <option key={fac} value={fac}>
-                      {fac}
+                  <option value="">Select Programme Coordinator</option>
+                  {programmeCoordinators.map((coordinator) => (
+                    <option key={coordinator.id} value={coordinator.id}>
+                      {coordinator.name}
                     </option>
                   ))}
-                  <option value="CUSTOM">+ Enter Custom Faculty Name</option>
                 </select>
               </div>
-
-              {isCustomMode && (
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
-                    Custom Faculty Name & Designation
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Dr. Strategic Coordinator"
-                    value={customCoordinator}
-                    onChange={(e) => setCustomCoordinator(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '9px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '13px',
-                      outline: 'none',
-                      fontFamily: 'inherit',
-                    }}
-                  />
-                </div>
-              )}
 
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px', fontSize: '12px', color: '#475569', lineHeight: '1.5' }}>
                 💡 <strong>Note:</strong> The assigned Programme Coordinator will have administrative access to set PO/PSO targets, verify course submissions, and generate batch reports.

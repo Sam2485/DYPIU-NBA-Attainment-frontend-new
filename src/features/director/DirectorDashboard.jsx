@@ -30,17 +30,9 @@ export default function DirectorDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const {
-    departments = [],
-    selectedSchool = null,
-    masterProgrammes = [],
-    directorApprovals = [],
-    directorWorkflowProgress = null,
+    directorDashboard = null,
     loadDirectorDashboard,
-    loadDirectorSetupProgress,
-    loadSchools,
-    loadDepartments,
-    loadProgrammes,
-    loadDirectorApprovals,
+    loadBatches,
   } = useAcademic();
 
   const [screenLoading, setScreenLoading] = useState(false);
@@ -51,12 +43,8 @@ export default function DirectorDashboard() {
     setScreenError(null);
     try {
       await Promise.allSettled([
-        loadSchools ? loadSchools() : Promise.resolve(),
-        loadDepartments ? loadDepartments() : Promise.resolve(),
-        loadProgrammes ? loadProgrammes() : Promise.resolve(),
-        loadDirectorApprovals ? loadDirectorApprovals() : Promise.resolve(),
-        loadDirectorDashboard ? loadDirectorDashboard() : Promise.resolve(),
-        loadDirectorSetupProgress ? loadDirectorSetupProgress() : Promise.resolve(),
+        loadDirectorDashboard ? loadDirectorDashboard(user?.schoolId) : Promise.resolve(),
+        loadBatches ? loadBatches() : Promise.resolve(),
       ]);
     } catch (err) {
       console.warn('DirectorDashboard fetch failed:', err);
@@ -70,24 +58,21 @@ export default function DirectorDashboard() {
     fetchDashboardData();
   }, []);
 
-  const totalDepts = departments?.length ?? 0;
-  const assignedHODs = Array.isArray(departments)
-    ? departments.filter((d) => d?.hod && d.hod !== 'Unassigned').length
-    : 0;
-  const pendingHODs = Math.max(totalDepts - assignedHODs, 0);
-  const totalProgrammes = masterProgrammes?.length ?? 0;
-  const pendingApprovalsCount = Array.isArray(directorApprovals)
-    ? directorApprovals.filter((a) => a?.status === 'PENDING').length
-    : 0;
+  const statistics = directorDashboard?.statistics ?? {};
+  const totalDepts = statistics.departmentsCount ?? statistics.departments ?? null;
+  const totalProgrammes = statistics.programmesCount ?? statistics.programmes ?? null;
+  const assignedHODs = null;
+  const pendingHODs = null;
+  const pendingApprovalsCount = null;
 
   // ── Per-step completion tracking ───────────────────────────────────────────
-  const safeProgress = directorWorkflowProgress ?? {};
+  const safeProgress = directorDashboard?.workflowProgress ?? directorDashboard?.setupProgress ?? {};
   const stepStatus = DIRECTOR_STEPS.map((s, idx) => {
     if (Array.isArray(safeProgress.stepStatus)) {
       return !!safeProgress.stepStatus[idx];
     }
     if (Array.isArray(safeProgress.completedSteps)) {
-      return safeProgress.completedSteps.includes(s.step);
+      return safeProgress.completedSteps.some((step) => Number(step) === s.step);
     }
     return !!safeProgress[s.step] || !!safeProgress[`step-${s.step}`];
   });
@@ -146,16 +131,16 @@ export default function DirectorDashboard() {
   const muted = '#64748b';
   const accent = '#4f46e5';
 
-  if (screenLoading && !selectedSchool && departments.length === 0) {
+  if (screenLoading && !directorDashboard) {
     return <ScreenLoadingState message="Loading Director Dashboard..." />;
   }
 
-  if (screenError && !selectedSchool && departments.length === 0) {
+  if (screenError && !directorDashboard) {
     return <ScreenErrorState title="Failed to load Director Dashboard" message={screenError} onRetry={fetchDashboardData} />;
   }
 
-  const schoolDisplayName = selectedSchool?.name || 'School of Engineering & Technology';
-  const schoolDisplayCode = selectedSchool?.code || 'SET';
+  const schoolDisplayName = directorDashboard?.school?.name ?? '—';
+  const schoolDisplayCode = directorDashboard?.school?.code ?? '—';
 
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
@@ -215,7 +200,7 @@ export default function DirectorDashboard() {
               <Building2 size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalDepts}</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalDepts ?? '—'}</div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>In {schoolDisplayCode}</div>
         </div>
 
@@ -228,10 +213,10 @@ export default function DirectorDashboard() {
             </div>
           </div>
           <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>
-            {assignedHODs}<span style={{ fontSize: '14px', fontWeight: '600', color: muted }}>/{totalDepts}</span>
+            {assignedHODs ?? '—'}<span style={{ fontSize: '14px', fontWeight: '600', color: muted }}>/{totalDepts ?? '—'}</span>
           </div>
-          <div style={{ fontSize: '11.5px', marginTop: '5px', fontWeight: '600', color: pendingHODs > 0 ? '#d97706' : '#16a34a' }}>
-            {pendingHODs > 0 ? `${pendingHODs} pending` : 'All assigned'}
+          <div style={{ fontSize: '11.5px', marginTop: '5px', fontWeight: '600', color: muted }}>
+            Not provided by dashboard
           </div>
         </div>
 
@@ -243,7 +228,7 @@ export default function DirectorDashboard() {
               <GraduationCap size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalProgrammes}</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalProgrammes ?? '—'}</div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>Degree programmes</div>
         </div>
 

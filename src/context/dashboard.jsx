@@ -211,14 +211,13 @@ export function DashboardProvider({ children }) {
   /* ======================================================================== */
 
   const loadDirectorDashboard = useCallback(
-    async (targetSchoolId = selectedSchoolId, directorEmail = user?.email) => {
+    async (targetSchoolId = selectedSchoolId ?? user?.schoolId) => {
       try {
         setDirectorDashboardError(null);
         setError(null);
 
         const response = await dashboardApi.getDirectorDashboard(
-          targetSchoolId,
-          directorEmail
+          targetSchoolId
         );
         const data = unwrap(response);
         setDirectorDashboard(data);
@@ -230,7 +229,7 @@ export function DashboardProvider({ children }) {
         return null;
       }
     },
-    [selectedSchoolId, user?.email]
+    [selectedSchoolId, user?.schoolId]
   );
 
   const loadHodDashboard = useCallback(
@@ -321,13 +320,12 @@ export function DashboardProvider({ children }) {
   /* ======================================================================== */
 
   const loadDirectorSetupProgress = useCallback(
-    async (targetSchoolId = selectedSchoolId, directorEmail = user?.email) => {
+    async (targetSchoolId = user?.schoolId) => {
       try {
         const params = {};
         if (targetSchoolId) params.schoolId = targetSchoolId;
-        if (directorEmail) params.directorEmail = directorEmail;
 
-        const response = await apiClient.get('/academic/director/setup-progress', { params });
+        const response = await apiClient.get('/academic/setup-status', { params });
         const normalized = normalizeProgress(unwrap(response), DIRECTOR_WORKFLOW_STEPS.length);
         setDirectorWorkflowProgress(normalized);
         return normalized;
@@ -336,7 +334,7 @@ export function DashboardProvider({ children }) {
         return null;
       }
     },
-    [selectedSchoolId, user?.email]
+    [user?.schoolId]
   );
 
   const loadHodSetupProgress = useCallback(
@@ -441,18 +439,24 @@ export function DashboardProvider({ children }) {
   const saveDirectorSetupProgress = useCallback(
     async (nextStep, completedStep) => {
       try {
+        const schoolId = selectedSchoolId ?? user?.schoolId;
+        if (!schoolId) {
+          throw new Error('A schoolId is required to save Director setup progress.');
+        }
+
+        const existingCompletedSteps = (directorWorkflowProgress?.completedSteps ?? [])
+          .map(String);
         const payload = {
-          schoolId: selectedSchoolId,
-          directorEmail: user?.email,
+          schoolId,
           step: nextStep,
           completedStep: String(completedStep),
           completedSteps: [
-            ...(directorWorkflowProgress?.completedSteps || []),
-            Number(completedStep),
+            ...existingCompletedSteps,
+            String(completedStep),
           ].filter((v, i, arr) => arr.indexOf(v) === i),
         };
 
-        const response = await apiClient.post('/academic/director/setup-progress', payload);
+        const response = await apiClient.post('/academic/setup-status', payload);
         const normalized = normalizeProgress(unwrap(response), DIRECTOR_WORKFLOW_STEPS.length);
         setDirectorWorkflowProgress(normalized);
         return normalized;
@@ -461,7 +465,7 @@ export function DashboardProvider({ children }) {
         throw err;
       }
     },
-    [selectedSchoolId, user?.email, directorWorkflowProgress?.completedSteps]
+    [selectedSchoolId, user?.schoolId, directorWorkflowProgress?.completedSteps]
   );
 
   const saveHodSetupProgress = useCallback(

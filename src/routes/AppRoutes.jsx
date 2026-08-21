@@ -47,8 +47,12 @@ import CourseCoordinatorWorkflowPage from '../pages/CourseCoordinatorWorkflowPag
 import ErrorBoundary from '../components/common/ErrorBoundary';
 
 function ProtectedRoute({ children }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isRestoringSession } = useAuth();
   const location = useLocation();
+
+  if (isRestoringSession) {
+    return null;
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;

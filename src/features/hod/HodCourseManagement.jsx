@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BookOpen, Users, UserCheck, CheckCircle2, Search, Plus, Edit2, Trash2, Save, X, GraduationCap } from 'lucide-react';
-import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
+import { useAcademic } from '../../context/AcademicContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
 const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
@@ -11,32 +11,45 @@ export default function HodCourseManagement() {
     departments = [],
     programmeId,
     setProgrammeId,
-    updateProgramme = () => {},
+    user,
+    loadProgrammes = () => Promise.resolve([]),
+    loadCourses = () => Promise.resolve([]),
+    loadCourseCoordinators = () => Promise.resolve([]),
+    loadProgrammeCoordinators = () => Promise.resolve([]),
+    programmeCoordinators = [],
+    assignHodCoordinator = () => Promise.resolve(null),
     courses = [],
+    batchId,
+    courseOfferings = [],
+    loadCourseOfferings = () => Promise.resolve([]),
+    addCourseOffering = () => Promise.resolve(null),
     assignCourseCoordinator = () => {},
     addCourse = () => {},
     updateCourse = () => {},
     deleteCourse = () => {},
-    facultyList = [],
+    courseCoordinators = [],
   } = useAcademic();
 
-  const activeFaculties = facultyList.length > 0 ? facultyList : ['Course Coordinator', 'Programme Coordinator', 'Head of Department (HOD)', 'School Director'];
+  const activeFaculties = useMemo(
+    () => courseCoordinators.filter((faculty) => faculty?.id != null),
+    [courseCoordinators]
+  );
 
   const [searchQuery, setSearchQuery] = useState('');
 
   const assignedHods = departments.map((d) => d.hod).filter(Boolean);
 
-  const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP', durationYears: 4 };
+  const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) ?? null;
 
-  const durationYears = selectedProgramme.durationYears || 4;
+  const durationYears = selectedProgramme?.durationYears ?? 4;
   const totalSemesters = durationYears * 2;
   const programmeSemesters = Array.from({ length: totalSemesters }, (_, i) => `Sem ${ROMAN_NUMERALS[i] || i + 1}`);
 
   // Inline Add Course Form State
   const [newCode, setNewCode] = useState('');
   const [newName, setNewName] = useState('');
-  const [newSem, setNewSem] = useState(programmeSemesters[0] || 'Sem I');
-  const [newCoordinator, setNewCoordinator] = useState(activeFaculties[0] || 'Course Coordinator');
+  const [newSem, setNewSem] = useState('1');
+  const [newCoordinator, setNewCoordinator] = useState('');
 
   // Inline Edit Row State
   const [editingCourseId, setEditingCourseId] = useState(null);
@@ -45,54 +58,121 @@ export default function HodCourseManagement() {
   const [editSem, setEditSem] = useState('');
   const [editCoordinator, setEditCoordinator] = useState('');
 
+  useEffect(() => {
+    const loadCourseData = async () => {
+      const programmes = await loadProgrammes(user?.departmentId ?? null);
+      if (!programmeId && programmes[0]?.id) setProgrammeId(programmes[0].id);
+      await Promise.all([loadCourseCoordinators(), loadProgrammeCoordinators()]);
+    };
+
+    loadCourseData().catch(() => {});
+  }, [loadCourseCoordinators, loadProgrammes, loadProgrammeCoordinators, programmeId, setProgrammeId, user?.departmentId]);
+
+  useEffect(() => {
+    if (programmeId) loadCourses(programmeId).catch(() => {});
+  }, [loadCourses, programmeId]);
+
+  useEffect(() => {
+    if (batchId) loadCourseOfferings(batchId).catch(() => {});
+  }, [batchId, loadCourseOfferings]);
+
+  useEffect(() => {
+    setNewSem('1');
+  }, [programmeId]);
+
+  useEffect(() => {
+    setNewCoordinator((current) => current || String(activeFaculties[0]?.id ?? ''));
+  }, [activeFaculties]);
+
   // Filter courses by selected programme & search query
   const filteredCourses = courses
-    .filter((c) => !c.programmeId || c.programmeId === programmeId)
+    .filter((c) => c.programmeId === programmeId)
     .filter(
       (c) =>
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (c.faculty || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (c.coordinator || '').toLowerCase().includes(searchQuery.toLowerCase())
+        (c.courseCoordinatorName || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-  const handleAddCourse = (e) => {
+  const handleAddCourse = async (e) => {
     e.preventDefault();
-    if (!newCode || !newName) return;
+    if (!newCode || !newName || !programmeId) return;
 
     const createdCourse = {
-      id: `crs-${Date.now()}`,
+      id: `crs-${newCode.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
       programmeId,
-      code: newCode,
-      name: newName,
-      semester: newSem,
-      coordinator: newCoordinator,
-      faculty: newCoordinator,
+      code: newCode.trim().toUpperCase(),
+      name: newName.trim(),
+      semester: Number.parseInt(newSem, 10),
+      credits: 4,
+      status: 'ACTIVE',
     };
 
-    addCourse(createdCourse);
-    alert(`🎉 Course ${newCode} - ${newName} added to ${selectedProgramme.name} (${newSem})!`);
-    setNewCode('');
-    setNewName('');
+    const savedCourse = await addCourse(createdCourse);
+    if (savedCourse) {
+      const coordinator = activeFaculties.find(
+        (faculty) => String(faculty.id) === String(newCoordinator)
+      );
+      if (batchId && coordinator) {
+        await addCourseOffering({
+          id: `offering-${savedCourse.id}-${batchId}`,
+          courseId: savedCourse.id,
+          batchId,
+          courseName: savedCourse.name,
+          courseCode: savedCourse.code,
+          semester: savedCourse.semester,
+          courseCoordinatorId: Number(coordinator.id),
+          courseCoordinator: coordinator.name || coordinator.username || coordinator.email,
+          courseCoordinatorEmail: coordinator.email || '',
+          status: 'ALLOCATED',
+        });
+      }
+      setNewCode('');
+      setNewName('');
+    }
   };
 
   const handleStartEdit = (course) => {
     setEditingCourseId(course.id);
     setEditCode(course.code);
     setEditName(course.name);
-    setEditSem(course.semester || programmeSemesters[0]);
-    setEditCoordinator(course.coordinator || (course.faculty || '').split('/')[0].trim());
+    setEditSem(String(course.semester ?? 1));
+    setEditCoordinator(String(course.courseCoordinatorId ?? ''));
   };
 
-  const handleSaveEdit = (courseId) => {
-    updateCourse(courseId, {
-      code: editCode,
-      name: editName,
-      semester: editSem,
-      coordinator: editCoordinator,
-      faculty: editCoordinator,
+  const handleSaveEdit = async (courseId) => {
+    const course = courses.find((item) => item.id === courseId);
+    if (!course) return;
+    await updateCourse(courseId, {
+      code: editCode.trim().toUpperCase(),
+      name: editName.trim(),
+      programmeId: course.programmeId,
+      semester: Number.parseInt(editSem, 10),
+      credits: course.credits ?? 4,
+      status: course.status ?? 'ACTIVE',
     });
+    if (batchId && editCoordinator) {
+      await assignCourseCoordinator(courseId, Number(editCoordinator), batchId);
+    }
     setEditingCourseId(null);
+  };
+
+  const handleProgrammeCoordinatorChange = async (coordinatorName) => {
+    if (!selectedProgramme) return;
+    const coordinator = programmeCoordinators.find(
+      (item) => (item.name || item.username || item.email) === coordinatorName
+    );
+    if (!coordinator) return;
+    await assignHodCoordinator({
+      programmeId: selectedProgramme.id,
+      coordinator: coordinator.name || coordinator.username || coordinator.email,
+      coordinatorEmail: coordinator.email || '',
+    });
+  };
+
+  const handleCourseCoordinatorChange = async (courseId, coordinatorId) => {
+    if (!batchId || !coordinatorId) return;
+    await assignCourseCoordinator(courseId, Number(coordinatorId), batchId);
   };
 
   const [deletingCourse, setDeletingCourse] = useState(null);
@@ -147,7 +227,7 @@ export default function HodCourseManagement() {
             </h2>
             <p style={{ margin: 0, fontSize: '12.5px', color: '#64748b' }}>
               Assign Programme Coordinator and manage courses for{' '}
-              <strong style={{ color: accent }}>{selectedProgramme.name}</strong>{' '}
+              <strong style={{ color: accent }}>{selectedProgramme?.name ?? '—'}</strong>{' '}
               <span style={{ opacity: 0.8 }}>({durationYears} Years → {totalSemesters} Semesters)</span>
             </p>
           </div>
@@ -193,9 +273,9 @@ export default function HodCourseManagement() {
               Programme Coordinator — Assigned by HOD
             </div>
             <div style={{ fontSize: '14.5px', fontWeight: '800', color: ink }}>
-              {selectedProgramme.name}
+              {selectedProgramme?.name ?? '—'}
               <span style={{ marginLeft: '8px', fontSize: '12px', fontWeight: '600', color: accent, background: '#eef2ff', padding: '1px 8px', borderRadius: '5px', border: '1px solid #c7d2fe' }}>
-                {selectedProgramme.code}
+                {selectedProgramme?.code ?? '—'}
               </span>
             </div>
           </div>
@@ -203,7 +283,7 @@ export default function HodCourseManagement() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           {/* Avatar initial of currently assigned coordinator */}
-          {selectedProgramme.coordinator && (
+          {selectedProgramme?.coordinator && (
             <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: accent, color: '#ffffff', display: 'grid', placeItems: 'center', fontSize: '13px', fontWeight: '800', flexShrink: 0, boxShadow: '0 2px 8px rgba(79,70,229,0.3)' }}>
               {(selectedProgramme.coordinator || '').charAt(0).toUpperCase()}
             </div>
@@ -213,10 +293,8 @@ export default function HodCourseManagement() {
               Assigned Programme Coordinator
             </label>
             <select
-              value={selectedProgramme.coordinator || 'Dr. A. K. Sharma'}
-              onChange={(e) => {
-                updateProgramme(selectedProgramme.id, { coordinator: e.target.value });
-              }}
+              value={selectedProgramme?.coordinator || ''}
+              onChange={(e) => handleProgrammeCoordinatorChange(e.target.value)}
               style={{
                 height: '36px',
                 padding: '0 12px',
@@ -232,11 +310,13 @@ export default function HodCourseManagement() {
                 minWidth: '220px',
               }}
             >
-              {activeFaculties.map((fac) => {
-                const isHod = assignedHods.includes(fac);
+              <option value="">Unassigned</option>
+              {programmeCoordinators.map((fac) => {
+                const facultyName = fac.name || fac.username || fac.email;
+                const isHod = assignedHods.includes(facultyName);
                 return (
-                  <option key={fac} value={fac} disabled={isHod} style={{ color: isHod ? '#94a3b8' : '#0f172a' }}>
-                    {fac} {isHod ? '(Disabled — Is HOD)' : ''}
+                  <option key={fac.id} value={facultyName} disabled={isHod} style={{ color: isHod ? '#94a3b8' : '#0f172a' }}>
+                    {facultyName} {isHod ? '(Disabled — Is HOD)' : ''}
                   </option>
                 );
               })}
@@ -251,7 +331,7 @@ export default function HodCourseManagement() {
         style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '20px' }}
       >
         <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '10px' }}>
-          Add Course for {selectedProgramme.code} (Semesters: {totalSemesters} Total)
+          Add Course for {selectedProgramme?.code ?? '—'} (Semesters: {totalSemesters} Total)
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 130px 220px auto', gap: '10px', alignItems: 'flex-end' }}>
           <div>
@@ -283,7 +363,7 @@ export default function HodCourseManagement() {
               onChange={(e) => setNewSem(e.target.value)}
               style={{ ...inputStyle, cursor: 'pointer', fontWeight: '700', color: accent }}
             >
-              {programmeSemesters.map((s) => <option key={s} value={s}>{s}</option>)}
+              {programmeSemesters.map((s, index) => <option key={s} value={index + 1}>{s}</option>)}
             </select>
           </div>
           <div>
@@ -293,7 +373,8 @@ export default function HodCourseManagement() {
               onChange={(e) => setNewCoordinator(e.target.value)}
               style={{ ...inputStyle, cursor: 'pointer', color: accent, fontWeight: '600' }}
             >
-              {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
+              <option value="">Unassigned</option>
+              {activeFaculties.map((faculty) => <option key={faculty.id} value={faculty.id}>{faculty.name || faculty.username || faculty.email}</option>)}
             </select>
           </div>
           <button
@@ -318,7 +399,7 @@ export default function HodCourseManagement() {
           />
         </div>
         <span style={{ fontSize: '12px', fontWeight: '600', color: muted }}>
-          {filteredCourses.length} course{filteredCourses.length !== 1 ? 's' : ''} in {selectedProgramme.code}
+          {filteredCourses.length} course{filteredCourses.length !== 1 ? 's' : ''} in {selectedProgramme?.code ?? '—'}
         </span>
       </div>
 
@@ -339,14 +420,16 @@ export default function HodCourseManagement() {
             {filteredCourses.length === 0 && (
               <tr>
                 <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: muted, fontSize: '12.5px' }}>
-                  No courses found for <strong>{selectedProgramme.name}</strong>. Add one above.
+                  No courses found for <strong>{selectedProgramme?.name ?? 'the selected programme'}</strong>. Add one above.
                 </td>
               </tr>
             )}
 
             {filteredCourses.map((c) => {
               const isEditing = editingCourseId === c.id;
-              const coord = c.coordinator || (c.faculty || '').split('/')[0].trim();
+              const offering = courseOfferings.find(
+                (item) => item.courseId === c.id && item.batchId === batchId
+              );
 
               return (
                 <tr
@@ -391,7 +474,7 @@ export default function HodCourseManagement() {
                         onChange={(e) => setEditSem(e.target.value)}
                         style={{ ...inputStyle, height: '34px', fontSize: '12px', cursor: 'pointer', fontWeight: '700', color: accent }}
                       >
-                        {programmeSemesters.map((s) => <option key={s} value={s}>{s}</option>)}
+                        {programmeSemesters.map((s, index) => <option key={s} value={index + 1}>{s}</option>)}
                       </select>
                     ) : (
                       <span style={{ fontSize: '12px', color: accent, fontWeight: '800', background: '#e0e7ff', padding: '2px 8px', borderRadius: '4px' }}>
@@ -408,15 +491,17 @@ export default function HodCourseManagement() {
                         onChange={(e) => setEditCoordinator(e.target.value)}
                         style={{ ...inputStyle, height: '34px', fontSize: '12px', cursor: 'pointer', color: accent, fontWeight: '600' }}
                       >
-                        {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
+                        <option value="">Unassigned</option>
+                        {activeFaculties.map((faculty) => <option key={faculty.id} value={faculty.id}>{faculty.name || faculty.username || faculty.email}</option>)}
                       </select>
                     ) : (
                       <select
-                        value={coord}
-                        onChange={(e) => assignCourseCoordinator(c.id, e.target.value)}
+                        value={offering?.courseCoordinatorId != null ? String(offering.courseCoordinatorId) : ''}
+                        onChange={(e) => handleCourseCoordinatorChange(c.id, e.target.value)}
                         style={{ ...inputStyle, height: '34px', fontSize: '12px', cursor: 'pointer', color: accent, fontWeight: '600' }}
                       >
-                        {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
+                        <option value="">Unassigned</option>
+                        {activeFaculties.map((faculty) => <option key={faculty.id} value={faculty.id}>{faculty.name || faculty.username || faculty.email}</option>)}
                       </select>
                     )}
                   </td>

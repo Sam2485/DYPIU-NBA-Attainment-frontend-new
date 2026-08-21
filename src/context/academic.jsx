@@ -194,6 +194,9 @@ export function AcademicProvider({ children }) {
   const [courses, setCourses] = useState([]);
   const [courseOfferings, setCourseOfferings] = useState([]);
   const [courseCoordinators, setCourseCoordinators] = useState([]);
+  const [hods, setHods] = useState([]);
+  const [programmeCoordinators, setProgrammeCoordinators] = useState([]);
+  const [hodCoordinatorAssignments, setHodCoordinatorAssignments] = useState([]);
   const [students, setStudents] = useState([]);
 
   /* ------------------------------------------------------------------------ */
@@ -293,12 +296,18 @@ export function AcademicProvider({ children }) {
       const response = await apiClient.get('/academic/schools');
       const data = unwrapList(response).map(normalizeSchool);
       setSchools(data);
+
+      if (data.length > 0) {
+        const scopedSchool = data.find((school) => school.id === user?.schoolId);
+        setSelectedSchoolId((currentId) => currentId ?? scopedSchool?.id ?? data[0].id);
+      }
+
       return data;
     } catch (err) {
       console.warn('loadSchools failed:', err);
       return [];
     }
-  }, []);
+  }, [user?.schoolId]);
 
   /* --- Departments --- */
   const loadDepartments = useCallback(async (targetSchoolId = null) => {
@@ -418,6 +427,67 @@ export function AcademicProvider({ children }) {
       console.warn('loadCourseCoordinators failed:', err);
       return [];
     }
+  }, []);
+
+  /* --- HOD Directory --- */
+  const loadHods = useCallback(async () => {
+    try {
+      const response = await apiClient.get('/academic/hods');
+      const data = unwrapList(response).map(normalizeUser);
+      setHods(data);
+      return data;
+    } catch (err) {
+      console.warn('loadHods failed:', err);
+      return [];
+    }
+  }, []);
+
+  /* --- Programme Coordinator Directory & HOD Assignments --- */
+  const loadProgrammeCoordinators = useCallback(async () => {
+    try {
+      const response = await apiClient.get('/academic/programme-coordinators');
+      const data = unwrapList(response).map(normalizeUser);
+      setProgrammeCoordinators(data);
+      return data;
+    } catch (err) {
+      console.warn('loadProgrammeCoordinators failed:', err);
+      return [];
+    }
+  }, []);
+
+  const loadHodCoordinators = useCallback(async (departmentId = null) => {
+    try {
+      const params = departmentId ? { departmentId } : {};
+      const response = await apiClient.get('/academic/hod/coordinators', { params });
+      const data = unwrapList(response);
+      setHodCoordinatorAssignments(data);
+      return data;
+    } catch (err) {
+      console.warn('loadHodCoordinators failed:', err);
+      return [];
+    }
+  }, []);
+
+  const assignHodCoordinator = useCallback(async (payload) => {
+    const response = await apiClient.put('/academic/hod/coordinators', payload);
+    const data = unwrap(response);
+
+    setHodCoordinatorAssignments((previous) => [
+      ...previous.filter((item) => item.programmeId !== data?.programmeId),
+      data,
+    ]);
+
+    setProgrammes((previous) => previous.map((programme) => (
+      programme.id === data?.programmeId
+        ? {
+            ...programme,
+            coordinator: data.coordinator,
+            coordinatorEmail: data.coordinatorEmail,
+          }
+        : programme
+    )));
+
+    return data;
   }, []);
 
   /* --- Students --- */
@@ -965,6 +1035,12 @@ export function AcademicProvider({ children }) {
     [batchId, courseOfferings, updateCourseOffering]
   );
 
+  /* --- Course Allocation --- */
+  const allocateCourses = useCallback(async (payload) => {
+    const response = await apiClient.post('/academic/courses/allocate', payload);
+    return unwrap(response);
+  }, []);
+
   /* --- Course Outcomes Mutator --- */
   const updateCourseCOs = useCallback(
     async (newCOs, offeringId = courseOfferingId) => {
@@ -1178,11 +1254,19 @@ export function AcademicProvider({ children }) {
     createCourseOffering: addCourseOffering,
     updateCourseOffering,
     assignCourseCoordinator,
+    allocateCourses,
 
     /* Course Coordinators & Faculty */
     courseCoordinators,
     facultyList,
     loadCourseCoordinators,
+    hods,
+    loadHods,
+    programmeCoordinators,
+    loadProgrammeCoordinators,
+    hodCoordinatorAssignments,
+    loadHodCoordinators,
+    assignHodCoordinator,
 
     /* Programme Outcomes */
     activePOs,

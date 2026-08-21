@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Check, Search, ChevronDown, BookOpen, Layers, Send, Lock, CheckCircle2, Clock } from 'lucide-react';
-import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
+import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 
@@ -20,6 +20,21 @@ const labelStyle = {
 };
 
 const SEMESTERS = ['Sem III', 'Sem IV', 'Sem V', 'Sem VI', 'Sem VII', 'Sem VIII'];
+const DEFAULT_COURSE_CREDITS = 4;
+
+const semesterNumber = (value) => {
+  const match = String(value ?? '').match(/\d+/);
+  return match ? Number(match[0]) : null;
+};
+
+const semesterLabel = (value) => {
+  if (typeof value === 'string' && value.startsWith('Sem ')) return value;
+  const numerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0
+    ? `Sem ${numerals[number - 1] || number}`
+    : '—';
+};
 
 export default function AcademicSetup() {
   const { user } = useAuth();
@@ -27,39 +42,37 @@ export default function AcademicSetup() {
     masterProgrammes = [],
     programmeId,
     setProgrammeId,
+    batchId,
     activePOs  = [],
     activePSOs = [],
     activePEOs = [],
     courses    = [],
-    assignCourseCoordinator = () => {},
-    addCourse    = () => {},
+    courseOfferings = [],
+    courseCoordinators = [],
+    loadProgrammes = () => Promise.resolve([]),
+    loadBatches = () => Promise.resolve([]),
+    loadCourses = () => Promise.resolve([]),
+    loadCourseOfferings = () => Promise.resolve([]),
+    loadCourseCoordinators = () => Promise.resolve([]),
+    createCourse = () => Promise.resolve(null),
+    addCourseOffering = () => Promise.resolve(null),
+    updateCourseOffering = () => Promise.resolve(null),
+    allocateCourses = () => Promise.resolve(null),
     deleteCourse = () => {},
-    courseVerificationStore = {},
-    updateCourseVerificationStatus = () => {},
-    facultyList = [],
   } = useAcademic();
 
-  const activeFaculties = facultyList.length > 0 ? facultyList : ['Course Coordinator', 'Programme Coordinator', 'Head of Department (HOD)', 'School Director'];
+  const [allocationSubmission, setAllocationSubmission] = useState(null);
 
   const selectedProgramme =
     masterProgrammes.find((p) => p.id === programmeId) ||
     masterProgrammes[0] ||
-    { name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
+    null;
 
-  const allocationKey = `allocation-${programmeId}`;
-  const allocationRecord = courseVerificationStore[allocationKey] || {};
-  const allocationStatus = allocationRecord.allocationStatus || 'DRAFT';
-  const allocationRemarks = allocationRecord.allocationRemarks || '';
-  const verifierName = allocationRecord.verifiedBy || 'Head of Department (HOD)';
-
-  const isAllocationApproved = allocationStatus === 'APPROVED' || allocationStatus === 'VERIFIED';
-  const isAllocationRevision = allocationStatus === 'REVISION_REQUESTED' || allocationStatus === 'REJECTED' || allocationStatus === 'NEEDS_REVISION';
-  const isAllocationSubmitted = allocationStatus === 'SUBMITTED' || allocationStatus === 'PENDING_APPROVAL';
-
-  const handleSubmitAllocations = () => {
-    updateCourseVerificationStatus(allocationKey, 'allocationStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
-    alert(`Course Coordinator allocations for ${selectedProgramme?.name} submitted for HOD approval!`);
-  };
+  const isAllocationApproved = false;
+  const isAllocationRevision = false;
+  const isAllocationSubmitted = allocationSubmission?.submitted === true;
+  const allocationRemarks = '';
+  const verifierName = 'Head of Department (HOD)';
 
   const [activeTab,   setActiveTab]   = useState('courses');
   const [searchQuery, setSearchQuery] = useState('');
@@ -69,27 +82,179 @@ export default function AcademicSetup() {
   const [newCode,  setNewCode]  = useState('');
   const [newName,  setNewName]  = useState('');
   const [newSem,   setNewSem]   = useState('Sem V');
-  const [newCoord, setNewCoord] = useState(activeFaculties[0] || 'Course Coordinator');
+  const [newCoord, setNewCoord] = useState('');
 
   const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === programmeId);
   const normPSOs    = activePSOs.map((p) => ({ ...p, competencies: p.competencies ?? [] }));
 
+  const offeringsByCourseId = useMemo(() => {
+    const matchingOfferings = courseOfferings.filter(
+      (offering) => offering.batchId === batchId
+    );
+    return new Map(matchingOfferings.map((offering) => [offering.courseId, offering]));
+  }, [batchId, courseOfferings]);
+
+  useEffect(() => {
+    loadProgrammes(user?.departmentId).catch(() => {});
+    loadCourseCoordinators().catch(() => {});
+  }, [loadCourseCoordinators, loadProgrammes, user?.departmentId]);
+
+  useEffect(() => {
+    if (!programmeId && user?.programmeId) {
+      setProgrammeId(user.programmeId);
+    }
+  }, [programmeId, setProgrammeId, user?.programmeId]);
+
+  useEffect(() => {
+    if (!programmeId) return;
+
+    loadCourses({ targetProgrammeId: programmeId }).catch(() => {});
+    loadBatches({ targetProgrammeId: programmeId }).catch(() => {});
+    setAllocationSubmission(null);
+  }, [loadBatches, loadCourses, programmeId]);
+
+  useEffect(() => {
+    if (batchId) {
+      loadCourseOfferings(batchId).catch(() => {});
+    }
+  }, [batchId, loadCourseOfferings]);
+
   const filtered = progCourses.filter((c) =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (c.coordinator || c.faculty || '').toLowerCase().includes(searchQuery.toLowerCase()),
+    (offeringsByCourseId.get(c.id)?.courseCoordinatorName || '')
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase()),
   );
 
-  const handleAddCourse = (e) => {
+  const handleAddCourse = async (e) => {
     e.preventDefault();
-    if (!newCode || !newName) return;
-    addCourse({
-      id: `crs-${Date.now()}`,
+    if (!newCode || !newName || !programmeId) return;
+
+    const semester = semesterNumber(newSem);
+    if (!semester) return;
+
+    try {
+      const createdCourse = await createCourse({
+      id: `crs-${newCode.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
       programmeId,
-      code: newCode, name: newName, semester: newSem,
-      coordinator: newCoord, faculty: newCoord,
-    });
-    setNewCode(''); setNewName('');
+      code: newCode.trim().toUpperCase(),
+      name: newName.trim(),
+      semester,
+      credits: DEFAULT_COURSE_CREDITS,
+      status: 'ACTIVE',
+      });
+
+      const coordinator = courseCoordinators.find(
+        (faculty) => String(faculty.id) === String(newCoord)
+      );
+
+      if (createdCourse?.id && batchId && coordinator?.id != null) {
+        await addCourseOffering({
+          id: `offering-${createdCourse.id}-${batchId}`,
+          courseId: createdCourse.id,
+          batchId,
+          courseName: createdCourse.name,
+          courseCode: createdCourse.code,
+          semester: createdCourse.semester,
+          courseCoordinatorId: coordinator.id,
+          courseCoordinator: coordinator.name,
+          courseCoordinatorEmail: coordinator.email,
+          status: 'ALLOCATED',
+        });
+      }
+
+      setNewCode('');
+      setNewName('');
+      setNewCoord('');
+    } catch (error) {
+      console.error('Failed to create course:', error);
+    }
+  };
+
+  const handleCoordinatorChange = async (course, coordinatorId) => {
+    if (!batchId) {
+      alert('Select a batch before assigning a Course Coordinator.');
+      return;
+    }
+
+    const coordinator = courseCoordinators.find(
+      (faculty) => String(faculty.id) === String(coordinatorId)
+    );
+    if (!coordinator) return;
+
+    const offering = offeringsByCourseId.get(course.id);
+
+    try {
+      if (offering) {
+        await updateCourseOffering(offering.id, {
+          courseId: course.id,
+          batchId,
+          courseName: course.name,
+          courseCode: course.code,
+          semester: course.semester,
+          courseCoordinatorId: coordinator.id,
+          courseCoordinator: coordinator.name,
+          courseCoordinatorEmail: coordinator.email,
+          status: 'ALLOCATED',
+        });
+      } else {
+        await addCourseOffering({
+          id: `offering-${course.id}-${batchId}`,
+          courseId: course.id,
+          batchId,
+          courseName: course.name,
+          courseCode: course.code,
+          semester: course.semester,
+          courseCoordinatorId: coordinator.id,
+          courseCoordinator: coordinator.name,
+          courseCoordinatorEmail: coordinator.email,
+          status: 'ALLOCATED',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to assign Course Coordinator:', error);
+    }
+  };
+
+  const handleSubmitAllocations = async () => {
+    if (!programmeId || !batchId) {
+      alert('Select a programme and batch before submitting allocations.');
+      return;
+    }
+
+    const allocations = progCourses.map((course) => {
+      const offering = offeringsByCourseId.get(course.id);
+      return offering
+        ? {
+            courseId: course.id,
+            courseCode: course.code,
+            courseName: course.name,
+            semester: course.semester,
+            courseCoordinatorId: offering.courseCoordinatorId,
+            courseCoordinator: offering.courseCoordinatorName,
+            courseCoordinatorEmail: offering.courseCoordinatorEmail,
+          }
+        : null;
+    }).filter(Boolean);
+
+    if (allocations.length !== progCourses.length) {
+      alert('Assign a Course Coordinator to every course before submitting allocations.');
+      return;
+    }
+
+    try {
+      const result = await allocateCourses({
+        programmeId,
+        batchId,
+        submit: true,
+        allocations,
+      });
+      setAllocationSubmission(result);
+      alert(`Course Coordinator allocations for ${selectedProgramme?.name || 'this programme'} submitted for HOD approval!`);
+    } catch (error) {
+      console.error('Failed to submit course allocations:', error);
+    }
   };
 
   const tabs = [
@@ -232,7 +397,8 @@ export default function AcademicSetup() {
                 <div>
                   <label style={labelStyle}>Course Coordinator</label>
                   <select value={newCoord} onChange={(e) => setNewCoord(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', color: accent, fontWeight: '600' }}>
-                    {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
+                    <option value="">Select coordinator</option>
+                    {courseCoordinators.map((faculty) => <option key={faculty.id} value={faculty.id}>{faculty.name || faculty.email}</option>)}
                   </select>
                 </div>
                 <button type="submit" style={{ height: '40px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
@@ -262,17 +428,20 @@ export default function AcademicSetup() {
                   </td></tr>
                 )}
                 {filtered.map((c) => {
-                  const coord = c.coordinator || (c.faculty || '').split('/')[0].trim();
+                  const offering = offeringsByCourseId.get(c.id);
+                  const coord = offering?.courseCoordinatorId != null
+                    ? String(offering.courseCoordinatorId)
+                    : '';
                   return (
                     <tr key={c.id}>
                       <td style={{ fontWeight: '700', color: accent }}>{c.code}</td>
                       <td style={{ fontWeight: '600', color: ink }}>{c.name}</td>
-                      <td style={{ textAlign: 'center', color: muted, fontSize: '12px' }}>{c.semester}</td>
+                      <td style={{ textAlign: 'center', color: muted, fontSize: '12px' }}>{semesterLabel(c.semester)}</td>
                       <td>
                         <select
                           disabled={isAllocationApproved}
                           value={coord}
-                          onChange={(e) => assignCourseCoordinator(c.id, e.target.value)}
+                          onChange={(event) => handleCoordinatorChange(c, event.target.value)}
                           style={{
                             ...inputStyle,
                             height: '34px',
@@ -283,7 +452,8 @@ export default function AcademicSetup() {
                             background: isAllocationApproved ? '#f8fafc' : '#ffffff',
                           }}
                         >
-                          {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
+                          <option value="">Select coordinator</option>
+                          {courseCoordinators.map((faculty) => <option key={faculty.id} value={faculty.id}>{faculty.name || faculty.email}</option>)}
                         </select>
                       </td>
                       <td style={{ textAlign: 'center' }}>

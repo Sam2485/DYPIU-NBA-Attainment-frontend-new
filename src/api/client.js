@@ -196,11 +196,16 @@ apiClient.interceptors.response.use(
        */
       sessionStorage.removeItem('authToken');
       sessionStorage.removeItem('refreshToken');
+      sessionStorage.removeItem('nba_auth_session');
       sessionStorage.removeItem('nba_user');
       sessionStorage.removeItem('role');
       sessionStorage.removeItem('user');
 
       localStorage.removeItem('authToken');
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('nba-auth-expired'));
+      }
     }
 
     /* ---------------------------------------------------------------------- */

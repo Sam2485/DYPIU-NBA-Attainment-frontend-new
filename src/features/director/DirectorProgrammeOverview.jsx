@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { GraduationCap, Building2, Check, ChevronDown, Edit2, Trash2, X, Plus } from 'lucide-react';
+import { GraduationCap, Building2, Check, ChevronDown, Edit2, Trash2, X } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
@@ -8,6 +8,10 @@ export default function DirectorProgrammeOverview() {
   const {
     masterProgrammes = [],
     departments = [],
+    selectedSchoolId,
+    loadSchools = () => Promise.resolve([]),
+    loadDepartments = () => Promise.resolve([]),
+    loadProgrammes = () => Promise.resolve([]),
     updateProgramme = () => {},
     deleteProgramme = () => {},
   } = useAcademic();
@@ -23,6 +27,19 @@ export default function DirectorProgrammeOverview() {
   const [editDeptId, setEditDeptId] = useState('');
   const [editDuration, setEditDuration] = useState(4);
 
+  useEffect(() => {
+    const loadDirectorProgrammeData = async () => {
+      const schools = await loadSchools();
+      const schoolId = selectedSchoolId ?? schools[0]?.id;
+      await Promise.allSettled([
+        loadDepartments(schoolId),
+        loadProgrammes(),
+      ]);
+    };
+
+    loadDirectorProgrammeData().catch(() => {});
+  }, [loadDepartments, loadProgrammes, loadSchools, selectedSchoolId]);
+
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
   const ink = '#0f172a';
   const muted = '#64748b';
@@ -32,30 +49,40 @@ export default function DirectorProgrammeOverview() {
 
   const filteredProgrammes = masterProgrammes.filter((prog) => {
     if (selectedDeptFilter === 'ALL') return true;
-    return prog.departmentId === selectedDeptFilter || prog.department === selectedDeptFilter;
+    return prog.departmentId === selectedDeptFilter;
   });
 
   const handleOpenEdit = (prog) => {
     setEditingProg(prog);
     setEditName(prog.name);
     setEditCode(prog.code);
-    setEditDeptId(prog.departmentId || departments[0]?.id || 'dept-1');
+    setEditDeptId(prog.departmentId || departments[0]?.id || '');
     setEditDuration(prog.durationYears || 4);
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = (e) => {
+  const handleSaveEdit = async (e) => {
     e.preventDefault();
     if (!editingProg || !editName || !editCode) return;
-    const deptObj = departments.find((d) => d.id === editDeptId) || departments[0];
-    updateProgramme(editingProg.id, {
-      name: editName,
-      code: editCode,
-      departmentId: deptObj?.id,
-      department: deptObj?.name,
+    const deptObj = departments.find((d) => d.id === editDeptId);
+
+    if (!deptObj) return;
+
+    try {
+      await updateProgramme(editingProg.id, {
+      name: editName.trim(),
+      code: editCode.trim().toUpperCase(),
+      departmentId: deptObj.id,
+      degree: editingProg.degree ?? '',
       durationYears: parseInt(editDuration, 10) || 4,
+      coordinator: editingProg.coordinator ?? '',
+      coordinatorEmail: editingProg.coordinatorEmail ?? '',
+      status: editingProg.status ?? 'ACTIVE',
     });
-    setShowEditModal(false);
+      setShowEditModal(false);
+    } catch (error) {
+      console.error('Failed to update programme:', error);
+    }
   };
 
   const handleOpenDelete = (prog) => {
@@ -110,7 +137,7 @@ export default function DirectorProgrammeOverview() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '14px' }}>
           {filteredProgrammes.map((prog) => {
-            const deptObj = departments.find((d) => d.id === prog.departmentId || d.name === prog.department) || departments[0];
+            const deptObj = departments.find((d) => d.id === prog.departmentId);
 
             return (
               <div key={prog.id} style={{ ...surface, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -121,7 +148,7 @@ export default function DirectorProgrammeOverview() {
                     {prog.code}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#16a34a', fontWeight: '600', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '5px', padding: '2px 8px' }}>
-                    <Check size={11} /> Active
+                    <Check size={11} /> {prog.status ?? '—'}
                   </span>
                 </div>
 
@@ -155,7 +182,7 @@ export default function DirectorProgrammeOverview() {
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
                     <span style={{ color: muted }}>Duration</span>
-                    <span style={{ fontWeight: '600', color: ink }}>{prog.durationYears || 4} Years</span>
+                    <span style={{ fontWeight: '600', color: ink }}>{prog.durationYears ?? '—'} Years</span>
                   </div>
                 </div>
 

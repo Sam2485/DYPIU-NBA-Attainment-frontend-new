@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Building2, Users, GraduationCap, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, X, Trash2 } from 'lucide-react';
-import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
+import { useAcademic } from '../../context/AcademicContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
 
@@ -17,7 +17,14 @@ export default function DirectorSetupWorkflow() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const {
-    selectedSchool = { name: 'School of Engineering & Technology', code: 'SET', dean: 'School Director', estYear: '2019' },
+    selectedSchool = null,
+    selectedSchoolId = null,
+    setSelectedSchoolId = () => {},
+    user,
+    loadSchools = async () => [],
+    loadDepartments = async () => [],
+    loadProgrammes = async () => [],
+    loadHods = async () => [],
     departments = [],
     addDepartment = () => {},
     updateDepartment = () => {},
@@ -25,13 +32,17 @@ export default function DirectorSetupWorkflow() {
     masterProgrammes = [],
     addProgramme = () => {},
     deleteProgramme = () => {},
-    updateSchoolInfo = () => {},
+    updateSchool = async () => null,
     directorWorkflowProgress = {},
+    loadDirectorSetupProgress = () => Promise.resolve(null),
     markDirectorWorkflowStepComplete = () => {},
-    facultyList = [],
+    hods = [],
   } = useAcademic();
 
-  const activeFaculties = facultyList.length > 0 ? facultyList : ['Head of Department (HOD)', 'Programme Coordinator', 'Course Coordinator', 'School Director'];
+  const activeFaculties = useMemo(
+    () => hods.map((hod) => hod?.name || hod?.username || hod?.email).filter(Boolean),
+    [hods]
+  );
 
   const [deleteModalConfig, setDeleteModalConfig] = useState({
     isOpen: false,
@@ -55,24 +66,48 @@ export default function DirectorSetupWorkflow() {
   };
 
   // Step 1
-  const [schoolName, setSchoolName] = useState(selectedSchool.name);
-  const [schoolCode, setSchoolCode] = useState(selectedSchool.code);
-  const [deanName, setDeanName] = useState(selectedSchool.dean);
-  const [estYear, setEstYear] = useState(selectedSchool.estYear || '2019');
+  const [schoolName, setSchoolName] = useState('');
+  const [schoolCode, setSchoolCode] = useState('');
+  const [deanName, setDeanName] = useState('');
+  const [estYear, setEstYear] = useState('');
 
   // Step 2
   const [deptList, setDeptList] = useState(departments);
   const [newDeptName, setNewDeptName] = useState('');
   const [newDeptCode, setNewDeptCode] = useState('');
-  const [selectedHod, setSelectedHod] = useState(activeFaculties[0] || 'Head of Department (HOD)');
+  const [selectedHod, setSelectedHod] = useState('');
 
   // Step 3
   const [progList, setProgList] = useState(masterProgrammes);
-  const [selectedDeptIdForProg, setSelectedDeptIdForProg] = useState(departments[0]?.id || 'dept-1');
+  const [selectedDeptIdForProg, setSelectedDeptIdForProg] = useState('');
   const [newProgName, setNewProgName] = useState('');
   const [newProgCode, setNewProgCode] = useState('');
 
   const [newProgDuration, setNewProgDuration] = useState(4);
+
+  useEffect(() => {
+    if (!selectedSchool) return;
+    setSchoolName(selectedSchool.name ?? '');
+    setSchoolCode(selectedSchool.code ?? '');
+    setDeanName(selectedSchool.dean ?? '');
+    setEstYear(selectedSchool.estYear ?? '');
+  }, [selectedSchool]);
+
+  useEffect(() => {
+    setDeptList(departments);
+  }, [departments]);
+
+  useEffect(() => {
+    setProgList(masterProgrammes);
+  }, [masterProgrammes]);
+
+  useEffect(() => {
+    setSelectedHod((current) => current || activeFaculties[0] || '');
+  }, [activeFaculties]);
+
+  useEffect(() => {
+    setSelectedDeptIdForProg((current) => current || departments[0]?.id || '');
+  }, [departments]);
 
   // ── Per-step completion flags ──────────────────────────────────────────────
   const safeProgress = directorWorkflowProgress ?? {};
@@ -81,7 +116,7 @@ export default function DirectorSetupWorkflow() {
       return !!safeProgress.stepStatus[idx];
     }
     if (Array.isArray(safeProgress.completedSteps)) {
-      return safeProgress.completedSteps.includes(s.number);
+      return safeProgress.completedSteps.some((step) => Number(step) === s.number);
     }
     return !!safeProgress[s.number] || !!safeProgress[`step-${s.number}`];
   });
@@ -110,36 +145,112 @@ export default function DirectorSetupWorkflow() {
     }
   }, [searchParams, firstIncompleteStep]);
 
+  useEffect(() => {
+    loadDirectorSetupProgress(user?.schoolId).catch(() => {});
+  }, [loadDirectorSetupProgress, user?.schoolId]);
+
+  // Load only the data needed by the tab being viewed. A direct link to a
+  // later step loads its required dependency data, but never preloads HODs or
+  // programmes while the Director is still on School Info.
+  useEffect(() => {
+    let active = true;
+
+    const loadCurrentStepData = async () => {
+      let schoolId = user?.schoolId ?? selectedSchoolId;
+
+      if (user?.schoolId && user.schoolId !== selectedSchoolId) {
+        setSelectedSchoolId(user.schoolId);
+      }
+
+      if (currentStep === 1) {
+        await loadSchools();
+        return;
+      }
+
+      if (!schoolId) {
+        const schools = await loadSchools();
+        schoolId = schools[0]?.id ?? null;
+        if (active && schoolId) setSelectedSchoolId(schoolId);
+      }
+
+      if (currentStep === 2) {
+        await Promise.all([
+          loadDepartments(schoolId),
+          loadHods(),
+        ]);
+        return;
+      }
+
+      if (currentStep === 3) {
+        await Promise.all([
+          loadDepartments(schoolId),
+          loadProgrammes(),
+        ]);
+        return;
+      }
+
+      if (currentStep === 4) {
+        await Promise.all([
+          loadSchools(),
+          loadDepartments(schoolId),
+          loadProgrammes(),
+        ]);
+      }
+    };
+
+    loadCurrentStepData().catch(() => {});
+    return () => { active = false; };
+  }, [
+    currentStep,
+    loadDepartments,
+    loadHods,
+    loadProgrammes,
+    loadSchools,
+    user?.schoolId,
+  ]);
+
   const goToStep = (n) => {
     setCurrentStep(n);
     setSearchParams({ step: n });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleAddDeptInline = () => {
-    if (!newDeptName || !newDeptCode) return;
+  const handleAddDeptInline = async () => {
+    if (!newDeptName || !newDeptCode || !selectedSchoolId || !selectedHod) return;
+    const selectedHodUser = hods.find(
+      (hod) => (hod?.name || hod?.username || hod?.email) === selectedHod
+    );
     const newDept = {
       id: `dept-${Date.now()}`,
       name: newDeptName,
-      code: newDeptCode,
+      code: newDeptCode.toUpperCase(),
+      schoolId: selectedSchoolId,
       hod: selectedHod,
-      hodEmail: `${selectedHod.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in`,
+      hodEmail: selectedHodUser?.email ?? '',
+      status: 'ACTIVE',
     };
-    const updated = [...deptList, newDept];
-    setDeptList(updated);
-    addDepartment(newDept);
-    setNewDeptName('');
-    setNewDeptCode('');
+    const savedDepartment = await addDepartment(newDept);
+    if (savedDepartment) {
+      setNewDeptName('');
+      setNewDeptCode('');
+    }
   };
 
-  const handleHodChange = (deptId, hodName) => {
-    const updated = deptList.map((d) =>
-      d.id === deptId
-        ? { ...d, hod: hodName, hodEmail: `${hodName.toLowerCase().replace(/[^a-z]/g, '')}@dypiu.ac.in` }
-        : d
+  const handleHodChange = async (deptId, hodName) => {
+    const department = deptList.find((item) => item.id === deptId);
+    const selectedHodUser = hods.find(
+      (hod) => (hod?.name || hod?.username || hod?.email) === hodName
     );
-    setDeptList(updated);
-    updateDepartment(deptId, { hod: hodName });
+    if (!department || !selectedHodUser) return;
+
+    await updateDepartment(deptId, {
+      name: department.name,
+      code: department.code,
+      schoolId: department.schoolId,
+      hod: hodName,
+      hodEmail: selectedHodUser.email ?? '',
+      status: department.status ?? 'ACTIVE',
+    });
   };
 
   const handleDeleteDeptInline = (deptId) => {
@@ -163,36 +274,49 @@ export default function DirectorSetupWorkflow() {
       itemName: p ? `${p.name} (${p.code})` : '',
       description: 'This action cannot be undone. All data associated with this programme will be removed.',
       onConfirm: () => {
-        const updated = progList.filter((item) => item.id !== progId);
-        setProgList(updated);
         deleteProgramme(progId);
       },
     });
   };
 
-  const handleAddProgrammeInline = () => {
-    if (!newProgName || !newProgCode) return;
-    const deptObj = deptList.find((d) => d.id === selectedDeptIdForProg) || deptList[0];
+  const handleAddProgrammeInline = async () => {
+    if (!newProgName || !newProgCode || !selectedDeptIdForProg) return;
+    const programmeName = newProgName.trim();
+    const programmeCode = newProgCode.trim().toUpperCase();
+    const degreeMatch = programmeName.match(/^(B\.?\s*Tech|M\.?\s*Tech|BBA|MBA|BCA|MCA|B\.?\s*Sc|M\.?\s*Sc)/i);
     const newProg = {
-      id: `prog-${Date.now()}`,
-      code: newProgCode,
-      name: newProgName,
-      durationYears: parseInt(newProgDuration, 10) || 4,
+      id: `prog-${programmeCode.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      code: programmeCode,
+      name: programmeName,
       departmentId: selectedDeptIdForProg,
-      department: deptObj?.name || 'Department of Computer Science',
+      degree: degreeMatch?.[0] ?? '',
+      durationYears: parseInt(newProgDuration, 10) || 4,
       coordinator: '',
+      coordinatorEmail: '',
+      status: 'ACTIVE',
     };
-    setProgList([...progList, newProg]);
-    addProgramme(newProg);
-    setNewProgName('');
-    setNewProgCode('');
+    const savedProgramme = await addProgramme(newProg);
+    if (savedProgramme) {
+      setNewProgName('');
+      setNewProgCode('');
+    }
   };
 
-  const handleSaveAndNext = () => {
+  const handleSaveAndNext = async () => {
     if (currentStep === 1) {
-      updateSchoolInfo({ name: schoolName, code: schoolCode, dean: deanName, estYear });
+      if (!selectedSchool?.id) return;
+      await updateSchool(selectedSchool.id, {
+        name: schoolName,
+        code: schoolCode.toUpperCase(),
+        dean: deanName,
+        estYear: estYear.trim(),
+        deanEmail: selectedSchool.deanEmail ?? '',
+        directorName: selectedSchool.director ?? '',
+        directorEmail: selectedSchool.directorEmail ?? '',
+        status: selectedSchool.status ?? 'ACTIVE',
+      });
     }
-    markDirectorWorkflowStepComplete(currentStep);
+    await markDirectorWorkflowStepComplete(currentStep);
     if (currentStep < STEPS.length) {
       goToStep(currentStep + 1);
     }
@@ -204,8 +328,8 @@ export default function DirectorSetupWorkflow() {
     }
   };
 
-  const handleFinishWorkflow = () => {
-    markDirectorWorkflowStepComplete(STEPS.length);
+  const handleFinishWorkflow = async () => {
+    await markDirectorWorkflowStepComplete(STEPS.length);
     navigate('/director/dashboard');
   };
 

@@ -1,19 +1,11 @@
 import apiClient from './client';
 
 export const dashboardApi = {
-  getDirectorDashboard: (
-    schoolId,
-    directorEmail
-  ) => {
+  getDirectorDashboard: (schoolId) => {
     const params = {};
 
     if (schoolId) {
       params.schoolId = schoolId;
-    }
-
-    if (directorEmail) {
-      params.directorEmail =
-        directorEmail;
     }
 
     return apiClient.get(

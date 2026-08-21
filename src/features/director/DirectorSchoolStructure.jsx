@@ -6,6 +6,7 @@ import { ScreenLoadingState, ScreenErrorState, ScreenEmptyState } from '../../co
 export default function DirectorSchoolStructure() {
   const {
     selectedSchool = null,
+    selectedSchoolId,
     departments = [],
     masterProgrammes = [],
     loadSchools,
@@ -21,9 +22,15 @@ export default function DirectorSchoolStructure() {
     setLoading(true);
     setError(null);
     try {
+      const schools = await (loadSchools ? loadSchools() : Promise.resolve([]));
+      const schoolId =
+        selectedSchoolId ??
+        selectedSchool?.id ??
+        schools[0]?.id ??
+        null;
+
       await Promise.allSettled([
-        loadSchools ? loadSchools() : Promise.resolve(),
-        loadDepartments ? loadDepartments() : Promise.resolve(),
+        loadDepartments ? loadDepartments(schoolId) : Promise.resolve(),
         loadProgrammes ? loadProgrammes() : Promise.resolve(),
       ]);
     } catch (err) {
@@ -36,7 +43,7 @@ export default function DirectorSchoolStructure() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [loadDepartments, loadProgrammes, loadSchools, selectedSchool?.id, selectedSchoolId]);
 
   useEffect(() => {
     if (departments.length > 0 && expandedDeptId === null) {
@@ -57,10 +64,10 @@ export default function DirectorSchoolStructure() {
     return <ScreenErrorState title="Failed to load School Structure" message={error} onRetry={fetchData} />;
   }
 
-  const schoolDisplayName = selectedSchool?.name || 'School of Engineering & Technology';
-  const schoolDisplayCode = selectedSchool?.code || 'SET';
-  const schoolDeanName = selectedSchool?.dean || 'School Director';
-  const schoolEstYear = selectedSchool?.estYear || '—';
+  const schoolDisplayName = selectedSchool?.name ?? '—';
+  const schoolDisplayCode = selectedSchool?.code ?? '—';
+  const schoolDeanName = selectedSchool?.dean ?? '—';
+  const schoolEstYear = selectedSchool?.estYear ?? '—';
 
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
@@ -121,7 +128,7 @@ export default function DirectorSchoolStructure() {
         <div style={{ display: 'grid', gap: '10px' }}>
           {departments.map((dept) => {
             const deptProgrammes = masterProgrammes.filter(
-              (p) => p.departmentId === dept.id || p.department === dept.name
+              (p) => p.departmentId === dept.id
             );
             const isExpanded = expandedDeptId === dept.id;
             const isAssigned = dept.hod && dept.hod !== 'Unassigned';
@@ -162,7 +169,7 @@ export default function DirectorSchoolStructure() {
                             <div>
                               <div style={{ fontSize: '13px', fontWeight: '700', color: ink }}>{p.name}</div>
                               <div style={{ fontSize: '11.5px', color: muted }}>
-                                Code: <strong>{p.code}</strong> &nbsp;·&nbsp; Duration: {p.durationYears || 4} Years &nbsp;·&nbsp; Coordinator: <span style={{ color: p.coordinator ? '#4f46e5' : '#94a3b8', fontWeight: '600' }}>{p.coordinator || 'Unassigned'}</span>
+                                Code: <strong>{p.code}</strong> &nbsp;·&nbsp; Duration: {p.durationYears ?? '—'} Years &nbsp;·&nbsp; Coordinator: <span style={{ color: p.coordinator ? '#4f46e5' : '#94a3b8', fontWeight: '600' }}>{p.coordinator || 'Unassigned'}</span>
                               </div>
                             </div>
                           </div>

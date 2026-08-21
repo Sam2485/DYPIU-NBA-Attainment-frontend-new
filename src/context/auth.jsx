@@ -1,10 +1,14 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useState,
 } from 'react';
 
-import apiClient from '../api/client';
+import apiClient, {
+  clearApiAuthToken,
+  setApiAuthToken,
+} from '../api/client';
 
 export const AuthContext = createContext(null);
 
@@ -15,8 +19,6 @@ export const AuthContext = createContext(null);
  * - No simulated accounts
  * - No email aliases
  * - No hardcoded users
- * - No localStorage
- * - No sessionStorage
  * - No hardcoded department/programme values
  * - No role switching
  *
@@ -55,12 +57,58 @@ const getRoleLabel = (role) => {
   }
 };
 
+const AUTH_SESSION_KEY = 'nba_auth_session';
+
+const toAuthenticatedUser = (backendUser, fallbackEmail = null) => {
+  if (!backendUser?.role) {
+    return null;
+  }
+
+  const role = backendUser.role;
+
+  return {
+    id: backendUser.id,
+    username: backendUser.username,
+    name: backendUser.name ?? backendUser.username ?? null,
+    email: backendUser.email ?? fallbackEmail,
+    role,
+    roleLabel: getRoleLabel(role),
+    schoolId: backendUser.schoolId ?? backendUser.school_id ?? null,
+    departmentId: backendUser.departmentId ?? backendUser.department_id ?? null,
+    programmeId: backendUser.programmeId ?? backendUser.programme_id ?? null,
+    school: backendUser.school ?? null,
+    department: backendUser.department ?? null,
+    programme: backendUser.programme ?? null,
+    isActive: backendUser.isActive ?? backendUser.is_active ?? true,
+    ...(backendUser.hodEmail !== undefined ? { hodEmail: backendUser.hodEmail } : {}),
+    ...(backendUser.coordinatorEmail !== undefined
+      ? { coordinatorEmail: backendUser.coordinatorEmail }
+      : {}),
+  };
+};
+
+const readStoredSession = () => {
+  try {
+    const rawSession = sessionStorage.getItem(AUTH_SESSION_KEY);
+    return rawSession ? JSON.parse(rawSession) : null;
+  } catch {
+    sessionStorage.removeItem(AUTH_SESSION_KEY);
+    return null;
+  }
+};
+
+const persistSession = (accessToken, user) => {
+  sessionStorage.setItem(
+    AUTH_SESSION_KEY,
+    JSON.stringify({ accessToken, user })
+  );
+};
+
+const clearStoredSession = () => {
+  sessionStorage.removeItem(AUTH_SESSION_KEY);
+};
+
 export function AuthProvider({ children }) {
-  /*
-   * Authentication state exists only in React memory.
-   *
-   * No browser storage is used.
-   */
   const [user, setUser] = useState(null);
 
   const [role, setRole] = useState(null);
@@ -68,6 +116,57 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
 
   const [loading, setLoading] = useState(false);
+
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
+
+  /* -------------------------------------------------------------------- */
+  /* Restore session after a browser refresh                              */
+  /* -------------------------------------------------------------------- */
+
+  useEffect(() => {
+    let active = true;
+
+    const restoreSession = () => {
+      const storedSession = readStoredSession();
+      const accessToken = storedSession?.accessToken;
+      const restoredUser = toAuthenticatedUser(storedSession?.user);
+
+      if (!accessToken || !restoredUser) {
+        clearApiAuthToken();
+        clearStoredSession();
+        if (active) setIsRestoringSession(false);
+        return;
+      }
+
+      setApiAuthToken(accessToken);
+
+      if (active) {
+        setToken(accessToken);
+        setUser(restoredUser);
+        setRole(restoredUser.role);
+        setIsRestoringSession(false);
+      }
+    };
+
+    restoreSession();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleExpiredSession = () => {
+      clearApiAuthToken();
+      clearStoredSession();
+      setToken(null);
+      setUser(null);
+      setRole(null);
+    };
+
+    window.addEventListener('nba-auth-expired', handleExpiredSession);
+    return () => window.removeEventListener('nba-auth-expired', handleExpiredSession);
+  }, []);
 
   /* -------------------------------------------------------------------- */
   /* Login                                                                */
@@ -163,101 +262,23 @@ export function AuthProvider({ children }) {
        *
        * These values must come from the backend.
        */
-      const userRole =
-        backendUser.role ??
-        null;
+      const userPayload = toAuthenticatedUser(backendUser, trimmedEmail);
 
-      if (!userRole) {
+      if (!userPayload) {
         return {
           success: false,
           error:
             'Authentication response does not contain a user role.',
         };
       }
-
-      const userPayload = {
-        id:
-          backendUser.id,
-
-        username:
-          backendUser.username,
-
-        name:
-          backendUser.name ??
-          backendUser.username ??
-          null,
-
-        email:
-          backendUser.email ??
-          trimmedEmail,
-
-        role:
-          userRole,
-
-        roleLabel:
-          getRoleLabel(userRole),
-
-        /*
-         * Organisational scope.
-         * These remain null when the backend does not provide them.
-         */
-        schoolId:
-          backendUser.schoolId ??
-          backendUser.school_id ??
-          null,
-
-        departmentId:
-          backendUser.departmentId ??
-          backendUser.department_id ??
-          null,
-
-        programmeId:
-          backendUser.programmeId ??
-          backendUser.programme_id ??
-          null,
-
-        school:
-          backendUser.school ??
-          null,
-
-        department:
-          backendUser.department ??
-          null,
-
-        programme:
-          backendUser.programme ??
-          null,
-
-        isActive:
-          backendUser.isActive ??
-          backendUser.is_active ??
-          true,
-
-        /*
-         * Preserve additional backend fields rather than
-         * inventing frontend values.
-         */
-        ...(backendUser.hodEmail !== undefined
-          ? {
-              hodEmail:
-                backendUser.hodEmail,
-            }
-          : {}),
-
-        ...(backendUser.coordinatorEmail !== undefined
-          ? {
-              coordinatorEmail:
-                backendUser.coordinatorEmail,
-            }
-          : {}),
-      };
+      const userRole = userPayload.role;
 
       /*
-       * Store authentication only in memory.
-       *
-       * apiClient's interceptor should use the same token
-       * from the application's authentication mechanism.
+       * Keep the bearer token synchronized with the API client and retain the
+       * authenticated backend user for this browser tab across refreshes.
        */
+      setApiAuthToken(accessToken);
+      persistSession(accessToken, userPayload);
       setToken(accessToken);
 
       setUser(userPayload);
@@ -336,6 +357,8 @@ export function AuthProvider({ children }) {
       setUser(null);
       setRole(null);
       setToken(null);
+      clearApiAuthToken();
+      clearStoredSession();
 
       return {
         success: false,
@@ -372,11 +395,8 @@ export function AuthProvider({ children }) {
       setUser(null);
       setRole(null);
       setToken(null);
-
-      /*
-       * Do not remove localStorage/sessionStorage keys because
-       * this implementation does not use browser storage.
-       */
+      clearApiAuthToken();
+      clearStoredSession();
       window.location.href =
         '/login';
     }
@@ -407,6 +427,8 @@ export function AuthProvider({ children }) {
         token,
 
         loading,
+
+        isRestoringSession,
 
         login,
 
