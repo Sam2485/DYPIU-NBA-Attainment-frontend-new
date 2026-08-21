@@ -76,20 +76,34 @@ const unwrap = (response) => {
 const normalizeProgress = (data, totalSteps) => {
   const source = data ?? {};
 
+  const stepNumber = (value) => {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return numeric;
+
+    const namedSteps = {
+      school: 1,
+      department: 2,
+      programme: 3,
+      program: 3,
+      review: 4,
+    };
+    return namedSteps[String(value ?? '').trim().toLowerCase()] ?? null;
+  };
+
   const currentStep = source.currentStep ?? source.step ?? null;
 
   let completedSteps = [];
 
   if (Array.isArray(source.completedSteps)) {
     completedSteps = source.completedSteps
-      .map(Number)
+      .map(stepNumber)
       .filter((step) => Number.isFinite(step));
   } else if (
     source.completedStep !== undefined &&
     source.completedStep !== null &&
     source.completedStep !== ''
   ) {
-    const completedStep = Number(source.completedStep);
+    const completedStep = stepNumber(source.completedStep);
     if (Number.isFinite(completedStep)) {
       completedSteps = [completedStep];
     }
@@ -99,7 +113,12 @@ const normalizeProgress = (data, totalSteps) => {
   ) {
     completedSteps = Object.entries(source.completedSteps)
       .filter(([, value]) => value === true)
-      .map(([key]) => Number(key))
+      .map(([key]) => stepNumber(key))
+      .filter(Number.isFinite);
+  } else if (source.stepStatuses && typeof source.stepStatuses === 'object') {
+    completedSteps = Object.entries(source.stepStatuses)
+      .filter(([, status]) => status === 'COMPLETED')
+      .map(([step]) => stepNumber(step))
       .filter(Number.isFinite);
   }
 
@@ -325,7 +344,7 @@ export function DashboardProvider({ children }) {
         const params = {};
         if (targetSchoolId) params.schoolId = targetSchoolId;
 
-        const response = await apiClient.get('/academic/setup-status', { params });
+        const response = await apiClient.get('/academic/director/setup-progress', { params });
         const normalized = normalizeProgress(unwrap(response), DIRECTOR_WORKFLOW_STEPS.length);
         setDirectorWorkflowProgress(normalized);
         return normalized;
@@ -444,11 +463,10 @@ export function DashboardProvider({ children }) {
           throw new Error('A schoolId is required to save Director setup progress.');
         }
 
-        const existingCompletedSteps = (directorWorkflowProgress?.completedSteps ?? [])
-          .map(String);
+        const existingCompletedSteps = (directorWorkflowProgress?.completedSteps ?? []).map(String);
         const payload = {
           schoolId,
-          step: nextStep,
+          currentStep: nextStep,
           completedStep: String(completedStep),
           completedSteps: [
             ...existingCompletedSteps,
@@ -456,7 +474,7 @@ export function DashboardProvider({ children }) {
           ].filter((v, i, arr) => arr.indexOf(v) === i),
         };
 
-        const response = await apiClient.post('/academic/setup-status', payload);
+        const response = await apiClient.post('/academic/director/setup-progress', payload);
         const normalized = normalizeProgress(unwrap(response), DIRECTOR_WORKFLOW_STEPS.length);
         setDirectorWorkflowProgress(normalized);
         return normalized;

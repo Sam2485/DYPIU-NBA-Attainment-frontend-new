@@ -432,7 +432,9 @@ export function AcademicProvider({ children }) {
   /* --- HOD Directory --- */
   const loadHods = useCallback(async () => {
     try {
-      const response = await apiClient.get('/academic/hods');
+      const response = await apiClient.get('/academic/users', {
+        params: { role: 'HOD' },
+      });
       const data = unwrapList(response).map(normalizeUser);
       setHods(data);
       return data;
@@ -774,8 +776,8 @@ export function AcademicProvider({ children }) {
 
       if (role === 'DIRECTOR') {
         const params = {};
-        if (selectedSchoolId) params.schoolId = selectedSchoolId;
-        if (user?.email) params.directorEmail = user.email;
+        const schoolId = selectedSchoolId ?? user?.schoolId;
+        if (schoolId) params.schoolId = schoolId;
         response = await apiClient.get('/academic/director/setup-progress', { params });
       } else if (role === 'HOD') {
         const params = {};
@@ -814,6 +816,7 @@ export function AcademicProvider({ children }) {
   }, [
     role,
     selectedSchoolId,
+    user?.schoolId,
     user?.email,
     user?.departmentId,
     programmeId,
@@ -835,10 +838,10 @@ export function AcademicProvider({ children }) {
       if (role === 'DIRECTOR') {
         endpoint = '/academic/director/setup-progress';
         payload = {
-          schoolId: selectedSchoolId,
-          directorEmail: user?.email,
+          schoolId: selectedSchoolId ?? user?.schoolId,
           currentStep: nextStep,
           completedStep: String(completedStep),
+          completedSteps: [String(completedStep)],
         };
       } else if (role === 'HOD') {
         endpoint = '/academic/hod/setup-progress';
@@ -876,6 +879,7 @@ export function AcademicProvider({ children }) {
     [
       role,
       selectedSchoolId,
+      user?.schoolId,
       user?.email,
       user?.departmentId,
       programmeId,
