@@ -29,6 +29,12 @@ const labelStyle = {
 
 const TARGET_LEVELS = [1.0, 1.5, 2.0, 2.5, 3.0];
 
+const semesterNumber = (value) => {
+  const romanValues = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12 };
+  const semester = String(value ?? '').replace(/^Sem\s*/i, '').trim();
+  return Number(semester) || romanValues[semester] || null;
+};
+
 const STEPS = [
   { number: 1, title: 'Add Courses',        desc: 'Add & allocate courses under programme',      path: '/programme-coordinator/courses',         icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
   { number: 2, title: 'Set PO/PSO Targets', desc: 'Configure PO & PSO target levels (1.0 – 3.0)', path: '/programme-coordinator/target-settings', icon: Target,       color: '#7c3aed', bg: '#f5f3ff' },
@@ -41,6 +47,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const hasLoadedProgrammes = useRef(false);
+  const hasLoadedCourseCoordinators = useRef(false);
   const {
     masterProgrammes = [],
     programmeId,
@@ -48,19 +55,24 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     batches = [],
     batchId,
     setBatchId,
+    selectedBatch = null,
     activePOs  = [],
     activePSOs = [],
     courses    = [],
+    courseCoordinators = [],
     poPsoTargets       = {},
-    updatePoPsoTargets = () => {},
-    addCourse    = () => {},
+    updateProgrammeOutcomeTargets = () => Promise.resolve(null),
+    loadProgrammeOutcomes = () => Promise.resolve({ pos: [], psos: [] }),
+    loadCourses = () => Promise.resolve([]),
+    createCourse = () => Promise.resolve(null),
+    allocateCourses = () => Promise.resolve(null),
     deleteCourse = () => {},
-    assignCourseCoordinator = () => {},
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
     pcWorkflowProgressStore = {},
     markPcWorkflowStepComplete = () => {},
     facultyList = [],
+    loadCourseCoordinators = () => Promise.resolve([]),
     loadProgrammes = () => Promise.resolve([]),
     loadBatches = () => Promise.resolve([]),
   } = useAcademic();
@@ -72,22 +84,24 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const safeCourseVerificationStore = courseVerificationStore ?? {};
   const safePcWorkflowProgressStore = pcWorkflowProgressStore ?? {};
 
-  // Programme data is loaded only when this workflow opens. The authenticated
-  // coordinator's programme remains the initial selection when it is present.
+  // The contract scopes this request by coordinatorEmail, so the selector can
+  // only contain programmes assigned to the logged-in coordinator.
   useEffect(() => {
     if (hasLoadedProgrammes.current) return undefined;
     hasLoadedProgrammes.current = true;
     let isCurrent = true;
 
-    loadProgrammes(user?.departmentId).then((loadedProgrammes) => {
-      if (!isCurrent || programmeId || !user?.programmeId) return;
-      if (loadedProgrammes.some((programme) => programme.id === user.programmeId)) {
-        setProgrammeId(user.programmeId);
+    loadProgrammes(null, user?.email).then((loadedProgrammes) => {
+      if (!isCurrent) return;
+      const hasCurrentProgramme = loadedProgrammes.some((programme) => programme.id === programmeId);
+      if (!hasCurrentProgramme) {
+        const assignedProgramme = loadedProgrammes.find((programme) => programme.id === user?.programmeId);
+        setProgrammeId(assignedProgramme?.id ?? loadedProgrammes[0]?.id ?? null);
       }
     }).catch(() => {});
 
     return () => { isCurrent = false; };
-  }, [loadProgrammes, programmeId, setProgrammeId, user?.departmentId, user?.programmeId]);
+  }, [loadProgrammes, programmeId, setProgrammeId, user?.email, user?.programmeId]);
 
   // Batches are scoped to the currently selected programme. Select the first
   // active returned batch only when no valid batch is already selected.
@@ -107,10 +121,11 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     return () => { isCurrent = false; };
   }, [batchId, loadBatches, programmeId, setBatchId]);
 
-  const activeFaculties = facultyList.length > 0 ? facultyList : ['Course Coordinator', 'Programme Coordinator', 'Head of Department (HOD)', 'School Director'];
+  const activeFaculties = facultyList.length > 0 ? facultyList : [];
 
   const [deletingCourse, setDeletingCourse] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isSavingStep, setIsSavingStep] = useState(false);
 
   const handleOpenDelete = (c) => {
     setDeletingCourse(c);
@@ -153,8 +168,8 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const isTargetsSubmitted = targetsStatus === 'SUBMITTED' || targetsStatus === 'PENDING_APPROVAL';
   const isTargetsRevision = targetsStatus === 'REVISION_REQUESTED' || targetsStatus === 'NEEDS_REVISION';
 
-  const handleSubmitTargets = () => {
-    updatePoPsoTargets(programmeId, poTargetDraft, psoTargetDraft);
+  const handleSubmitTargets = async () => {
+    await updateProgrammeOutcomeTargets(programmeId, poTargetDraft, psoTargetDraft);
     updateCourseVerificationStatus(targetsKey, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
     updateCourseVerificationStatus(allocationKey, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
     alert(`PO & PSO target benchmarks for ${selectedProgramme?.name} submitted for HOD approval!`);
@@ -210,8 +225,30 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const [newCourseCode,  setNewCourseCode]  = useState('');
   const [newCourseName,  setNewCourseName]  = useState('');
   const [newCourseSem,   setNewCourseSem]   = useState(programmeSemesters[0] || 'Sem I');
-  const [newCourseCoord, setNewCourseCoord] = useState(activeFaculties[0] || 'Course Coordinator');
+  const [newCourseCoord, setNewCourseCoord] = useState('');
   const progCourses = courses.filter((c) => !c.programmeId || c.programmeId === programmeId);
+  const coordinatorOptions = courseCoordinators.filter((person) => person.role === 'FACULTY');
+
+  // Step 1 calls the FACULTY directory and the combined course endpoint only
+  // when the Add Courses tab is open. FACULTY users are labelled as Course
+  // Coordinators in this UI, but their backend role remains FACULTY.
+  useEffect(() => {
+    if (currentStep !== 1 || !programmeId) return;
+
+    if (!hasLoadedCourseCoordinators.current) {
+      hasLoadedCourseCoordinators.current = true;
+      loadCourseCoordinators().then((faculty) => {
+        setNewCourseCoord((current) =>
+          faculty.some((person) => String(person.id) === String(current))
+            ? current
+            : String(faculty[0]?.id ?? '')
+        );
+      }).catch(() => {});
+    }
+    if (batchId) {
+      loadCourses({ targetProgrammeId: programmeId, targetBatchId: batchId }).catch(() => {});
+    }
+  }, [batchId, currentStep, loadCourseCoordinators, loadCourses, programmeId]);
 
   // ── Step 2 – PO/PSO Targets ──────────────────────────────────────────────
   const existingTargets = safePoPsoTargets[programmeId] || {};
@@ -231,34 +268,107 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
 
   const normPSOs = activePSOs.map((p) => ({ ...p, competencies: p.competencies ?? [] }));
 
+  // The target tab loads only PO and PSO definitions. Target values come from
+  // the `target` field of those exact outcome responses.
+  useEffect(() => {
+    if (currentStep !== 2 || !programmeId) return;
+    let isCurrent = true;
+
+    loadProgrammeOutcomes(programmeId, { includeTargets: false, includePEOs: false })
+      .then(({ pos = [], psos = [] } = {}) => {
+        if (!isCurrent) return;
+        setPoTargetDraft(Object.fromEntries(pos.map((po) => [po.code, Number(po.target) || 2])));
+        setPsoTargetDraft(Object.fromEntries(psos.map((pso) => [pso.code, Number(pso.target) || 2])));
+      })
+      .catch(() => {});
+
+    return () => { isCurrent = false; };
+  }, [currentStep, loadProgrammeOutcomes, programmeId]);
+
   // ── Step handlers ────────────────────────────────────────────────────────
-  const handleAddCourse = (e) => {
-    e.preventDefault();
-    if (!newCourseCode.trim() || !newCourseName.trim()) return;
-    addCourse({
-      id: `crs-${Date.now()}`,
-      programmeId,
-      code: newCourseCode.toUpperCase().trim(),
-      name: newCourseName.trim(),
-      semester: newCourseSem,
-      coordinator: newCourseCoord,
-      faculty: newCourseCoord,
-    });
-    setNewCourseCode('');
-    setNewCourseName('');
-  };
-
-  const handleSaveTargets = () => {
-    updatePoPsoTargets(programmeId, poTargetDraft, psoTargetDraft);
-  };
-
-  const handleSaveAndNext = () => {
-    if (currentStep === 2) {
-      handleSaveTargets();
+  const allocateCourseCoordinator = async (course, coordinator, semester) => {
+    if (!programmeId || !batchId || !coordinator?.id) {
+      throw new Error('Programme, batch, and a FACULTY course coordinator are required.');
     }
-    markPcWorkflowStepComplete(selectedProgramme.id, currentStep);
-    if (currentStep < STEPS.length) {
-      goToStep(currentStep + 1);
+
+    await allocateCourses({
+      programmeId,
+      batchId,
+      submit: true,
+      allocations: [{
+        courseId: course.id,
+        semester,
+        academicYear: selectedBatch?.academicYear ?? null,
+        courseCoordinatorId: coordinator.id,
+        courseCoordinatorName: coordinator.name,
+        assignedFaculty: `${coordinator.name} (${coordinator.email})`,
+      }],
+    });
+  };
+
+  const handleAddCourse = async (e) => {
+    e.preventDefault();
+    const semester = semesterNumber(newCourseSem);
+    const coordinator = coordinatorOptions.find(
+      (person) => String(person.id) === String(newCourseCoord)
+    );
+    if (!newCourseCode.trim() || !newCourseName.trim() || !programmeId || !batchId || !semester || !coordinator) {
+      alert('Select a batch and a FACULTY Course Coordinator before adding the course.');
+      return;
+    }
+
+    try {
+      const createdCourse = await createCourse({
+        code: newCourseCode.toUpperCase().trim(),
+        name: newCourseName.trim(),
+        programmeId,
+        credits: 4,
+        courseType: 'CORE',
+        status: 'ACTIVE',
+      });
+      if (!createdCourse?.id) {
+        throw new Error('Course creation did not return a course id.');
+      }
+      await allocateCourseCoordinator(createdCourse, coordinator, semester);
+      await loadCourses({ targetProgrammeId: programmeId, targetBatchId: batchId });
+      setNewCourseCode('');
+      setNewCourseName('');
+    } catch (error) {
+      console.error('Failed to add course:', error);
+    }
+  };
+
+  const handleCoordinatorChange = async (course, coordinatorId) => {
+    const coordinator = coordinatorOptions.find(
+      (person) => String(person.id) === String(coordinatorId)
+    );
+    if (!coordinator) return;
+
+    try {
+      await allocateCourseCoordinator(course, coordinator, semesterNumber(course.semester) ?? semesterNumber(newCourseSem));
+      await loadCourses({ targetProgrammeId: programmeId, targetBatchId: batchId });
+    } catch (error) {
+      console.error('Failed to assign Course Coordinator:', error);
+    }
+  };
+
+  const handleSaveTargets = async () => {
+    await updateProgrammeOutcomeTargets(programmeId, poTargetDraft, psoTargetDraft);
+  };
+
+  const handleSaveAndNext = async () => {
+    try {
+      setIsSavingStep(true);
+      if (currentStep === 2) {
+        await handleSaveTargets();
+      }
+      await markPcWorkflowStepComplete(selectedProgramme.id, currentStep);
+      if (currentStep < STEPS.length) goToStep(currentStep + 1);
+    } catch (error) {
+      console.error('Failed to save Programme Coordinator setup progress:', error);
+      alert('Unable to save setup progress. Please verify the selected programme and batch, then try again.');
+    } finally {
+      setIsSavingStep(false);
     }
   };
 
@@ -583,7 +693,10 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                   <div>
                     <label style={labelStyle}>Course Coordinator</label>
                     <select value={newCourseCoord} onChange={(e) => setNewCourseCoord(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', fontWeight: '600', color: accent }}>
-                      {activeFaculties.map((f) => <option key={f} value={f}>{f}</option>)}
+                      <option value="">Select FACULTY</option>
+                      {coordinatorOptions.map((faculty) => (
+                        <option key={faculty.id} value={faculty.id}>{faculty.name}</option>
+                      ))}
                     </select>
                   </div>
                   <button type="submit" style={{ height: '40px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
@@ -610,17 +723,20 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                     <tr><td colSpan={5} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>No courses yet — add one above.</td></tr>
                   )}
                   {progCourses.map((c) => {
-                    const coord = c.coordinator || (c.faculty || '').split('/')[0].trim() || activeFaculties[0];
+                    const assignedCoordinator = coordinatorOptions.find(
+                      (faculty) => faculty.email === c.coordinatorEmail || faculty.name === c.coordinator
+                    );
+                    const coordinatorId = assignedCoordinator?.id ?? '';
                     return (
                       <tr key={c.id}>
                         <td style={{ fontWeight: '700', color: accent }}>{c.code}</td>
                         <td style={{ fontWeight: '600', color: ink }}>{c.name}</td>
-                        <td style={{ textAlign: 'center', color: muted, fontSize: '12px' }}>{c.semester || 'Sem I'}</td>
+                        <td style={{ textAlign: 'center', color: muted, fontSize: '12px' }}>{c.semester ?? '—'}</td>
                         <td>
                           <select
-                            value={coord}
+                            value={coordinatorId}
                             disabled={isAllocationApproved}
-                            onChange={(e) => assignCourseCoordinator(c.id, e.target.value)}
+                            onChange={(e) => handleCoordinatorChange(c, e.target.value)}
                             style={{
                               ...inputStyle,
                               height: '34px',
@@ -631,8 +747,9 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
                               background: isAllocationApproved ? '#f8fafc' : '#ffffff',
                             }}
                           >
-                            {activeFaculties.map((f) => (
-                              <option key={f} value={f}>{f}</option>
+                            <option value="">Select FACULTY</option>
+                            {coordinatorOptions.map((faculty) => (
+                              <option key={faculty.id} value={faculty.id}>{faculty.name}</option>
                             ))}
                           </select>
                         </td>
@@ -968,15 +1085,16 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
             <button
               type="button"
               onClick={handleSaveAndNext}
+              disabled={isSavingStep}
               style={{
                 height: '40px', padding: '0 22px', fontSize: '13.5px', fontWeight: '800',
                 background: `linear-gradient(135deg, ${accent} 0%, #6366f1 100%)`,
-                color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                color: '#fff', border: 'none', borderRadius: '8px', cursor: isSavingStep ? 'wait' : 'pointer',
                 display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit',
                 boxShadow: '0 4px 14px rgba(79,70,229,0.28)',
               }}
             >
-              Save &amp; Continue <ArrowRight size={14} />
+              {isSavingStep ? 'Saving…' : 'Save & Continue'} <ArrowRight size={14} />
             </button>
           ) : (
             <button

@@ -1197,7 +1197,103 @@ public enum SetupStepStatus {
         "completedSteps": ["1", "2"],                                                                                                                                                                  
         "overallStatus": "IN_PROGRESS"                                                                                                                                                                 
       }                                                                                                                                                                                                
-    }                                                                                                                                                                                                  
+    }  
+
+     ### 1. HTTP Request                                                        
+                                                                             
+  • Method: GET                                                              
+  • Path: /api/v1/academic/programmes                                        
+  • Query Parameter: coordinatorEmail                                        
+  • Full URL: GET                                                            
+  http://<host>:8010/api/v1/academic/programmes?coordinatorEmail=coordinator.
+  cse@dypiu.ac.in                                                            
+  • Headers:                                                                 
+    Authorization: Bearer <JWT_TOKEN>                                        
+    Content-Type: application/json                                           
+                                                                             
+  • Request Body: None (Empty)                                               
+  ──────                                                                     
+  ### 2. Success Response JSON (200 OK)                                      
+                                                                             
+  When matching programmes exist for the specified coordinator email:        
+                                                                             
+    {                                                                        
+      "success": true,                                                       
+      "message": null,                                                       
+      "data": [                                                              
+        {                                                                    
+          "id": "prog-btech-cse",                                            
+          "departmentId": "dept-cse",                                        
+          "code": "CSE",                                                     
+          "name": "B.Tech Computer Science and Engineering",                 
+          "durationYears": 4,                                                
+          "status": "ACTIVE",                                                
+          "coordinator": "Dr. Ramesh Patil",                                 
+          "coordinatorEmail": "coordinator.cse@dypiu.ac.in",                 
+          "departmentName": "Department of Computer Science & Engineering",  
+          "createdAt": "2026-08-01T09:30:00Z",                               
+          "updatedAt": "2026-08-20T14:15:22Z"                                
+        }                                                                    
+      ]                                                                      
+    }                                                                        
+  ──────                                                                     
+  ### 3. Empty Response JSON (200 OK)                                        
+                                                                             
+  When the database has no programmes assigned to this coordinator email:    
+                                                                             
+    {                                                                        
+      "success": true,                                                       
+      "message": null,                                                       
+      "data": []                                                             
+    }                                                                        
+  ──────                                                                     
+  ### 4. Field Descriptions                                                  
+                                                                             
+   Field                   │ Type          │ Description
+  ─────────────────────────┼───────────────┼─────────────────────────────────
+   success                 │ Boolean       │ true for successful operations
+   message                 │ String / null │ Status or feedback message
+   data                    │ Array<Object> │ List of programme objects
+                           │               │ assigned to the coordinator
+                           │                  │ assigned to the coordinator
+   data[].id               │ String           │ Unique programme identifier
+                           │                  │ (e.g., "prog-btech-cse")
+   data[].departmentId     │ String          │ Foreign key to parent
+                           │                 │ department (e.g., "dept-cse")
+   data[].code             │ String          │ Short programme code (e.g.,
+                           │                 │ "CSE")
+   data[].name             │ String          │ Full name of the degree
+                           │                 │ programme
+   data[].durationYears    │ Integer         │ Programme duration in years
+                           │                 │ (default: 4)
+   data[].status           │ String          │ Status of programme ("ACTIVE"
+                           │                 │ / "INACTIVE")
+   data[].coordinator      │ String          │ Name of the assigned
+                           │                 │ Programme Coordinator
+   data[].coordinatorEmail │ String          │ Official email of the
+                           │                 │ Programme Coordinator
+   data[].departmentName   │ String          │ Display name of the parent
+                           │                 │ department
+   data[].createdAt        │ String (ISO-    │ Timestamp of creation
+                           │ 8601)           │
+   data[].updatedAt        │ String (ISO-    │ Timestamp of last update
+                           │ 8601)           │
+  ──────                                                                     
+  ### 5. Access Control & Security                                           
+                                                                             
+  • If the caller has the PROGRAMME_COORDINATOR role, the backend            
+  automatically scopes the query to their authenticated account.             
+  • If a coordinator attempts to supply another coordinator's email outside  
+  their assigned scope, the backend enforces scope validation and returns 403
+  Forbidden:                                                                 
+    {                                                                        
+      "timestamp": "2026-08-21T14:26:00Z",                                   
+      "status": 403,                                                         
+      "error": "Forbidden",                                                  
+      "message": "Access denied: Resource is outside your assigned programme 
+  scope."                                                                    
+    }                                                                        
+                                                                                                                                                                                                       
   ──────                                                                                                                                                                                               
    7. PC — Course Creation                                                                                                                                                                             
   ──────                                                                                                                                                                                               
@@ -2018,3 +2114,393 @@ public enum SetupStepStatus {
         "updatedAt": "2026-08-20T22:41:00"                                                                                                                                                             
       }                                                                                                                                                                                                
     }
+
+     ### 1. Save Programme Outcomes (POs) with target                           
+                                                                             
+  • Method: POST (or PUT)                                                    
+  • Path: /api/v1/outcomes/programmes/{programmeId}/pos                      
+  • URL: POST http://<host>:8010/api/v1/outcomes/programmes/prog-btech-      
+  cse/pos                                                                    
+  • Headers:                                                                 
+    Authorization: Bearer <JWT_TOKEN>                                        
+    Content-Type: application/json                                           
+                                                                             
+                                                                             
+  #### Request JSON Body:                                                    
+                                                                             
+    [                                                                        
+      {                                                                      
+        "code": "PO1",                                                       
+        "statement": "Engineering knowledge: Apply the knowledge of          
+  mathematics, science, engineering fundamentals, and an engineering         
+  specialization to the solution of complex engineering problems.",          
+        "target": 2.50,                                                      
+        "competencies": [                                                    
+          {                                                                  
+            "code": "PO1.1",                                                 
+            "statement": "Apply mathematical principles to solve             
+  computational algorithms."                                                 
+          },                                                                 
+          {                                                                  
+            "code": "PO1.2",                                                 
+            "statement": "Apply fundamentals of digital logic and circuit    
+  theory."                                                                   
+          }                                                                  
+        ]                                                                    
+      },                                                                     
+      {                                                                      
+        "code": "PO2",                                                       
+        "statement": "Problem analysis: Identify, formulate, review research 
+  literature, and analyze complex engineering problems.",                    
+        "target": 2.00,                                                      
+        "competencies": [                                                    
+          {                                                                  
+            "code": "PO2.1",                                                 
+            "statement": "Formulate formal problem definitions and           
+  constraints."                                                              
+          }                                                                  
+        ]                                                                    
+      }                                                                      
+    ]                                                                        
+                                                                             
+  #### Response JSON (200 OK):                                               
+                                                                             
+    {                                                                        
+      "success": true,                                                       
+      "message": "POs saved successfully",                                   
+      "data": [                                                              
+        {                                                                    
+          "id": "po-1a2b3c4d",                                               
+          "programmeId": "prog-btech-cse",                                   
+          "code": "PO1",                                                     
+          "statement": "Engineering knowledge: Apply the knowledge of        
+  mathematics, science, engineering fundamentals, and an engineering         
+  specialization to the solution of complex engineering problems.",          
+          "target": 2.50,                                                    
+          "competencies": [                                                  
+            {                                                                
+              "id": "pocomp-9f8e7d6c",                                       
+              "poId": "po-1a2b3c4d",                                         
+              "code": "PO1.1",                                               
+              "statement": "Apply mathematical principles to solve           
+  computational algorithms."                                                 
+            },                                                               
+            {                                                                
+              "id": "pocomp-5b4a3c2d",                                       
+              "poId": "po-1a2b3c4d",                                         
+              "code": "PO1.2",                                               
+              "statement": "Apply fundamentals of digital logic and circuit  
+  theory."                                                                   
+            }                                                                
+          ]                                                                  
+        },                                                                   
+        {                                                                    
+          "id": "po-5e6f7a8b",                                               
+          "programmeId": "prog-btech-cse",                                   
+          "code": "PO2",                                                     
+          "statement": "Problem analysis: Identify, formulate, review        
+  research literature, and analyze complex engineering problems.",           
+          "target": 2.00,                                                    
+          "competencies": [                                                  
+            {                                                                
+              "id": "pocomp-1c2d3e4f",                                       
+              "poId": "po-5e6f7a8b",                                         
+              "code": "PO2.1",                                               
+              "statement": "Formulate formal problem definitions and         
+  constraints."                                                              
+            }                                                                
+          ]                                                                  
+        }                                                                    
+      ]                                                                      
+    }                                                                        
+  ──────                                                                     
+  ### 2. Save Programme Specific Outcomes (PSOs) with target                 
+                                                                             
+  • Method: POST                                                             
+  • Path: /api/v1/outcomes/programmes/{programmeId}/psos                     
+  • URL: POST http://<host>:8010/api/v1/outcomes/programmes/prog-btech-      
+  cse/psos                                                                   
+  • Headers:                                                                 
+    Authorization: Bearer <JWT_TOKEN>                                        
+    Content-Type: application/json                                           
+                                                                             
+                                                                             
+  #### Request JSON Body:                                                    
+                                                                             
+    [                                                                        
+      {                                                                      
+        "code": "PSO1",                                                      
+        "statement": "Apply modern software engineering methodologies and    
+  tools to design scalable distributed architectures.",                      
+        "target": 2.60,                                                      
+        "competencies": [                                                    
+          {                                                                  
+            "code": "PSO1.1",                                                
+            "statement": "Design and implement REST and microservices        
+  architecture."                                                             
+          }                                                                  
+        ]                                                                    
+      },                                                                     
+      {                                                                      
+        "code": "PSO2",                                                      
+        "statement": "Analyze large-scale data and implement machine learning
+  models for intelligent automation.",                                       
+        "target": 2.40,                                                      
+        "competencies": [                                                    
+          {                                                                  
+            "code": "PSO2.1",                                                
+            "statement": "Build predictive models using statistical machine  
+  learning."                                                                 
+          }                                                                  
+        ]                                                                    
+      }                                                                      
+    ]                                                                        
+                                                                             
+  #### Response JSON (200 OK):                                               
+                                                                             
+    {                                                                        
+      "success": true,                                                       
+      "message": "PSOs saved successfully",                                  
+      "data": [                                                              
+        {                                                                    
+          "id": "pso-7d8e9f0a",                                              
+          "programmeId": "prog-btech-cse",                                   
+          "code": "PSO1",                                                    
+          "statement": "Apply modern software engineering methodologies and  
+  tools to design scalable distributed architectures.",                      
+          "target": 2.60,                                                    
+          "competencies": [                                                  
+            {                                                                
+              "id": "psocomp-11223344",                                      
+              "psoId": "pso-7d8e9f0a",                                       
+              "code": "PSO1.1",                                              
+              "statement": "Design and implement REST and microservices      
+  architecture."                                                             
+            }                                                                
+          ]                                                                  
+        },                                                                   
+        {                                                                    
+          "id": "pso-1b2c3d4e",                                              
+          "programmeId": "prog-btech-cse",                                   
+          "code": "PSO2",                                                    
+          "statement": "Analyze large-scale data and implement machine       
+  learning models for intelligent automation.",                              
+          "target": 2.40,                                                    
+          "competencies": [                                                  
+            {                                                                
+              "id": "psocomp-55667788",                                      
+              "psoId": "pso-1b2c3d4e",                                       
+              "code": "PSO2.1",                                              
+              "statement": "Build predictive models using statistical machine
+  learning."                                                                 
+            }                                                                
+          ]                                                                  
+        }                                                                    
+      ]                                                                      
+    }                                                                        
+  ──────                                                                     
+  ### 3. Alternative: Update ONLY Targets for POs & PSOs in One Call         
+                                                                             
+  If you only want to update the benchmark target values for all POs and PSOs
+  together without resending statements:                                     
+                                                                             
+  • Method: POST (or PUT)                                                    
+  • Path: /api/v1/outcomes/programmes/{programmeId}/targets                  
+  • URL: POST http://<host>:8010/api/v1/outcomes/programmes/prog-btech-      
+  cse/targets                                                                
+                                                                             
+  #### Request JSON:                                                         
+                                                                             
+    {                                                                        
+      "poTargets": {                                                         
+        "PO1": 2.50,                                                         
+        "PO2": 2.00,                                                         
+        "PO3": 2.20                                                          
+      },                                                                     
+      "psoTargets": {                                                        
+        "PSO1": 2.60,                                                        
+        "PSO2": 2.40                                                         
+      }                                                                      
+    }                                                                        
+                                                                             
+  #### Response JSON (200 OK):                                               
+                                                                             
+    {                                                                        
+      "success": true,                                                       
+      "message": null,                                                       
+      "data": {                                                              
+        "programmeId": "prog-btech-cse",                                     
+        "batchId": null,                                                     
+        "poTargets": {                                                       
+          "PO1": 2.50,                                                       
+          "PO2": 2.00,                                                       
+          "PO3": 2.20                                                        
+        },                                                                   
+        "psoTargets": {                                                      
+          "PSO1": 2.60,                                                      
+          "PSO2": 2.40                                                       
+        }                                                                    
+      }                                                                      
+    }                                                                        
+────────────────────────────────────────────────────────────
+> and get for loading po pso code statement & target
+  their code, statement, target, and competencies:                           
+
+  Here are the GET APIs and response formats for loading POs and PSOs with   
+  ──────                                                                     
+  ### 1. Load Programme Outcomes (POs)                                       
+                                                                             
+  • Method: GET                                                              
+  • Path: /api/v1/outcomes/programmes/{programmeId}/pos                      
+  • URL: GET http://<host>:8010/api/v1/outcomes/programmes/prog-btech-cse/pos
+  • Headers:                                                                 
+    Authorization: Bearer <JWT_TOKEN>                                        
+                                                                             
+  • Request Body: None                                                       
+                                                                             
+  #### Response JSON (200 OK):                                               
+                                                                             
+    {                                                                        
+      "success": true,                                                       
+      "message": null,                                                       
+      "data": [                                                              
+        {                                                                    
+          "id": "po-1a2b3c4d",                                               
+          "programmeId": "prog-btech-cse",                                   
+          "code": "PO1",                                                     
+          "statement": "Engineering knowledge: Apply the knowledge of        
+  mathematics, science, engineering fundamentals, and an engineering         
+  specialization to the solution of complex engineering problems.",          
+          "target": 2.50,                                                    
+          "competencies": [                                                  
+            {                                                                
+              "id": "pocomp-9f8e7d6c",                                       
+              "poId": "po-1a2b3c4d",                                         
+              "code": "PO1.1",                                               
+              "statement": "Apply mathematical principles to solve           
+  computational algorithms."                                                 
+            },                                                               
+            {                                                                
+              "id": "pocomp-5b4a3c2d",                                       
+              "poId": "po-1a2b3c4d",                                         
+              "code": "PO1.2",                                               
+              "statement": "Apply fundamentals of digital logic and circuit  
+  theory."                                                                   
+            }                                                                
+          ],                                                                 
+          "createdAt": "2026-08-01T10:00:00Z",                               
+          "updatedAt": "2026-08-21T15:45:00Z"                                
+        },                                                                   
+        {                                                                    
+          "id": "po-5e6f7a8b",                                               
+          "programmeId": "prog-btech-cse",                                   
+          "code": "PO2",                                                     
+          "statement": "Problem analysis: Identify, formulate, review        
+  research literature, and analyze complex engineering problems reaching     
+  substantiated conclusions.",                                               
+          "target": 2.00,                                                    
+          "competencies": [                                                  
+            {                                                                
+              "id": "pocomp-1c2d3e4f",                                       
+              "poId": "po-5e6f7a8b",                                         
+              "code": "PO2.1",                                               
+              "statement": "Formulate formal problem definitions and         
+  computational constraints."                                                
+            }                                                                
+          ],                                                                 
+          "createdAt": "2026-08-01T10:00:00Z",                               
+          "updatedAt": "2026-08-21T15:45:00Z"                                
+        }                                                                    
+      ]                                                                      
+    }                                                                        
+  ──────                                                                     
+  ### 2. Load Programme Specific Outcomes (PSOs)                             
+                                                                             
+  • Method: GET                                                              
+  • Path: /api/v1/outcomes/programmes/{programmeId}/psos                     
+  • URL: GET http://<host>:8010/api/v1/outcomes/programmes/prog-btech-       
+  cse/psos                                                                   
+  • Headers:                                                                 
+    Authorization: Bearer <JWT_TOKEN>                                        
+                                                                             
+  • Request Body: None                                                       
+                                                                             
+  #### Response JSON (200 OK):                                               
+                                                                             
+    {                                                                        
+      "success": true,                                                       
+      "message": null,                                                       
+      "data": [                                                              
+        {                                                                    
+          "id": "pso-7d8e9f0a",                                              
+          "programmeId": "prog-btech-cse",                                   
+          "code": "PSO1",                                                    
+          "statement": "Apply modern software engineering methodologies and  
+  cloud tools to design and deploy scalable distributed systems.",           
+          "target": 2.60,                                                    
+          "competencies": [                                                  
+            {                                                                
+              "id": "psocomp-11223344",                                      
+              "psoId": "pso-7d8e9f0a",                                       
+              "code": "PSO1.1",                                              
+              "statement": "Design and implement REST and microservices      
+  architecture."                                                             
+            }                                                                
+          ],                                                                 
+          "createdAt": "2026-08-01T10:00:00Z",                               
+          "updatedAt": "2026-08-21T15:45:00Z"                                
+        },                                                                   
+        {                                                                    
+          "id": "pso-1b2c3d4e",                                              
+          "programmeId": "prog-btech-cse",                                   
+          "code": "PSO2",                                                    
+          "statement": "Analyze large-scale datasets and implement           
+  intelligent machine learning models for enterprise automation.",           
+          "target": 2.40,                                                    
+          "competencies": [                                                  
+            {                                                                
+              "id": "psocomp-55667788",                                      
+              "psoId": "pso-1b2c3d4e",                                       
+              "code": "PSO2.1",                                              
+              "statement": "Build predictive models using statistical machine
+  learning."                                                                 
+            }                                                                
+          ],                                                                 
+          "createdAt": "2026-08-01T10:00:00Z",                               
+          "updatedAt": "2026-08-21T15:45:00Z"                                
+        }                                                                    
+      ]                                                                      
+    }                                                                        
+  ──────                                                                     
+  ### 3. Quick Targets Summary (GET)                                         
+                                                                             
+  If you need a key-value dictionary of just the targets:                    
+                                                                             
+  • Method: GET                                                              
+  • Path: /api/v1/outcomes/programmes/{programmeId}/targets                  
+  • URL: GET http://<host>:8010/api/v1/outcomes/programmes/prog-btech-       
+  cse/targets                                                                
+                                                                             
+  #### Response JSON (200 OK):                                               
+                                                                             
+    {                                                                        
+      "success": true,                                                       
+      "message": null,                                                       
+      "data": {                                                              
+        "programmeId": "prog-btech-cse",                                     
+        "batchId": null,                                                     
+        "poTargets": {                                                       
+          "PO1": 2.50,                                                       
+          "PO2": 2.00                                                        
+        },                                                                   
+        "psoTargets": {                                                      
+          "PSO1": 2.60,                                                      
+          "PSO2": 2.40                                                       
+        }                                                                    
+      }                                                                      
+    }                                                                        
+  ──────                                                                     
+  ### Note: Empty State                                                      
+                                                                             
+  If no POs or PSOs have been saved yet for that programme, both /pos and    
+  /psos return data: [] (an empty array) with HTTP 200 OK.  

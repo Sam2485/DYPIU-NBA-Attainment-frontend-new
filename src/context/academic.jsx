@@ -124,6 +124,11 @@ const normalizeCourse = (course) => ({
   programmeId: course?.programmeId ?? null,
   semester: course?.semester ?? null,
   credits: course?.credits ?? null,
+  courseType: course?.courseType ?? null,
+  coordinator: course?.coordinator ?? '',
+  coordinatorEmail: course?.coordinatorEmail ?? '',
+  faculty: course?.faculty ?? '',
+  assignedFaculty: course?.assignedFaculty ?? '',
   status: course?.status ?? null,
   createdAt: course?.createdAt ?? null,
   updatedAt: course?.updatedAt ?? null,
@@ -324,9 +329,10 @@ export function AcademicProvider({ children }) {
   }, []);
 
   /* --- Programmes --- */
-  const loadProgrammes = useCallback(async (targetDepartmentId = null) => {
+  const loadProgrammes = useCallback(async (targetDepartmentId = null, coordinatorEmail = null) => {
     try {
       const params = targetDepartmentId ? { departmentId: targetDepartmentId } : {};
+      if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
       const response = await apiClient.get('/academic/programmes', { params });
       const data = unwrapList(response).map(normalizeProgramme);
       setProgrammes(data);
@@ -417,7 +423,7 @@ export function AcademicProvider({ children }) {
   /* --- Course Coordinators / Faculty --- */
   const loadCourseCoordinators = useCallback(async () => {
     try {
-      const response = await apiClient.get('/users', {
+      const response = await apiClient.get('/academic/users', {
         params: { role: 'FACULTY' },
       });
       const data = unwrapList(response).map(normalizeUser);
@@ -511,7 +517,7 @@ export function AcademicProvider({ children }) {
 
   /* --- Programme Outcomes --- */
   const loadProgrammeOutcomes = useCallback(
-    async (targetProgrammeId = programmeId, { includeTargets = true } = {}) => {
+    async (targetProgrammeId = programmeId, { includeTargets = true, includePEOs = true } = {}) => {
       if (!targetProgrammeId) {
         setActivePOs([]);
         setActivePSOs([]);
@@ -525,25 +531,36 @@ export function AcademicProvider({ children }) {
         // separate backend resource and are not required to render this tab.
         const poResponse = await apiClient.get(`/outcomes/programmes/${targetProgrammeId}/pos`);
         const psoResponse = await apiClient.get(`/outcomes/programmes/${targetProgrammeId}/psos`);
-        const peoResponse = await apiClient.get(`/outcomes/programmes/${targetProgrammeId}/peos`);
+        const peoResponse = includePEOs
+          ? await apiClient.get(`/outcomes/programmes/${targetProgrammeId}/peos`)
+          : null;
 
         const withStatement = (outcomes) => outcomes.map((outcome) => ({
           ...outcome,
           statement: outcome?.statement ?? outcome?.description ?? outcome?.name ?? '',
         }));
 
-        setActivePOs(withStatement(unwrapList(poResponse)));
-        setActivePSOs(withStatement(unwrapList(psoResponse)));
-        setActivePEOs(withStatement(unwrapList(peoResponse)));
+        const pos = withStatement(unwrapList(poResponse));
+        const psos = withStatement(unwrapList(psoResponse));
+        const peos = withStatement(unwrapList(peoResponse));
 
+        setActivePOs(pos);
+        setActivePSOs(psos);
+        if (includePEOs) setActivePEOs(peos);
+
+        let targets = null;
         if (includeTargets) {
           const targetResponse = await apiClient.get(
             `/academic/programmes/${targetProgrammeId}/targets`
           );
-          setPoPsoTargets(unwrap(targetResponse));
+          targets = unwrap(targetResponse);
+          setPoPsoTargets(targets);
         }
+
+        return { pos, psos, peos, targets };
       } catch (err) {
         console.warn(`loadProgrammeOutcomes(${targetProgrammeId}) failed:`, err);
+        return { pos: [], psos: [], peos: [], targets: null };
       }
     },
     [programmeId]
@@ -1137,6 +1154,21 @@ export function AcademicProvider({ children }) {
     [programmeId, batchId]
   );
 
+  // PC target editing uses the outcome-target endpoint. Its payload is only
+  // the two target maps; no PO or PSO statements are resent.
+  const updateProgrammeOutcomeTargets = useCallback(async (targetProgrammeId, poTargets, psoTargets) => {
+    const pId = targetProgrammeId || programmeId;
+    if (!pId) throw new Error('programmeId is required');
+
+    const response = await apiClient.post(`/outcomes/programmes/${pId}/targets`, {
+      poTargets,
+      psoTargets,
+    });
+    const data = unwrap(response);
+    setPoPsoTargets(data);
+    return data;
+  }, [programmeId]);
+
   /* --- Programme Outcome Drafts and Save --- */
   // Draft updates are deliberately local. The HOD workflow commits all outcome
   // definitions only when its Save & Continue action is used.
@@ -1348,6 +1380,7 @@ export function AcademicProvider({ children }) {
     saveProgrammeOutcomeDefinitions,
     loadProgrammeTargets,
     updatePoPsoTargets,
+    updateProgrammeOutcomeTargets,
     saveProgrammeTargets: updatePoPsoTargets,
 
     /* Course Outcomes */
