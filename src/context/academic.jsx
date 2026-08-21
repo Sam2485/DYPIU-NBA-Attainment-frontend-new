@@ -715,6 +715,24 @@ export function AcademicProvider({ children }) {
     [programmeId, batchId]
   );
 
+  const saveProgrammeATR = useCallback(
+    async (targetProgrammeId = programmeId, targetBatchId = batchId, payload = {}) => {
+      if (!targetProgrammeId || !targetBatchId) {
+        throw new Error('programmeId and batchId are required to save Programme ATR.');
+      }
+
+      const response = await apiClient.post(
+        `/atr/programme/${targetProgrammeId}`,
+        payload,
+        { params: { batchId: targetBatchId } }
+      );
+      const data = unwrap(response);
+      setProgrammeATR(data);
+      return data;
+    },
+    [programmeId, batchId]
+  );
+
   /* --- Dashboards --- */
   const loadDirectorDashboard = useCallback(
     async (targetSchoolId = selectedSchoolId) => {
@@ -1405,6 +1423,7 @@ export function AcademicProvider({ children }) {
     programmeATR,
     setProgrammeATR,
     loadProgrammeATR,
+    saveProgrammeATR,
     courseATR,
     loadCourseATR,
 

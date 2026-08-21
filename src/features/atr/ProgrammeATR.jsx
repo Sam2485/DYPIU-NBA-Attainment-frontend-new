@@ -17,6 +17,17 @@ const inputStyle = {
   color: ink, width: '100%', outline: 'none', fontFamily: 'inherit',
 };
 
+const parseObservations = (observationsJson) => {
+  if (Array.isArray(observationsJson)) return observationsJson;
+  if (typeof observationsJson !== 'string' || !observationsJson.trim()) return [];
+  try {
+    const parsed = JSON.parse(observationsJson);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 export default function ProgrammeATR({ courseId = null, programmeId: propProgrammeId = null, hideFooter = false, hideHeader = false, readOnly = false }) {
   const { user, role } = useAuth();
   const {
@@ -30,6 +41,9 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     activePSOs      = [],
     poPsoTargets    = {},
     programmeId     = 'prog-1',
+    programmeATR = null,
+    loadProgrammeATR = () => Promise.resolve(null),
+    saveProgrammeATR = () => Promise.resolve(null),
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
@@ -43,22 +57,23 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const currentProg = (masterProgrammes || []).find((p) => p.id === activeProgId) || selectedProgramme || null;
   const targetCourseId = courseId || selectedCourse?.id || null;
   const progAtrKey = activeProgId ? `prog-atr-${activeProgId}` : '';
-  const vRecord = (progAtrKey && courseVerificationStore[progAtrKey]) || (activeProgId && courseVerificationStore[`allocation-${activeProgId}`]) || (targetCourseId && courseVerificationStore[targetCourseId]) || {};
-  const reportStatus = vRecord.programmeAtrStatus || 'DRAFT';
-  const verificationRemarks = vRecord.programmeAtrRemarks || '';
-  const verifierName = vRecord.verifiedBy || 'Head of Department (HOD)';
+  const safeVerificationStore = courseVerificationStore ?? {};
+  const vRecord = (progAtrKey && safeVerificationStore[progAtrKey]) || (activeProgId && safeVerificationStore[`allocation-${activeProgId}`]) || (targetCourseId && safeVerificationStore[targetCourseId]) || {};
+  const reportStatus = programmeATR?.status ?? vRecord.programmeAtrStatus ?? 'DRAFT';
+  const verificationRemarks = programmeATR?.verificationComments ?? vRecord.programmeAtrRemarks ?? '';
+  const verifierName = programmeATR?.verifiedBy ?? vRecord.verifiedBy ?? 'Head of Department (HOD)';
 
   const isFaculty     = role === 'FACULTY';
   const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' || role === 'HOD';
 
   const batchList = batches || [];
-  const [selectedBatchId, setSelectedBatchId] = useState(() => batches?.[0]?.id || '');
+  const [selectedBatchId, setSelectedBatchId] = useState(() => selectedBatch?.id || batches?.[0]?.id || '');
   const currentBatchObj = batchList.find((b) => b.id === selectedBatchId) || batchList[0] || null;
   const isPreviousBatch = currentBatchObj?.name?.includes('Archived') || currentBatchObj?.name?.includes('Graduated');
   const locked = readOnly || isPreviousBatch || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
 
   // ── Build PO/PSO ATR list ──────────────────────────────────────────
-  const progTargets = (activeProgId && poPsoTargets?.[activeProgId]) || { poTargets: {}, psoTargets: {} };
+  const progTargets = poPsoTargets ?? { poTargets: {}, psoTargets: {} };
 
   const normPOs = activePOs || [];
   const normPSOs = activePSOs || [];
@@ -100,11 +115,60 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
 
   useEffect(() => { setAtrList(buildList()); }, [programmeId, targetCourseId, activePOs.length, activePSOs.length]);
 
-  const handleSaveSubmit = () => {
-    updateCourseVerificationStatus(progAtrKey, 'programmeAtrStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
-    updateCourseVerificationStatus(`allocation-${programmeId}`, 'programmeAtrStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
-    updateCourseVerificationStatus(targetCourseId, 'programmeAtrStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
-    alert(`🎉 Programme ATR for ${selectedProgramme?.name || 'Programme'} saved and submitted successfully to ${verifierName}!`);
+  useEffect(() => {
+    if (selectedBatch?.id) setSelectedBatchId(selectedBatch.id);
+  }, [selectedBatch?.id]);
+
+  useEffect(() => {
+    if (!activeProgId || !selectedBatchId) return;
+    let isCurrent = true;
+
+    loadProgrammeATR(activeProgId, selectedBatchId).then((atr) => {
+      if (!isCurrent || !atr) return;
+      const outcomeDefinitions = [...normPOs, ...normPSOs];
+      const observations = parseObservations(atr.observationsJson);
+      setAtrList(observations.map((observation) => {
+        const outcome = outcomeDefinitions.find((item) => item.code === observation.outcomeCode);
+        const attained = observation.status === 'ATTAINED';
+        return {
+          code: observation.outcomeCode,
+          type: observation.outcomeCode?.startsWith('PSO') ? 'PSO' : 'PO',
+          statement: outcome?.statement ?? '',
+          target: Number(observation.target) || 0,
+          actual: Number(observation.attainment) || 0,
+          pct: observation.target ? Number(((Number(observation.attainment) / Number(observation.target)) * 100).toFixed(1)) : 0,
+          met: attained,
+          remark: attained ? (observation.actionPlan ?? '') : '',
+          actions: attained ? [] : (observation.actionPlan ? [observation.actionPlan] : []),
+        };
+      }));
+    }).catch(() => {});
+
+    return () => { isCurrent = false; };
+  }, [activeProgId, loadProgrammeATR, selectedBatchId, activePOs, activePSOs]);
+
+  const handleSaveSubmit = async () => {
+    if (!activeProgId || !selectedBatchId) return;
+    const observationsJson = JSON.stringify(atrList.map((item) => ({
+      outcomeCode: item.code,
+      target: Number(item.target),
+      attainment: Number(item.actual),
+      status: item.met ? 'ATTAINED' : 'NOT_ATTAINED',
+      actionPlan: item.met ? item.remark : item.actions.filter(Boolean).join(' '),
+    })));
+
+    try {
+      await saveProgrammeATR(activeProgId, selectedBatchId, {
+        programmeId: activeProgId,
+        batchId: selectedBatchId,
+        status: 'SUBMITTED',
+        submittedBy: user?.name || 'Programme Coordinator',
+        observationsJson,
+      });
+      alert(`Programme ATR for ${currentProg?.name || 'Programme'} submitted successfully.`);
+    } catch (error) {
+      console.error('Failed to save Programme ATR:', error);
+    }
   };
 
   const handleUpdateRemark = (idx, v)    => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, remark: v } : c));
@@ -147,11 +211,11 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
           <tbody>
             <tr>
               <td style={{ textAlign: 'center', fontWeight: '800', color: accentColor, verticalAlign: 'top', paddingTop: '12px' }}>{item.code}</td>
-              <td style={{ textAlign: 'center', fontWeight: '700', color: muted, verticalAlign: 'top', paddingTop: '12px' }}>{item.target.toFixed(2)}</td>
-              <td style={{ textAlign: 'center', fontWeight: '800', color: item.met ? '#16a34a' : '#dc2626', verticalAlign: 'top', paddingTop: '12px' }}>{item.actual.toFixed(2)}</td>
+              <td style={{ textAlign: 'center', fontWeight: '700', color: muted, verticalAlign: 'top', paddingTop: '12px' }}>{Number(item.target ?? 0).toFixed(2)}</td>
+              <td style={{ textAlign: 'center', fontWeight: '800', color: item.met ? '#16a34a' : '#dc2626', verticalAlign: 'top', paddingTop: '12px' }}>{Number(item.actual ?? 0).toFixed(2)}</td>
               <td style={{ textAlign: 'center', verticalAlign: 'top', paddingTop: '12px' }}>
                 <span style={{ display: 'inline-block', fontSize: '11px', fontWeight: '700', background: item.met ? '#dcfce7' : '#fee2e2', color: item.met ? '#15803d' : '#991b1b', borderRadius: '5px', padding: '3px 8px' }}>
-                  {item.pct.toFixed(1)}% {item.met ? 'Achieved' : 'Gap'}
+                  {Number(item.pct ?? 0).toFixed(1)}% {item.met ? 'Achieved' : 'Gap'}
                 </span>
               </td>
               <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
