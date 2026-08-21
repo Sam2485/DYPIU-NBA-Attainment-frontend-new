@@ -275,7 +275,8 @@ export function UserProvider({
       }
     };
 
-    loadUsers();
+    // User lists are loaded by the User Management screen, not globally at
+    // application startup. Role dashboards must not fetch /users.
 
     return () => {
       mounted = false;

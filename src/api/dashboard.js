@@ -14,20 +14,12 @@ export const dashboardApi = {
     );
   },
 
-  getHodDashboard: (
-    departmentId,
-    hodEmail
-  ) => {
+  getHodDashboard: (departmentId) => {
     const params = {};
 
     if (departmentId) {
       params.departmentId =
         departmentId;
-    }
-
-    if (hodEmail) {
-      params.hodEmail =
-        hodEmail;
     }
 
     return apiClient.get(

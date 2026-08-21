@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { UserCheck, Calendar, Layers, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, Trash2, Edit3, X, AlertCircle, ChevronDown, GraduationCap } from 'lucide-react';
-import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
+import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
@@ -21,6 +21,11 @@ export default function HodSetupWorkflow() {
     masterProgrammes = [],
     programmeId,
     setProgrammeId,
+    loadProgrammes = () => Promise.resolve([]),
+    loadBatches = () => Promise.resolve([]),
+    loadProgrammeCoordinators = () => Promise.resolve([]),
+    loadProgrammeOutcomes = () => Promise.resolve(),
+    loadHodSetupProgress = () => Promise.resolve(),
     updateProgramme = () => {},
     departments = [],
     batches = [],
@@ -37,10 +42,9 @@ export default function HodSetupWorkflow() {
     updateProgrammePEOs = () => {},
     hodWorkflowProgressStore = {},
     markHodWorkflowStepComplete = () => {},
-    facultyList = [],
+    programmeCoordinators = [],
+    hodDashboard = null,
   } = useAcademic();
-
-  const activeFaculties = facultyList.length > 0 ? facultyList : ['Programme Coordinator', 'Head of Department (HOD)', 'Course Coordinator', 'School Director'];
 
   const [deleteModalConfig, setDeleteModalConfig] = useState({
     isOpen: false,
@@ -65,11 +69,22 @@ export default function HodSetupWorkflow() {
 
   const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || { id: 'prog-1', name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP' };
 
-  const currentDept = departments.find((d) => d.id === selectedProgramme.departmentId || d.name === selectedProgramme.department) || departments[0];
+  const currentDept = departments.find((d) => d.id === selectedProgramme.departmentId || d.name === selectedProgramme.department)
+    || hodDashboard?.department
+    || departments[0];
   const assignedHods = departments.map((d) => d.hod).filter(Boolean);
 
-  // Step 1: Coordinator State
-  const [selectedCoordinator, setSelectedCoordinator] = useState(() => selectedProgramme?.coordinator || activeFaculties[0] || '');
+  // Step 1: Coordinator State. Keep the selected user ID so the documented
+  // coordinator name and email can both be sent in the programme PUT request.
+  const [selectedCoordinator, setSelectedCoordinator] = useState('');
+
+  useEffect(() => {
+    const assignedCoordinator = programmeCoordinators.find((coordinator) => (
+      coordinator.email === selectedProgramme?.coordinatorEmail
+      || coordinator.name === selectedProgramme?.coordinator
+    ));
+    setSelectedCoordinator(assignedCoordinator?.id != null ? String(assignedCoordinator.id) : '');
+  }, [programmeCoordinators, selectedProgramme?.coordinator, selectedProgramme?.coordinatorEmail, selectedProgramme?.id]);
 
   // Step 2: Batch State
   const [startYearInput, setStartYearInput] = useState('2025');
@@ -156,6 +171,63 @@ export default function HodSetupWorkflow() {
     }
   }, [searchParams, firstIncompleteStep]);
 
+  // A workflow refresh has no preloaded screen data. Load the progress record
+  // once so the correct initial step can be determined, then load only the
+  // resources rendered by that step below.
+  useEffect(() => {
+    loadHodSetupProgress(user?.departmentId).catch(() => {});
+  }, [loadHodSetupProgress, user?.departmentId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCurrentStep = async () => {
+      // Every step needs the HOD's programmes for the existing programme
+      // selector. Do not request them again after they are in shared state.
+      const programmes = masterProgrammes.length > 0
+        ? masterProgrammes
+        : await loadProgrammes(user?.departmentId);
+      if (cancelled) return;
+
+      const targetProgrammeId = programmeId || programmes[0]?.id;
+      if (!programmeId && targetProgrammeId) {
+        setProgrammeId(targetProgrammeId);
+        // Wait for the selected programme state before requesting the active
+        // tab's programme-scoped endpoint.
+        return;
+      }
+      if (!targetProgrammeId) return;
+
+      if (currentStep === 1) {
+        await loadProgrammeCoordinators();
+      } else if (currentStep === 2) {
+        await loadBatches({ targetProgrammeId });
+      } else if (currentStep === 3) {
+        await loadProgrammeOutcomes(targetProgrammeId, { includeTargets: false });
+      } else if (currentStep === 4) {
+        // Review renders the summary of batches and outcomes, so these are
+        // its only additional dependencies.
+        await Promise.all([
+          loadBatches({ targetProgrammeId }),
+          loadProgrammeOutcomes(targetProgrammeId, { includeTargets: false }),
+        ]);
+      }
+    };
+
+    loadCurrentStep().catch(() => {});
+    return () => { cancelled = true; };
+  }, [
+    currentStep,
+    loadBatches,
+    loadProgrammeCoordinators,
+    loadProgrammeOutcomes,
+    loadProgrammes,
+    masterProgrammes,
+    programmeId,
+    setProgrammeId,
+    user?.departmentId,
+  ]);
+
   const goToStep = (n) => {
     setCurrentStep(n);
     setSearchParams({ step: n });
@@ -164,8 +236,22 @@ export default function HodSetupWorkflow() {
 
   const durationYears = selectedProgramme?.durationYears || 4;
 
-  const handleSaveCoordinator = () => {
-    updateProgramme(selectedProgramme.id, { coordinator: selectedCoordinator });
+  const handleSaveCoordinator = async () => {
+    const coordinator = programmeCoordinators.find(
+      (item) => String(item.id) === String(selectedCoordinator)
+    );
+    if (!selectedProgramme?.id || !coordinator?.name || !coordinator?.email) {
+      return null;
+    }
+
+    return updateProgramme(selectedProgramme.id, {
+      name: selectedProgramme.name,
+      code: selectedProgramme.code,
+      departmentId: selectedProgramme.departmentId,
+      coordinator: coordinator.name,
+      coordinatorEmail: coordinator.email,
+      status: selectedProgramme.status,
+    });
   };
 
   const handleStartYearChange = (val) => {
@@ -332,9 +418,10 @@ export default function HodSetupWorkflow() {
 
   const currentStepMeta = STEPS[currentStep - 1] || STEPS[0];
 
-  const handleSaveAndNext = () => {
+  const handleSaveAndNext = async () => {
     if (currentStep === 1) {
-      handleSaveCoordinator();
+      const updatedProgramme = await handleSaveCoordinator();
+      if (!updatedProgramme) return;
     }
     markHodWorkflowStepComplete(selectedProgramme.id, currentStep);
     if (currentStep < STEPS.length) {
@@ -540,11 +627,13 @@ export default function HodSetupWorkflow() {
                     onChange={(e) => setSelectedCoordinator(e.target.value)}
                     style={{ ...inputStyle, cursor: 'pointer', fontWeight: '700', paddingRight: '32px', appearance: 'none', border: '1.5px solid #4f46e5', color: accent }}
                   >
-                    {activeFaculties.map((fac) => {
-                      const isHod = assignedHods.includes(fac);
+                    <option value="" disabled>Select a programme coordinator</option>
+                    {programmeCoordinators.map((coordinator) => {
+                      const coordinatorName = coordinator.name || coordinator.username || coordinator.email;
+                      const isHod = assignedHods.includes(coordinatorName);
                       return (
-                        <option key={fac} value={fac} disabled={isHod} style={{ color: isHod ? '#94a3b8' : '#0f172a' }}>
-                          {fac} {isHod ? '(Disabled — Is HOD)' : ''}
+                        <option key={coordinator.id} value={String(coordinator.id)} disabled={isHod} style={{ color: isHod ? '#94a3b8' : '#0f172a' }}>
+                          {coordinatorName} {isHod ? '(Disabled — Is HOD)' : ''}
                         </option>
                       );
                     })}

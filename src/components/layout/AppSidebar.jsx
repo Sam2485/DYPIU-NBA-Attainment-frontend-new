@@ -97,6 +97,7 @@ export default function AppSidebar() {
     setBatchId = () => {},
     selectedBatch,
     programmeId,
+    hodDashboard = null,
   } = useAcademic();
   const navigate = useNavigate();
   const location = useLocation();
@@ -168,12 +169,19 @@ export default function AppSidebar() {
   });
 
   // Determine active span
-  const currentSpan = selectedBatch
+  const isHod = role === 'HOD';
+  const currentSpan = isHod
+    ? (hodDashboard?.activeBatch ?? '—')
+    : selectedBatch
     ? getBatchYearSpan(selectedBatch)
-    : (uniqueBatches.find((ub) => ub.startYear === academicYear)?.span || uniqueBatches[0]?.span || '2025-2029');
+    : (uniqueBatches.find((ub) => ub.startYear === academicYear)?.span || uniqueBatches[0]?.span || '—');
 
-  const currentUniqueBatch = uniqueBatches.find((ub) => ub.span === currentSpan) || uniqueBatches[0];
-  const isBatchActive = currentUniqueBatch?.status === 'ACTIVE' || currentUniqueBatch?.status === 'INITIALIZED';
+  const currentUniqueBatch = isHod
+    ? { status: hodDashboard?.activeBatch ? 'ACTIVE' : null }
+    : uniqueBatches.find((ub) => ub.span === currentSpan) || uniqueBatches[0];
+  const isBatchActive = isHod
+    ? Boolean(hodDashboard?.activeBatch)
+    : currentUniqueBatch?.status === 'ACTIVE' || currentUniqueBatch?.status === 'INITIALIZED';
 
   const handleBatchChange = (targetSpan) => {
     const matchingUnique = uniqueBatches.find((ub) => ub.span === targetSpan);
@@ -323,6 +331,7 @@ export default function AppSidebar() {
         <select
           value={currentSpan}
           onChange={(e) => handleBatchChange(e.target.value)}
+          disabled={isHod}
           style={{
             width: '100%',
             height: '32px',
@@ -333,11 +342,13 @@ export default function AppSidebar() {
             fontSize: '12px',
             fontWeight: '800',
             padding: '0 8px',
-            cursor: 'pointer',
+            cursor: isHod ? 'default' : 'pointer',
             outline: 'none',
           }}
         >
-          {uniqueBatches.map((ub) => {
+          {isHod ? (
+            <option value={currentSpan}>{currentSpan}</option>
+          ) : uniqueBatches.map((ub) => {
             const isCurrent = ub.span === '2025-2029' || ub.startYear === '2025-26';
             const statusLabel = isCurrent
               ? '(Active — Current)'

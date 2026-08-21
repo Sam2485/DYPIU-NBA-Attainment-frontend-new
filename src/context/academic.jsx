@@ -447,7 +447,10 @@ export function AcademicProvider({ children }) {
   /* --- Programme Coordinator Directory & HOD Assignments --- */
   const loadProgrammeCoordinators = useCallback(async () => {
     try {
-      const response = await apiClient.get('/academic/programme-coordinators');
+      // The user directory is the documented source for role-based users.
+      const response = await apiClient.get('/academic/users', {
+        params: { role: 'PROGRAMME_COORDINATOR' },
+      });
       const data = unwrapList(response).map(normalizeUser);
       setProgrammeCoordinators(data);
       return data;
@@ -508,7 +511,7 @@ export function AcademicProvider({ children }) {
 
   /* --- Programme Outcomes --- */
   const loadProgrammeOutcomes = useCallback(
-    async (targetProgrammeId = programmeId) => {
+    async (targetProgrammeId = programmeId, { includeTargets = true } = {}) => {
       if (!targetProgrammeId) {
         setActivePOs([]);
         setActivePSOs([]);
@@ -518,24 +521,45 @@ export function AcademicProvider({ children }) {
       }
 
       try {
-        const results = await Promise.allSettled([
+        const requests = [
           apiClient.get(`/outcomes/programmes/${targetProgrammeId}/pos`),
           apiClient.get(`/outcomes/programmes/${targetProgrammeId}/psos`),
           apiClient.get(`/outcomes/programmes/${targetProgrammeId}/peos`),
-          apiClient.get(`/academic/programmes/${targetProgrammeId}/targets`),
-        ]);
+          apiClient.get(`/academic/programmes/${targetProgrammeId}/competencies`),
+        ];
+        if (includeTargets) {
+          requests.push(apiClient.get(`/academic/programmes/${targetProgrammeId}/targets`));
+        }
+        const results = await Promise.allSettled(requests);
+
+        const competencies = results[3].status === 'fulfilled'
+          ? unwrapList(results[3].value)
+          : [];
+        const withCompetencies = (outcomes) => outcomes.map((outcome) => ({
+          ...outcome,
+          // The contract returns name/description; the existing UI edits a
+          // statement field, so this is a display adapter rather than fallback data.
+          statement: outcome?.description ?? outcome?.name ?? '',
+          competencies: competencies
+            .filter((item) => item?.poCode === outcome?.code)
+            .map((item, index) => ({
+              ...item,
+              id: item?.id ?? `${item?.poCode ?? outcome?.code}-${item?.competencyCode ?? index}`,
+              order: index + 1,
+            })),
+        }));
 
         if (results[0].status === 'fulfilled') {
-          setActivePOs(unwrapList(results[0].value));
+          setActivePOs(withCompetencies(unwrapList(results[0].value)));
         }
         if (results[1].status === 'fulfilled') {
-          setActivePSOs(unwrapList(results[1].value));
+          setActivePSOs(withCompetencies(unwrapList(results[1].value)));
         }
         if (results[2].status === 'fulfilled') {
-          setActivePEOs(unwrapList(results[2].value));
+          setActivePEOs(withCompetencies(unwrapList(results[2].value)));
         }
-        if (results[3].status === 'fulfilled') {
-          setPoPsoTargets(unwrap(results[3].value));
+        if (includeTargets && results[4]?.status === 'fulfilled') {
+          setPoPsoTargets(unwrap(results[4].value));
         }
       } catch (err) {
         console.warn(`loadProgrammeOutcomes(${targetProgrammeId}) failed:`, err);

@@ -32,20 +32,10 @@ export default function HodDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const {
-    batches = [],
-    selectedBatch = null,
-    masterProgrammes = [],
-    selectedProgramme = null,
-    courses = [],
-    hodApprovals = [],
+    hodDashboard = null,
     hodWorkflowProgress = null,
-    hodWorkflowProgressStore = {},
-    courseVerificationStore = {},
     loadHodDashboard,
     loadHodSetupProgress,
-    loadHodApprovals,
-    loadProgrammes,
-    loadBatches,
   } = useAcademic();
 
   const [screenLoading, setScreenLoading] = useState(false);
@@ -56,11 +46,8 @@ export default function HodDashboard() {
     setScreenError(null);
     try {
       await Promise.allSettled([
-        loadProgrammes ? loadProgrammes() : Promise.resolve(),
-        loadBatches ? loadBatches() : Promise.resolve(),
-        loadHodApprovals ? loadHodApprovals() : Promise.resolve(),
-        loadHodDashboard ? loadHodDashboard() : Promise.resolve(),
-        loadHodSetupProgress ? loadHodSetupProgress() : Promise.resolve(),
+        loadHodDashboard ? loadHodDashboard(user?.departmentId) : Promise.resolve(),
+        loadHodSetupProgress ? loadHodSetupProgress(user?.departmentId) : Promise.resolve(),
       ]);
     } catch (err) {
       console.warn('HodDashboard fetch failed:', err);
@@ -72,65 +59,23 @@ export default function HodDashboard() {
 
   useEffect(() => {
     fetchHodData();
-  }, []);
+  }, [user?.departmentId]);
 
-  const hodProgrammes = Array.isArray(masterProgrammes)
-    ? masterProgrammes.filter(
-        (p) =>
-          (user?.departmentId && p?.departmentId === user.departmentId) ||
-          (user?.department && p?.department?.toLowerCase().includes(user.department.toLowerCase())) ||
-          !p?.departmentId
-      )
-    : [];
-
-  const currentProg = selectedProgramme || hodProgrammes[0] || masterProgrammes[0] || null;
-  const totalProgrammes = hodProgrammes.length > 0 ? hodProgrammes.length : (masterProgrammes?.length ?? 0);
-  const totalCourses = courses?.length ?? 0;
-
-  const pendingApprovalsCount = (() => {
-    let count = 0;
-    const countedKeys = new Set();
-
-    hodProgrammes.forEach((p) => {
-      if (!p?.id) return;
-      const allocRec = courseVerificationStore[`allocation-${p.id}`] || {};
-      if (allocRec.allocationStatus === 'SUBMITTED' || allocRec.allocationStatus === 'PENDING_APPROVAL' || allocRec.allocationStatus === 'PENDING') {
-        count++;
-        countedKeys.add(`alloc-${p.id}`);
-      }
-
-      const tgtRec = courseVerificationStore[`targets-${p.id}`] || allocRec;
-      if (tgtRec.poPsoTargetsStatus === 'SUBMITTED' || tgtRec.targetsStatus === 'SUBMITTED' || tgtRec.poPsoTargetsStatus === 'PENDING_APPROVAL' || tgtRec.targetsStatus === 'PENDING') {
-        count++;
-        countedKeys.add(`tgt-${p.id}`);
-      }
-
-      const atrRec = courseVerificationStore[`prog-atr-${p.id}`] || allocRec;
-      if (atrRec.programmeAtrStatus === 'SUBMITTED' || atrRec.programmeAtrStatus === 'PENDING_APPROVAL' || atrRec.programmeAtrStatus === 'PENDING') {
-        count++;
-        countedKeys.add(`prog-atr-${p.id}`);
-      }
-    });
-
-    (hodApprovals || []).forEach((a) => {
-      if (a?.id && (a.status === 'PENDING' || a.status === 'SUBMITTED') && !countedKeys.has(a.id)) {
-        count++;
-      }
-    });
-
-    return count;
-  })();
-
-  const activeBatch = selectedBatch?.name || (batches[0]?.name ?? 'Active Batch');
+  const department = hodDashboard?.department ?? null;
+  const statistics = hodDashboard?.statistics ?? {};
+  const totalProgrammes = statistics.programmesCount ?? statistics.programmes ?? null;
+  const totalCourses = statistics.coursesCount ?? null;
+  const pendingApprovalsCount = statistics.pendingApprovalsCount ?? null;
+  const activeBatch = hodDashboard?.activeBatch ?? '—';
 
   // ── Per-step completion tracking ───────────────────────────────────────────
-  const safeProgress = hodWorkflowProgress || (currentProg?.id ? hodWorkflowProgressStore[currentProg.id] : {}) || {};
+  const safeProgress = hodWorkflowProgress ?? hodDashboard?.workflowProgress ?? hodDashboard?.setupProgress ?? {};
   const stepStatus = HOD_STEPS.map((s, idx) => {
     if (Array.isArray(safeProgress.stepStatus)) {
       return !!safeProgress.stepStatus[idx];
     }
     if (Array.isArray(safeProgress.completedSteps)) {
-      return safeProgress.completedSteps.includes(s.step);
+      return safeProgress.completedSteps.some((step) => Number(step) === s.step);
     }
     return !!safeProgress[s.step] || !!safeProgress[`step-${s.step}`];
   });
@@ -196,11 +141,11 @@ export default function HodDashboard() {
   const muted   = '#64748b';
   const accent  = '#4f46e5';
 
-  if (screenLoading && masterProgrammes.length === 0 && batches.length === 0) {
+  if (screenLoading && !hodDashboard) {
     return <ScreenLoadingState message="Loading HOD Dashboard..." />;
   }
 
-  if (screenError && masterProgrammes.length === 0 && batches.length === 0) {
+  if (screenError && !hodDashboard) {
     return <ScreenErrorState title="Failed to load HOD Dashboard" message={screenError} onRetry={fetchHodData} />;
   }
 
@@ -226,7 +171,7 @@ export default function HodDashboard() {
             Welcome, {user?.name || 'Department HOD'}
           </h1>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            {user?.department || 'Department of Computer Science & Engineering'} &nbsp;·&nbsp; Active Batch: <strong style={{ color: ink }}>{activeBatch}</strong>
+            {department?.name ?? '—'} &nbsp;·&nbsp; Active Batch: <strong style={{ color: ink }}>{activeBatch}</strong>
           </p>
         </div>
         <div style={{ marginLeft: 'auto' }}>
@@ -262,7 +207,7 @@ export default function HodDashboard() {
               <GraduationCap size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalProgrammes}</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalProgrammes ?? '—'}</div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>In your department</div>
         </div>
 
@@ -274,7 +219,7 @@ export default function HodDashboard() {
               <Layers size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalCourses}</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{totalCourses ?? '—'}</div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>Across active curricula</div>
         </div>
 
@@ -287,7 +232,7 @@ export default function HodDashboard() {
             </div>
           </div>
           <div style={{ fontSize: '26px', fontWeight: '800', color: pendingApprovalsCount > 0 ? '#d97706' : ink, lineHeight: 1 }}>
-            {pendingApprovalsCount}
+            {pendingApprovalsCount ?? '—'}
           </div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>
             {pendingApprovalsCount > 0 ? 'Action required' : 'All clear'}
@@ -358,7 +303,7 @@ export default function HodDashboard() {
           <div>
             <div style={{ fontSize: '14px', fontWeight: '700', color: ink }}>Department Setup Workflow</div>
             <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>
-              {completedCount} of {HOD_STEPS.length} steps completed &nbsp;·&nbsp; {currentProg?.name || 'Programme Setup'}
+              {completedCount} of {HOD_STEPS.length} steps completed &nbsp;·&nbsp; {department?.name ?? 'Department Setup'}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

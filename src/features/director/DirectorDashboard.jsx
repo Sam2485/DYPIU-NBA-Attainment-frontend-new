@@ -61,8 +61,8 @@ export default function DirectorDashboard() {
   const statistics = directorDashboard?.statistics ?? {};
   const totalDepts = statistics.departmentsCount ?? statistics.departments ?? null;
   const totalProgrammes = statistics.programmesCount ?? statistics.programmes ?? null;
-  const assignedHODs = null;
-  const pendingHODs = null;
+  const assignedHODs = statistics.assignedHODsCount ?? statistics.assignedHODs ?? statistics.assignedHodsCount ?? statistics.assignedHods ?? null;
+  const pendingHODs = statistics.unassignedHODsCount ?? statistics.unassignedHODs ?? statistics.unassignedHodsCount ?? null;
   const pendingApprovalsCount = null;
 
   // ── Per-step completion tracking ───────────────────────────────────────────
@@ -216,7 +216,11 @@ export default function DirectorDashboard() {
             {assignedHODs ?? '—'}<span style={{ fontSize: '14px', fontWeight: '600', color: muted }}>/{totalDepts ?? '—'}</span>
           </div>
           <div style={{ fontSize: '11.5px', marginTop: '5px', fontWeight: '600', color: muted }}>
-            Not provided by dashboard
+            {assignedHODs !== null && totalDepts !== null && assignedHODs === totalDepts
+              ? 'All HODs Assigned'
+              : assignedHODs !== null
+                ? `${assignedHODs} of ${totalDepts ?? 0} Assigned`
+                : 'Not provided by dashboard'}
           </div>
         </div>
 

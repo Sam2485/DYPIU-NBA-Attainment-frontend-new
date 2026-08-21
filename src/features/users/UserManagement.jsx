@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AuditTable from '../../components/tables/AuditTable';
 import { Shield, Plus } from 'lucide-react';
 import { useUser } from '../../context/user';
 
 export default function UserManagement() {
-  const { users = [], addUser = () => {}, updateUser = () => {}, deleteUser = () => {} } = useUser();
+  const { users = [], addUser = () => {}, updateUser = () => {}, deleteUser = () => {}, refreshUsers = () => Promise.resolve([]) } = useUser();
+
+  useEffect(() => {
+    refreshUsers().catch(() => {});
+  }, [refreshUsers]);
 
   const handleAddUser = () => {
     addUser({
