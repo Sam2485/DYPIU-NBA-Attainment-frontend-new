@@ -1,0 +1,936 @@
+============================================================
+OBE ACADEMIC STRUCTURE — REVISED COMPLETE FLOW
+============================================================
+1. SCHOOL
+============================================================
+School
+|
+|
++-- Department
+| |
+| +-- Master Programme
++-- Department
+|
++-- Master Programme
+A School can have:
+- Multiple Departments
+A Department can have:
+- Multiple Master Programmes
+------------------------------------------------------------
+Example
+------------------------------------------------------------
+School:
+School of Engineering & Technology
+|
++-- Department of Computer Science & Engineering
+|
++-- B.Tech Computer Science & Engineering
++-- B.Tech Artificial Intelligence
++-- B.Tech Data Science
++-- ...
+============================================================
+2. MASTER PROGRAMME
+============================================================
+Master Programme is the permanent/master definition of a
+programme.
+It contains ONLY programme-level master information.
+Example:
+Master Programme
+|
++-- Name: B.Tech Computer Science & Engineering
++-- Code: BTECH-CSE
++-- Department ID
++-- Duration: 4 Years
++-- Degree / programme metadata
++-- Status
+IMPORTANT:
+Master Programme does NOT contain:
+- Batch-specific PO
+- Batch-specific PSO
+- Batch-specific PEO
+- Programme Coordinator assignment
+- Batch-specific targets
+- Student data
+- Course attainment
+- Programme attainment
+- Programme ATR
+The Master Programme acts as the parent/template identity
+for all Programme Batches.
+There is NO requirement to create a "programme template" and
+later inherit it.
+The Master Programme itself is simply the permanent programme
+definition.
+============================================================
+3. MASTER COURSE
+============================================================
+Each Master Programme contains multiple Master Courses.
+Master Course is the permanent/master definition of a course.
+Example:
+B.Tech CSE
+|
++-- Master Course: CNS
++-- Master Course: DBMS
++-- Master Course: AI
++-- Master Course: DSA
++-- ...
+Master Course contains master-level information such as:
+- Master Course ID
+- Master Programme ID
+- Course Code
+- Course Name
+- Credits
+- Course type
+- Basic course metadata
+Master Course DOES NOT contain:
+- Course Coordinator
+- Batch-specific COs
+- Batch-specific CO → PO/PSO mapping
+- Student marks
+- Direct assessment
+- Indirect assessment
+- CO attainment
+- Course ATR
+- Batch-specific verification
+- Batch-specific attainment configuration
+Those belong to the batch-specific course instance.
+============================================================
+4. PROGRAMME BATCH
+============================================================
+A Master Programme can have MANY Programme Batches.
+Example:
+Master Programme:
+B.Tech Computer Science & Engineering
+|
++-- Programme Batch: 2026-30
+|
++-- Programme Batch: 2027-31
+|
++-- Programme Batch: 2028-32
+|
++-- Programme Batch: 2029-33
+|
++-- ...
+Each Programme Batch belongs to exactly one Master Programme.
+Example:
+Programme Batch:
+B.Tech CSE 2026-30
+contains:
+- Programme Batch ID
+- Master Programme ID
+- Batch start year
+- Batch end year
+- Batch status
+- Other batch-specific metadata
+The relationship is:
+Master Programme
+|
++-- Programme Batch 2026-30
++-- Programme Batch 2027-31
++-- Programme Batch 2028-32
++-- Graduated Programme Batch
++-- Graduated Programme Batch
+This allows the system to find:
+- Current batch
+- Previous batch
+- Next batch
+- All batches
+- Graduated batches
+using the same Master Programme ID.
+============================================================
+5. PROGRAMME BATCH — BATCH-SPECIFIC PO / PSO / PEO
+============================================================
+PO / PSO / PEO belong to the Programme Batch.
+They do NOT belong directly to the Master Programme.
+Example:
+Master Programme:
+B.Tech CSE
+|
++-- Programme Batch 2026-30
+| |
+| +-- PO1
+| +-- PO2
+| +-- PO3
+| +-- PSO1
+| +-- PSO2
+|
++-- Programme Batch 2027-31
+|
++-- PO1
++-- PO2
++-- PO3
++-- PSO1
++-- PSO2
++-- ...
+IMPORTANT:
+PO / PSO / PEO can be different between batches.
+Therefore:
+2026-30 PO/PSO
+≠
+2027-31 PO/PSO
+unless the institution intentionally creates the same values.
+The data relationship should conceptually be:
+Programme Batch
+|
++-- Programme Outcomes
++-- Programme Specific Outcomes
++-- Programme Educational Objectives
+============================================================
+6. PROGRAMME COORDINATOR ASSIGNMENT
+============================================================
+HOD assigns Programme Coordinator to a Programme Batch.
+Example:
+Programme Batch:
+B.Tech CSE 2026-30
+|
++-- Programme Coordinator: Faculty A
+Another batch can have:
+B.Tech CSE 2027-31
+|
++-- Programme Coordinator: Faculty B
+A Programme Coordinator can manage:
+- One Programme Batch
+OR
+- Multiple Programme Batches
+Example:
+Programme Coordinator A
+|
++-- B.Tech CSE 2026-30
++-- B.Tech CSE 2027-31
++-- B.Tech CSE 2028-32
+The coordinator's scope is therefore determined by the
+Programme Batch assignments.
+============================================================
+7. PROGRAMME BATCH COURSE
+============================================================
+This replaces the conceptual need for the old generic
+Course + CourseOffering structure.
+A Master Course can exist in multiple Programme Batches.
+Example:
+Master Course:
+CNS
++-- Programme Batch Course: CNS / 2026-30
++-- Programme Batch Course: CNS / 2027-31
+|
+|
+|
++-- Programme Batch Course: CNS / 2028-32
+Each Programme Batch Course connects:
+Master Course
++
+Programme Batch
+Conceptually:
+Programme Batch Course
+----------------------
+- Programme Batch Course ID
+- Programme Batch ID
+- Master Course ID
+- Semester
+- Course Coordinator
+- Course status
+- Other batch-specific course information
+Example:
+Master Course:
+CNS
+Programme Batch:
+B.Tech CSE 2026-30
+Programme Batch Course:
+CNS / B.Tech CSE / 2026-30
+============================================================
+8. COURSE COORDINATOR ASSIGNMENT
+============================================================
+HOD / Programme Coordinator assigns Course Coordinator
+according to the application's approved workflow.
+Example:
+B.Tech CSE 2026-30
+|
++-- CNS
+| |
+| +-- Course Coordinator: Faculty A
+|
++-- DBMS
+| |
+| +-- Course Coordinator: Faculty B
+|
++-- AI
+|
++-- Course Coordinator: Faculty C
+One Course Coordinator can manage:
+- One course
+OR
+- Multiple courses
+across their permitted Programme Batch scope.
+Example:
+Course Coordinator A
+|
++-- CNS / 2026-30
++-- DBMS / 2026-30
++-- AI / 2026-30
+============================================================
+9. BATCH-SPECIFIC COURSE OUTCOMES
+============================================================
+COs belong to the Programme Batch Course.
+They do NOT belong to the Master Course.
+Example:
+Master Course:
+CNS
+|
++-- CNS / 2026-30
+| |
+| +-- CO1
+| +-- CO2
+| +-- CO3
+|
++-- CNS / 2027-31
+|
++-- CO1
++-- CO2
++-- CO3
++-- CO4
+COs can therefore change between batches.
+This is intentional.
+============================================================
+10. CO → PO / PSO MAPPING
+============================================================
+Mapping is also Programme Batch Course specific.
+Example:
+CNS / 2026-30
+|
++-- CO1 → PO1, PO2
++-- CO2 → PO2, PO3
++-- CO3 → PSO1
+CNS / 2027-31
+|
++-- CO1 → PO1
++-- CO2 → PO2, PO3
++-- CO3 → PSO1, PSO2
+The mapping must use the PO/PSO belonging to the same
+Programme Batch.
+============================================================
+11. COURSE ASSESSMENT
+============================================================
+All assessment data belongs to the Programme Batch Course.
+For example:
+CNS / B.Tech CSE / 2026-30
++-- Examination Data
++-- Direct Assessment
++-- Course-End Survey
++-- Indirect Assessment
++-- CO Attainment
+|
+|
+|
+|
+|
+|
++-- Course ATR
+There must be no mixing of:
+CNS / 2026-30
+with:
+CNS / 2027-31
+============================================================
+12. DIRECT ASSESSMENT
+============================================================
+Direct assessment is calculated using student marks /
+approved direct-assessment data for the specific
+Programme Batch Course.
+Example:
+CNS / 2026-30
+|
++-- Semester examination data
+|
++-- Student marks
+|
++-- CO-wise direct attainment
+Direct attainment remains scoped to:
+Programme Batch Course
+============================================================
+13. INDIRECT ASSESSMENT
+============================================================
+Indirect assessment comes from the applicable course-end
+survey for the specific Programme Batch Course.
+Example:
+CNS / 2026-30
+|
++-- Course-end survey
+|
++-- Indirect CO attainment
+Indirect assessment must not mix responses from another
+Programme Batch.
+============================================================
+14. OVERALL CO ATTAINMENT
+============================================================
+For the applicable Programme Batch Course:
+Overall CO Attainment:
+Direct Attainment × 80%
++
+Indirect Attainment × 20%
+Conceptually:
+Overall CO Attainment
+=
++
+(Direct × 0.80)
+(Indirect × 0.20)
+The resulting data is stored against the specific
+Programme Batch Course / applicable report entity.
+============================================================
+15. COURSE REPORTS
+============================================================
+Each Programme Batch Course has its own historical reports.
+Example:
+CNS / 2026-30
+|
++-- Average CO Mapping Attainment
++-- Average Direct Attainment
++-- Average Indirect Attainment
++-- Overall CO Attainment
++-- Course ATR
+Next batch:
+CNS / 2027-31
+|
++-- Its own reports
+The 2027-31 CNS course can view historical CNS reports
+from 2026-30 where permitted by the application workflow.
+IMPORTANT:
+Historical data is READ-ONLY historical information.
+It must not be modified by the new batch's calculations.
+============================================================
+16. PROGRAMME TARGETS
+============================================================
+Programme Coordinator sets targets for each Programme Batch
+under their assigned scope.
+Example:
+Programme Coordinator A
+|
++-- B.Tech CSE 2026-30
+| |
+| +-- PO targets
+| +-- PSO targets
+|
++-- B.Tech CSE 2027-31
+|
++-- PO targets
++-- PSO targets
+Targets belong to the Programme Batch.
+They do NOT belong to the Master Programme.
+============================================================
+17. PROGRAMME ATTAINMENT REPORT
+============================================================
+At the end of a Programme Batch, the system produces its
+Programme Attainment Report.
+Example:
+B.Tech CSE 2026-30
++-- Semester/course attainment data
++-- PO/PSO mapping attainment
++-- Direct attainment average
++-- Indirect attainment average
+|
+|
+|
+|
+|
++-- Overall programme attainment
+The report is permanently associated with:
+Programme Batch 2026-30
+============================================================
+18. PROGRAMME OVERALL ATTAINMENT
+============================================================
+The overall programme attainment uses:
+80% Direct
++
+20% Indirect
+Conceptually:
+Overall Programme Attainment
+=
++
+(Direct Average × 0.80)
+(Indirect Average × 0.20)
+The direct and indirect values are calculated according to
+the approved programme-level aggregation rules.
+The final report belongs to that Programme Batch.
+============================================================
+19. PROGRAMME ATR
+============================================================
+Programme ATR belongs to the Programme Batch.
+Example:
+Programme Batch:
+B.Tech CSE 2026-30
+|
++-- Programme Targets
+|
++-- Final Programme Attainment
+|
++-- Programme ATR
+The Programme ATR compares:
+Programme Batch Targets
+VS
+Programme Batch Final Attainment
+Therefore:
+2026-30 targets
+↓
+2026-30 final attainment
+↓
+2026-30 Programme ATR
+============================================================
+20. HISTORICAL PROGRAMME ATR
+============================================================
+The next Programme Batch can view previous Programme Batch
+ATR/report information.
+Example:
+B.Tech CSE 2027-31
+|
++-- Current Programme Data
+|
++-- Previous Batch:
+B.Tech CSE 2026-30
+|
++-- Programme ATR
++-- Programme Attainment
++-- PO/PSO Attainment
+The historical report should be discovered through:
+Same Master Programme
++
+Previous Programme Batch
+NOT by copying the previous report into the new batch.
+============================================================
+21. HISTORICAL COURSE REPORTS
+============================================================
+Same concept applies to courses.
+Current:
+CNS / 2027-31
+can find previous CNS instances by:
+Master Programme
++
+Master Course
++
+Previous Programme Batch
+Example:
+Master Programme:
+B.Tech CSE
+Master Course:
+CNS
+Historical Programme Batch Courses:
+CNS / 2026-30
+CNS / 2025-29
+CNS / 2024-28
+The current:
+CNS / 2027-31
+can display historical reports from those previous instances
+where permitted.
+============================================================
+22. HISTORICAL DATA MUST NOT BE COPIED
+============================================================
+IMPORTANT PRINCIPLE:
+DO NOT COPY:
+2026-30 reports
+↓
+2027-31 reports
+Instead:
+2027-31
+|
+|
++-- Current reports
++-- Historical lookup
+|
++-- 2026-30
+|
++-- Historical reports
+This preserves the original data and prevents accidental
+modification of previous batches.
+============================================================
+23. MASTER PROGRAMME → BATCH DISCOVERY
+============================================================
+The Master Programme ID is the permanent link between batches.
+Example:
+Master Programme ID:
+MP-CSE
+Programme Batches:
+MP-CSE
+|
++-- PB-2024-28
++-- PB-2025-29
++-- PB-2026-30
++-- PB-2027-31
++-- PB-2028-32
+Therefore the system can easily determine:
+- Previous batch
+- Current batch
+- Next batch
+- Graduated batches
+- All historical batches
+============================================================
+24. MASTER COURSE → BATCH COURSE DISCOVERY
+============================================================
+Master Course ID is the permanent link between course
+instances.
+Example:
+Master Course:
+MC-CNS
+|
++-- PBC-CNS-2024-28
++-- PBC-CNS-2025-29
++-- PBC-CNS-2026-30
++-- PBC-CNS-2027-31
++-- PBC-CNS-2028-32
+Therefore the system can determine the historical CNS
+course instances for the same Master Programme.
+============================================================
+25. COMPLETE ACADEMIC HIERARCHY
+============================================================
+School
+|
++-- Department
+|
++-- Master Programme
+|
++-- Master Course
+| |
+| +-- CNS
+| +-- DBMS
+| +-- AI
+| +-- DSA
+|
++-- Programme Batch
+|
++-- PO
++-- PSO
++-- PEO
++-- Programme Coordinator
++-- Programme Targets
+|
++-- Programme Batch Course
+|
++-- Master Course reference
++-- Course Coordinator
++-- Semester
++-- CO
++-- CO → PO/PSO Mapping
++-- Direct Assessment
++-- Indirect Assessment
++-- CO Attainment
++-- Course ATR
++-- Programme Attainment
++-- Programme ATR
+============================================================
+26. RESPONSIBILITY FLOW
+============================================================
+SCHOOL DIRECTOR
+---------------
+Responsible for school-level setup / oversight according to
+the existing workflow.
+HOD
+---
+1. Creates Master Programme under Department.
+2. Creates Master Courses under the Master Programme.
+3. Creates Programme Batches under the Master Programme.
+4. Defines/maintains batch-specific PO / PSO / PEO.
+5. Assigns Programme Coordinator to Programme Batch.
+6. Handles course coordinator assignment according to the
+approved workflow.
+PROGRAMME COORDINATOR
+---------------------
+1. Works only on assigned Programme Batch(es).
+2. Selects Programme Batch.
+3. Sets programme targets.
+4. Creates/activates Programme Batch Courses from the available
+Master Courses.
+5. Ensures required course structure exists for the batch.
+6. Course Coordinator assignments are handled according to
+the approved workflow.
+COURSE COORDINATOR
+------------------
+1. Sees assigned Programme Batch Courses.
+2. Manages batch-specific COs.
+3. Defines/updates CO → PO/PSO mapping.
+4. Enters/uploads direct assessment data.
+5. Handles course-end indirect assessment.
+6. Calculates/loads CO attainment.
+7. Prepares Course ATR.
+8. Completes verification/approval workflow as applicable.
+============================================================
+27. USER SCOPE
+============================================================
+DIRECTOR
+↓
+School
+Department
+Master Programmes
+HOD
+↓
+↓
+↓
+Programme Batches
+PROGRAMME COORDINATOR
+↓
+Assigned Programme Batch(es)
+COURSE COORDINATOR
+↓
+Assigned Programme Batch Course(s)
+============================================================
+28. REPORTING HIERARCHY
+============================================================
+Programme Batch
++-- Programme-level reports
++-- Programme ATR
+|
+|
+|
++-- Course reports
+|
++-- Course 1
+| |
+| +-- CO attainment
+| +-- Direct
+| +-- Indirect
+| +-- Overall
+| +-- Course ATR
+|
++-- Course 2
+|
++-- Course 3
+|
++-- ...
+============================================================
+29. HISTORICAL REPORT FLOW
+============================================================
+Current Programme Batch
++-- Current Programme Reports
++-- Current Programme ATR
+|
+|
+|
++-- Historical Reports
+|
++-- Same Master Programme
+|
++-- Previous Programme Batch
++-- Programme ATR
++-- Programme Attainment
+|
+|
++-- Same Master Course
+|
++-- Course reports
++-- Course ATR
+============================================================
+30. FINAL ENTITY RELATIONSHIP
+============================================================
+SCHOOL
+|
++-- DEPARTMENT
+|
++-- MASTER_PROGRAMME
++-- MASTER_COURSE
+|
+|
++-- PROGRAMME_BATCH
++-- PROGRAMME_BATCH_OUTCOMES
++-- PROGRAMME_BATCH_TARGETS
++-- PROGRAMME_BATCH_COORDINATOR
+|
+|
+|
+|
++-- PROGRAMME_BATCH_COURSE
+|
++-- COURSE_COORDINATOR
++-- COURSE_OUTCOMES
++-- CO_PO_PSO_MAPPING
++-- DIRECT_ASSESSMENT
++-- INDIRECT_ASSESSMENT
++-- CO_ATTAINMENT
++-- COURSE_ATR
+|
++-- PROGRAMME_ATTAINMENT
++-- PROGRAMME_ATR
+============================================================
+31. MOST IMPORTANT ID RELATIONSHIPS
+============================================================
+Master Programme:
+masterProgrammeId
+Programme Batch:
+programmeBatchId
+masterProgrammeId
+Master Course:
+masterCourseId
+masterProgrammeId
+Programme Batch Course:
+programmeBatchCourseId
+programmeBatchId
+masterCourseId
+Therefore:
+masterProgrammeId
+|
++-- programmeBatchId
+|
++-- programmeBatchCourseId
+|
++-- masterCourseId
+This is the core structure for historical tracking.
+============================================================
+32. OLD MODEL VS NEW MODEL
+============================================================
+OLD:
+Master Programme
+|
++-- Course
+|
++-- Course Offering
+|
++-- Batch
+NEW:
+Master Programme
++-- Master Course
+|
+|
++-- Programme Batch
+|
++-- Programme Batch Course
+|
++-- Master Course
+OLD:
+Course Offering was doing multiple jobs.
+NEW:
+Each entity has one clear responsibility.
+============================================================
+33. KEY PRINCIPLE
+============================================================
+MASTER = permanent definition
+BATCH = historical academic instance
+BATCH-SPECIFIC COURSE = actual course instance
+REPORT = belongs to the batch-specific academic instance
+HISTORICAL REPORT = discovered through parent/master relationships
+Nothing from a previous batch should be overwritten by a new batch.
+============================================================
+34. EXAMPLE — COMPLETE B.TECH CSE FLOW
+============================================================
+School
+|
++-- CSE Department
+|
++-- Master Programme:
+| B.Tech CSE
+|
++-- Master Courses:
+| CNS
+| DBMS
+| AI
+| DSA
+|
++-- Programme Batch:
+| B.Tech CSE 2026-30
+| |
+| +-- PO/PSO/PEO
+| +-- Programme Coordinator
+| +-- Targets
+| |
+| +-- CNS
+| | |
+| | +-- COs
+| | +-- Mapping
+| | +-- Direct
+| | +-- Indirect
+| | +-- Overall CO Attainment
+| | +-- Course ATR
+| |
+| +-- DBMS
+| +-- AI
+| +-- DSA
+|
++-- Programme Batch:
+B.Tech CSE 2027-31
+|
+|
++-- CNS
++-- DBMS
++-- AI
++-- DSA
+|
++-- Own PO/PSO/PEO
++-- Own Targets
++-- Own Coordinator
++-- Can view historical:
+B.Tech CSE 2026-30
+|
++-- Programme ATR
++-- Programme Attainment
++-- CNS reports
++-- DBMS reports
++-- AI reports
++-- DSA reports
+============================================================
+35. CORE DESIGN RULES
+============================================================
+RULE 1
+------
+Master Programme is permanent.
+RULE 2
+------
+Master Course is permanent.
+RULE 3
+------
+Programme Batch is the actual academic batch.
+RULE 4
+------
+PO/PSO/PEO belong to Programme Batch.
+RULE 5
+------
+Targets belong to Programme Batch.
+RULE 6
+------
+Programme Coordinator assignment belongs to Programme Batch.
+RULE 7
+------
+Programme Batch Course connects a Master Course to a
+Programme Batch.
+RULE 8
+------
+COs belong to Programme Batch Course.
+RULE 9
+------
+CO → PO/PSO mapping belongs to Programme Batch Course.
+RULE 10
+-------
+Course Coordinator assignment belongs to Programme Batch Course.
+RULE 11
+-------
+Direct/Indirect assessment belongs to Programme Batch Course.
+RULE 12
+-------
+Course attainment belongs to Programme Batch Course.
+RULE 13
+-------
+Course ATR belongs to Programme Batch Course.
+RULE 14
+-------
+Programme attainment belongs to Programme Batch.
+RULE 15
+-------
+Programme ATR belongs to Programme Batch.
+RULE 16
+-------
+Historical reports are never copied into new batches.
+RULE 17
+-------
+Historical reports are discovered through Master Programme /
+Master Course relationships and previous Programme Batches.
+A new Programme Batch may have completely different:
+RULE 18
+-------
+- PO
+- PSO
+- PEO
+- Targets
+- COs
+- CO mappings
+- Coordinators
+- Attainment
+from previous batches.
+RULE 19
+-------
+A Master Course can be reused by many Programme Batches.
+RULE 20
+-------
+A Programme Batch can contain many Programme Batch Courses.
+============================================================
+END OF REVISED ACADEMIC FLOW
+============================================================

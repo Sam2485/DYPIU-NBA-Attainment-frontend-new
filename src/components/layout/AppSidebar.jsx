@@ -27,6 +27,7 @@ function Icon({ name, active = false, size = 16 }) {
   if (name === 'reports')    return <svg {...p}><path d="M4 19.5V5a2 2 0 0 1 2-2h5v18H6a2 2 0 0 1-2-1.5Z"/><path d="M13 3h5a2 2 0 0 1 2 2v14.5A2 2 0 0 0 18 18h-5V3Z"/></svg>;
   if (name === 'chevron')    return <svg {...p}><path d="m6 9 6 6 6-6"/></svg>;
   if (name === 'profile')    return <svg {...p}><path d="M19 21a7 7 0 0 0-14 0"/><circle cx="12" cy="8" r="4"/></svg>;
+  if (name === 'shield')     return <svg {...p}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>;
   if (name === 'mail')       return <svg {...p}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>;
   if (name === 'logout')     return <svg {...{ ...p, stroke: '#f87171' }}><path d="M10 17 15 12 10 7"/><path d="M15 12H3"/><path d="M21 19V5a2 2 0 0 0-2-2h-6"/></svg>;
   if (name === 'nav')        return <svg {...p}><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="M5 10v5c2 2 12 2 14 0v-5"/><path d="M12 11v8"/></svg>;
@@ -294,6 +295,42 @@ export default function AppSidebar() {
       {/* ── Divider ────────────────────────────────────────────────── */}
       <div style={{ height: '1px', background: 'rgba(148, 163, 184, 0.18)', width: '100%', flexShrink: 0 }} />
 
+      {/* Directors manage school-level data, so their sidebar has no batch scope. */}
+      {role === 'DIRECTOR' ? (
+        <>
+          <div
+            style={{
+              background: 'linear-gradient(135deg, rgba(79,70,229,0.28), rgba(30,41,59,0.72))',
+              border: '1px solid rgba(165,180,252,0.30)',
+              borderRadius: 14,
+              padding: '8px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              flexShrink: 0,
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 9.5, color: '#c7d2fe', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Director Access
+              </span>
+              <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: 'rgba(52,211,153,0.16)', color: '#6ee7b7', border: '1px solid rgba(52,211,153,0.25)' }}>
+                ACTIVE
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 32, padding: '0 8px', borderRadius: 8, border: '1px solid rgba(165,180,252,0.20)', background: 'rgba(15,23,42,0.40)' }}>
+              <span style={{ width: 22, height: 22, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'rgba(129,140,248,0.18)', color: '#c7d2fe', flexShrink: 0 }}>
+                <Icon name="shield" active size={13} />
+              </span>
+              <span style={{ color: '#f8fafc', fontSize: 11.5, fontWeight: 800, lineHeight: 1.2 }}>
+                School-level governance
+              </span>
+            </div>
+          </div>
+          <div style={{ height: '1px', background: 'rgba(148, 163, 184, 0.18)', width: '100%', flexShrink: 0 }} />
+        </>
+      ) : <>
       {/* ── Academic Batch Selector with Status Tags ────────────────── */}
       <div
         style={{
@@ -374,6 +411,7 @@ export default function AppSidebar() {
 
       {/* ── Divider ────────────────────────────────────────────────── */}
       <div style={{ height: '1px', background: 'rgba(148, 163, 184, 0.18)', width: '100%', flexShrink: 0 }} />
+      </>}
 
       {/* ── MAIN NAVIGATION AREA ─────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', paddingRight: 2 }}>

@@ -1,21 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import {
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  ArrowRight,
-  ShieldCheck,
-  Building2,
-  GraduationCap,
-  Sparkles,
-  CheckCircle2,
-  AlertCircle,
-  Award,
-  Layers,
-} from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+
+import bgImage from '../assets/dyp.jpeg';
+import dypLogo from '../assets/image.png';
+import iqacLogo from '../assets/iqac.png';
 
 export default function LoginPage() {
   const { login, isAuthenticated, role } = useAuth();
@@ -27,9 +17,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTabRole, setActiveTabRole] = useState(null);
 
-  // If already logged in, redirect to dashboard or appropriate landing page
+  // If already authenticated, redirect to appropriate role dashboard
   useEffect(() => {
     if (isAuthenticated) {
       const from = location.state?.from?.pathname;
@@ -49,16 +38,25 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
+    if (!email.trim()) {
+      setError('Please enter your institutional email or username.');
+      return;
+    }
+    if (!password) {
+      setError('Please enter your password.');
+      return;
+    }
+
     setError('');
     setIsLoading(true);
 
     try {
-      const result = await login(email, password);
+      const result = await login(email.trim(), password);
       setIsLoading(false);
       if (result && result.success) {
-        navigate(result.targetPath, { replace: true });
+        navigate(result.targetPath || '/dashboard', { replace: true });
       } else {
-        setError(result?.error || 'Authentication failed');
+        setError(result?.error || 'Authentication failed. Please check your credentials.');
       }
     } catch (err) {
       setIsLoading(false);
@@ -67,517 +65,347 @@ export default function LoginPage() {
         err?.response?.data?.message ||
         err?.response?.data?.error ||
         err?.message ||
-        'Authentication failed'
+        'Authentication failed. Please verify your credentials and try again.'
       );
     }
   };
-
-  const handleSelectDemoRole = (roleKey, roleEmail) => {
-    setActiveTabRole(roleKey);
-    setEmail(roleEmail);
-    setPassword('123456');
-    setError('');
-  };
-
-  const demoRoles = [
-    {
-      key: 'DIRECTOR',
-      title: 'Director',
-      email: 'director@dypiu.ac.in',
-      badge: 'Institution Head',
-      desc: 'School Level Approvals & Governance',
-      color: '#3b82f6',
-      bgLight: 'rgba(59, 130, 246, 0.08)',
-      border: 'rgba(59, 130, 246, 0.25)',
-    },
-    {
-      key: 'HOD',
-      title: 'HOD',
-      email: 'hod@dypiu.ac.in',
-      badge: 'Department Head',
-      desc: 'Batch & Programme Setup Workflow',
-      color: '#10b981',
-      bgLight: 'rgba(16, 185, 129, 0.08)',
-      border: 'rgba(16, 185, 129, 0.25)',
-    },
-    {
-      key: 'PROGRAMME_COORDINATOR',
-      title: 'Programme Coordinator',
-      email: 'pc@dypiu.ac.in',
-      badge: 'Programme Lead',
-      desc: 'PO Target Setting & Reviews',
-      color: '#8b5cf6',
-      bgLight: 'rgba(139, 92, 246, 0.08)',
-      border: 'rgba(139, 92, 246, 0.25)',
-    },
-    {
-      key: 'FACULTY',
-      title: 'Course Coordinator',
-      email: 'cc@dypiu.ac.in',
-      badge: 'Faculty / CC',
-      desc: 'Course Outcomes, Mapping & Attainment',
-      color: '#f59e0b',
-      bgLight: 'rgba(245, 158, 11, 0.08)',
-      border: 'rgba(245, 158, 11, 0.25)',
-    },
-  ];
 
   return (
     <div
       style={{
         minHeight: '100vh',
-        width: '100%',
+        width: '100vw',
+        position: 'relative',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'radial-gradient(ellipse at 50% 0%, #1e293b 0%, #0f172a 65%, #080d1a 100%)',
-        padding: '24px 16px',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        backgroundImage: 'url(' + bgImage + ')',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
         fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
         boxSizing: 'border-box',
-        position: 'relative',
-        overflow: 'hidden',
+        overflow: 'auto',
       }}
     >
-      {/* Background ambient lighting accents */}
+      {/* Dark gradient overlay for high contrast and readability */}
       <div
         style={{
           position: 'absolute',
-          top: '-15%',
-          left: '20%',
-          width: '500px',
-          height: '500px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(37,99,235,0.15) 0%, rgba(37,99,235,0) 70%)',
-          pointerEvents: 'none',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '-15%',
-          right: '15%',
-          width: '600px',
-          height: '600px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, rgba(99,102,241,0) 70%)',
-          pointerEvents: 'none',
-        }}
-      />
-
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '1020px',
-          background: 'rgba(17, 24, 39, 0.85)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(148, 163, 184, 0.18)',
-          borderRadius: '24px',
-          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05)',
-          display: 'grid',
-          gridTemplateColumns: '1.05fr 1fr',
-          overflow: 'hidden',
-          position: 'relative',
+          inset: 0,
+          background: 'linear-gradient(135deg, rgba(10, 16, 30, 0.78) 0%, rgba(15, 23, 42, 0.85) 50%, rgba(6, 11, 25, 0.92) 100%)',
+          backdropFilter: 'blur(2px)',
+          WebkitBackdropFilter: 'blur(2px)',
           zIndex: 1,
         }}
+      />
+
+      {/* Top Navigation Bar: Top-Left DYPIU Logo & Top-Right IQAC Logo */}
+      <header
+        style={{
+          position: 'relative',
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '24px 36px',
+          width: '100%',
+          boxSizing: 'border-box',
+        }}
       >
-        {/* Left Side: Brand & Feature Highlights */}
+        {/* Top-Left Logo (DYPIU) */}
         <div
           style={{
-            padding: '44px 40px',
-            background: 'linear-gradient(175deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.95) 100%)',
-            borderRight: '1px solid rgba(148, 163, 184, 0.14)',
             display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            position: 'relative',
+            alignItems: 'center',
+            gap: '14px',
+            background: 'rgba(255, 255, 255, 0.94)',
+            padding: '8px 18px',
+            borderRadius: '16px',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.25)',
+            border: '1px solid rgba(255, 255, 255, 0.4)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
           }}
         >
-          <div>
-            {/* Header Brand */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}>
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 14,
-                  background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-                  boxShadow: '0 10px 25px rgba(37,99,235,0.4)',
-                  color: '#fff',
-                  fontWeight: 900,
-                  fontSize: 17,
-                  display: 'grid',
-                  placeItems: 'center',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                NBA
-              </div>
-              <div>
-                <div style={{ color: '#ffffff', fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-                  NBA Attainment System
-                </div>
-                <div style={{ color: '#94a3b8', fontSize: 12.5, fontWeight: 500 }}>
-                  D. Y. Patil International University
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 32 }}>
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '4px 10px',
-                  borderRadius: '999px',
-                  background: 'rgba(59, 130, 246, 0.12)',
-                  border: '1px solid rgba(59, 130, 246, 0.28)',
-                  color: '#60a5fa',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                  marginBottom: 14,
-                }}
-              >
-                <Sparkles size={13} />
-                Accreditation & OBE Suite
-              </span>
-              <h2
-                style={{
-                  color: '#f8fafc',
-                  fontSize: '24px',
-                  fontWeight: 800,
-                  lineHeight: 1.3,
-                  margin: '0 0 10px 0',
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                Direct & Indirect Outcome-Based Attainment Engine
-              </h2>
-              <p
-                style={{
-                  color: '#94a3b8',
-                  fontSize: '13.5px',
-                  lineHeight: 1.6,
-                  margin: 0,
-                }}
-              >
-                Streamlined calculation, multi-level departmental review, and automated Action Taken Reports (ATR) for NBA accreditation compliance.
-              </p>
-            </div>
-
-            {/* Feature Checkpoints */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {[
-                {
-                  icon: <ShieldCheck size={17} color="#38bdf8" />,
-                  title: 'Multi-Tier Role Hierarchy',
-                  desc: 'Director, HOD, Programme Coordinator & Course Coordinator workflows.',
-                },
-                {
-                  icon: <Layers size={17} color="#4ade80" />,
-                  title: 'Automated CO-PO-PSO Computation',
-                  desc: 'Direct CIE/SEE marks integration + indirect surveys calculation.',
-                },
-                {
-                  icon: <Award size={17} color="#fbbf24" />,
-                  title: 'Continuous Quality Improvement (CQI)',
-                  desc: 'Export-ready Course ATRs and Year-Wise Programme ATR summaries.',
-                },
-              ].map((feat, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 12,
-                    padding: '10px 14px',
-                    borderRadius: 12,
-                    background: 'rgba(30, 41, 59, 0.5)',
-                    border: '1px solid rgba(148, 163, 184, 0.1)',
-                  }}
-                >
-                  <div style={{ marginTop: 2, flexShrink: 0 }}>{feat.icon}</div>
-                  <div>
-                    <div style={{ color: '#f1f5f9', fontSize: 12.5, fontWeight: 700, lineHeight: 1.3 }}>
-                      {feat.title}
-                    </div>
-                    <div style={{ color: '#8292ad', fontSize: 11.5, lineHeight: 1.4, marginTop: 2 }}>
-                      {feat.desc}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div
+          <img
+            src={dypLogo}
+            alt="DYPIU Logo"
             style={{
-              paddingTop: 24,
-              borderTop: '1px solid rgba(148, 163, 184, 0.12)',
-              marginTop: 28,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              color: '#64748b',
-              fontSize: '11px',
+              height: '48px',
+              width: 'auto',
+              objectFit: 'contain',
+              display: 'block',
             }}
-          >
-            <span>NBA Portal • Akurdi, Pune</span>
-            <span style={{ color: '#38bdf8', fontWeight: 600 }}>v2.5 Production Build</span>
-          </div>
+          />
         </div>
 
-        {/* Right Side: Sign In Form & Quick Demo Roles */}
+        {/* Top-Right Logo (IQAC) */}
         <div
           style={{
-            padding: '44px 38px',
             display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '14px',
+            background: 'rgba(255, 255, 255, 0.94)',
+            padding: '8px 18px',
+            borderRadius: '16px',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.25)',
+            border: '1px solid rgba(255, 255, 255, 0.4)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
           }}
         >
-          <div style={{ marginBottom: 24 }}>
+          <img
+            src={iqacLogo}
+            alt="IQAC Logo"
+            style={{
+              height: '48px',
+              width: 'auto',
+              objectFit: 'contain',
+              display: 'block',
+            }}
+          />
+        </div>
+      </header>
+
+      {/* Middle Content Area: Centered Glass Login Card */}
+      <main
+        style={{
+          position: 'relative',
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flex: 1,
+          padding: '24px 20px',
+        }}
+      >
+        <div
+          style={{
+            width: '100%',
+            maxWidth: '460px',
+            background: 'rgba(15, 23, 42, 0.68)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255, 255, 255, 0.16)',
+            borderRadius: '24px',
+            boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+            padding: '40px 36px',
+            boxSizing: 'border-box',
+            color: '#f8fafc',
+          }}
+        >
+          {/* Card Header */}
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <div
+              style={{
+                display: 'inline-block',
+                padding: '6px 14px',
+                borderRadius: '9999px',
+                background: 'rgba(59, 130, 246, 0.16)',
+                border: '1px solid rgba(96, 165, 250, 0.3)',
+                color: '#93c5fd',
+                fontSize: '12px',
+                fontWeight: '600',
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                marginBottom: '14px',
+              }}
+            >
+              OBE & NBA Attainment Portal
+            </div>
+
             <h1
               style={{
-                color: '#f8fafc',
-                fontSize: '22px',
-                fontWeight: 800,
+                fontSize: '26px',
+                fontWeight: '700',
+                color: '#ffffff',
+                margin: '0 0 8px 0',
                 letterSpacing: '-0.02em',
-                margin: '0 0 6px 0',
               }}
             >
               Sign In
             </h1>
-            <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>
-              Access your institutional attainment workspace
+            <p
+              style={{
+                fontSize: '14px',
+                color: '#94a3b8',
+                margin: 0,
+                lineHeight: 1.5,
+              }}
+            >
+              Enter your institutional credentials to access your academic dashboard
             </p>
           </div>
 
-          {/* Quick Demo Role Fillers */}
-          <div style={{ marginBottom: 20 }}>
+          {/* Error Message */}
+          {error && (
             <div
               style={{
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 8,
+                alignItems: 'flex-start',
+                gap: '12px',
+                padding: '12px 16px',
+                borderRadius: '12px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(248, 113, 113, 0.35)',
+                color: '#fca5a5',
+                fontSize: '13px',
+                lineHeight: 1.4,
+                marginBottom: '24px',
               }}
             >
-              <span
-                style={{
-                  fontSize: '10.5px',
-                  fontWeight: 800,
-                  color: '#38bdf8',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.07em',
-                }}
-              >
-                Quick Demo Access (1-Click Fill)
-              </span>
-              <span style={{ fontSize: '10.5px', color: '#64748b' }}>Pass: 123456</span>
+              <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px', color: '#f87171' }} />
+              <div>{error}</div>
             </div>
+          )}
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: 8,
-              }}
-            >
-              {demoRoles.map((r) => {
-                const isSelected = email === r.email;
-                return (
-                  <button
-                    key={r.key}
-                    type="button"
-                    onClick={() => handleSelectDemoRole(r.key, r.email)}
-                    style={{
-                      background: isSelected ? r.bgLight : 'rgba(30, 41, 59, 0.55)',
-                      border: `1px solid ${isSelected ? r.color : 'rgba(148, 163, 184, 0.16)'}`,
-                      borderRadius: '10px',
-                      padding: '8px 10px',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      position: 'relative',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span
-                        style={{
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                          color: isSelected ? r.color : '#f1f5f9',
-                        }}
-                      >
-                        {r.title}
-                      </span>
-                      {isSelected && <CheckCircle2 size={12} color={r.color} />}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '10px',
-                        color: '#64748b',
-                        marginTop: 2,
-                        fontFamily: 'monospace',
-                        textOverflow: 'ellipsis',
-                        overflow: 'hidden',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {r.email}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {error && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '10px 14px',
-                  borderRadius: 10,
-                  background: 'rgba(239, 68, 68, 0.12)',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                  color: '#fca5a5',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                }}
-              >
-                <AlertCircle size={16} style={{ flexShrink: 0 }} />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* Email Field */}
+          {/* Login Form */}
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Email / Username Input */}
             <div>
               <label
-                htmlFor="login-email"
+                htmlFor="email-input"
                 style={{
                   display: 'block',
+                  fontSize: '13px',
+                  fontWeight: '500',
                   color: '#cbd5e1',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  marginBottom: 6,
+                  marginBottom: '8px',
                 }}
               >
-                Institutional Email
+                Institutional Email or Username
               </label>
               <div style={{ position: 'relative' }}>
-                <Mail
-                  size={16}
+                <div
                   style={{
                     position: 'absolute',
-                    left: 12,
+                    left: '14px',
                     top: '50%',
                     transform: 'translateY(-50%)',
-                    color: '#64748b',
+                    color: '#94a3b8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    pointerEvents: 'none',
                   }}
-                />
+                >
+                  <Mail size={18} />
+                </div>
                 <input
-                  id="login-email"
-                  type="email"
+                  id="email-input"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. director@gmail.com, hod@gmail.com"
+                  placeholder="e.g. user@dypiu.ac.in"
+                  disabled={isLoading}
+                  autoComplete="username"
                   required
                   style={{
                     width: '100%',
-                    height: '42px',
-                    padding: '0 12px 0 38px',
-                    borderRadius: '10px',
-                    border: '1px solid rgba(148, 163, 184, 0.22)',
-                    background: '#1e293b',
-                    color: '#f8fafc',
-                    fontSize: '13px',
-                    fontWeight: 500,
+                    padding: '12px 14px 12px 42px',
+                    background: 'rgba(30, 41, 59, 0.7)',
+                    border: '1px solid rgba(148, 163, 184, 0.25)',
+                    borderRadius: '12px',
+                    color: '#ffffff',
+                    fontSize: '14px',
                     outline: 'none',
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
                     boxSizing: 'border-box',
-                    transition: 'border-color 0.15s ease',
                   }}
-                  onFocus={(e) => (e.target.style.borderColor = '#3b82f6')}
-                  onBlur={(e) => (e.target.style.borderColor = 'rgba(148, 163, 184, 0.22)')}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#3b82f6';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.25)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'rgba(148, 163, 184, 0.25)';
+                    e.target.style.boxShadow = 'none';
+                  }}
                 />
               </div>
             </div>
 
-            {/* Password Field */}
+            {/* Password Input */}
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <label
-                  htmlFor="login-password"
-                  style={{
-                    color: '#cbd5e1',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                  }}
-                >
-                  Password
-                </label>
-                <span style={{ fontSize: '11px', color: '#64748b' }}>Default: 123456</span>
-              </div>
+              <label
+                htmlFor="password-input"
+                style={{
+                  display: 'block',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  color: '#cbd5e1',
+                  marginBottom: '8px',
+                }}
+              >
+                Password
+              </label>
               <div style={{ position: 'relative' }}>
-                <Lock
-                  size={16}
+                <div
                   style={{
                     position: 'absolute',
-                    left: 12,
+                    left: '14px',
                     top: '50%',
                     transform: 'translateY(-50%)',
-                    color: '#64748b',
+                    color: '#94a3b8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    pointerEvents: 'none',
                   }}
-                />
+                >
+                  <Lock size={18} />
+                </div>
                 <input
-                  id="login-password"
+                  id="password-input"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="••••••••••••"
+                  disabled={isLoading}
+                  autoComplete="current-password"
                   required
                   style={{
                     width: '100%',
-                    height: '42px',
-                    padding: '0 40px 0 38px',
-                    borderRadius: '10px',
-                    border: '1px solid rgba(148, 163, 184, 0.22)',
-                    background: '#1e293b',
-                    color: '#f8fafc',
-                    fontSize: '13px',
-                    fontWeight: 500,
+                    padding: '12px 42px 12px 42px',
+                    background: 'rgba(30, 41, 59, 0.7)',
+                    border: '1px solid rgba(148, 163, 184, 0.25)',
+                    borderRadius: '12px',
+                    color: '#ffffff',
+                    fontSize: '14px',
                     outline: 'none',
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
                     boxSizing: 'border-box',
-                    transition: 'border-color 0.15s ease',
                   }}
-                  onFocus={(e) => (e.target.style.borderColor = '#3b82f6')}
-                  onBlur={(e) => (e.target.style.borderColor = 'rgba(148, 163, 184, 0.22)')}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#3b82f6';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.25)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'rgba(148, 163, 184, 0.25)';
+                    e.target.style.boxShadow = 'none';
+                  }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
                   style={{
                     position: 'absolute',
-                    right: 12,
+                    right: '12px',
                     top: '50%',
                     transform: 'translateY(-50%)',
-                    background: 'none',
+                    background: 'transparent',
                     border: 'none',
-                    color: '#64748b',
+                    color: '#94a3b8',
                     cursor: 'pointer',
-                    padding: 0,
-                    display: 'grid',
-                    placeItems: 'center',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '6px',
                   }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#e2e8f0')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = '#94a3b8')}
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
@@ -587,60 +415,104 @@ export default function LoginPage() {
               type="submit"
               disabled={isLoading}
               style={{
-                marginTop: 6,
+                marginTop: '10px',
                 width: '100%',
-                height: '44px',
+                padding: '13px 20px',
+                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                border: '1px solid rgba(96, 165, 250, 0.3)',
                 borderRadius: '12px',
-                border: 'none',
-                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                boxShadow: '0 8px 20px rgba(37,99,235,0.3)',
                 color: '#ffffff',
-                fontSize: '13.5px',
-                fontWeight: 700,
+                fontSize: '15px',
+                fontWeight: '600',
+                letterSpacing: '0.01em',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 8,
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                transition: 'all 0.15s ease',
-                opacity: isLoading ? 0.8 : 1,
+                gap: '8px',
+                boxShadow: '0 4px 15px rgba(37, 99, 235, 0.35)',
+                transition: 'all 0.2s ease',
+                opacity: isLoading ? 0.75 : 1,
               }}
               onMouseEnter={(e) => {
-                if (!isLoading) e.currentTarget.style.transform = 'translateY(-1px)';
+                if (!isLoading) {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(37, 99, 235, 0.45)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }
               }}
               onMouseLeave={(e) => {
-                if (!isLoading) e.currentTarget.style.transform = 'translateY(0)';
+                if (!isLoading) {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)';
+                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(37, 99, 235, 0.35)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }
               }}
             >
               {isLoading ? (
-                <span>Authenticating...</span>
+                <>
+                  <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                  <span>Authenticating...</span>
+                </>
               ) : (
                 <>
-                  <span>Sign In to Portal</span>
-                  <ArrowRight size={16} />
+                  <span>Sign In</span>
+                  <ArrowRight size={18} />
                 </>
               )}
             </button>
           </form>
 
-          {/* Institutional Note */}
+          {/* Institutional note */}
           <div
             style={{
-              marginTop: 20,
-              padding: '10px 12px',
-              borderRadius: 10,
-              background: 'rgba(30, 41, 59, 0.35)',
-              border: '1px solid rgba(148, 163, 184, 0.12)',
-              fontSize: '11px',
-              color: '#8292ad',
-              lineHeight: 1.4,
+              marginTop: '28px',
+              paddingTop: '20px',
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
               textAlign: 'center',
             }}
           >
-            🔒 Single Sign-On simulation enabled for NBA Accreditation workflows.
+            <p
+              style={{
+                fontSize: '12px',
+                color: '#64748b',
+                margin: 0,
+                lineHeight: 1.4,
+              }}
+            >
+              D. Y. Patil International University, Akurdi, Pune
+              <br />
+              <span style={{ color: '#475569', fontSize: '11px' }}>
+                Accredited Institutional OBE Framework
+              </span>
+            </p>
           </div>
         </div>
-      </div>
+      </main>
+
+      {/* Footer */}
+      <footer
+        style={{
+          position: 'relative',
+          zIndex: 10,
+          textAlign: 'center',
+          padding: '16px 20px',
+          color: 'rgba(255, 255, 255, 0.5)',
+          fontSize: '12px',
+        }}
+      >
+        © {new Date().getFullYear()} DYPIU. All rights reserved. • Internal Quality Assurance Cell (IQAC)
+      </footer>
+
+      {/* Global Inline Keyframe for Spinner */}
+      <style>
+        {`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}
+      </style>
     </div>
   );
 }

@@ -65,17 +65,29 @@ export default function DirectorDashboard() {
   const pendingHODs = statistics.unassignedHODsCount ?? statistics.unassignedHODs ?? statistics.unassignedHodsCount ?? null;
   const pendingApprovalsCount = null;
 
-  // ── Per-step completion tracking ───────────────────────────────────────────
-  const safeProgress = directorDashboard?.workflowProgress ?? directorDashboard?.setupProgress ?? {};
-  const stepStatus = DIRECTOR_STEPS.map((s, idx) => {
-    if (Array.isArray(safeProgress.stepStatus)) {
-      return !!safeProgress.stepStatus[idx];
-    }
-    if (Array.isArray(safeProgress.completedSteps)) {
-      return safeProgress.completedSteps.some((step) => Number(step) === s.step);
-    }
-    return !!safeProgress[s.step] || !!safeProgress[`step-${s.step}`];
-  });
+  // The dashboard's `workflowProgress` can be stale or inconsistent. The setup
+  // API's completedSteps list is the authoritative source for this workflow.
+  const completedSteps = directorDashboard?.setupProgress?.completedSteps ?? [];
+  const stepNumberByCompletedStep = {
+    school: 1,
+    department: 2,
+    programme: 3,
+    program: 3,
+    review: 4,
+  };
+  const completedStepNumbers = new Set(
+    Array.isArray(completedSteps)
+      ? completedSteps
+          .map((step) => {
+            const numericStep = Number(step);
+            return Number.isFinite(numericStep)
+              ? numericStep
+              : stepNumberByCompletedStep[String(step).trim().toLowerCase()];
+          })
+          .filter((step) => Number.isInteger(step))
+      : []
+  );
+  const stepStatus = DIRECTOR_STEPS.map((step) => completedStepNumbers.has(step.step));
 
   const completedCount = stepStatus.filter(Boolean).length;
   const progressPct = Math.round((completedCount / DIRECTOR_STEPS.length) * 100);
@@ -114,7 +126,7 @@ export default function DirectorDashboard() {
     },
     {
       id: 'approvals',
-      title: 'Director Verification Panel',
+      title: 'Reports & Downloads',
       desc: 'Review and approve departmental PO-PSO frameworks & ATRs.',
       path: '/director/reports',
       icon: ShieldCheck,

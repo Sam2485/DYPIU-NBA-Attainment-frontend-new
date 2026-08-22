@@ -45,12 +45,6 @@ export default function DirectorSchoolStructure() {
     fetchData();
   }, [loadDepartments, loadProgrammes, loadSchools, selectedSchool?.id, selectedSchoolId]);
 
-  useEffect(() => {
-    if (departments.length > 0 && expandedDeptId === null) {
-      setExpandedDeptId(departments[0].id);
-    }
-  }, [departments, expandedDeptId]);
-
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
   const ink = '#0f172a';
   const muted = '#64748b';
@@ -73,7 +67,7 @@ export default function DirectorSchoolStructure() {
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
 
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px' }}>
+      <div style={{ ...surface, padding: '22px 26px', marginBottom: '24px' }}>
         <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
           Director View
         </div>
@@ -86,8 +80,8 @@ export default function DirectorSchoolStructure() {
       </div>
 
       {/* ── SCHOOL INFO CARD ─────────────────────────────────────────────────── */}
-      <div style={{ ...surface, padding: '18px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+      <div style={{ ...surface, padding: '22px 24px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: '#eef2ff', color: accent, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
             <Building2 size={20} />
           </div>
@@ -99,12 +93,12 @@ export default function DirectorSchoolStructure() {
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <div style={{ ...surface, padding: '10px 18px', textAlign: 'center', minWidth: '80px' }}>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ ...surface, padding: '12px 18px', textAlign: 'center', minWidth: '88px' }}>
             <div style={{ fontSize: '11px', color: muted, fontWeight: '600', marginBottom: '2px' }}>Departments</div>
             <div style={{ fontSize: '20px', fontWeight: '800', color: ink }}>{departments?.length ?? 0}</div>
           </div>
-          <div style={{ ...surface, padding: '10px 18px', textAlign: 'center', minWidth: '80px' }}>
+          <div style={{ ...surface, padding: '12px 18px', textAlign: 'center', minWidth: '88px' }}>
             <div style={{ fontSize: '11px', color: muted, fontWeight: '600', marginBottom: '2px' }}>Programmes</div>
             <div style={{ fontSize: '20px', fontWeight: '800', color: accent }}>{masterProgrammes?.length ?? 0}</div>
           </div>
@@ -112,7 +106,7 @@ export default function DirectorSchoolStructure() {
       </div>
 
       {/* ── SECTION LABEL ────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
         <Layers size={15} style={{ color: accent }} />
         <span style={{ fontSize: '12px', fontWeight: '700', color: muted, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
           Department & Programme Tree
@@ -125,7 +119,7 @@ export default function DirectorSchoolStructure() {
           <ScreenEmptyState title="No Departments Found" description="No departments are registered under this school structure." />
         </div>
       ) : (
-        <div style={{ display: 'grid', gap: '10px' }}>
+        <div style={{ display: 'grid', gap: '14px' }}>
           {departments.map((dept) => {
             const deptProgrammes = masterProgrammes.filter(
               (p) => p.departmentId === dept.id
@@ -138,7 +132,7 @@ export default function DirectorSchoolStructure() {
                 {/* Dept row */}
                 <div
                   onClick={() => setExpandedDeptId(isExpanded ? null : dept.id)}
-                  style={{ padding: '14px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px', borderBottom: isExpanded ? '1px solid #f1f5f9' : 'none', background: isExpanded ? '#fafafa' : '#ffffff', transition: 'background .15s' }}
+                  style={{ padding: '17px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '16px', borderBottom: isExpanded ? '1px solid #f1f5f9' : 'none', background: isExpanded ? '#fafafa' : '#ffffff', transition: 'background .15s' }}
                 >
                   <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#eef2ff', color: accent, display: 'grid', placeItems: 'center', fontWeight: '800', fontSize: '11px', flexShrink: 0 }}>
                     {dept.code}
@@ -159,13 +153,13 @@ export default function DirectorSchoolStructure() {
 
                 {/* Programmes list */}
                 {isExpanded && (
-                  <div style={{ padding: '12px 18px 14px 50px', background: '#f8fafc' }}>
+                  <div style={{ padding: '16px 20px 18px 56px', background: '#f8fafc' }}>
                     {deptProgrammes.length === 0 ? (
                       <div style={{ fontSize: '12px', color: muted, fontStyle: 'italic' }}>No programmes added to this department.</div>
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {deptProgrammes.map((p) => (
-                          <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                          <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
                             <div>
                               <div style={{ fontSize: '13px', fontWeight: '700', color: ink }}>{p.name}</div>
                               <div style={{ fontSize: '11.5px', color: muted }}>
