@@ -101,10 +101,14 @@ const normalizeProgramme = (programme) => ({
 const normalizeBatch = (batch) => ({
   id: batch?.id ?? null,
   name: batch?.name ?? null,
-  programmeId: batch?.programmeId ?? null,
+  programmeId: batch?.programmeId ?? batch?.masterProgrammeId ?? null,
+  masterProgrammeId: batch?.masterProgrammeId ?? batch?.programmeId ?? null,
   programmeCode: batch?.programmeCode ?? null,
   programmeName: batch?.programmeName ?? null,
   durationYears: batch?.durationYears ?? null,
+  coordinatorId: batch?.coordinatorId ?? null,
+  coordinatorName: batch?.coordinatorName ?? batch?.coordinator ?? '',
+  coordinatorEmail: batch?.coordinatorEmail ?? '',
   startYear: batch?.startYear ?? null,
   endYear: batch?.endYear ?? null,
   academicYear: batch?.academicYear ?? null,
@@ -121,7 +125,10 @@ const normalizeCourse = (course) => ({
   id: course?.id ?? null,
   code: course?.code ?? null,
   name: course?.name ?? null,
-  programmeId: course?.programmeId ?? null,
+  // Master-course APIs use masterProgrammeId while a few legacy responses use
+  // programmeId. Normalize both to the programme selector's ID.
+  programmeId: course?.programmeId ?? course?.masterProgrammeId ?? null,
+  masterProgrammeId: course?.masterProgrammeId ?? course?.programmeId ?? null,
   semester: course?.semester ?? null,
   credits: course?.credits ?? null,
   courseType: course?.courseType ?? null,
@@ -138,9 +145,15 @@ const normalizeCourse = (course) => ({
 
 const normalizeOffering = (offering) => ({
   id: offering?.id ?? null,
-  courseId: offering?.courseId ?? null,
-  batchId: offering?.batchId ?? null,
+  // Course-offering and programme-batch-course APIs describe the same
+  // batch-level course. Preserve its master-course lineage and display
+  // overrides so a coordinator can use a batch-specific course name.
+  courseId: offering?.courseId ?? offering?.masterCourseId ?? null,
+  masterCourseId: offering?.masterCourseId ?? offering?.courseId ?? null,
+  batchId: offering?.batchId ?? offering?.programmeBatchId ?? null,
+  programmeBatchId: offering?.programmeBatchId ?? offering?.batchId ?? null,
   semester: offering?.semester ?? null,
+  academicYear: offering?.academicYear ?? null,
   courseCoordinatorId: offering?.courseCoordinatorId ?? null,
   courseCoordinatorName:
     offering?.courseCoordinatorName ??
@@ -152,8 +165,10 @@ const normalizeOffering = (offering) => ({
   createdAt: offering?.createdAt ?? null,
   updatedAt: offering?.updatedAt ?? null,
   course: offering?.course ?? null,
-  courseName: offering?.courseName ?? null,
-  courseCode: offering?.courseCode ?? null,
+  courseName: offering?.courseName ?? offering?.courseNameOverride ?? null,
+  courseCode: offering?.courseCode ?? offering?.courseCodeOverride ?? null,
+  courseNameOverride: offering?.courseNameOverride ?? offering?.courseName ?? null,
+  courseCodeOverride: offering?.courseCodeOverride ?? offering?.courseCode ?? null,
 });
 
 const normalizeUser = (user) => ({
@@ -565,6 +580,38 @@ export function AcademicProvider({ children }) {
     },
     [programmeId]
   );
+
+  /* --- Programme Batch Outcomes (HOD workflow) --- */
+  const loadProgrammeBatchOutcomes = useCallback(async (targetProgrammeId, targetBatchId) => {
+    if (!targetProgrammeId || !targetBatchId) {
+      setActivePOs([]);
+      setActivePSOs([]);
+      setActivePEOs([]);
+      return { pos: [], psos: [], peos: [] };
+    }
+
+    try {
+      const response = await apiClient.get('/academic/outcomes', {
+        params: { programmeId: targetProgrammeId, batchId: targetBatchId },
+      });
+      const data = unwrap(response) ?? {};
+      const withStatement = (outcomes = []) => outcomes.map((outcome) => ({
+        ...outcome,
+        statement: outcome?.statement ?? outcome?.description ?? outcome?.name ?? '',
+      }));
+      const pos = withStatement(data.pos ?? []);
+      const psos = withStatement(data.psos ?? []);
+      const peos = withStatement(data.peos ?? []);
+
+      setActivePOs(pos);
+      setActivePSOs(psos);
+      setActivePEOs(peos);
+      return { pos, psos, peos };
+    } catch (err) {
+      console.warn(`loadProgrammeBatchOutcomes(${targetProgrammeId}, ${targetBatchId}) failed:`, err);
+      return { pos: [], psos: [], peos: [] };
+    }
+  }, []);
 
   /* --- Programme Targets --- */
   const loadProgrammeTargets = useCallback(
@@ -1246,6 +1293,46 @@ export function AcademicProvider({ children }) {
     [activePEOs, activePOs, activePSOs]
   );
 
+  const saveProgrammeBatchOutcomeDefinitions = useCallback(
+    async (targetProgrammeId, targetBatchId, { pos = activePOs, psos = activePSOs, peos = activePEOs } = {}) => {
+      if (!targetProgrammeId || !targetBatchId) {
+        throw new Error('programmeId and batchId are required to save Programme Batch outcomes.');
+      }
+
+      const outcomePayload = (items, includeTarget = false) => items.map((item) => ({
+        code: item.code?.trim() ?? '',
+        statement: (item.statement ?? item.description ?? item.name ?? '').trim(),
+        ...(includeTarget ? { target: Number.isFinite(Number(item.target)) ? Number(item.target) : 2.5 } : {}),
+        competencies: (item.competencies || []).map((competency, index) => ({
+          code: competency.code?.trim() || `${item.code}.${index + 1}`,
+          statement: competency.statement?.trim() ?? '',
+        })),
+      }));
+      const payload = {
+        programmeId: targetProgrammeId,
+        batchId: targetBatchId,
+        pos: outcomePayload(pos, true),
+        psos: outcomePayload(psos, true),
+        peos: outcomePayload(peos),
+      };
+      const invalid = [...payload.pos, ...payload.psos, ...payload.peos].some((item) => !item.code || !item.statement);
+      if (invalid) throw new Error('Enter a code and statement for every PO, PSO, and PEO.');
+
+      const hasExistingOutcomes = [...pos, ...psos, ...peos].some((item) => item.id);
+      const response = await apiClient[hasExistingOutcomes ? 'put' : 'post'](
+        '/academic/outcomes',
+        payload,
+        { params: { programmeId: targetProgrammeId, batchId: targetBatchId } }
+      );
+      const data = unwrap(response) ?? {};
+      setActivePOs((data.pos ?? payload.pos).map((item) => ({ ...item, statement: item.statement ?? item.description ?? '' })));
+      setActivePSOs((data.psos ?? payload.psos).map((item) => ({ ...item, statement: item.statement ?? item.description ?? '' })));
+      setActivePEOs((data.peos ?? payload.peos).map((item) => ({ ...item, statement: item.statement ?? item.description ?? '' })));
+      return data;
+    },
+    [activePEOs, activePOs, activePSOs]
+  );
+
   /* --- Student Mutators --- */
   const createStudent = useCallback(
     async (targetBatchId, studentData) => {
@@ -1392,10 +1479,12 @@ export function AcademicProvider({ children }) {
     activePEOs,
     poPsoTargets,
     loadProgrammeOutcomes,
+    loadProgrammeBatchOutcomes,
     updateProgrammePOs,
     updateProgrammePSOs,
     updateProgrammePEOs,
     saveProgrammeOutcomeDefinitions,
+    saveProgrammeBatchOutcomeDefinitions,
     loadProgrammeTargets,
     updatePoPsoTargets,
     updateProgrammeOutcomeTargets,

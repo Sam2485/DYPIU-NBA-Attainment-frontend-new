@@ -63,6 +63,7 @@ export function AttainmentProvider({ children }) {
   const [courseAtrStore, setCourseAtrStore] = useState(null);
   const [programmeAtrStore, setProgrammeAtrStore] = useState(null);
   const [programmeAttainmentStore, setProgrammeAttainmentStore] = useState(null);
+  const [programmeSurveyData, setProgrammeSurveyData] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -489,6 +490,29 @@ export function AttainmentProvider({ children }) {
     [programmeId, batchId]
   );
 
+  const uploadProgrammeExitSurvey = useCallback(async ({
+    targetProgrammeId = programmeId,
+    targetBatchId = batchId,
+    file,
+  }) => {
+    if (!targetProgrammeId || !targetBatchId) throw new Error('programmeId and batchId are required');
+    if (!file) throw new Error('Excel file is required');
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      setError(null);
+      const response = await apiClient.post('/attainment/programme-survey/upload', formData, {
+        params: { programmeId: targetProgrammeId, batchId: targetBatchId },
+      });
+      const data = unwrapResponse(response);
+      setProgrammeSurveyData(data);
+      return data;
+    } catch (err) {
+      setError(err?.customMessage || err?.message || 'Failed to upload programme exit survey');
+      throw err;
+    }
+  }, [programmeId, batchId]);
+
   /* ======================================================================== */
   /* Context value with aliases for 100% backward compatibility               */
   /* ======================================================================== */
@@ -569,6 +593,8 @@ export function AttainmentProvider({ children }) {
     /* 7. Programme Attainment */
     programmeAttainmentStore,
     loadProgrammeAttainment,
+    programmeSurveyData,
+    uploadProgrammeExitSurvey,
   };
 
   return (

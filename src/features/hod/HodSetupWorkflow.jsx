@@ -1,17 +1,30 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { UserCheck, Calendar, Layers, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, Trash2, Edit3, X, AlertCircle, ChevronDown, GraduationCap } from 'lucide-react';
+import { BookOpen, UserCheck, Calendar, Layers, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, Trash2, Edit3, X, AlertCircle, ChevronDown, GraduationCap } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
 
 const STEPS = [
-  { number: 1, title: 'Programme Coordinator', desc: 'Assign coordinator for programme', path: '/hod/programme-coordinators', icon: UserCheck,   color: '#4f46e5', bg: '#eef2ff' },
+  { number: 1, title: 'Master Courses',        desc: 'Build the programme course catalogue', path: '/hod/setup-workflow?step=1', icon: BookOpen, color: '#4f46e5', bg: '#eef2ff' },
   { number: 2, title: 'Batch Setup',          desc: 'Initialize student batch cycle',   path: '/hod/batch-management',      icon: Calendar,    color: '#0284c7', bg: '#f0f9ff' },
-  { number: 3, title: 'PO / PSO / PEO',       desc: 'Define outcome framework',         path: '/hod/programme-outcomes',    icon: Layers,      color: '#7c3aed', bg: '#f5f3ff' },
-  { number: 4, title: 'Review & Confirm',     desc: 'Verify setup summary & finish',    path: '/hod/reports',               icon: CheckCircle2,color: '#059669', bg: '#f0fdf4' },
+  { number: 3, title: 'Coordinator Allocation', desc: 'Assign a coordinator to each batch', path: '/hod/setup-workflow?step=3', icon: UserCheck, color: '#7c3aed', bg: '#f5f3ff' },
+  { number: 4, title: 'PO / PSO / PEO',       desc: 'Define outcome framework',         path: '/hod/programme-outcomes',    icon: Layers,      color: '#7c3aed', bg: '#f5f3ff' },
+  { number: 5, title: 'Review & Confirm',     desc: 'Verify setup summary & finish',    path: '/hod/reports',               icon: CheckCircle2,color: '#059669', bg: '#f0fdf4' },
 ];
+
+const outcomeSignature = (pos = [], psos = [], peos = []) => JSON.stringify({
+  pos: pos.map((item) => ({
+    code: item.code ?? '', statement: item.statement ?? item.description ?? '', target: item.target ?? null,
+    competencies: (item.competencies ?? []).map((competency) => ({ code: competency.code ?? '', statement: competency.statement ?? '' })),
+  })),
+  psos: psos.map((item) => ({
+    code: item.code ?? '', statement: item.statement ?? item.description ?? '', target: item.target ?? null,
+    competencies: (item.competencies ?? []).map((competency) => ({ code: competency.code ?? '', statement: competency.statement ?? '' })),
+  })),
+  peos: peos.map((item) => ({ code: item.code ?? '', statement: item.statement ?? item.description ?? item.name ?? '' })),
+});
 
 export default function HodSetupWorkflow() {
   const navigate = useNavigate();
@@ -23,10 +36,15 @@ export default function HodSetupWorkflow() {
     setProgrammeId,
     loadProgrammes = () => Promise.resolve([]),
     loadBatches = () => Promise.resolve([]),
+    courses = [],
+    loadCourses = () => Promise.resolve([]),
+    createCourse = () => Promise.resolve(null),
+    deleteCourse = () => Promise.resolve(),
+    programmeCoordinators = [],
     loadProgrammeCoordinators = () => Promise.resolve([]),
     loadProgrammeOutcomes = () => Promise.resolve(),
+    loadProgrammeBatchOutcomes = () => Promise.resolve(),
     loadHodSetupProgress = () => Promise.resolve(),
-    updateProgramme = () => {},
     departments = [],
     batches = [],
     batchId,
@@ -41,9 +59,9 @@ export default function HodSetupWorkflow() {
     updateProgrammePSOs = () => {},
     updateProgrammePEOs = () => {},
     saveProgrammeOutcomeDefinitions = () => Promise.resolve(),
+    saveProgrammeBatchOutcomeDefinitions = () => Promise.resolve(),
     hodWorkflowProgressStore = {},
     markHodWorkflowStepComplete = () => {},
-    programmeCoordinators = [],
     hodDashboard = null,
   } = useAcademic();
 
@@ -54,6 +72,12 @@ export default function HodSetupWorkflow() {
     description: '',
     onConfirm: () => {},
   });
+
+  const [newCourseCode, setNewCourseCode] = useState('');
+  const [newCourseName, setNewCourseName] = useState('');
+  const [newCourseType, setNewCourseType] = useState('THEORY');
+  const [batchCoordinatorSelections, setBatchCoordinatorSelections] = useState({});
+  const [assignmentSaveState, setAssignmentSaveState] = useState('idle');
 
   const triggerDeleteConfirm = ({ title, itemName, description, onConfirm }) => {
     setDeleteModalConfig({
@@ -69,24 +93,11 @@ export default function HodSetupWorkflow() {
   };
 
   const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || {};
+  const masterCourses = courses.filter((course) => course.programmeId === selectedProgramme.id);
 
   const currentDept = departments.find((d) => d.id === selectedProgramme.departmentId || d.name === selectedProgramme.department)
     || hodDashboard?.department
     || departments[0];
-  const assignedHods = departments.map((d) => d.hod).filter(Boolean);
-
-  // Step 1: Coordinator State. Keep the selected user ID so the documented
-  // coordinator name and email can both be sent in the programme PUT request.
-  const [selectedCoordinator, setSelectedCoordinator] = useState('');
-
-  useEffect(() => {
-    const assignedCoordinator = programmeCoordinators.find((coordinator) => (
-      coordinator.email === selectedProgramme?.coordinatorEmail
-      || coordinator.name === selectedProgramme?.coordinator
-    ));
-    setSelectedCoordinator(assignedCoordinator?.id != null ? String(assignedCoordinator.id) : '');
-  }, [programmeCoordinators, selectedProgramme?.coordinator, selectedProgramme?.coordinatorEmail, selectedProgramme?.id]);
-
   // Step 2: Batch State
   const [startYearInput, setStartYearInput] = useState('2025');
   const [endYearInput, setEndYearInput] = useState('2029');
@@ -134,8 +145,26 @@ export default function HodSetupWorkflow() {
       b.programmeName === selectedProgramme.name
   );
 
+  useEffect(() => {
+    setBatchCoordinatorSelections((current) => {
+      const next = { ...current };
+      let changed = false;
+      programmeBatches.forEach((batch) => {
+        if (next[batch.id] === undefined) {
+          next[batch.id] = batch.coordinatorId != null ? String(batch.coordinatorId) : '';
+          changed = true;
+        }
+      });
+      return changed ? next : current;
+    });
+  }, [programmeBatches]);
+
   // Step 3: Outcomes State
   const [outcomeTab, setOutcomeTab] = useState('PO');
+  const [outcomesBatchId, setOutcomesBatchId] = useState('');
+  const selectedOutcomesBatch = programmeBatches.find((batch) => batch.id === outcomesBatchId) || null;
+  const [savedOutcomes, setSavedOutcomes] = useState({ batchId: null, signature: null });
+  const [outcomesSaveState, setOutcomesSaveState] = useState('idle');
 
   // ── Per-step completion flags ──────────────────────────────────────────────
   const progProgress = (selectedProgramme?.id && hodWorkflowProgressStore[selectedProgramme.id]) || {};
@@ -200,12 +229,17 @@ export default function HodSetupWorkflow() {
       if (!targetProgrammeId) return;
 
       if (currentStep === 1) {
-        await loadProgrammeCoordinators();
+        await loadCourses({ targetProgrammeId });
       } else if (currentStep === 2) {
         await loadBatches({ targetProgrammeId });
       } else if (currentStep === 3) {
-        await loadProgrammeOutcomes(targetProgrammeId, { includeTargets: false });
+        await Promise.all([
+          loadBatches({ targetProgrammeId }),
+          loadProgrammeCoordinators(),
+        ]);
       } else if (currentStep === 4) {
+        await loadBatches({ targetProgrammeId });
+      } else if (currentStep === 5) {
         // Review renders the summary of batches and outcomes, so these are
         // its only additional dependencies.
         await Promise.all([
@@ -220,7 +254,9 @@ export default function HodSetupWorkflow() {
   }, [
     currentStep,
     loadBatches,
+    loadCourses,
     loadProgrammeCoordinators,
+    loadProgrammeBatchOutcomes,
     loadProgrammeOutcomes,
     loadProgrammes,
     masterProgrammes,
@@ -228,6 +264,26 @@ export default function HodSetupWorkflow() {
     setProgrammeId,
     user?.departmentId,
   ]);
+
+  useEffect(() => {
+    if (currentStep !== 4 || programmeBatches.length === 0) {
+      if (currentStep === 4 && programmeBatches.length === 0) setOutcomesBatchId('');
+      return;
+    }
+    if (!programmeBatches.some((batch) => batch.id === outcomesBatchId)) {
+      setOutcomesBatchId(programmeBatches[0].id);
+    }
+  }, [currentStep, outcomesBatchId, programmeBatches]);
+
+  useEffect(() => {
+    if (currentStep !== 4 || !programmeId || !outcomesBatchId) return;
+    loadProgrammeBatchOutcomes(programmeId, outcomesBatchId)
+      .then(({ pos = [], psos = [], peos = [] } = {}) => {
+        setSavedOutcomes({ batchId: outcomesBatchId, signature: outcomeSignature(pos, psos, peos) });
+        setOutcomesSaveState('idle');
+      })
+      .catch(() => {});
+  }, [currentStep, loadProgrammeBatchOutcomes, outcomesBatchId, programmeId]);
 
   const goToStep = (n) => {
     setCurrentStep(n);
@@ -237,21 +293,35 @@ export default function HodSetupWorkflow() {
 
   const durationYears = selectedProgramme?.durationYears || 4;
 
-  const handleSaveCoordinator = async () => {
-    const coordinator = programmeCoordinators.find(
-      (item) => String(item.id) === String(selectedCoordinator)
-    );
-    if (!selectedProgramme?.id || !coordinator?.name || !coordinator?.email) {
-      return null;
-    }
+  const handleAddMasterCourse = async (event) => {
+    event.preventDefault();
+    if (!selectedProgramme?.id || !newCourseCode.trim() || !newCourseName.trim()) return;
 
-    return updateProgramme(selectedProgramme.id, {
-      name: selectedProgramme.name,
-      code: selectedProgramme.code,
-      departmentId: selectedProgramme.departmentId,
-      coordinator: coordinator.name,
-      coordinatorEmail: coordinator.email,
-      status: selectedProgramme.status,
+    try {
+      await createCourse({
+        masterProgrammeId: selectedProgramme.id,
+        code: newCourseCode.trim().toUpperCase(),
+        name: newCourseName.trim(),
+        courseType: newCourseType,
+        credits: 4,
+        status: 'ACTIVE',
+      });
+      setNewCourseCode('');
+      setNewCourseName('');
+      setNewCourseType('THEORY');
+      await loadCourses({ targetProgrammeId: selectedProgramme.id });
+    } catch (error) {
+      console.error('Failed to add master course:', error);
+      alert(error?.message || 'Unable to add the master course.');
+    }
+  };
+
+  const handleDeleteMasterCourse = (course) => {
+    triggerDeleteConfirm({
+      title: 'Delete Master Course?',
+      itemName: `${course.code} — ${course.name}`,
+      description: 'Remove this course from the selected master programme catalogue.',
+      onConfirm: () => deleteCourse(course.id),
     });
   };
 
@@ -285,11 +355,48 @@ export default function HodSetupWorkflow() {
     if (batch?.id) setBatchId(batch.id);
   };
 
+  const handleBulkSaveCoordinatorAssignments = async () => {
+    const assignments = programmeBatches
+      .map((batch) => {
+        const coordinator = programmeCoordinators.find(
+          (person) => String(person.id) === String(batchCoordinatorSelections[batch.id])
+        );
+        return coordinator ? { batch, coordinator } : null;
+      })
+      .filter(Boolean);
+
+    if (assignments.length === 0) {
+      setAssignmentSaveState('empty');
+      return;
+    }
+
+    setAssignmentSaveState('saving');
+    try {
+      await Promise.all(assignments.map(({ batch, coordinator }) => updateBatch(batch.id, {
+        name: batch.name,
+        masterProgrammeId: selectedProgramme.id,
+        programmeId: selectedProgramme.id,
+        startYear: batch.startYear,
+        endYear: batch.endYear,
+        status: batch.status,
+        coordinatorId: coordinator.id,
+        coordinatorName: coordinator.name,
+        coordinatorEmail: coordinator.email,
+      })));
+      await loadBatches({ targetProgrammeId: selectedProgramme.id });
+      setAssignmentSaveState('saved');
+    } catch (error) {
+      console.error('Failed to save programme coordinator assignments:', error);
+      setAssignmentSaveState('error');
+    }
+  };
+
   // ── PO HANDLERS ─────────────────────────────────────────────────────────────
   const handleAddPO = () => {
     const newPo = {
       code: '',
       statement: '',
+      target: 2.5,
       competencies: [],
     };
     updateProgrammePOs(programmeId, [...activePOs, newPo]);
@@ -374,6 +481,7 @@ export default function HodSetupWorkflow() {
     const newPso = {
       code: '',
       statement: '',
+      target: 2.5,
       competencies: [],
     };
     updateProgrammePSOs(programmeId, [...normalisedPSOs, newPso]);
@@ -475,24 +583,44 @@ export default function HodSetupWorkflow() {
     });
   };
 
+  const currentOutcomeSignature = outcomeSignature(activePOs, normalisedPSOs, activePEOs);
+  const outcomesAreSaved =
+    savedOutcomes.batchId === outcomesBatchId &&
+    savedOutcomes.signature === currentOutcomeSignature;
+
+  const handleSaveBatchOutcomes = async () => {
+    if (!outcomesBatchId) {
+      alert('Select a Programme Batch before saving PO, PSO, and PEO outcomes.');
+      return false;
+    }
+
+    setOutcomesSaveState('saving');
+    try {
+      const saved = await saveProgrammeBatchOutcomeDefinitions(selectedProgramme.id, outcomesBatchId, {
+        pos: activePOs,
+        psos: normalisedPSOs,
+        peos: activePEOs,
+      });
+      const pos = saved?.pos ?? activePOs;
+      const psos = saved?.psos ?? normalisedPSOs;
+      const peos = saved?.peos ?? activePEOs;
+      setSavedOutcomes({ batchId: outcomesBatchId, signature: outcomeSignature(pos, psos, peos) });
+      setOutcomesSaveState('saved');
+      return true;
+    } catch (error) {
+      console.error('Failed to save Programme Batch outcomes:', error);
+      setOutcomesSaveState('error');
+      alert(error?.message || 'Unable to save programme outcomes.');
+      return false;
+    }
+  };
+
   const currentStepMeta = STEPS[currentStep - 1] || STEPS[0];
 
   const handleSaveAndNext = async () => {
-    if (currentStep === 1) {
-      const updatedProgramme = await handleSaveCoordinator();
-      if (!updatedProgramme) return;
-    }
-    if (currentStep === 3) {
-      try {
-        await saveProgrammeOutcomeDefinitions(selectedProgramme.id, {
-          pos: activePOs,
-          psos: normalisedPSOs,
-          peos: activePEOs,
-        });
-      } catch (error) {
-        alert(error?.message || 'Unable to save programme outcomes.');
-        return;
-      }
+    if (currentStep === 4) {
+      const saved = outcomesAreSaved || await handleSaveBatchOutcomes();
+      if (!saved) return;
     }
     markHodWorkflowStepComplete(selectedProgramme.id, currentStep);
     if (currentStep < STEPS.length) {
@@ -660,20 +788,20 @@ export default function HodSetupWorkflow() {
         fallbackTitle={`Step ${currentStep} Error (${STEPS[currentStep - 1]?.title || 'Setup Step'})`}
         fallbackMessage={`An error occurred while loading this setup step. You can retry or switch to another step.`}
       >
-      {/* ── STEP 1: PROGRAMME COORDINATOR SETUP ─────────────────────────────── */}
+      {/* ── STEP 1: MASTER COURSE CATALOGUE ────────────────────────────────── */}
       {currentStep === 1 && (
         <div style={{ ...surface, padding: '24px' }}>
           <div style={{ marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: ink }}>
-              Step 1: Programme Coordinator Setup
+              Step 1: Master Course Catalogue
             </h3>
             <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-              Assign the Programme Coordinator for the selected programme before configuring student batches.
+              Create the reusable course catalogue for the selected master programme. Course Coordinator allocation happens later at the Programme Batch Course stage.
             </p>
           </div>
 
-          {/* Chosen Programme Info Card */}
-          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px 18px', maxWidth: '680px', marginBottom: '18px' }}>
+          {/* Selected Master Programme */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px 18px', marginBottom: '18px' }}>
             <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Chosen Programme</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
               <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '8px', padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
@@ -686,50 +814,71 @@ export default function HodSetupWorkflow() {
             </div>
           </div>
 
-          {/* Programme Coordinator Selector */}
-          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', maxWidth: '680px' }}>
-            <div style={{ fontSize: '13px', fontWeight: '800', color: ink, marginBottom: '12px' }}>Assign Programme Coordinator</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'flex-end' }}>
+          {/* Add Master Course */}
+          <form onSubmit={handleAddMasterCourse} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
+            <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '10px' }}>Add Master Course</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 150px auto', gap: '10px', alignItems: 'flex-end' }}>
               <div>
-                <label style={labelStyle}>Choose Programme Coordinator *</label>
-                <div style={{ position: 'relative' }}>
-                  <select
-                    value={selectedCoordinator}
-                    onChange={(e) => setSelectedCoordinator(e.target.value)}
-                    style={{ ...inputStyle, cursor: 'pointer', fontWeight: '700', paddingRight: '32px', appearance: 'none', border: '1.5px solid #4f46e5', color: accent }}
-                  >
-                    <option value="" disabled>Select a programme coordinator</option>
-                    {programmeCoordinators.map((coordinator) => {
-                      const coordinatorName = coordinator.name || coordinator.username || coordinator.email;
-                      const isHod = assignedHods.includes(coordinatorName);
-                      return (
-                        <option key={coordinator.id} value={String(coordinator.id)} disabled={isHod} style={{ color: isHod ? '#94a3b8' : '#0f172a' }}>
-                          {coordinatorName} {isHod ? '(Disabled — Is HOD)' : ''}
-                        </option>
-                      );
-                    })}
-                  </select>
-                  <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
-                </div>
+                <label style={labelStyle}>Course Code *</label>
+                <input type="text" required placeholder="CS305" value={newCourseCode} onChange={(e) => setNewCourseCode(e.target.value)} style={{ ...inputStyle, fontWeight: '700', color: accent }} />
               </div>
-              <button
-                type="button"
-                onClick={handleSaveCoordinator}
-                className="btn btn-primary"
-                style={{ height: '38px', padding: '0 20px', fontSize: '13px', fontWeight: '800' }}
-              >
-                Save Assignment
+              <div>
+                <label style={labelStyle}>Course Name *</label>
+                <input type="text" required placeholder="e.g. Compiler Design" value={newCourseName} onChange={(e) => setNewCourseName(e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Course Type *</label>
+                <select value={newCourseType} onChange={(e) => setNewCourseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                  <option value="THEORY">Theory</option>
+                  <option value="LAB">Lab</option>
+                  <option value="ELECTIVE">Elective</option>
+                </select>
+              </div>
+              <button type="submit" className="btn btn-primary" style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                <Plus size={14} /> Add Course
               </button>
             </div>
+          </form>
+
+          {/* Master Course Table */}
+          <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
+            <table className="audit-data-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '110px' }}>Code</th>
+                  <th>Course Name</th>
+                  <th style={{ width: '150px' }}>Course Type</th>
+                  <th style={{ width: '90px', textAlign: 'center' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {masterCourses.length === 0 && (
+                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>No master courses yet — add one above.</td></tr>
+                )}
+                {masterCourses.map((course) => (
+                  <tr key={course.id}>
+                    <td style={{ fontWeight: '700', color: accent }}>{course.code}</td>
+                    <td style={{ fontWeight: '600', color: ink }}>{course.name}</td>
+                    <td>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: accent, background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '5px', padding: '2px 8px' }}>
+                        {course.courseType || 'THEORY'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button type="button" onClick={() => handleDeleteMasterCourse(course)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Delete Master Course">
+                        <Trash2 size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
-          {/* Current Assigned Status Confirmation */}
-          {selectedProgramme.coordinator && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '14px 16px', maxWidth: '680px', marginTop: '16px' }}>
-              <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
-              <div style={{ fontSize: '13px', color: '#166534' }}>
-                Active Programme Coordinator: <strong style={{ color: '#15803d', fontWeight: '800' }}>{selectedProgramme.coordinator}</strong>
-              </div>
+          {masterCourses.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', marginTop: '16px' }}>
+              <CheckCircle2 size={16} style={{ color: '#16a34a', flexShrink: 0 }} />
+              <span style={{ fontSize: '13px', fontWeight: '600', color: '#15803d' }}>{masterCourses.length} master course{masterCourses.length !== 1 ? 's' : ''} added for {selectedProgramme.name}.</span>
             </div>
           )}
         </div>
@@ -889,49 +1038,172 @@ export default function HodSetupWorkflow() {
         </div>
       )}
 
-      {/* ── STEP 3: PO / PSO / PEO OUTCOME FRAMEWORK ───────────────────────── */}
+      {/* ── STEP 3: PROGRAMME COORDINATOR ALLOCATION ───────────────────────── */}
       {currentStep === 3 && (
         <div style={{ ...surface, padding: '24px' }}>
-          {/* Header & Sub-tabs */}
-          <div style={{ marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
             <div>
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: ink }}>
-                Step 3: Outcome Framework Configuration (PO / PSO / PEO)
+                Step 3: Programme Coordinator Allocation
               </h3>
               <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-                Define outcome statements and competency breakdowns for {selectedProgramme.name}.
+                Assign a Programme Coordinator to each Programme Batch under {selectedProgramme.name}.
               </p>
             </div>
+            <button
+              type="button"
+              onClick={handleBulkSaveCoordinatorAssignments}
+              disabled={assignmentSaveState === 'saving' || programmeBatches.length === 0}
+              className="btn btn-primary"
+              style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '800', opacity: assignmentSaveState === 'saving' || programmeBatches.length === 0 ? 0.6 : 1, cursor: assignmentSaveState === 'saving' || programmeBatches.length === 0 ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+            >
+              <Save size={14} /> {assignmentSaveState === 'saving' ? 'Saving Assignments…' : 'Save Assignments'}
+            </button>
+          </div>
 
-            {/* Tab strip */}
-            <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px' }}>
-              {[
-                ['PO',  `POs (${activePOs.length})`],
-                ['PSO', `PSOs (${normalisedPSOs.length})`],
-                ['PEO', `PEOs (${activePEOs.length})`],
-              ].map(([tab, label]) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setOutcomeTab(tab)}
-                  style={{
-                    padding: '7px 18px',
-                    borderRadius: '7px',
-                    border: 'none',
-                    fontSize: '12.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    background: outcomeTab === tab ? '#ffffff' : 'transparent',
-                    color: outcomeTab === tab ? accent : muted,
-                    boxShadow: outcomeTab === tab ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-                    fontFamily: 'inherit',
-                  }}
+          <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
+            <table className="audit-data-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '150px' }}>Master Programme Code</th>
+                  <th>Master Programme Name</th>
+                  <th style={{ width: '170px' }}>Programme Batch</th>
+                  <th style={{ width: '270px' }}>Programme Coordinator</th>
+                </tr>
+              </thead>
+              <tbody>
+                {programmeBatches.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>
+                      No Programme Batches found for {selectedProgramme.name}. Create a batch in Step 2 before assigning a coordinator.
+                    </td>
+                  </tr>
+                ) : programmeBatches.map((batch) => (
+                  <tr key={batch.id}>
+                    <td style={{ fontWeight: '700', color: accent }}>{selectedProgramme.code}</td>
+                    <td style={{ fontWeight: '600', color: ink }}>{selectedProgramme.name}</td>
+                    <td>
+                      <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '5px', padding: '3px 8px' }}>
+                        {batch.name}
+                      </span>
+                    </td>
+                    <td>
+                      <select
+                        value={batchCoordinatorSelections[batch.id] ?? ''}
+                        onChange={(event) => {
+                          setAssignmentSaveState('idle');
+                          setBatchCoordinatorSelections((current) => ({ ...current, [batch.id]: event.target.value }));
+                        }}
+                        style={{ ...inputStyle, height: '34px', fontSize: '12px', cursor: 'pointer', color: accent, fontWeight: '600' }}
+                      >
+                        <option value="">Select Programme Coordinator</option>
+                        {programmeCoordinators.map((coordinator) => (
+                          <option key={coordinator.id} value={String(coordinator.id)}>
+                            {coordinator.name || coordinator.username || coordinator.email}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {assignmentSaveState === 'saved' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', marginTop: '16px' }}>
+              <CheckCircle2 size={16} style={{ color: '#16a34a', flexShrink: 0 }} />
+              <span style={{ fontSize: '13px', fontWeight: '600', color: '#15803d' }}>Programme Coordinator assignments saved successfully.</span>
+            </div>
+          )}
+          {assignmentSaveState === 'empty' && (
+            <div style={{ fontSize: '12px', color: '#b45309', marginTop: '12px', fontWeight: '600' }}>Select at least one Programme Coordinator before saving.</div>
+          )}
+          {assignmentSaveState === 'error' && (
+            <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '12px', fontWeight: '600' }}>Unable to save the assignments. Please try again.</div>
+          )}
+        </div>
+      )}
+
+      {/* ── STEP 4: PO / PSO / PEO OUTCOME FRAMEWORK ───────────────────────── */}
+      {currentStep === 4 && (
+        <div style={{ ...surface, padding: '24px' }}>
+          {/* Header & Sub-tabs */}
+          <div style={{ marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: ink }}>
+                  Step 4: Outcome Framework Configuration (PO / PSO / PEO)
+                </h3>
+                <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
+                  Define outcome statements and competency breakdowns for a specific Programme Batch under {selectedProgramme.name}.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveBatchOutcomes}
+                disabled={!selectedOutcomesBatch || outcomesSaveState === 'saving' || outcomesAreSaved}
+                className="btn btn-primary"
+                style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '800', whiteSpace: 'nowrap', opacity: !selectedOutcomesBatch || outcomesSaveState === 'saving' || outcomesAreSaved ? 0.6 : 1, cursor: !selectedOutcomesBatch || outcomesSaveState === 'saving' || outcomesAreSaved ? 'not-allowed' : 'pointer' }}
+              >
+                <Save size={14} /> {outcomesSaveState === 'saving' ? 'Saving…' : outcomesAreSaved ? 'Saved' : 'Save Outcomes'}
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginTop: '18px' }}>
+              <div style={{ position: 'relative' }}>
+                <select
+                  value={outcomesBatchId}
+                  onChange={(event) => setOutcomesBatchId(event.target.value)}
+                  disabled={programmeBatches.length === 0}
+                  style={{ height: '38px', minWidth: '200px', padding: '0 32px 0 12px', fontSize: '12.5px', fontWeight: '700', color: '#0369a1', border: '1.5px solid #bae6fd', borderRadius: '8px', background: '#f0f9ff', cursor: programmeBatches.length === 0 ? 'not-allowed' : 'pointer', outline: 'none', appearance: 'none', fontFamily: 'inherit' }}
                 >
-                  {label}
-                </button>
-              ))}
+                  <option value="">Select Programme Batch</option>
+                  {programmeBatches.map((batch) => (
+                    <option key={batch.id} value={batch.id}>{batch.name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#0284c7', pointerEvents: 'none' }} />
+              </div>
+
+              {/* Tab strip */}
+              <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px' }}>
+                {[
+                  ['PO',  `POs (${activePOs.length})`],
+                  ['PSO', `PSOs (${normalisedPSOs.length})`],
+                  ['PEO', `PEOs (${activePEOs.length})`],
+                ].map(([tab, label]) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setOutcomeTab(tab)}
+                    style={{
+                      padding: '7px 18px',
+                      borderRadius: '7px',
+                      border: 'none',
+                      fontSize: '12.5px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      background: outcomeTab === tab ? '#ffffff' : 'transparent',
+                      color: outcomeTab === tab ? accent : muted,
+                      boxShadow: outcomeTab === tab ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
+
+          {!selectedOutcomesBatch && (
+            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '12px 14px', marginBottom: '16px', color: '#92400e', fontSize: '12.5px', fontWeight: '600' }}>
+              {programmeBatches.length === 0
+                ? 'Create a Programme Batch in Step 2 before defining PO, PSO, and PEO.'
+                : 'Select a Programme Batch to load and manage its PO, PSO, and PEO definitions.'}
+            </div>
+          )}
 
           {/* TAB: PO */}
           {outcomeTab === 'PO' && (
@@ -1158,12 +1430,12 @@ export default function HodSetupWorkflow() {
         </div>
       )}
 
-      {/* ── STEP 4: REVIEW & CONFIRM (RELEVANT INFO FROM PREVIOUS TABS) ────── */}
-      {currentStep === 4 && (
+      {/* ── STEP 5: REVIEW & CONFIRM (RELEVANT INFO FROM PREVIOUS TABS) ────── */}
+      {currentStep === 5 && (
         <div style={{ ...surface, padding: '24px' }}>
           <div style={{ marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: ink }}>
-              Step 4: Review &amp; Confirm Setup
+              Step 5: Review &amp; Confirm Setup
             </h3>
             <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
               Summary of all configurations from previous setup tabs for {selectedProgramme.name}.
@@ -1171,27 +1443,36 @@ export default function HodSetupWorkflow() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-            {/* Tab 1 Summary */}
+            {/* Step 1 Summary */}
             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: muted, textTransform: 'uppercase', marginBottom: '6px' }}>Tab 1: Programme Coordinator</div>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: muted, textTransform: 'uppercase', marginBottom: '6px' }}>Step 1: Master Courses</div>
               <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{selectedProgramme.name} ({selectedProgramme.code})</div>
               <div style={{ fontSize: '13px', color: accent, fontWeight: '700', marginTop: '6px' }}>
-                Assigned Coordinator: <span style={{ background: '#eef2ff', padding: '2px 8px', borderRadius: '6px', border: '1px solid #c7d2fe' }}>{selectedProgramme.coordinator || '—'}</span>
+                Catalogue Courses: <span style={{ background: '#eef2ff', padding: '2px 8px', borderRadius: '6px', border: '1px solid #c7d2fe' }}>{masterCourses.length}</span>
               </div>
             </div>
 
-            {/* Tab 2 Summary */}
+            {/* Step 2 Summary */}
             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: muted, textTransform: 'uppercase', marginBottom: '6px' }}>Tab 2: Active Student Batch</div>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: muted, textTransform: 'uppercase', marginBottom: '6px' }}>Step 2: Active Student Batch</div>
               <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{activeBatchObj?.name || '—'}</div>
               <div style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700', marginTop: '6px' }}>
                 Lifecycle Status: <span style={{ background: '#dcfce7', padding: '2px 8px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>{activeBatchObj?.status || '—'}</span>
               </div>
             </div>
 
-            {/* Tab 3 Summary */}
+            {/* Step 3 Summary */}
             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: muted, textTransform: 'uppercase', marginBottom: '6px' }}>Tab 3: Outcome Framework</div>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: muted, textTransform: 'uppercase', marginBottom: '6px' }}>Step 3: Coordinator Allocation</div>
+              <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{programmeBatches.filter((batch) => batch.coordinatorId || batchCoordinatorSelections[batch.id]).length} of {programmeBatches.length} batches assigned</div>
+              <div style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700', marginTop: '6px' }}>
+                Assignment Status: <span style={{ background: '#dcfce7', padding: '2px 8px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>Ready for review</span>
+              </div>
+            </div>
+
+            {/* Step 4 Summary */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: muted, textTransform: 'uppercase', marginBottom: '6px' }}>Step 4: Outcome Framework</div>
               <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{activePOs.length} POs · {normalisedPSOs.length} PSOs · {activePEOs.length} PEOs</div>
               <div style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700', marginTop: '6px' }}>
                 Competencies: <span style={{ background: '#dcfce7', padding: '2px 8px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>✓ Verified &amp; Mapped</span>

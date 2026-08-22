@@ -36,17 +36,19 @@ export const DIRECTOR_WORKFLOW_STEPS = [
 ];
 
 export const HOD_WORKFLOW_STEPS = [
-  { step: 1, number: 1, title: 'Programme Coordinator', label: 'Programme Coordinator', desc: 'Assign coordinator for programme', path: '/hod/programme-coordinators', icon: 'UserCheck' },
+  { step: 1, number: 1, title: 'Master Courses', label: 'Master Courses', desc: 'Build the programme course catalogue', path: '/hod/setup-workflow?step=1', icon: 'BookOpen' },
   { step: 2, number: 2, title: 'Batch Setup', label: 'Batch Setup', desc: 'Initialize student batch cycle', path: '/hod/batch-management', icon: 'Calendar' },
-  { step: 3, number: 3, title: 'PO / PSO / PEO', label: 'PO / PSO / PEO', desc: 'Define outcome framework', path: '/hod/programme-outcomes', icon: 'Layers' },
-  { step: 4, number: 4, title: 'Review & Confirm', label: 'Review & Confirm', desc: 'Verify setup summary & finish', path: '/hod/reports', icon: 'CheckCircle2' },
+  { step: 3, number: 3, title: 'Coordinator Allocation', label: 'Coordinator Allocation', desc: 'Assign a coordinator to each batch', path: '/hod/setup-workflow?step=3', icon: 'UserCheck' },
+  { step: 4, number: 4, title: 'PO / PSO / PEO', label: 'PO / PSO / PEO', desc: 'Define outcome framework', path: '/hod/programme-outcomes', icon: 'Layers' },
+  { step: 5, number: 5, title: 'Review & Confirm', label: 'Review & Confirm', desc: 'Verify setup summary & finish', path: '/hod/reports', icon: 'CheckCircle2' },
 ];
 
 export const PC_WORKFLOW_STEPS = [
   { step: 1, number: 1, title: 'Add Courses', label: 'Add Courses', desc: 'Add & allocate courses under programme', path: '/programme-coordinator/setup-workflow?step=1', icon: 'BookOpen' },
   { step: 2, number: 2, title: 'Set PO/PSO Targets', label: 'Set PO/PSO Targets', desc: 'Configure PO & PSO target levels', path: '/programme-coordinator/setup-workflow?step=2', icon: 'Target' },
-  { step: 3, number: 3, title: 'Programme ATR', label: 'Programme ATR', desc: 'Fill & submit Programme Action Taken Report', path: '/programme-coordinator/setup-workflow?step=3', icon: 'Layers' },
-  { step: 4, number: 4, title: 'Review & Confirm', label: 'Review & Confirm', desc: 'Verify setup summary & finish', path: '/programme-coordinator/setup-workflow?step=4', icon: 'CheckCircle2' },
+  { step: 3, number: 3, title: 'Indirect Attainment', label: 'Indirect Attainment', desc: 'Upload programme end survey', path: '/programme-coordinator/setup-workflow?step=3', icon: 'ClipboardList' },
+  { step: 4, number: 4, title: 'Programme ATR', label: 'Programme ATR', desc: 'Fill & submit Programme Action Taken Report', path: '/programme-coordinator/setup-workflow?step=4', icon: 'Layers' },
+  { step: 5, number: 5, title: 'Review & Confirm', label: 'Review & Confirm', desc: 'Verify setup summary & finish', path: '/programme-coordinator/setup-workflow?step=5', icon: 'CheckCircle2' },
 ];
 
 /* ========================================================================== */

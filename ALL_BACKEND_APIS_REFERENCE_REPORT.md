@@ -148,9 +148,59 @@
 
 ## 9. Outcome Framework APIs — PO, PSO, PEO & CO (`/academic/outcomes`, `/outcomes`)
 
-| API (Method & Path) | Request Format | Response Format | Description |
-|---|---|---|---|
-| `GET /academic/outcomes`<br>`GET /outcomes` | *Query Params:* `programmeId` (or `batchId`) | **JSON Response:**<br>```json{"success": true, "data": {"pos": [{"id": "po-1", "code": "PO1", "statement": "Engineering Knowledge", "target": 2.50}], "psos": [{"id": "pso-1", "code": "PSO1", "statement": "Software Architecture", "target": 2.40}], "peos": [{"id": "peo-1", "code": "PEO1", "statement": "Career Growth"}]}}``` | Returns batch-scoped POs, PSOs, and PEOs with target benchmark levels. |
+                                                                             
+  GET                                                                        
+  /academic/outcomes?programmeId={masterProgrammeId}&batchId={programmeBatchI
+  d} will now return:                                                        
+                                                                             
+    {                                                                        
+      "success": true,                                                       
+      "message": null,                                                       
+      "data": {                                                              
+        "programmeId": "prog-btech-cse",                                     
+        "batchId": "batch-btech cse-2025-29",                                
+        "pos": [                                                             
+          {                                                                  
+            "id": "po-prog-btech-cse-po1-3e99ee",                            
+            "programmeBatchId": "batch-btech cse-2025-29",                   
+            "programmeId": "batch-btech cse-2025-29",                        
+            "code": "PO1",                                                   
+            "statement": "Engineering Knowledge...",                         
+            "target": 2.5,                                                   
+            "status": "DRAFT",                                               
+            "competencies": [                                                
+              {                                                              
+                "id": "pocomp-a1b2c3d4",                                     
+                "poId": "po-prog-btech-cse-po1-3e99ee",                      
+                "code": "PO1.1",                                             
+                "statement": "Apply mathematical principles to compute..."   
+              }                                                              
+            ]                                                                
+          }                                                                  
+        ],                                                                   
+        "psos": [                                                            
+          {                                                                  
+            "id": "pso-prog-btech-cse-pso1-9a7bba",                          
+            "programmeBatchId": "batch-btech cse-2025-29",                   
+            "programmeId": "batch-btech cse-2025-29",                        
+            "code": "PSO1",                                                  
+            "statement": "Domain Specific Problem Solving...",               
+            "target": 2.5,                                                   
+            "status": "DRAFT",                                               
+            "competencies": [                                                
+              {                                                              
+                "id": "psocomp-e5f6g7h8",                                    
+                "psoId": "pso-prog-btech-cse-pso1-9a7bba",                   
+                "code": "PSO1.1",                                            
+                "statement": "Design scalable cloud computing solutions..."  
+              }                                                              
+            ]                                                                
+          }                                                                  
+        ],                                                                   
+        "peos": []                                                           
+      }                                                                      
+    } 
+
 | `POST /academic/outcomes`<br>`POST /outcomes` | **JSON Body:**<br>```json{"programmeId": "prog-1", "batchId": "batch-1", "pos": [{"code": "PO1", "statement": "Stmt...", "target": 2.50}], "psos": [{"code": "PSO1", "statement": "Stmt...", "target": 2.40}], "peos": [{"code": "PEO1", "statement": "Stmt..."}]}``` | **JSON Response:**<br>```json{"success": true, "message": "Outcomes saved successfully", "data": {"pos": [...], "psos": [...], "peos": [...]}}``` | Saves batch-scoped POs, PSOs, and PEOs for a ProgrammeBatch. |
 | `GET /outcomes/pos` | *Query Params:* `programmeId` (or `batchId`) | **JSON Response:**<br>```json{"success": true, "data": [{"id": "po-1", "code": "PO1", "statement": "...", "target": 2.50}]}``` | Returns PO outcomes list. |
 | `POST /outcomes/pos` | *Query Params:* `programmeId`<br>**JSON Body:** List of `ProgrammeOutcome` | **JSON Response:**<br>```json{"success": true, "data": [...]}``` | Saves PO outcomes. |

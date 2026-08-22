@@ -295,8 +295,8 @@ export default function AppSidebar() {
       {/* ── Divider ────────────────────────────────────────────────── */}
       <div style={{ height: '1px', background: 'rgba(148, 163, 184, 0.18)', width: '100%', flexShrink: 0 }} />
 
-      {/* Directors manage school-level data, so their sidebar has no batch scope. */}
-      {role === 'DIRECTOR' ? (
+      {/* Governance roles use scoped access context instead of the global batch selector. */}
+      {(role === 'DIRECTOR' || role === 'HOD' || role === 'PROGRAMME_COORDINATOR') ? (
         <>
           <div
             style={{
@@ -313,7 +313,11 @@ export default function AppSidebar() {
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 9.5, color: '#c7d2fe', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Director Access
+                {role === 'DIRECTOR'
+                  ? 'Director Access'
+                  : role === 'HOD'
+                  ? 'HOD Access'
+                  : 'Programme Coordinator Access'}
               </span>
               <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: 'rgba(52,211,153,0.16)', color: '#6ee7b7', border: '1px solid rgba(52,211,153,0.25)' }}>
                 ACTIVE
@@ -324,7 +328,11 @@ export default function AppSidebar() {
                 <Icon name="shield" active size={13} />
               </span>
               <span style={{ color: '#f8fafc', fontSize: 11.5, fontWeight: 800, lineHeight: 1.2 }}>
-                School-level governance
+                {role === 'DIRECTOR'
+                  ? 'School-level governance'
+                  : role === 'HOD'
+                  ? 'Department-level governance'
+                  : 'Programme-level governance'}
               </span>
             </div>
           </div>
