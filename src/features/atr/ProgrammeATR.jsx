@@ -44,6 +44,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     programmeATR = null,
     loadProgrammeATR = () => Promise.resolve(null),
     saveProgrammeATR = () => Promise.resolve(null),
+    submitProgrammeATR = () => Promise.resolve(null),
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
@@ -126,20 +127,29 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     loadProgrammeATR(activeProgId, selectedBatchId).then((atr) => {
       if (!isCurrent || !atr) return;
       const outcomeDefinitions = [...normPOs, ...normPSOs];
-      const observations = parseObservations(atr.observationsJson);
+      const reportOutcomes = [
+        ...(atr.poOutcomes ?? []).map((outcome) => ({ ...outcome, type: 'PO' })),
+        ...(atr.psoOutcomes ?? []).map((outcome) => ({ ...outcome, type: 'PSO' })),
+      ];
+      const observations = reportOutcomes.length > 0 ? reportOutcomes : parseObservations(atr.observationsJson);
       setAtrList(observations.map((observation) => {
-        const outcome = outcomeDefinitions.find((item) => item.code === observation.outcomeCode);
-        const attained = observation.status === 'ATTAINED';
+        const code = observation.outcomeCode;
+        const outcome = outcomeDefinitions.find((item) => item.code === code);
+        const attained = observation.attainmentLevel >= observation.targetLevel
+          || observation.status === 'ATTAINED';
+        const target = Number(observation.targetLevel ?? observation.target) || 0;
+        const actual = Number(observation.attainmentLevel ?? observation.attainment) || 0;
         return {
-          code: observation.outcomeCode,
-          type: observation.outcomeCode?.startsWith('PSO') ? 'PSO' : 'PO',
-          statement: outcome?.statement ?? '',
-          target: Number(observation.target) || 0,
-          actual: Number(observation.attainment) || 0,
-          pct: observation.target ? Number(((Number(observation.attainment) / Number(observation.target)) * 100).toFixed(1)) : 0,
+          code,
+          type: observation.type ?? (code?.startsWith('PSO') ? 'PSO' : 'PO'),
+          statement: observation.outcomeStatement ?? outcome?.statement ?? '',
+          target,
+          actual,
+          pct: Number(observation.achievementPercentage)
+            || (target ? Number(((actual / target) * 100).toFixed(1)) : 0),
           met: attained,
-          remark: attained ? (observation.actionPlan ?? '') : '',
-          actions: attained ? [] : (observation.actionPlan ? [observation.actionPlan] : []),
+          remark: attained ? (observation.observation ?? observation.actionPlan ?? '') : '',
+          actions: observation.actions ?? (observation.actionPlan ? [observation.actionPlan] : []),
         };
       }));
     }).catch(() => {});
@@ -149,22 +159,19 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
 
   const handleSaveSubmit = async () => {
     if (!activeProgId || !selectedBatchId) return;
-    const observationsJson = JSON.stringify(atrList.map((item) => ({
-      outcomeCode: item.code,
-      target: Number(item.target),
-      attainment: Number(item.actual),
-      status: item.met ? 'ATTAINED' : 'NOT_ATTAINED',
-      actionPlan: item.met ? item.remark : item.actions.filter(Boolean).join(' '),
-    })));
+    const outcomesPayload = (type) => atrList
+      .filter((item) => item.type === type)
+      .map((item) => ({
+        outcomeCode: item.code,
+        actions: item.actions.filter(Boolean),
+      }));
 
     try {
       await saveProgrammeATR(activeProgId, selectedBatchId, {
-        programmeId: activeProgId,
-        batchId: selectedBatchId,
-        status: 'SUBMITTED',
-        submittedBy: user?.name || 'Programme Coordinator',
-        observationsJson,
+        poOutcomes: outcomesPayload('PO'),
+        psoOutcomes: outcomesPayload('PSO'),
       });
+      await submitProgrammeATR(activeProgId, selectedBatchId);
       alert(`Programme ATR for ${currentProg?.name || 'Programme'} submitted successfully.`);
     } catch (error) {
       console.error('Failed to save Programme ATR:', error);

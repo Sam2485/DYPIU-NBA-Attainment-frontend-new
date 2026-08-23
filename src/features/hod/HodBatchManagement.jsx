@@ -53,7 +53,7 @@ export default function HodBatchManagement() {
   const {
     masterProgrammes = [],
     batches = [],
-    user,
+    selectedDepartmentId,
     loadProgrammes = () => Promise.resolve([]),
     loadBatches = () => Promise.resolve([]),
     createBatch = () => Promise.resolve(null),
@@ -74,12 +74,12 @@ export default function HodBatchManagement() {
 
   useEffect(() => {
     const loadProgrammeData = async () => {
-      const programmes = await loadProgrammes(user?.departmentId ?? null);
+      const programmes = await loadProgrammes(selectedDepartmentId ?? null);
       setSelectedProgrammeId((currentId) => currentId || programmes[0]?.id || '');
     };
 
     loadProgrammeData().catch(() => {});
-  }, [loadProgrammes, user?.departmentId]);
+  }, [loadProgrammes, selectedDepartmentId]);
 
   useEffect(() => {
     if (!selectedProgrammeId) return;

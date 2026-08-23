@@ -23,18 +23,20 @@ export const reportsApi = {
 
   getCourseAtr: (courseOfferingId) =>
     apiClient.get(
-      `/reports/course-atr/${courseOfferingId}`
+      `/reports/course-offerings/${courseOfferingId}/course-atr`
     ),
 
   saveCourseAtr: (data) =>
     apiClient.post(
-      '/reports/course-atr',
+      '/reports/course-offerings/course-atr',
       data
     ),
 
-  submitCourseAtr: (courseOfferingId) =>
+  submitCourseAtr: (courseOfferingId, submittedBy) =>
     apiClient.post(
-      `/reports/course-atr/${courseOfferingId}/submit`
+      `/reports/course-offerings/${courseOfferingId}/course-atr/submit`,
+      null,
+      { params: submittedBy ? { submittedBy } : {} }
     ),
 
   getCourseAtrs: (params = {}) =>
@@ -52,12 +54,12 @@ export const reportsApi = {
     batchId
   ) =>
     apiClient.get(
-      `/reports/programme-atr/${programmeId}/batch/${batchId}`
+      `/reports/programmes/${programmeId}/batches/${batchId}/programme-atr`
     ),
 
   saveProgrammeAtr: (data) =>
     apiClient.post(
-      '/reports/programme-atr',
+      '/reports/programmes/programme-atr',
       data
     ),
 
@@ -66,7 +68,7 @@ export const reportsApi = {
     batchId
   ) =>
     apiClient.post(
-      `/reports/programme-atr/${programmeId}/batch/${batchId}/submit`
+      `/reports/programmes/${programmeId}/batches/${batchId}/programme-atr/submit`
     ),
 
   getProgrammeAtrs: (params = {}) =>

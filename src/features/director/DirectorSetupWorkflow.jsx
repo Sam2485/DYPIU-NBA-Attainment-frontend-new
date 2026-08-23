@@ -23,15 +23,15 @@ export default function DirectorSetupWorkflow() {
     user,
     loadSchools = async () => [],
     loadDepartments = async () => [],
-    loadProgrammes = async () => [],
+    loadMasterProgrammes = async () => [],
     loadHods = async () => [],
     departments = [],
     addDepartment = () => {},
     updateDepartment = () => {},
     deleteDepartment = () => {},
     masterProgrammes = [],
-    addProgramme = () => {},
-    deleteProgramme = () => {},
+    createMasterProgramme = () => {},
+    deleteMasterProgramme = () => {},
     updateSchool = async () => null,
     directorWorkflowProgress = {},
     loadDirectorSetupProgress = () => Promise.resolve(null),
@@ -184,7 +184,7 @@ export default function DirectorSetupWorkflow() {
       if (currentStep === 3) {
         await Promise.all([
           loadDepartments(schoolId),
-          loadProgrammes(),
+          loadMasterProgrammes(),
         ]);
         return;
       }
@@ -193,7 +193,7 @@ export default function DirectorSetupWorkflow() {
         await Promise.all([
           loadSchools(),
           loadDepartments(schoolId),
-          loadProgrammes(),
+          loadMasterProgrammes(),
         ]);
       }
     };
@@ -204,7 +204,7 @@ export default function DirectorSetupWorkflow() {
     currentStep,
     loadDepartments,
     loadHods,
-    loadProgrammes,
+    loadMasterProgrammes,
     loadSchools,
     user?.schoolId,
   ]);
@@ -274,7 +274,7 @@ export default function DirectorSetupWorkflow() {
       itemName: p ? `${p.name} (${p.code})` : '',
       description: 'This action cannot be undone. All data associated with this programme will be removed.',
       onConfirm: () => {
-        deleteProgramme(progId);
+        deleteMasterProgramme(progId);
       },
     });
   };
@@ -295,7 +295,7 @@ export default function DirectorSetupWorkflow() {
       coordinatorEmail: '',
       status: 'ACTIVE',
     };
-    const savedProgramme = await addProgramme(newProg);
+    const savedProgramme = await createMasterProgramme(newProg);
     if (savedProgramme) {
       setNewProgName('');
       setNewProgCode('');

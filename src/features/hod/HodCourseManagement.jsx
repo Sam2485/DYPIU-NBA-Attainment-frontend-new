@@ -11,7 +11,7 @@ export default function HodCourseManagement() {
     departments = [],
     programmeId,
     setProgrammeId,
-    user,
+    selectedDepartmentId,
     loadProgrammes = () => Promise.resolve([]),
     loadCourses = () => Promise.resolve([]),
     loadCourseCoordinators = () => Promise.resolve([]),
@@ -60,13 +60,13 @@ export default function HodCourseManagement() {
 
   useEffect(() => {
     const loadCourseData = async () => {
-      const programmes = await loadProgrammes(user?.departmentId ?? null);
+      const programmes = await loadProgrammes(selectedDepartmentId ?? null);
       if (!programmeId && programmes[0]?.id) setProgrammeId(programmes[0].id);
       await Promise.all([loadCourseCoordinators(), loadProgrammeCoordinators()]);
     };
 
     loadCourseData().catch(() => {});
-  }, [loadCourseCoordinators, loadProgrammes, loadProgrammeCoordinators, programmeId, setProgrammeId, user?.departmentId]);
+  }, [loadCourseCoordinators, loadProgrammes, loadProgrammeCoordinators, programmeId, selectedDepartmentId, setProgrammeId]);
 
   useEffect(() => {
     if (programmeId) loadCourses(programmeId).catch(() => {});

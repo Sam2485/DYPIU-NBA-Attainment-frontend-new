@@ -2,11 +2,9 @@ import { useState, useEffect } from 'react';
 import { ClipboardList, Upload, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { useAcademic } from '../../context/academic';
 import { useAttainment } from '../../context/attainment';
-import { useAuth } from '../../context/auth';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function CourseEndSurveyHub({ hideFooter = false }) {
-  const { user } = useAuth();
   const {
     courseOfferingId,
     selectedCourse,
@@ -21,7 +19,6 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
     loading: attainmentLoading,
   } = useAttainment();
 
-  const [thresholdPercentage, setThresholdPercentage] = useState(60.0);
   const [uploading, setUploading] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
@@ -49,8 +46,6 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
       const result = await uploadCourseSurvey({
         offeringId: courseOfferingId,
         file,
-        thresholdPercentage,
-        uploadedBy: user?.name || user?.email || 'Course Coordinator',
       });
       setStatusMessage(
         `Survey file "${file.name}" processed successfully! Evaluated for ${result?.totalResponses ?? 0} student responses.`
@@ -66,14 +61,26 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
     }
   };
 
-  const coScores = surveyData?.coAttainmentScores || {};
-  const coPercentages = surveyData?.percentagePositiveResponses || {};
-  const totalResponses = surveyData?.totalResponses ?? 0;
-  const avgLevel = surveyData?.averageAttainmentLevel ?? 0;
+  const level1Counts = surveyData?.level1Counts || {};
+  const level2Counts = surveyData?.level2Counts || {};
+  const level3Counts = surveyData?.level3Counts || {};
+  const level1Percentages = surveyData?.level1Percentages || {};
+  const level2Percentages = surveyData?.level2Percentages || {};
+  const level3Percentages = surveyData?.level3Percentages || {};
+  const overallIndirectPercentages = surveyData?.overallIndirectPercentages || {};
+  const coAttainmentLevels = surveyData?.coAttainmentLevels || {};
+  const indirectAttainmentScores = surveyData?.indirectAttainmentScores || {};
+  const surveyResponses = Array.isArray(surveyData?.surveyResponses) ? surveyData.surveyResponses : [];
+  const totalResponses = surveyData?.totalStudents ?? surveyData?.totalResponses ?? surveyResponses.length;
+  const overallIndirectCoAttainment = surveyData?.overallIndirectCoAttainment ?? surveyData?.averageAttainmentLevel ?? 0;
 
-  const coList = activeCOs.length > 0 
-    ? activeCOs.map(c => c.code)
-    : Object.keys(coScores);
+  const coList = [...new Set([
+    ...activeCOs.map((co) => co.code).filter(Boolean),
+    ...Object.keys(level1Counts),
+    ...Object.keys(overallIndirectPercentages),
+    ...surveyResponses.flatMap((response) => Object.keys(response?.coFeedbacks || response?.coRatings || {})),
+  ])];
+  const formatPercentage = (value) => value != null ? Number(value).toFixed(2) : '—';
 
   return (
     <div className="animated-page">
@@ -175,7 +182,7 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
           </div>
           {totalResponses > 0 && (
             <span className="badge badge-active" style={{ fontSize: '13px', padding: '6px 12px' }}>
-              Average Survey Attainment: {Number(avgLevel).toFixed(2)}
+              Overall Indirect CO Attainment: {Number(overallIndirectCoAttainment).toFixed(2)}
             </span>
           )}
         </div>
@@ -184,53 +191,97 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
           <table className="audit-data-table">
             <thead>
               <tr>
-                <th style={{ width: '100px' }}>CO Code</th>
-                <th style={{ textAlign: 'center' }}>Responses</th>
-                <th style={{ textAlign: 'center' }}>% Positive Ratings</th>
-                <th style={{ textAlign: 'center' }}>Attainment Score (Scale 0-3)</th>
-                <th style={{ textAlign: 'center' }}>Attainment Level</th>
+                <th colSpan={2}>Indirect Attainment Metric</th>
+                {coList.map((coCode) => <th key={coCode} style={{ textAlign: 'center' }}>{coCode}</th>)}
               </tr>
             </thead>
             <tbody>
               {coList.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                  <td colSpan={2 + Math.max(coList.length, 1)} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
                     No Course Outcomes or Survey responses available. Upload a survey file above to calculate indirect attainment.
                   </td>
                 </tr>
               ) : (
-                coList.map((coCode) => {
-                  const score = coScores[coCode] != null ? Number(coScores[coCode]) : null;
-                  const pct = coPercentages[coCode] != null ? Number(coPercentages[coCode]) : null;
-                  const level = score != null ? Math.round(score) : null;
-
-                  return (
-                    <tr key={coCode}>
-                      <td style={{ fontWeight: '700', color: '#2563eb' }}>{coCode}</td>
-                      <td style={{ textAlign: 'center', fontWeight: '600' }}>{totalResponses}</td>
-                      <td style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>
-                        {pct != null ? `${pct.toFixed(2)}%` : '—'}
-                      </td>
-                      <td style={{ textAlign: 'center', fontWeight: '800', color: '#4f46e5' }}>
-                        {score != null ? score.toFixed(2) : '—'}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        {level != null ? (
-                          <span
-                            className={`badge ${
-                              level >= 3 ? 'badge-level-3' : level === 2 ? 'badge-level-2' : 'badge-level-1'
-                            }`}
-                          >
-                            Level {level}
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
+                <>
+                  {[
+                    ['Count of each level', 'Level 1', level1Counts],
+                    ['Count of each level', 'Level 2', level2Counts],
+                    ['Count of each level', 'Level 3', level3Counts],
+                    ['% of students', 'Level 1', level1Percentages],
+                    ['% of students', 'Level 2', level2Percentages],
+                    ['% of students', 'Level 3', level3Percentages],
+                  ].map(([group, label, values], index) => (
+                    <tr key={`${group}-${label}`} style={index === 3 ? { borderTop: '2px solid #cbd5e1' } : undefined}>
+                      <td style={{ fontWeight: '700', color: '#334155' }}>{group}</td>
+                      <td style={{ fontWeight: '700', textAlign: 'center' }}>{label}</td>
+                      {coList.map((coCode) => (
+                        <td key={coCode} style={{ textAlign: 'center', fontWeight: '600' }}>
+                          {group.startsWith('%') ? formatPercentage(values[coCode]) : values[coCode] ?? '—'}
+                        </td>
+                      ))}
                     </tr>
-                  );
-                })
+                  ))}
+                  <tr style={{ background: '#0ea5e9', color: '#082f49', fontWeight: '800', borderTop: '2px solid #0284c7' }}>
+                    <td colSpan={2} style={{ fontSize: '14px' }}>Overall Indirect %</td>
+                    {coList.map((coCode) => (
+                      <td key={coCode} style={{ textAlign: 'center', fontSize: '14px' }}>{formatPercentage(overallIndirectPercentages[coCode])}</td>
+                    ))}
+                  </tr>
+                  <tr style={{ background: '#f8fafc' }}>
+                    <td colSpan={2} style={{ fontWeight: '700' }}>Indirect Attainment Score / Level</td>
+                    {coList.map((coCode) => (
+                      <td key={coCode} style={{ textAlign: 'center', fontWeight: '700' }}>
+                        {indirectAttainmentScores[coCode] != null ? Number(indirectAttainmentScores[coCode]).toFixed(2) : '—'}
+                        {coAttainmentLevels[coCode] != null ? ` / L${coAttainmentLevels[coCode]}` : ''}
+                      </td>
+                    ))}
+                  </tr>
+                </>
               )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>Student Survey Feedback</h3>
+            <span style={{ fontSize: '12px', color: '#64748b' }}>
+              {totalResponses > 0 ? `${totalResponses} student responses` : 'No survey responses uploaded yet'}
+            </span>
+          </div>
+        </div>
+        <div style={{ overflowX: 'auto', width: '100%' }}>
+          <table className="audit-data-table">
+            <thead>
+              <tr>
+                <th style={{ width: '72px', textAlign: 'center' }}>Sr. No.</th>
+                <th>PRN No.</th>
+                <th>Student Name</th>
+                {coList.map((coCode) => <th key={coCode} style={{ textAlign: 'center' }}>{coCode}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {surveyResponses.length === 0 ? (
+                <tr>
+                  <td colSpan={3 + Math.max(coList.length, 1)} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                    No uploaded survey responses available.
+                  </td>
+                </tr>
+              ) : surveyResponses.map((response, index) => (
+                <tr key={`${response.prn ?? 'response'}-${response.srNo ?? index}`}>
+                  <td style={{ textAlign: 'center', fontWeight: '600' }}>{response.srNo ?? index + 1}</td>
+                  <td style={{ fontWeight: '600' }}>{response.prn ?? '—'}</td>
+                  <td>{response.studentName ?? '—'}</td>
+                  {coList.map((coCode) => (
+                    <td key={coCode} style={{ textAlign: 'center' }}>
+                      {response.coFeedbacks?.[coCode] ?? response.coRatings?.[coCode] ?? '—'}
+                    </td>
+                  ))}
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

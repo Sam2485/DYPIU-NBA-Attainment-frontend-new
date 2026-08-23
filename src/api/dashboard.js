@@ -14,12 +14,16 @@ export const dashboardApi = {
     );
   },
 
-  getHodDashboard: (departmentId) => {
+  getHodDashboard: (departmentId, hodEmail) => {
     const params = {};
 
     if (departmentId) {
       params.departmentId =
         departmentId;
+    }
+
+    if (hodEmail) {
+      params.hodEmail = hodEmail;
     }
 
     return apiClient.get(
@@ -44,24 +48,12 @@ export const dashboardApi = {
     );
   },
 
-  getCourseCoordinatorDashboard: (
-    courseId,
-    batchId
-  ) => {
+  getCourseCoordinatorDashboard: ({ courseOfferingId, coordinatorEmail } = {}) => {
     const params = {};
+    if (courseOfferingId) params.courseOfferingId = courseOfferingId;
+    if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
 
-    if (courseId) {
-      params.courseId = courseId;
-    }
-
-    if (batchId) {
-      params.batchId = batchId;
-    }
-
-    return apiClient.get(
-      '/dashboard/course-coordinator',
-      { params }
-    );
+    return apiClient.get('/academic/course-coordinator/summary', { params });
   },
 };
 

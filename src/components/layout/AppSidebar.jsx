@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAcademic } from '../../context/AcademicContext';
@@ -97,8 +97,15 @@ export default function AppSidebar() {
     batchId,
     setBatchId = () => {},
     selectedBatch,
+    selectedCourseOffering,
+    courseOfferings = [],
     programmeId,
     hodDashboard = null,
+    departments = [],
+    selectedDepartmentId,
+    setSelectedDepartmentId = () => {},
+    loadDepartments = () => Promise.resolve([]),
+    loadMasterProgrammes = () => Promise.resolve([]),
   } = useAcademic();
   const navigate = useNavigate();
   const location = useLocation();
@@ -174,6 +181,19 @@ export default function AppSidebar() {
 
   // Determine active span
   const isHod = role === 'HOD';
+
+  useEffect(() => {
+    if (role === 'HOD') {
+      loadDepartments();
+    }
+  }, [loadDepartments, role]);
+
+  useEffect(() => {
+    // Set an initial scope once only. A persisted user choice is never
+    // replaced just because the screen reloads or a department list refreshes.
+    if (role !== 'HOD' || selectedDepartmentId || departments.length === 0) return;
+    setSelectedDepartmentId(user?.departmentId ?? departments[0]?.id ?? null);
+  }, [departments, role, selectedDepartmentId, setSelectedDepartmentId, user?.departmentId]);
   const currentSpan = isHod
     ? (hodDashboard?.activeBatch ?? '—')
     : selectedBatch
@@ -202,6 +222,13 @@ export default function AppSidebar() {
         }
       }
     }
+  };
+
+  const handleHodDepartmentChange = (departmentId) => {
+    // Start the authoritative master-programme request immediately when the
+    // user changes the universal HOD department scope.
+    loadMasterProgrammes(departmentId).catch(() => {});
+    setSelectedDepartmentId(departmentId);
   };
 
   // Dropdown States
@@ -323,17 +350,72 @@ export default function AppSidebar() {
                 ACTIVE
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 32, padding: '0 8px', borderRadius: 8, border: '1px solid rgba(165,180,252,0.20)', background: 'rgba(15,23,42,0.40)' }}>
-              <span style={{ width: 22, height: 22, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'rgba(129,140,248,0.18)', color: '#c7d2fe', flexShrink: 0 }}>
-                <Icon name="shield" active size={13} />
+            {role !== 'HOD' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 32, padding: '0 8px', borderRadius: 8, border: '1px solid rgba(165,180,252,0.20)', background: 'rgba(15,23,42,0.40)' }}>
+                <span style={{ width: 22, height: 22, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'rgba(129,140,248,0.18)', color: '#c7d2fe', flexShrink: 0 }}>
+                  <Icon name="shield" active size={13} />
+                </span>
+                <span style={{ color: '#f8fafc', fontSize: 11.5, fontWeight: 800, lineHeight: 1.2 }}>
+                  {role === 'DIRECTOR' ? 'School-level governance' : 'Programme-level governance'}
+                </span>
+              </div>
+            )}
+            {role === 'HOD' && (
+              <div>
+                <select
+                  id="hod-universal-department"
+                  value={selectedDepartmentId ?? ''}
+                  onChange={(event) => handleHodDepartmentChange(event.target.value)}
+                  disabled={departments.length === 0}
+                  style={{ width: '100%', height: 32, borderRadius: 8, border: '1px solid rgba(165,180,252,0.30)', background: '#1e293b', color: '#f8fafc', fontSize: 11.5, fontWeight: 700, padding: '0 8px', fontFamily: 'inherit', cursor: departments.length ? 'pointer' : 'not-allowed', outline: 'none' }}
+                >
+                  {departments.length === 0 ? (
+                    <option value="">No departments available</option>
+                  ) : departments.map((department) => (
+                    <option key={department.id} value={department.id} style={{ color: '#0f172a', background: '#ffffff' }}>
+                      {department.name || department.code || department.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          <div style={{ height: '1px', background: 'rgba(148, 163, 184, 0.18)', width: '100%', flexShrink: 0 }} />
+        </>
+      ) : role === 'FACULTY' ? (
+        <>
+          <div
+            style={{
+              background: 'linear-gradient(135deg, rgba(8,145,178,0.25), rgba(30,41,59,0.72))',
+              border: '1px solid rgba(103,232,249,0.28)',
+              borderRadius: 14,
+              padding: '10px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <span style={{ fontSize: 9.5, color: '#a5f3fc', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Course-Level Access
               </span>
-              <span style={{ color: '#f8fafc', fontSize: 11.5, fontWeight: 800, lineHeight: 1.2 }}>
-                {role === 'DIRECTOR'
-                  ? 'School-level governance'
-                  : role === 'HOD'
-                  ? 'Department-level governance'
-                  : 'Programme-level governance'}
+              <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: 'rgba(52,211,153,0.16)', color: '#6ee7b7', border: '1px solid rgba(52,211,153,0.25)' }}>
+                ASSIGNED
               </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 34, padding: '0 8px', borderRadius: 8, border: '1px solid rgba(103,232,249,0.18)', background: 'rgba(15,23,42,0.42)' }}>
+              <span style={{ width: 22, height: 22, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'rgba(6,182,212,0.16)' }}>
+                <Icon name="outcomes" active size={13} />
+              </span>
+              <div style={{ minWidth: 0, display: 'grid', gap: 1 }}>
+                <span style={{ color: '#f8fafc', fontSize: 11.5, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {selectedCourseOffering?.courseCode || 'Select an assigned course'}
+                </span>
+                <span style={{ color: '#94a3b8', fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {selectedCourseOffering ? `${selectedCourseOffering.courseName || 'Programme Batch Course'} · Sem ${selectedCourseOffering.semester ?? '—'}` : `${courseOfferings.length} assigned programme-batch course(s)`}
+                </span>
+              </div>
             </div>
           </div>
           <div style={{ height: '1px', background: 'rgba(148, 163, 184, 0.18)', width: '100%', flexShrink: 0 }} />

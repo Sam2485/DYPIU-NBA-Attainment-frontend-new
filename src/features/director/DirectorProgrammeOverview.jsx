@@ -11,9 +11,9 @@ export default function DirectorProgrammeOverview() {
     selectedSchoolId,
     loadSchools = () => Promise.resolve([]),
     loadDepartments = () => Promise.resolve([]),
-    loadProgrammes = () => Promise.resolve([]),
-    updateProgramme = () => {},
-    deleteProgramme = () => {},
+    loadMasterProgrammes = () => Promise.resolve([]),
+    updateMasterProgramme = () => {},
+    deleteMasterProgramme = () => {},
   } = useAcademic();
 
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
@@ -33,12 +33,12 @@ export default function DirectorProgrammeOverview() {
       const schoolId = selectedSchoolId ?? schools[0]?.id;
       await Promise.allSettled([
         loadDepartments(schoolId),
-        loadProgrammes(),
+        loadMasterProgrammes(),
       ]);
     };
 
     loadDirectorProgrammeData().catch(() => {});
-  }, [loadDepartments, loadProgrammes, loadSchools, selectedSchoolId]);
+  }, [loadDepartments, loadMasterProgrammes, loadSchools, selectedSchoolId]);
 
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
   const ink = '#0f172a';
@@ -69,7 +69,7 @@ export default function DirectorProgrammeOverview() {
     if (!deptObj) return;
 
     try {
-      await updateProgramme(editingProg.id, {
+      await updateMasterProgramme(editingProg.id, {
       name: editName.trim(),
       code: editCode.trim().toUpperCase(),
       departmentId: deptObj.id,
@@ -92,7 +92,7 @@ export default function DirectorProgrammeOverview() {
 
   const handleConfirmDelete = () => {
     if (deletingProg) {
-      deleteProgramme(deletingProg.id);
+      deleteMasterProgramme(deletingProg.id);
       setShowDeleteModal(false);
       setDeletingProg(null);
     }

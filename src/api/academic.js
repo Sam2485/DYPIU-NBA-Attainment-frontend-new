@@ -61,6 +61,21 @@ export const academicApi = {
     apiClient.delete(`/academic/programmes/${id}`),
 
   // =========================
+  // Master Programmes (authoritative hierarchy API)
+  // =========================
+  getMasterProgrammes: () =>
+    apiClient.get('/master-programmes'),
+
+  createMasterProgramme: (data) =>
+    apiClient.post('/master-programmes', data),
+
+  updateMasterProgramme: (masterProgrammeId, data) =>
+    apiClient.put(`/master-programmes/${masterProgrammeId}`, data),
+
+  deleteMasterProgramme: (masterProgrammeId) =>
+    apiClient.delete(`/master-programmes/${masterProgrammeId}`),
+
+  // =========================
   // Batches
   // =========================
   getBatches: ({ programmeId, userEmail, role } = {}) => {
@@ -123,7 +138,7 @@ export const academicApi = {
   // Course Offerings
   // =========================
   getCourseOfferings: (batchId) => {
-    const params = batchId ? { batchId } : {};
+    const params = batchId ? { programmeBatchId: batchId } : {};
 
     return apiClient.get('/academic/course-offerings', { params });
   },

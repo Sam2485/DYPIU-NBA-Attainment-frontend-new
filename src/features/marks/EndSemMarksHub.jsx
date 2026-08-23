@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
-import { FileCheck, Upload, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { FileCheck, Upload, CheckCircle2, AlertCircle, Loader2, X } from 'lucide-react';
 import { useAcademic } from '../../context/academic';
 import { useAttainment } from '../../context/attainment';
-import { useAuth } from '../../context/auth';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function EndSemMarksHub({ hideFooter = false }) {
-  const { user } = useAuth();
   const {
     courseOfferingId,
     selectedCourse,
@@ -21,10 +19,11 @@ export default function EndSemMarksHub({ hideFooter = false }) {
     loading: attainmentLoading,
   } = useAttainment();
 
-  const [thresholdPercentage, setThresholdPercentage] = useState(60.0);
   const [uploading, setUploading] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [uploadedFileName, setUploadedFileName] = useState(null);
+  const [showAllStudents, setShowAllStudents] = useState(false);
 
   useEffect(() => {
     if (courseOfferingId) {
@@ -49,9 +48,9 @@ export default function EndSemMarksHub({ hideFooter = false }) {
       const result = await uploadEndSemMarks({
         offeringId: courseOfferingId,
         file,
-        thresholdPercentage,
-        uploadedBy: user?.name || user?.email || 'Course Coordinator',
       });
+      setUploadedFileName(file.name);
+      setShowAllStudents(false);
       setStatusMessage(
         `File "${file.name}" uploaded and processed successfully! Processed for ${result?.totalStudents ?? 0} students.`
       );
@@ -66,14 +65,23 @@ export default function EndSemMarksHub({ hideFooter = false }) {
     }
   };
 
-  const coScores = examinationData?.coAttainmentScores || {};
+  const coLevels = examinationData?.coAttainmentLevels || examinationData?.coAttainmentScores || {};
   const coPercentages = examinationData?.percentageAboveThreshold || {};
+  const coMaxMarks = examinationData?.coMaxMarks || {};
+  const coThresholdMarks = examinationData?.coThresholdMarks || {};
+  const studentsAboveThreshold = examinationData?.studentsAboveThreshold || {};
   const totalStudents = examinationData?.totalStudents ?? 0;
-  const avgLevel = examinationData?.averageAttainmentLevel ?? 0;
+  const overallDirectCoAttainment = examinationData?.overallDirectCoAttainment ?? examinationData?.averageAttainmentLevel ?? 0;
+  const thresholdPercentage = examinationData?.thresholdPercentage ?? 60;
+  const studentMarks = Array.isArray(examinationData?.studentMarks) ? examinationData.studentMarks : [];
 
-  const coList = activeCOs.length > 0 
-    ? activeCOs.map(c => c.code)
-    : Object.keys(coScores);
+  const coList = [...new Set([
+    ...activeCOs.map((co) => co.code).filter(Boolean),
+    ...Object.keys(coLevels),
+    ...Object.keys(coMaxMarks),
+    ...studentMarks.flatMap((student) => Object.keys(student?.coMarks || {})),
+  ])];
+  const visibleStudentMarks = showAllStudents ? studentMarks : studentMarks.slice(0, 10);
 
   return (
     <div className="animated-page">
@@ -102,27 +110,6 @@ export default function EndSemMarksHub({ hideFooter = false }) {
                 {selectedCourse?.code || selectedCourseOffering?.courseCode || 'Course'} — {selectedCourse?.name || selectedCourseOffering?.courseName || 'Selected Offering'}
               </span>
             </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <label style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>
-              Target Threshold (%):
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={thresholdPercentage}
-              onChange={(e) => setThresholdPercentage(Number(e.target.value))}
-              style={{
-                width: '70px',
-                padding: '6px 10px',
-                borderRadius: '6px',
-                border: '1px solid #cbd5e1',
-                fontWeight: '700',
-                textAlign: 'center',
-              }}
-            />
           </div>
         </div>
       </div>
@@ -173,13 +160,32 @@ export default function EndSemMarksHub({ hideFooter = false }) {
                 onChange={handleFileUpload}
                 disabled={uploading || !courseOfferingId}
               />
-              <label
-                htmlFor="marks-file-input"
-                className={`btn btn-primary ${!courseOfferingId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                style={{ cursor: courseOfferingId ? 'pointer' : 'not-allowed' }}
-              >
-                <Upload size={15} /> Select Excel File
-              </label>
+              {uploadedFileName ? (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '9px 12px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px', color: '#065f46', fontSize: '13px', fontWeight: '700' }}>
+                  <FileCheck size={16} />
+                  <span>{uploadedFileName}</span>
+                  <button
+                    type="button"
+                    aria-label="Remove selected examination file"
+                    title="Remove file"
+                    onClick={() => {
+                      setUploadedFileName(null);
+                      setStatusMessage(null);
+                    }}
+                    style={{ display: 'inline-grid', placeItems: 'center', padding: 0, border: 'none', background: 'transparent', color: '#b91c1c', cursor: 'pointer' }}
+                  >
+                    <X size={17} />
+                  </button>
+                </div>
+              ) : (
+                <label
+                  htmlFor="marks-file-input"
+                  className={`btn btn-primary ${!courseOfferingId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  style={{ cursor: courseOfferingId ? 'pointer' : 'not-allowed' }}
+                >
+                  <Upload size={15} /> Select Excel File
+                </label>
+              )}
             </>
           )}
         </div>
@@ -196,7 +202,7 @@ export default function EndSemMarksHub({ hideFooter = false }) {
           </div>
           {totalStudents > 0 && (
             <span className="badge badge-active" style={{ fontSize: '13px', padding: '6px 12px' }}>
-              Average Attainment Level: {Number(avgLevel).toFixed(2)}
+              Overall Direct CO Attainment: {Number(overallDirectCoAttainment).toFixed(2)}
             </span>
           )}
         </div>
@@ -207,33 +213,38 @@ export default function EndSemMarksHub({ hideFooter = false }) {
               <tr>
                 <th style={{ width: '100px' }}>CO Code</th>
                 <th style={{ textAlign: 'center' }}>Students Attempted</th>
+                <th style={{ textAlign: 'center' }}>Students ≥ Threshold</th>
                 <th style={{ textAlign: 'center' }}>% Scoring &ge; Threshold ({thresholdPercentage}%)</th>
-                <th style={{ textAlign: 'center' }}>Attainment Score (Scale 0-3)</th>
+                <th style={{ textAlign: 'center' }}>Max / Threshold Marks</th>
                 <th style={{ textAlign: 'center' }}>Attainment Level</th>
               </tr>
             </thead>
             <tbody>
               {coList.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
                     No Course Outcomes or Examination Marks available. Upload a marks sheet above to calculate direct attainment.
                   </td>
                 </tr>
               ) : (
                 coList.map((coCode) => {
-                  const score = coScores[coCode] != null ? Number(coScores[coCode]) : null;
+                  const level = coLevels[coCode] != null ? Number(coLevels[coCode]) : null;
                   const pct = coPercentages[coCode] != null ? Number(coPercentages[coCode]) : null;
-                  const level = score != null ? Math.round(score) : null;
+                  const maxMarks = coMaxMarks[coCode];
+                  const thresholdMarks = coThresholdMarks[coCode];
 
                   return (
                     <tr key={coCode}>
                       <td style={{ fontWeight: '700', color: '#2563eb' }}>{coCode}</td>
                       <td style={{ textAlign: 'center', fontWeight: '600' }}>{totalStudents}</td>
+                      <td style={{ textAlign: 'center', fontWeight: '700' }}>{studentsAboveThreshold[coCode] ?? '—'}</td>
                       <td style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>
                         {pct != null ? `${pct.toFixed(2)}%` : '—'}
                       </td>
                       <td style={{ textAlign: 'center', fontWeight: '800', color: '#4f46e5' }}>
-                        {score != null ? score.toFixed(2) : '—'}
+                        {maxMarks != null || thresholdMarks != null
+                          ? `${maxMarks ?? '—'} / ${thresholdMarks ?? '—'}`
+                          : '—'}
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         {level != null ? (
@@ -251,6 +262,64 @@ export default function EndSemMarksHub({ hideFooter = false }) {
                     </tr>
                   );
                 })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Uploaded Student Marks */}
+      <div className="card">
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>Uploaded Student Marks</h3>
+            <span style={{ fontSize: '12px', color: '#64748b' }}>
+              {studentMarks.length > 0
+                ? `Showing ${visibleStudentMarks.length} of ${studentMarks.length} students`
+                : 'Student-level marks will appear after an Excel sheet is uploaded.'}
+            </span>
+          </div>
+          {studentMarks.length > 10 && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setShowAllStudents((current) => !current)}
+            >
+              {showAllStudents ? 'Show first 10' : 'Show all'}
+            </button>
+          )}
+        </div>
+
+        <div style={{ overflowX: 'auto', width: '100%' }}>
+          <table className="audit-data-table">
+            <thead>
+              <tr>
+                <th style={{ width: '72px', textAlign: 'center' }}>Sr. No.</th>
+                <th>PRN No.</th>
+                <th>Student Name</th>
+                {coList.map((coCode) => <th key={coCode} style={{ textAlign: 'center' }}>{coCode}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {studentMarks.length === 0 ? (
+                <tr>
+                  <td colSpan={3 + Math.max(coList.length, 1)} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                    No uploaded student marks available.
+                  </td>
+                </tr>
+              ) : (
+                visibleStudentMarks.map((student, index) => (
+                  <tr key={`${student.prn ?? 'student'}-${student.srNo ?? index}`}>
+                    <td style={{ textAlign: 'center', fontWeight: '600' }}>{student.srNo ?? index + 1}</td>
+                    <td style={{ fontWeight: '600' }}>{student.prn ?? '—'}</td>
+                    <td>{student.studentName ?? '—'}</td>
+                    {coList.map((coCode) => (
+                      <td key={coCode} style={{ textAlign: 'center', fontWeight: '600' }}>
+                        {student.coMarks?.[coCode] ?? '—'}
+                      </td>
+                    ))}
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

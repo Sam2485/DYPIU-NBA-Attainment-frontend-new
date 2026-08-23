@@ -206,11 +206,13 @@ export default function HodApprovals() {
     academicYear = '2025-26',
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
+    selectedDepartmentId,
   } = useAcademic();
 
   const verifierName = user?.name || 'Head of Department (HOD)';
 
   const currentDept =
+    departments.find((department) => department.id === selectedDepartmentId) ||
     departments.find((d) => d.hod === user?.name || d.hodEmail === user?.email) ||
     departments[0];
 

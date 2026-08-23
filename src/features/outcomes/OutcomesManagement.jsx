@@ -1,12 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck, Send, Lock, ChevronDown } from 'lucide-react';
+import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck, Send, Lock } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import RowButtons from '../../components/common/RowButtons';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
+
+const EMPTY_TARGETS = {};
+const outcomeSignature = (outcomes = []) => JSON.stringify(outcomes.map((outcome) => ({
+  code: String(outcome.code ?? '').trim(),
+  statement: String(outcome.statement ?? '').trim(),
+  targetLevel: Number(outcome.targetLevel ?? outcome.target ?? 2.5),
+  bloomsLevel: outcome.bloomsLevel ?? 'UNDERSTAND',
+})));
 
 export default function OutcomesManagement({ hideFooter = false }) {
   const navigate = useNavigate();
@@ -22,6 +30,8 @@ export default function OutcomesManagement({ hideFooter = false }) {
     setCourseId = () => {},
     courseId,
     selectedCourse,
+    selectedCourseOffering,
+    courseOfferingId,
     activePOs = [],
     activePSOs = [],
     activePEOs = [],
@@ -30,27 +40,34 @@ export default function OutcomesManagement({ hideFooter = false }) {
     updateProgrammePSOs = () => {},
     updateProgrammePEOs = () => {},
     updateCourseCOs = () => {},
-    coTargets,
-    updateCourseCoTargets,
+    coTargets = {},
+    updateCourseCoTargets = () => {},
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
+    submitCourseVerification = () => Promise.resolve(null),
   } = useAcademic();
 
-  const targetCourseId = selectedCourse?.id || courseId || 'crs-1';
+  const courseScope = selectedCourseOffering ?? selectedCourse;
+  const targetCourseId = courseOfferingId || courseScope?.id || courseId || null;
+  const safeCoTargets = coTargets ?? EMPTY_TARGETS;
   const currentCoVerificationStatus = courseVerificationStore[targetCourseId]?.coStatus || 'DRAFT';
 
   const [localCoTargets, setLocalCoTargets] = useState({});
+  const [savedOutcomeSignature, setSavedOutcomeSignature] = useState(null);
+  const [isSavingOutcomes, setIsSavingOutcomes] = useState(false);
+  const [isSubmittingForReview, setIsSubmittingForReview] = useState(false);
+  const [isSubmittedForReview, setIsSubmittedForReview] = useState(false);
 
   useEffect(() => {
-    if (selectedCourse?.id && coTargets[selectedCourse.id]) {
-      setLocalCoTargets(coTargets[selectedCourse.id]);
+    if (targetCourseId && safeCoTargets[targetCourseId]) {
+      setLocalCoTargets(safeCoTargets[targetCourseId]);
     }
-  }, [selectedCourse, coTargets]);
+  }, [targetCourseId, safeCoTargets]);
 
   const handleSaveCoTargets = () => {
-    if (selectedCourse?.id) {
-      updateCourseCoTargets(selectedCourse.id, localCoTargets);
-      alert(`CO Target Levels (1.00 - 3.00 scale) for ${selectedCourse?.code} saved successfully!`);
+    if (targetCourseId) {
+      updateCourseCoTargets(targetCourseId, localCoTargets);
+      alert(`CO Target Levels (1.00 - 3.00 scale) for ${courseScope?.courseCode || courseScope?.code || 'the selected offering'} saved successfully!`);
     }
   };
 
@@ -65,7 +82,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
   }, [role, activeOutcomeTab]);
 
   // Multiple Teachers for Course
-  const courseTeachers = selectedCourse?.faculty || 'Course Coordinator';
+  const courseTeachers = courseScope?.faculty || 'Course Coordinator';
 
   // ── PEOs (Programme Educational Objectives - No Verification Required) ──────
   const [peoList, setPeoList] = useState(() => activePEOs || []);
@@ -148,7 +165,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
   useEffect(() => {
     const targetData = courseVerificationStore[targetCourseId] || {};
     const globalStatus = targetData.coStatus || currentCoVerificationStatus || 'DRAFT';
-    const courseTargets = coTargets[targetCourseId] || {};
+    const courseTargets = safeCoTargets[targetCourseId] || {};
 
     setCoList(
       activeCOs.map((co) => {
@@ -180,7 +197,8 @@ export default function OutcomesManagement({ hideFooter = false }) {
         };
       })
     );
-  }, [targetCourseId, selectedCourse, activeCOs, currentCoVerificationStatus, courseVerificationStore, coTargets]);
+    setSavedOutcomeSignature(outcomeSignature(activeCOs));
+  }, [targetCourseId, selectedCourse, activeCOs, currentCoVerificationStatus, courseVerificationStore, safeCoTargets]);
 
   // ── PO Handlers (Programme Coordinator Proposes -> Director Verifies) ─────────
   const handleAddPO = () => {
@@ -412,52 +430,31 @@ export default function OutcomesManagement({ hideFooter = false }) {
       submittedBy: user?.name || 'Course Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
     };
-    const updated = [...coList, newCo];
-    setCoList(updated);
-    updateCourseCOs(targetCourseId, updated);
-    if (selectedCourse?.id) {
-      updateCourseCoTargets(selectedCourse.id, {
-        ...(coTargets[selectedCourse.id] || {}),
-        [newCo.code]: 2.5,
-      });
-    }
+    setCoList((current) => [...current, newCo]);
   };
 
   const handleUpdateCOCode = (index, newCode) => {
     const updated = coList.map((c, i) => (i === index ? { ...c, code: newCode } : c));
     setCoList(updated);
-    updateCourseCOs(targetCourseId, updated);
   };
 
   const handleUpdateCOTarget = (index, val) => {
     const num = parseFloat(val);
     const validVal = isNaN(num) ? val : Math.min(3.0, Math.max(1.0, num));
-    const targetNum = isNaN(num) ? 2.5 : validVal;
     const updated = coList.map((c, i) =>
       i === index ? { ...c, targetLevel: validVal, target: validVal } : c
     );
     setCoList(updated);
-    updateCourseCOs(targetCourseId, updated);
-
-    const coCode = coList[index]?.code;
-    if (coCode && targetCourseId) {
-      updateCourseCoTargets(targetCourseId, {
-        ...(coTargets[targetCourseId] || {}),
-        [coCode]: targetNum,
-      });
-    }
   };
 
   const handleUpdateCOStatement = (index, newStatement) => {
     const updated = coList.map((c, i) => (i === index ? { ...c, statement: newStatement } : c));
     setCoList(updated);
-    updateCourseCOs(targetCourseId, updated);
   };
 
   const handleApproveCO = (index) => {
     const updated = coList.map((c, i) => (i === index ? { ...c, status: 'APPROVED', approvedBy: user?.name || 'Programme Coordinator', approvedAt: new Date().toISOString().split('T')[0] } : c));
     setCoList(updated);
-    updateCourseCOs(targetCourseId, updated);
     const allApproved = updated.every((c) => c.status === 'APPROVED');
     if (allApproved) {
       updateCourseVerificationStatus(targetCourseId, 'coStatus', 'APPROVED');
@@ -468,7 +465,6 @@ export default function OutcomesManagement({ hideFooter = false }) {
   const handleRejectCO = (index) => {
     const updated = coList.map((c, i) => (i === index ? { ...c, status: 'REJECTED' } : c));
     setCoList(updated);
-    updateCourseCOs(targetCourseId, updated);
     updateCourseVerificationStatus(targetCourseId, 'coStatus', 'PENDING_APPROVAL');
     alert(`CO ${coList[index].code} rejected and sent back to Faculty for revision.`);
   };
@@ -485,35 +481,68 @@ export default function OutcomesManagement({ hideFooter = false }) {
     if (deletingCOIndex !== null) {
       const updated = coList.filter((_, i) => i !== deletingCOIndex);
       setCoList(updated);
-      updateCourseCOs(targetCourseId, updated);
       setShowCODeleteModal(false);
       setDeletingCOIndex(null);
     }
   };
 
-  const handleSubmitCOsForReview = () => {
-    const updated = coList.map((c) => ({
-      ...c,
-      status: 'SUBMITTED',
-      submittedBy: user?.name || 'Course Coordinator',
-      submittedAt: new Date().toISOString().split('T')[0],
-    }));
-    setCoList(updated);
-    updateCourseCOs(targetCourseId, updated);
+  const handleSaveOutcomes = async () => {
+    if (!targetCourseId) {
+      alert('Select an assigned programme-batch course before saving outcomes.');
+      return;
+    }
+    try {
+      setIsSavingOutcomes(true);
+      const payload = coList.map((co) => ({
+        ...(co.id ? { id: co.id } : {}),
+        code: String(co.code ?? '').trim(),
+        statement: String(co.statement ?? '').trim(),
+        targetLevel: Number(co.targetLevel ?? co.target ?? 2.5),
+        bloomsLevel: co.bloomsLevel ?? 'UNDERSTAND',
+      }));
+      if (payload.some((co) => !co.code || !co.statement)) {
+        alert('Enter a code and statement for every Course Outcome before saving.');
+        return;
+      }
+      await updateCourseCOs(payload, targetCourseId);
+      setSavedOutcomeSignature(outcomeSignature(coList));
+      alert('Course Outcomes saved successfully.');
+    } catch (error) {
+      console.error('Failed to save Course Outcomes:', error);
+      alert('Unable to save Course Outcomes. Please try again.');
+    } finally {
+      setIsSavingOutcomes(false);
+    }
+  };
 
-    const targetsMap = {};
-    updated.forEach((co) => {
-      targetsMap[co.code] = co.targetLevel !== undefined ? co.targetLevel : (co.target !== undefined ? co.target : 2.5);
-    });
-    updateCourseCoTargets(targetCourseId, targetsMap);
-
-    updateCourseVerificationStatus(targetCourseId, 'coStatus', 'SUBMITTED', '', user?.name || 'Course Coordinator');
-    alert(`Course Outcomes for ${selectedCourse?.code || 'this course'} have been submitted for review to the Programme Coordinator!`);
+  const handleSubmitForReview = async () => {
+    if (!targetCourseId || coList.length === 0) return;
+    try {
+      setIsSubmittingForReview(true);
+      await submitCourseVerification({
+        courseOfferingId: targetCourseId,
+        // approval_requests.type accepts CO_DEFINITION for a Course Outcome
+        // submission; COURSE_OUTCOMES is a workflow label, not an API enum.
+        type: 'CO_DEFINITION',
+        resourceId: targetCourseId,
+        programmeBatchCourseId: targetCourseId,
+        masterProgrammeId: courseScope?.masterProgrammeId ?? courseScope?.programmeId ?? undefined,
+        title: `CO Submission for ${courseScope?.courseCode || courseScope?.code || 'Course'}`,
+        details: `${coList.length} Course Outcome(s) defined`,
+      });
+      setCoList((current) => current.map((co) => ({ ...co, status: 'SUBMITTED' })));
+      setIsSubmittedForReview(true);
+      alert('Course Outcomes submitted for review.');
+    } catch (error) {
+      console.error('Failed to submit Course Outcomes for review:', error);
+      alert('Unable to submit Course Outcomes for review.');
+    } finally {
+      setIsSubmittingForReview(false);
+    }
   };
 
   const handleSaveChanges = (entityName) => {
-    updateCourseCOs(targetCourseId, coList);
-    alert(`Changes to ${entityName} saved successfully!`);
+    alert(`Changes to ${entityName} are ready to save.`);
   };
 
   // Pending Counts
@@ -523,6 +552,12 @@ export default function OutcomesManagement({ hideFooter = false }) {
 
   const targetData = courseVerificationStore[targetCourseId] || {};
   const isCoApproved = currentCoVerificationStatus === 'APPROVED' || currentCoVerificationStatus === 'VERIFIED' || targetData.coStatus === 'APPROVED' || targetData.coStatus === 'VERIFIED';
+  const outcomesDirty = savedOutcomeSignature === null || outcomeSignature(coList) !== savedOutcomeSignature;
+  const outcomesPendingReview = isSubmittedForReview
+    || currentCoVerificationStatus === 'SUBMITTED'
+    || currentCoVerificationStatus === 'PENDING_APPROVAL'
+    || targetData.status === 'SUBMITTED_FOR_VERIFICATION'
+    || targetData.status === 'PENDING';
 
   return (
     <div className="animated-page">
@@ -536,51 +571,25 @@ export default function OutcomesManagement({ hideFooter = false }) {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
-            {/* Course Selector Dropdown */}
-            <div style={{ position: 'relative', width: '240px' }}>
-              <select
-                value={selectedCourse?.id || courseId || ''}
-                onChange={(e) => setCourseId(e.target.value)}
-                style={{
-                  height: '38px',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  color: '#4f46e5',
-                  border: '1.5px solid #c7d2fe',
-                  borderRadius: '8px',
-                  padding: '0 32px 0 12px',
-                  background: '#ffffff',
-                  width: '100%',
-                  outline: 'none',
-                  appearance: 'none',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                }}
-              >
-                {(availableCourses.length > 0 ? availableCourses : courses).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} — {c.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={14}
-                style={{
-                  position: 'absolute',
-                  right: '12px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: '#4f46e5',
-                  pointerEvents: 'none',
-                }}
-              />
-            </div>
-
             {!isCoApproved ? (
-              <button className="btn btn-primary" onClick={handleSubmitCOsForReview} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px' }}>
-                <Send size={15} /> Submit CO for Review
-              </button>
+              <>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSaveOutcomes}
+                  disabled={!outcomesDirty || isSavingOutcomes}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', opacity: !outcomesDirty || isSavingOutcomes ? 0.5 : 1, cursor: !outcomesDirty || isSavingOutcomes ? 'not-allowed' : 'pointer' }}
+                >
+                  <Save size={15} /> {isSavingOutcomes ? 'Saving…' : outcomesDirty ? 'Save Outcomes' : 'Saved'}
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSubmitForReview}
+                  disabled={outcomesDirty || isSubmittingForReview || outcomesPendingReview || coList.length === 0}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', opacity: outcomesDirty || isSubmittingForReview || outcomesPendingReview || coList.length === 0 ? 0.5 : 1, cursor: outcomesDirty || isSubmittingForReview || outcomesPendingReview || coList.length === 0 ? 'not-allowed' : 'pointer' }}
+                >
+                  <Send size={15} /> {isSubmittingForReview ? 'Submitting…' : outcomesPendingReview ? 'Submitted' : 'Submit for Review'}
+                </button>
+              </>
             ) : (
               <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <Lock size={13} /> Outcomes Locked
@@ -1295,7 +1304,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
           prevPath="/dashboard"
           nextPath="/co-mapping"
           nextLabel="Save COs & Proceed to Step 2: CO–PO/PSO Mapping →"
-          onSave={handleSubmitCOsForReview}
+          onSave={handleSaveOutcomes}
         />
       )}
       {/* Delete Confirmation Modal for Course Outcomes */}

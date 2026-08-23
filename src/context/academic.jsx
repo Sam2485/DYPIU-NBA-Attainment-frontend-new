@@ -4,6 +4,8 @@ import {
   useMemo,
   useState,
   useCallback,
+  useEffect,
+  useRef,
 } from 'react';
 
 import { useAuth } from './auth';
@@ -41,7 +43,10 @@ const unwrapList = (response) => {
 /* ========================================================================== */
 
 const normalizeSchool = (school) => ({
-  id: school?.id ?? null,
+  // The current school API returns schoolId; retain id as the application-wide
+  // selector key so Director Step 1 can resolve the loaded school.
+  id: school?.id ?? school?.schoolId ?? null,
+  schoolId: school?.schoolId ?? school?.id ?? null,
   code: school?.code ?? null,
   name: school?.name ?? null,
   dean:
@@ -69,7 +74,11 @@ const normalizeSchool = (school) => ({
 });
 
 const normalizeDepartment = (department) => ({
-  id: department?.id ?? null,
+  // Department endpoints return departmentId in the current API contract.
+  // Preserve it as the shared UI id so new rows do not replace all existing
+  // rows during the optimistic state merge.
+  id: department?.id ?? department?.departmentId ?? null,
+  departmentId: department?.departmentId ?? department?.id ?? null,
   schoolId: department?.schoolId ?? null,
   code: department?.code ?? null,
   name: department?.name ?? null,
@@ -81,7 +90,8 @@ const normalizeDepartment = (department) => ({
 });
 
 const normalizeProgramme = (programme) => ({
-  id: programme?.id ?? null,
+  id: programme?.id ?? programme?.masterProgrammeId ?? null,
+  masterProgrammeId: programme?.masterProgrammeId ?? programme?.id ?? null,
   departmentId: programme?.departmentId ?? null,
   code: programme?.code ?? null,
   name: programme?.name ?? null,
@@ -150,6 +160,8 @@ const normalizeOffering = (offering) => ({
   // overrides so a coordinator can use a batch-specific course name.
   courseId: offering?.courseId ?? offering?.masterCourseId ?? null,
   masterCourseId: offering?.masterCourseId ?? offering?.courseId ?? null,
+  programmeId: offering?.programmeId ?? offering?.masterProgrammeId ?? null,
+  masterProgrammeId: offering?.masterProgrammeId ?? offering?.programmeId ?? null,
   batchId: offering?.batchId ?? offering?.programmeBatchId ?? null,
   programmeBatchId: offering?.programmeBatchId ?? offering?.batchId ?? null,
   semester: offering?.semester ?? null,
@@ -192,11 +204,24 @@ const normalizeUser = (user) => ({
 export function AcademicProvider({ children }) {
   const { role, user } = useAuth();
 
+  const getHodDepartmentStorageKey = useCallback(
+    () => `nba_hod_selected_department:${user?.email ?? user?.id ?? 'current-user'}`,
+    [user?.email, user?.id]
+  );
+
   /* ------------------------------------------------------------------------ */
   /* Global selections                                                        */
   /* ------------------------------------------------------------------------ */
 
   const [selectedSchoolId, setSelectedSchoolId] = useState(null);
+  const [selectedDepartmentId, setSelectedDepartmentIdState] = useState(
+    () => {
+      if (typeof window === 'undefined') return user?.departmentId ?? null;
+      return sessionStorage.getItem(`nba_hod_selected_department:${user?.email ?? user?.id ?? 'current-user'}`)
+        ?? user?.departmentId
+        ?? null;
+    }
+  );
   const [programmeId, setProgrammeIdState] = useState(null);
   const [batchId, setBatchId] = useState(null);
   const [courseId, setCourseId] = useState(null);
@@ -218,6 +243,15 @@ export function AcademicProvider({ children }) {
   const [programmeCoordinators, setProgrammeCoordinators] = useState([]);
   const [hodCoordinatorAssignments, setHodCoordinatorAssignments] = useState([]);
   const [students, setStudents] = useState([]);
+  const masterProgrammeRequestsRef = useRef(new Map());
+
+  useEffect(() => {
+    if (role !== 'HOD' || selectedDepartmentId) return;
+    const persistedDepartmentId = typeof window === 'undefined'
+      ? null
+      : sessionStorage.getItem(getHodDepartmentStorageKey());
+    setSelectedDepartmentIdState(persistedDepartmentId ?? user?.departmentId ?? null);
+  }, [getHodDepartmentStorageKey, role, selectedDepartmentId, user?.departmentId]);
 
   /* ------------------------------------------------------------------------ */
   /* Outcomes & Mapping state                                                 */
@@ -265,6 +299,27 @@ export function AcademicProvider({ children }) {
     () => schools.find((school) => school.id === selectedSchoolId) ?? null,
     [schools, selectedSchoolId]
   );
+
+  const selectedDepartment = useMemo(
+    () => departments.find((department) => department.id === selectedDepartmentId) ?? null,
+    [departments, selectedDepartmentId]
+  );
+
+  const setSelectedDepartmentId = useCallback((departmentId) => {
+    const nextDepartmentId = departmentId || null;
+    setSelectedDepartmentIdState(nextDepartmentId);
+    if (role === 'HOD' && typeof window !== 'undefined') {
+      const key = `nba_hod_selected_department:${user?.email ?? user?.id ?? 'current-user'}`;
+      if (nextDepartmentId) sessionStorage.setItem(key, nextDepartmentId);
+      else sessionStorage.removeItem(key);
+    }
+    // A programme, batch, course, or offering from the previous department
+    // must never remain selected after the HOD changes department scope.
+    setProgrammeIdState(null);
+    setBatchId(null);
+    setCourseId(null);
+    setCourseOfferingId(null);
+  }, [role, user?.email, user?.id]);
 
   const selectedProgramme = useMemo(
     () => programmes.find((programme) => programme.id === programmeId) ?? null,
@@ -358,6 +413,36 @@ export function AcademicProvider({ children }) {
     }
   }, []);
 
+  // Director views manage the permanent catalogue through the authoritative
+  // master-programme API. Filtering by department is done client-side because
+  // the contract defines no list query parameters for this endpoint.
+  const loadMasterProgrammes = useCallback(async (targetDepartmentId = null) => {
+    const requestKey = targetDepartmentId ?? '__all__';
+    const inFlightRequest = masterProgrammeRequestsRef.current.get(requestKey);
+    if (inFlightRequest) return inFlightRequest;
+
+    const request = (async () => {
+    try {
+      const params = targetDepartmentId ? { departmentId: targetDepartmentId } : {};
+      const response = await apiClient.get('/master-programmes', { params });
+      const allProgrammes = unwrapList(response).map(normalizeProgramme);
+      const data = targetDepartmentId
+        ? allProgrammes.filter((programme) => programme.departmentId === targetDepartmentId)
+        : allProgrammes;
+      setProgrammes(data);
+      return data;
+    } catch (err) {
+      console.warn('loadMasterProgrammes failed:', err);
+      return [];
+    } finally {
+      masterProgrammeRequestsRef.current.delete(requestKey);
+    }
+    })();
+
+    masterProgrammeRequestsRef.current.set(requestKey, request);
+    return request;
+  }, []);
+
   /* --- Batches --- */
   const loadBatches = useCallback(
     async ({ targetProgrammeId = null, userEmail = null, targetRole = null } = {}) => {
@@ -407,7 +492,7 @@ export function AcademicProvider({ children }) {
     }
     try {
       const response = await apiClient.get('/academic/course-offerings', {
-        params: { batchId: targetBatchId },
+        params: { programmeBatchId: targetBatchId },
       });
       const data = unwrapList(response).map(normalizeOffering);
       setCourseOfferings(data);
@@ -417,6 +502,41 @@ export function AcademicProvider({ children }) {
       return [];
     }
   }, [batchId]);
+
+  // Course Coordinators work only with their assigned programme-batch courses.
+  // The offering ID, not the master-course ID, is the scope for every
+  // downstream CO, mapping, attainment and ATR operation.
+  const loadAssignedCourseOfferings = useCallback(async (coordinator = user) => {
+    const coordinatorEmail = String(coordinator?.email ?? '').trim().toLowerCase();
+    const coordinatorId = coordinator?.id == null ? '' : String(coordinator.id);
+
+    if (!coordinatorEmail && !coordinatorId) {
+      setCourseOfferings([]);
+      return [];
+    }
+
+    try {
+      const response = await apiClient.get('/academic/course-offerings');
+      const offerings = unwrapList(response).map(normalizeOffering);
+      const assigned = offerings.filter((offering) => {
+        const faculty = Array.isArray(offering.assignedFaculty)
+          ? offering.assignedFaculty
+          : String(offering.assignedFaculty ?? '').split(',');
+        const hasFacultyEmail = faculty.some(
+          (email) => String(email).trim().toLowerCase() === coordinatorEmail
+        );
+        return hasFacultyEmail
+          || String(offering.courseCoordinatorId ?? '') === coordinatorId
+          || String(offering.courseCoordinatorEmail ?? '').trim().toLowerCase() === coordinatorEmail;
+      });
+      setCourseOfferings(assigned);
+      return assigned;
+    } catch (err) {
+      console.warn('loadAssignedCourseOfferings failed:', err);
+      setCourseOfferings([]);
+      return [];
+    }
+  }, [user]);
 
   const loadCourseOffering = useCallback(async (offeringId) => {
     if (!offeringId) return null;
@@ -686,7 +806,7 @@ export function AcademicProvider({ children }) {
         return null;
       }
       try {
-        const response = await apiClient.get(`/attainment/config/${targetOfferingId}`);
+        const response = await apiClient.get(`/attainment/configurations/${targetOfferingId}`);
         const data = unwrap(response);
         setAttainmentSettings(data);
         return data;
@@ -728,7 +848,7 @@ export function AcademicProvider({ children }) {
         return null;
       }
       try {
-        const response = await apiClient.get(`/reports/course-atr/${offeringId}`);
+        const response = await apiClient.get(`/reports/course-offerings/${offeringId}/course-atr`);
         const data = unwrap(response);
         setCourseATR(data);
         return data;
@@ -748,9 +868,9 @@ export function AcademicProvider({ children }) {
         return null;
       }
       try {
-        const response = await apiClient.get(`/atr/programme/${targetProgrammeId}`, {
-          params: { batchId: targetBatchId },
-        });
+        const response = await apiClient.get(
+          `/reports/programmes/${targetProgrammeId}/batches/${targetBatchId}/programme-atr`
+        );
         const data = unwrap(response);
         setProgrammeATR(data);
         return data;
@@ -768,13 +888,29 @@ export function AcademicProvider({ children }) {
         throw new Error('programmeId and batchId are required to save Programme ATR.');
       }
 
-      const response = await apiClient.post(
-        `/atr/programme/${targetProgrammeId}`,
-        payload,
-        { params: { batchId: targetBatchId } }
-      );
+      const response = await apiClient.post('/reports/programmes/programme-atr', {
+        programmeId: targetProgrammeId,
+        batchId: targetBatchId,
+        ...payload,
+      });
       const data = unwrap(response);
       setProgrammeATR(data);
+      return data;
+    },
+    [programmeId, batchId]
+  );
+
+  const submitProgrammeATR = useCallback(
+    async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
+      if (!targetProgrammeId || !targetBatchId) {
+        throw new Error('programmeId and batchId are required to submit Programme ATR.');
+      }
+
+      const response = await apiClient.post(
+        `/reports/programmes/${targetProgrammeId}/batches/${targetBatchId}/programme-atr/submit`
+      );
+      const data = unwrap(response);
+      setProgrammeATR((previous) => ({ ...previous, ...data }));
       return data;
     },
     [programmeId, batchId]
@@ -833,17 +969,13 @@ export function AcademicProvider({ children }) {
   );
 
   const loadCourseCoordinatorDashboard = useCallback(
-    async (targetCourseId = courseId, targetBatchId = batchId) => {
-      if (!targetCourseId || !targetBatchId) {
-        setCourseCoordinatorDashboard(null);
-        return null;
-      }
+    async (targetOfferingId = courseOfferingId, coordinatorEmail = user?.email) => {
       try {
-        const response = await apiClient.get('/dashboard/course-coordinator', {
-          params: {
-            courseId: targetCourseId,
-            batchId: targetBatchId,
-          },
+        const params = {};
+        if (targetOfferingId) params.courseOfferingId = targetOfferingId;
+        if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
+        const response = await apiClient.get('/academic/course-coordinator/summary', {
+          params,
         });
         const data = unwrap(response);
         setCourseCoordinatorDashboard(data);
@@ -853,7 +985,7 @@ export function AcademicProvider({ children }) {
         return null;
       }
     },
-    [courseId, batchId]
+    [courseOfferingId, user?.email]
   );
 
   /* --- Setup Progress --- */
@@ -1031,6 +1163,46 @@ export function AcademicProvider({ children }) {
     setProgrammes((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
+  const toMasterProgrammePayload = (data = {}, { includeDepartmentName = false } = {}) => {
+    const payload = {
+      departmentId: data.departmentId,
+      code: data.code,
+      name: data.name,
+      durationYears: data.durationYears,
+      status: data.status,
+      coordinator: data.coordinator,
+      coordinatorEmail: data.coordinatorEmail,
+    };
+    if (includeDepartmentName && data.departmentName !== undefined) {
+      payload.departmentName = data.departmentName;
+    }
+    return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined));
+  };
+
+  const createMasterProgramme = useCallback(async (data) => {
+    const res = await apiClient.post('/master-programmes', toMasterProgrammePayload(data));
+    const item = normalizeProgramme(unwrap(res));
+    setProgrammes((prev) => [...prev.filter((programme) => programme.id !== item.id), item]);
+    return item;
+  }, []);
+
+  const updateMasterProgramme = useCallback(async (masterProgrammeId, data) => {
+    const res = await apiClient.put(
+      `/master-programmes/${masterProgrammeId}`,
+      toMasterProgrammePayload(data, { includeDepartmentName: true })
+    );
+    const item = normalizeProgramme(unwrap(res));
+    setProgrammes((prev) => prev.map((programme) => (
+      programme.id === masterProgrammeId ? item : programme
+    )));
+    return item;
+  }, []);
+
+  const deleteMasterProgramme = useCallback(async (masterProgrammeId) => {
+    await apiClient.delete(`/master-programmes/${masterProgrammeId}`);
+    setProgrammes((prev) => prev.filter((programme) => programme.id !== masterProgrammeId));
+  }, []);
+
   /* --- Batch CRUD --- */
   const createBatch = useCallback(async (data) => {
     const res = await apiClient.post('/academic/batches', data);
@@ -1177,20 +1349,12 @@ export function AcademicProvider({ children }) {
         courseOfferingId: targetOfferingId,
         directWeight: payload.directWeight ?? 80.0,
         indirectWeight: payload.indirectWeight ?? 20.0,
-        internalWeight: payload.internalWeight ?? 30.0,
-        externalWeight: payload.externalWeight ?? 70.0,
-        targetThresholdPercentage:
-          payload.targetThresholdPercentage ?? payload.directThreshold ?? 60.0,
-        status: payload.status ?? 'DRAFT',
-        directLevelsJson:
-          payload.directLevelsJson ??
-          (payload.directLevels ? JSON.stringify(payload.directLevels) : null),
-        indirectLevelsJson:
-          payload.indirectLevelsJson ??
-          (payload.indirectLevels ? JSON.stringify(payload.indirectLevels) : null),
+        directThreshold: payload.directThreshold ?? payload.targetThresholdPercentage ?? 60.0,
+        indirectThreshold: payload.indirectThreshold ?? 60.0,
+        directLevels: payload.directLevels ?? [],
       };
 
-      const response = await apiClient.put(`/attainment/config/${targetOfferingId}`, body);
+      const response = await apiClient.post('/attainment/configurations/save', body);
       const data = unwrap(response);
       setAttainmentSettings(data);
       return data;
@@ -1400,6 +1564,9 @@ export function AcademicProvider({ children }) {
 
     /* Departments */
     departments,
+    selectedDepartment,
+    selectedDepartmentId,
+    setSelectedDepartmentId,
     loadDepartments,
     createDepartment,
     addDepartment: createDepartment,
@@ -1414,10 +1581,14 @@ export function AcademicProvider({ children }) {
     programmeId,
     setProgrammeId,
     loadProgrammes,
+    loadMasterProgrammes,
     createProgramme,
     addProgramme: createProgramme,
     updateProgramme,
     deleteProgramme,
+    createMasterProgramme,
+    updateMasterProgramme,
+    deleteMasterProgramme,
 
     /* Batches */
     batches,
@@ -1454,6 +1625,7 @@ export function AcademicProvider({ children }) {
     setCourseOfferingId,
     selectCourseOffering,
     loadCourseOfferings,
+    loadAssignedCourseOfferings,
     loadCourseOffering,
     addCourseOffering,
     createCourseOffering: addCourseOffering,
@@ -1513,6 +1685,7 @@ export function AcademicProvider({ children }) {
     setProgrammeATR,
     loadProgrammeATR,
     saveProgrammeATR,
+    submitProgrammeATR,
     courseATR,
     loadCourseATR,
 

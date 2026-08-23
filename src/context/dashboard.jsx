@@ -168,6 +168,7 @@ export function DashboardProvider({ children }) {
   const {
     selectedSchool,
     selectedSchoolId,
+    selectedDepartmentId,
     departments = [],
     programmes = [],
     masterProgrammes = [],
@@ -254,13 +255,14 @@ export function DashboardProvider({ children }) {
   );
 
   const loadHodDashboard = useCallback(
-    async (targetDepartmentId = user?.departmentId) => {
+    async (targetDepartmentId = selectedDepartmentId ?? user?.departmentId, hodEmail = user?.email) => {
       try {
         setHodDashboardError(null);
         setError(null);
 
         const response = await dashboardApi.getHodDashboard(
-          targetDepartmentId
+          targetDepartmentId,
+          hodEmail
         );
         const data = unwrap(response);
         setHodDashboard(data);
@@ -272,7 +274,7 @@ export function DashboardProvider({ children }) {
         return null;
       }
     },
-    [user?.departmentId]
+    [selectedDepartmentId, user?.departmentId, user?.email]
   );
 
   const loadProgrammeCoordinatorDashboard = useCallback(
@@ -303,25 +305,15 @@ export function DashboardProvider({ children }) {
   );
 
   const loadCourseCoordinatorDashboard = useCallback(
-    async (targetCourseId = courseId, targetBatchId = batchId) => {
-      if (!targetCourseId || !targetBatchId) {
-        setCourseCoordinatorDashboard(null);
-        return null;
-      }
-
+    async (targetOfferingId = courseOfferingId, coordinatorEmail = user?.email) => {
       try {
         setCourseCoordinatorDashboardError(null);
         setError(null);
 
-        /*
-         * Backend dashboard contract:
-         * GET /dashboard/course-coordinator?courseId=...&batchId=...
-         * (Uses MASTER COURSE ID + BATCH ID)
-         */
-        const response = await dashboardApi.getCourseCoordinatorDashboard(
-          targetCourseId,
-          targetBatchId
-        );
+        const response = await dashboardApi.getCourseCoordinatorDashboard({
+          courseOfferingId: targetOfferingId,
+          coordinatorEmail,
+        });
         const data = unwrap(response);
         setCourseCoordinatorDashboard(data);
         return data;
@@ -332,7 +324,7 @@ export function DashboardProvider({ children }) {
         return null;
       }
     },
-    [courseId, batchId]
+    [courseOfferingId, user?.email]
   );
 
   /* ======================================================================== */
@@ -358,7 +350,7 @@ export function DashboardProvider({ children }) {
   );
 
   const loadHodSetupProgress = useCallback(
-    async (targetDepartmentId = user?.departmentId) => {
+    async (targetDepartmentId = selectedDepartmentId ?? user?.departmentId) => {
       try {
         const params = {};
         if (targetDepartmentId) params.departmentId = targetDepartmentId;
@@ -372,7 +364,7 @@ export function DashboardProvider({ children }) {
         return null;
       }
     },
-    [user?.departmentId]
+    [selectedDepartmentId, user?.departmentId]
   );
 
   const loadPcSetupProgress = useCallback(
@@ -495,7 +487,7 @@ export function DashboardProvider({ children }) {
         ].filter((v, i, arr) => arr.indexOf(v) === i);
 
         const payload = {
-          departmentId: user?.departmentId,
+          departmentId: selectedDepartmentId ?? user?.departmentId,
           email: user?.email,
           hodEmail: user?.email,
           step: nextStep,
@@ -512,7 +504,7 @@ export function DashboardProvider({ children }) {
         throw err;
       }
     },
-    [user?.departmentId, user?.email, hodWorkflowProgress?.completedSteps]
+    [selectedDepartmentId, user?.departmentId, user?.email, hodWorkflowProgress?.completedSteps]
   );
 
   const savePcSetupProgress = useCallback(
@@ -556,12 +548,19 @@ export function DashboardProvider({ children }) {
       }
 
       try {
+        const completedSteps = [
+          ...(ccWorkflowProgress?.completedSteps ?? []).map(String),
+          String(completedStep),
+        ].filter((value, index, all) => all.indexOf(value) === index);
         const payload = {
-          coordinatorEmail: user?.email,
           courseId: targetOfferingOrCourse,
-          currentStep: nextStep,
+          stepNumber: nextStep,
+          completedSteps,
         };
 
+        // The deployed controller accepts POST only. It must implement this as
+        // an upsert for an existing courseId; the frontend has no supported
+        // update route when the record already exists.
         const response = await apiClient.post('/academic/course-coordinator/setup-progress', payload);
         const normalized = normalizeProgress(unwrap(response), CC_WORKFLOW_STEPS.length);
         setCcWorkflowProgress(normalized);
@@ -571,7 +570,7 @@ export function DashboardProvider({ children }) {
         throw err;
       }
     },
-    [courseOfferingId, courseId, user?.email]
+    [ccWorkflowProgress?.completedSteps, courseOfferingId, courseId]
   );
 
   /* General role-based workflow saver */

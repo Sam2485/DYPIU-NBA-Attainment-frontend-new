@@ -30,20 +30,17 @@ export default function DashboardOverview() {
   const navigate = useNavigate();
   const { user }  = useAuth();
   const {
-    selectedCourse = null,
+    selectedCourseOffering = null,
     selectedProgramme = null,
-    availableCourses = [],
+    courseOfferings = [],
     academicYear = null,
     activePOs        = [],
     attainmentConfigs = {},
     workflowProgressStore = {},
     courseVerificationStore = {},
     ccWorkflowProgress = null,
+    courseCoordinatorDashboard = null,
     loadCourseCoordinatorDashboard,
-    loadCcSetupProgress,
-    loadCourseOutcomes,
-    loadAttainmentConfig,
-    loadVerificationStatus,
     batchId = null,
     courseOfferingId = null,
   } = useAcademic();
@@ -51,27 +48,25 @@ export default function DashboardOverview() {
   const [screenLoading, setScreenLoading] = useState(false);
   const [screenError, setScreenError] = useState(null);
 
-  const course         = selectedCourse || availableCourses[0] || null;
-  const courseId       = course?.id || null;
-  const courseCode     = course?.code || '—';
-  const courseName     = course?.name || 'No course selected';
-  const progName       = selectedProgramme?.name || course?.programme || 'Programme';
+  const dashboardData  = courseCoordinatorDashboard ?? {};
+  const course         = selectedCourseOffering || courseOfferings[0] || null;
+  const courseId       = dashboardData.courseOfferingId || dashboardData.programmeBatchCourseId || course?.id || null;
+  const courseCode     = dashboardData.courseCode || course?.courseCode || '—';
+  const courseName     = dashboardData.courseName || course?.courseName || 'No course selected';
+  const progName       = dashboardData.programmeName || selectedProgramme?.name || course?.programme || 'Programme';
   const progCode       = selectedProgramme?.code || '';
   const courseCOs      = course?.courseOutcomes || [];
-  const courseProgress = (courseOfferingId && workflowProgressStore[courseOfferingId]) || (courseId && workflowProgressStore[courseId]) || ccWorkflowProgress || {};
+  const courseProgress = dashboardData.setupProgress || (courseOfferingId && workflowProgressStore[courseOfferingId]) || (courseId && workflowProgressStore[courseId]) || ccWorkflowProgress || {};
+  const courseOutcomesCount = dashboardData.courseOutcomesCount ?? courseCOs.length;
+  const poCount = dashboardData.poCount ?? activePOs?.length ?? 0;
+  const psoCount = dashboardData.psoCount ?? 0;
+  const assignedCourseCount = dashboardData.assignedCourseCount ?? 0;
 
   const fetchCCData = async () => {
-    if (!courseId) return;
     setScreenLoading(true);
     setScreenError(null);
     try {
-      await Promise.allSettled([
-        batchId && loadCourseCoordinatorDashboard ? loadCourseCoordinatorDashboard(courseId, batchId) : Promise.resolve(),
-        loadCcSetupProgress ? loadCcSetupProgress(courseOfferingId || courseId) : Promise.resolve(),
-        loadCourseOutcomes ? loadCourseOutcomes(courseId) : Promise.resolve(),
-        (courseOfferingId || courseId) && loadAttainmentConfig ? loadAttainmentConfig(courseOfferingId || courseId) : Promise.resolve(),
-        courseOfferingId && loadVerificationStatus ? loadVerificationStatus(courseOfferingId) : Promise.resolve(),
-      ]);
+      await loadCourseCoordinatorDashboard?.();
     } catch (err) {
       console.warn('DashboardOverview fetch failed:', err);
       setScreenError(err?.customMessage || err?.message || 'Failed to load Course Coordinator dashboard.');
@@ -82,7 +77,7 @@ export default function DashboardOverview() {
 
   useEffect(() => {
     fetchCCData();
-  }, [courseId, courseOfferingId, batchId]);
+  }, [loadCourseCoordinatorDashboard]);
 
   // ── Verification status & revision requests ──────────────────────────────
   const verificationRecord = (courseOfferingId && courseVerificationStore[courseOfferingId]) || (courseId && courseVerificationStore[courseId]) || {};
@@ -128,7 +123,7 @@ export default function DashboardOverview() {
       return !!courseProgress.stepStatus[idx];
     }
     if (Array.isArray(courseProgress?.completedSteps)) {
-      return courseProgress.completedSteps.includes(s.step);
+      return courseProgress.completedSteps.some((step) => Number(step) === s.step);
     }
     return !!courseProgress?.[s.path] || !!courseProgress?.[s.step];
   });
@@ -218,11 +213,11 @@ export default function DashboardOverview() {
     return { hasRevision: false };
   };
 
-  if (screenLoading && !course && availableCourses.length === 0) {
+  if (screenLoading && !course && courseOfferings.length === 0) {
     return <ScreenLoadingState message="Loading Course Coordinator Dashboard..." />;
   }
 
-  if (screenError && !course && availableCourses.length === 0) {
+  if (screenError && !course && courseOfferings.length === 0) {
     return <ScreenErrorState title="Failed to load Dashboard" message={screenError} onRetry={fetchCCData} />;
   }
 
@@ -250,6 +245,7 @@ export default function DashboardOverview() {
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
             {courseCode !== '—' ? <><strong style={{ color: ink }}>{courseCode}</strong> — {courseName} &nbsp;·&nbsp;</> : null}
             {progCode ? <span>{progCode}</span> : progName}
+            {dashboardData.batchName ? <span style={{ color: '#94a3b8' }}> &nbsp;·&nbsp; {dashboardData.batchName}</span> : null}
             {academicYear ? <span style={{ color: '#94a3b8' }}> &nbsp;·&nbsp; {academicYear}</span> : null}
           </p>
         </div>
@@ -401,7 +397,7 @@ export default function DashboardOverview() {
               <Target size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{courseCOs.length}</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{courseOutcomesCount}</div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>COs defined</div>
         </div>
 
@@ -413,8 +409,32 @@ export default function DashboardOverview() {
               <Award size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{activePOs?.length ?? 0}</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{poCount}</div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>POs in programme</div>
+        </div>
+
+        {/* PSOs */}
+        <div style={{ ...surface, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Programme Specific Outcomes</span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#fdf4ff', display: 'grid', placeItems: 'center', color: '#c026d3' }}>
+              <Target size={15} />
+            </div>
+          </div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{psoCount}</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>PSOs in programme</div>
+        </div>
+
+        {/* Assigned courses */}
+        <div style={{ ...surface, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Assigned Courses</span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#e0f2fe', display: 'grid', placeItems: 'center', color: '#0369a1' }}>
+              <BookOpen size={15} />
+            </div>
+          </div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{assignedCourseCount}</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>{dashboardData.departmentName || 'Course coordinator scope'}</div>
         </div>
 
         {/* Workflow progress */}

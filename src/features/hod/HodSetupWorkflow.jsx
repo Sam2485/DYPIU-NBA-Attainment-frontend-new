@@ -34,7 +34,7 @@ export default function HodSetupWorkflow() {
     masterProgrammes = [],
     programmeId,
     setProgrammeId,
-    loadProgrammes = () => Promise.resolve([]),
+    loadMasterProgrammes = () => Promise.resolve([]),
     loadBatches = () => Promise.resolve([]),
     courses = [],
     loadCourses = () => Promise.resolve([]),
@@ -63,6 +63,7 @@ export default function HodSetupWorkflow() {
     hodWorkflowProgressStore = {},
     markHodWorkflowStepComplete = () => {},
     hodDashboard = null,
+    selectedDepartmentId,
   } = useAcademic();
 
   const [deleteModalConfig, setDeleteModalConfig] = useState({
@@ -205,18 +206,16 @@ export default function HodSetupWorkflow() {
   // once so the correct initial step can be determined, then load only the
   // resources rendered by that step below.
   useEffect(() => {
-    loadHodSetupProgress(user?.departmentId).catch(() => {});
-  }, [loadHodSetupProgress, user?.departmentId]);
+    loadHodSetupProgress(selectedDepartmentId).catch(() => {});
+  }, [loadHodSetupProgress, selectedDepartmentId]);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadCurrentStep = async () => {
-      // Every step needs the HOD's programmes for the existing programme
-      // selector. Do not request them again after they are in shared state.
-      const programmes = masterProgrammes.length > 0
-        ? masterProgrammes
-        : await loadProgrammes(user?.departmentId);
+      // Master programmes are authoritative. Always fetch and scope them by
+      // the department chosen in the universal HOD sidebar selector.
+      const programmes = await loadMasterProgrammes(selectedDepartmentId);
       if (cancelled) return;
 
       const targetProgrammeId = programmeId || programmes[0]?.id;
@@ -258,11 +257,11 @@ export default function HodSetupWorkflow() {
     loadProgrammeCoordinators,
     loadProgrammeBatchOutcomes,
     loadProgrammeOutcomes,
-    loadProgrammes,
+    loadMasterProgrammes,
     masterProgrammes,
     programmeId,
     setProgrammeId,
-    user?.departmentId,
+    selectedDepartmentId,
   ]);
 
   useEffect(() => {

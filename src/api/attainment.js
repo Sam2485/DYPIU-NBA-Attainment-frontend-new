@@ -5,10 +5,18 @@ export const attainmentApi = {
   // Attainment Configuration (Offering Scoped)
   // ---------------------------------------------------------------------------
   getConfig: (courseOfferingId) =>
-    apiClient.get(`/attainment/config/${courseOfferingId}`),
+    apiClient.get(`/attainment/configurations/${courseOfferingId}`),
 
-  saveConfig: (courseOfferingId, config) =>
-    apiClient.put(`/attainment/config/${courseOfferingId}`, config),
+  saveConfig: (config) =>
+    apiClient.post('/attainment/configurations/save', config),
+
+  updateConfig: (configId, config) =>
+    apiClient.put(`/attainment/configurations/${configId}`, config),
+
+  submitConfig: (courseOfferingId, submittedBy) =>
+    apiClient.post('/attainment/configurations/submit', null, {
+      params: { courseOfferingId, submittedBy },
+    }),
 
   // ---------------------------------------------------------------------------
   // Direct Assessment (Examination) - Sheet 2
@@ -20,7 +28,11 @@ export const attainmentApi = {
     apiClient.post(`/attainment/examination/${courseOfferingId}`, payload),
 
   uploadExaminationSheet: (courseOfferingId, formData) =>
-    apiClient.post(`/attainment/examination/${courseOfferingId}/upload`, formData),
+    apiClient.post(
+      `/attainment/course-offerings/${courseOfferingId}/examination/upload`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    ),
 
   // ---------------------------------------------------------------------------
   // Indirect Assessment (Course End Survey) - Sheet 3
@@ -32,13 +44,17 @@ export const attainmentApi = {
     apiClient.post(`/attainment/survey/${courseOfferingId}`, payload),
 
   uploadSurveySheet: (courseOfferingId, formData) =>
-    apiClient.post(`/attainment/survey/${courseOfferingId}/upload`, formData),
+    apiClient.post(
+      `/attainment/course-offerings/${courseOfferingId}/survey/upload`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    ),
 
   // ---------------------------------------------------------------------------
   // CO Attainment Calculation
   // ---------------------------------------------------------------------------
   calculateCourseCoAttainment: (courseOfferingId) =>
-    apiClient.get(`/attainment/course/${courseOfferingId}`),
+    apiClient.get(`/attainment/course-offerings/${courseOfferingId}`),
 
   // ---------------------------------------------------------------------------
   // Programme Attainment (Batch Scoped)

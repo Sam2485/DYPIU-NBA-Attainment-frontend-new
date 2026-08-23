@@ -73,7 +73,7 @@ export function AttainmentProvider({ children }) {
   /* ======================================================================== */
 
   const loadAttainmentConfig = useCallback(
-    async (targetOfferingId = courseOfferingId) => {
+    async (targetOfferingId = courseOfferingId, submittedBy) => {
       if (!targetOfferingId) return null;
       try {
         setError(null);
@@ -115,7 +115,7 @@ export function AttainmentProvider({ children }) {
 
       try {
         setError(null);
-        const response = await attainmentApi.saveConfig(targetOfferingId, payload);
+        const response = await attainmentApi.saveConfig(payload);
         const data = unwrapResponse(response);
         setAttainmentConfigs(data);
         return data;
@@ -177,20 +177,12 @@ export function AttainmentProvider({ children }) {
     async ({
       offeringId = courseOfferingId,
       file,
-      thresholdPercentage = 60.0,
-      uploadedBy = 'Course Coordinator',
     }) => {
       if (!offeringId) throw new Error('courseOfferingId is required');
       if (!file) throw new Error('Excel file is required');
 
       const formData = new FormData();
       formData.append('file', file);
-      if (thresholdPercentage != null) {
-        formData.append('thresholdPercentage', String(thresholdPercentage));
-      }
-      if (uploadedBy) {
-        formData.append('uploadedBy', uploadedBy);
-      }
 
       try {
         setError(null);
@@ -256,20 +248,12 @@ export function AttainmentProvider({ children }) {
     async ({
       offeringId = courseOfferingId,
       file,
-      thresholdPercentage = 60.0,
-      uploadedBy = 'Course Coordinator',
     }) => {
       if (!offeringId) throw new Error('courseOfferingId is required');
       if (!file) throw new Error('Excel file is required');
 
       const formData = new FormData();
       formData.append('file', file);
-      if (thresholdPercentage != null) {
-        formData.append('thresholdPercentage', String(thresholdPercentage));
-      }
-      if (uploadedBy) {
-        formData.append('uploadedBy', uploadedBy);
-      }
 
       try {
         setError(null);
@@ -377,7 +361,7 @@ export function AttainmentProvider({ children }) {
 
       try {
         setError(null);
-        const response = await reportsApi.submitCourseAtr(targetOfferingId);
+        const response = await reportsApi.submitCourseAtr(targetOfferingId, submittedBy);
         const data = unwrapResponse(response);
 
         const refreshed = await reportsApi.getCourseAtr(targetOfferingId);

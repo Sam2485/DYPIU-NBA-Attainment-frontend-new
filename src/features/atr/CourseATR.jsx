@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Save, CheckCircle2, Clock, ShieldCheck, History, Printer, ChevronDown, AlertCircle, Lock, Send } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import { useAttainment } from '../../context/attainment';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
@@ -23,6 +24,9 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
     courses = [],
     availableCourses = [],
     selectedCourse,
+    selectedCourseOffering,
+    courseOfferingId,
+    activeCOs = [],
     setCourseId = () => {},
     academicYear    = '2025-26',
     selectedBatch,
@@ -31,6 +35,12 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
     courseVerificationStore      = {},
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
+  const {
+    courseATR: apiCourseAtr = null,
+    loadCourseATR = () => Promise.resolve(null),
+    saveCourseATR = () => Promise.resolve(null),
+    submitCourseATR = () => Promise.resolve(null),
+  } = useAttainment();
 
   const isFaculty      = role === 'FACULTY';
   const isCoordinator  = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
@@ -44,10 +54,10 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   const allCourses = availableCourses.length > 0 ? availableCourses : courses;
   const currentCourse = courseId
     ? allCourses.find((c) => c.id === courseId) || selectedCourse
-    : selectedCourse;
+    : selectedCourseOffering || selectedCourse;
 
-  const activeCourseId = courseId || currentCourse?.id || selectedCourse?.id || null;
-  const activeCOs      = currentCourse?.courseOutcomes || [];
+  const activeCourseId = courseOfferingId || courseId || currentCourse?.id || selectedCourse?.id || null;
+  const courseOutcomes = activeCOs.length > 0 ? activeCOs : (currentCourse?.courseOutcomes || []);
 
   const verificationData = (activeCourseId && courseVerificationStore[activeCourseId]) || {};
   const atrStatus = verificationData.atrStatus || 'DRAFT';
@@ -62,8 +72,8 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   const buildList = () => {
     const saved    = (activeCourseId && courseAtrStore[activeCourseId]) || [];
     const savedMap = new Map(saved.map((i) => [i.code, i]));
-    if (activeCOs.length === 0) return saved;
-    return activeCOs.map((co) => {
+    if (courseOutcomes.length === 0) return saved;
+    return courseOutcomes.map((co) => {
       const ex     = savedMap.get(co.code);
       const target = ex?.target ?? co.targetLevel ?? 2.50;
       const actual = ex?.actual ?? co.attainment ?? null;
@@ -81,16 +91,52 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   };
 
   const [coList, setCoList] = useState(buildList);
-  useEffect(() => { setCoList(buildList()); }, [activeCourseId, currentCourse, activeCOs, courseAtrStore]);
+  useEffect(() => { setCoList(buildList()); }, [activeCourseId, currentCourse, courseOutcomes, courseAtrStore]);
+
+  useEffect(() => {
+    if (activeCourseId) loadCourseATR(activeCourseId).catch(() => {});
+  }, [activeCourseId, loadCourseATR]);
+
+  useEffect(() => {
+    if (!apiCourseAtr?.outcomes) return;
+    setCoList(apiCourseAtr.outcomes.map((outcome) => {
+      const target = Number(outcome.targetLevel) || 0;
+      const actual = Number(outcome.attainmentLevel) || 0;
+      return {
+        code: outcome.outcomeCode,
+        statement: outcome.outcomeStatement ?? '',
+        target,
+        actual,
+        pct: Number(outcome.achievementPercentage) || (target ? Number(((actual / target) * 100).toFixed(2)) : 0),
+        met: actual >= target,
+        remark: outcome.observation ?? '',
+        actions: outcome.actions ?? [],
+      };
+    }));
+  }, [apiCourseAtr]);
 
   const reportStatus = atrStatus;
   const locked       = readOnly || isApproved || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  const handleSaveSubmit = () => {
-    updateCourseAtrData(activeCourseId, coList);
-    updateCourseVerificationStatus(activeCourseId, 'atrStatus', 'SUBMITTED', '', user?.name || 'Course Coordinator');
-    alert(`Course ATR for ${currentCourse?.code || 'this course'} has been submitted for review to the Programme Coordinator!`);
+  const handleSaveSubmit = async () => {
+    if (!activeCourseId) return;
+    try {
+      await saveCourseATR({
+        courseOffering: { id: activeCourseId },
+        outcomes: coList.map((item) => ({
+          outcomeCode: item.code,
+          targetLevel: Number(item.target),
+          attainmentLevel: Number(item.actual),
+          actions: item.actions.filter(Boolean),
+        })),
+      });
+      await submitCourseATR(activeCourseId, user?.email);
+      alert(`Course ATR for ${currentCourse?.courseCode || currentCourse?.code || 'this course'} has been submitted for review.`);
+    } catch (error) {
+      console.error('Failed to save Course ATR:', error);
+      alert('Unable to save and submit the Course ATR. Please try again.');
+    }
   };
   const handleVerify = () => updateCourseVerificationStatus(activeCourseId, 'atrStatus', 'VERIFIED');
 

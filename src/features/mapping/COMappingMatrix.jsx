@@ -8,14 +8,18 @@ export default function COMappingMatrix({ hideFooter = false }) {
     academicYear,
     selectedProgramme,
     selectedCourse,
+    selectedCourseOffering,
+    courseOfferingId,
     activePOs,
     activePSOs,
     activeCOs,
     yearMetrics,
     activeAttainmentConfig,
+    updateCourseMapping = () => Promise.resolve(null),
   } = useAcademic();
 
   const [activeTab, setActiveTab] = useState('po-detail'); // 'po-detail', 'pso-detail', 'combined'
+  const courseScope = selectedCourseOffering ?? selectedCourse;
 
   // Dynamic parameters from Attainment Configuration
   const directWeight = activeAttainmentConfig?.directWeight || 80;
@@ -43,7 +47,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
 
   // Helper to get PO competencies dynamically
   const getCoursePoCompetencies = (poCode) => {
-    const courseStore = (selectedCourse?.id && poKeywordsStore[selectedCourse.id]) || {};
+    const courseStore = (courseScope?.id && poKeywordsStore[courseScope.id]) || {};
     if (courseStore[poCode]) return courseStore[poCode];
 
     const poObj = activePOs.find((p) => p.code === poCode);
@@ -56,7 +60,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
 
   // Helper to get PSO competencies dynamically
   const getCoursePsoCompetencies = (psoCode) => {
-    const courseStore = (selectedCourse?.id && psoKeywordsStore[selectedCourse.id]) || {};
+    const courseStore = (courseScope?.id && psoKeywordsStore[courseScope.id]) || {};
     if (courseStore[psoCode]) return courseStore[psoCode];
 
     const psoObj = activePSOs.find((p) => p.code === psoCode);
@@ -70,7 +74,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
   // Handler for PO Keyword edit
   const handlePoKeywordChange = (poCode, compIndex, coCode, val) => {
     setPoKeywordsStore((prev) => {
-      const courseStore = prev[selectedCourse.id] || {};
+      const courseStore = prev[courseScope?.id] || {};
       const comps = [...(courseStore[poCode] || getCoursePoCompetencies(poCode))];
       comps[compIndex] = {
         ...comps[compIndex],
@@ -81,7 +85,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
       };
       return {
         ...prev,
-        [selectedCourse.id]: {
+        [courseScope?.id]: {
           ...courseStore,
           [poCode]: comps,
         },
@@ -92,7 +96,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
   // Handler for PSO Keyword edit
   const handlePsoKeywordChange = (psoCode, compIndex, coCode, val) => {
     setPsoKeywordsStore((prev) => {
-      const courseStore = prev[selectedCourse.id] || {};
+      const courseStore = prev[courseScope?.id] || {};
       const comps = [...(courseStore[psoCode] || getCoursePsoCompetencies(psoCode))];
       comps[compIndex] = {
         ...comps[compIndex],
@@ -103,7 +107,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
       };
       return {
         ...prev,
-        [selectedCourse.id]: {
+        [courseScope?.id]: {
           ...courseStore,
           [psoCode]: comps,
         },
@@ -166,8 +170,29 @@ export default function COMappingMatrix({ hideFooter = false }) {
     return count > 0 ? (sum / count).toFixed(2) : '-';
   };
 
-  const handleSave = () => {
-    alert(`CO to PO & PSO Keyword Mapping Matrix saved for ${selectedCourse.code} - ${selectedCourse.name}!`);
+  const handleSave = async () => {
+    if (!courseOfferingId) {
+      alert('Select an assigned programme-batch course before saving the mapping.');
+      return;
+    }
+    const toMappings = (outcomes, outcomeKey) => courseOutcomes.flatMap((co) => outcomes
+      .map((outcome) => ({
+        courseOutcomeId: co.id,
+        [outcomeKey]: outcome.code,
+        mappingLevel: derivedMatrix[co.code]?.[outcome.code],
+      }))
+      .filter((item) => Number.isInteger(item.mappingLevel) && item.mappingLevel >= 1 && item.mappingLevel <= 3)
+    );
+    try {
+      await updateCourseMapping({
+        coPoMappings: toMappings(activePOs, 'poCode'),
+        coPsoMappings: toMappings(activePSOs, 'psoCode'),
+      }, courseOfferingId);
+      alert(`CO to PO & PSO mapping saved for ${selectedCourseOffering?.courseCode || selectedCourse?.code || 'the selected offering'}.`);
+    } catch (error) {
+      console.error('Failed to save CO mapping:', error);
+      alert('Unable to save the CO mapping. Please try again.');
+    }
   };
 
   return (
@@ -549,111 +574,11 @@ export default function COMappingMatrix({ hideFooter = false }) {
       {/* VIEW 3: Table 1 - Combined CO to PO/PSO Matrix */}
       {activeTab === 'combined' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Dynamic Weightage & Threshold Summary Card (from Attainment Config) */}
-          <div className="card" style={{ marginBottom: 0 }}>
-            <div className="card-header" style={{ marginBottom: '12px' }}>
-              <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
-                Dynamic Attainment Configuration Parameters ({selectedCourse.code} • {academicYear})
-              </h3>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-              <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Direct Weightage</span>
-                <div style={{ fontSize: '18px', fontWeight: '800', color: '#2563eb', marginTop: '2px' }}>{directWeight}%</div>
-              </div>
-              <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Indirect Weightage</span>
-                <div style={{ fontSize: '18px', fontWeight: '800', color: '#0284c7', marginTop: '2px' }}>{indirectWeight}%</div>
-              </div>
-              <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Target Threshold</span>
-                <div style={{ fontSize: '18px', fontWeight: '800', color: '#059669', marginTop: '2px' }}>{thresholdPct}</div>
-              </div>
-              <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Overall CO Attainment</span>
-                <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>{overallCOAttainment}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* CO Direct & Indirect Examination / Survey Attainment Table (Dynamic Values) */}
-          <div className="card" style={{ marginBottom: 0 }}>
-            <div className="card-header" style={{ marginBottom: '12px' }}>
-              <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
-                CO Direct &amp; Indirect Examination / Survey Attainment ({courseOutcomes.length} COs)
-              </h3>
-            </div>
-            <div style={{ overflowX: 'auto', width: '100%' }}>
-              <table className="audit-data-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '180px' }}>Attainment Component</th>
-                    <th style={{ width: '220px' }}>Metric</th>
-                    {courseOutcomes.map((co) => (
-                      <th key={co.code} style={{ textAlign: 'center' }}>
-                        {co.code}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ fontWeight: '700', color: '#2563eb' }}>Direct Examination</td>
-                    <td style={{ fontSize: '12px', color: '#475569' }}>% Students ≥ Threshold ({thresholdPct})</td>
-                    {courseOutcomes.map((co) => (
-                      <td key={co.code} style={{ textAlign: 'center', fontWeight: '600' }}>
-                        {thresholdPct}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr style={{ background: '#f8fafc' }}>
-                    <td style={{ fontWeight: '700', color: '#2563eb' }}>Direct Examination</td>
-                    <td style={{ fontWeight: '700', color: '#0f172a' }}>Direct Attainment Level</td>
-                    {courseOutcomes.map((co) => (
-                      <td key={co.code} style={{ textAlign: 'center', fontWeight: '800', color: '#2563eb' }}>
-                        {directLevel}
-                      </td>
-                    ))}
-                  </tr>
-
-                  <tr>
-                    <td style={{ fontWeight: '700', color: '#0284c7' }}>Indirect Course Survey</td>
-                    <td style={{ fontSize: '12px', color: '#475569' }}>% Positive Rating</td>
-                    {courseOutcomes.map((co) => (
-                      <td key={co.code} style={{ textAlign: 'center', fontWeight: '600' }}>
-                        82%
-                      </td>
-                    ))}
-                  </tr>
-                  <tr style={{ background: '#f8fafc' }}>
-                    <td style={{ fontWeight: '700', color: '#0284c7' }}>Indirect Course Survey</td>
-                    <td style={{ fontWeight: '700', color: '#0f172a' }}>Indirect Attainment Level</td>
-                    {courseOutcomes.map((co) => (
-                      <td key={co.code} style={{ textAlign: 'center', fontWeight: '800', color: '#0284c7' }}>
-                        {indirectLevel}
-                      </td>
-                    ))}
-                  </tr>
-
-                  <tr style={{ background: '#f1f5f9', fontWeight: '800', borderTop: '2px solid #cbd5e1' }}>
-                    <td style={{ color: '#0f172a' }}>Combined CO Attainment</td>
-                    <td style={{ color: '#0f172a' }}>({directWeight}% Direct + {indirectWeight}% Indirect)</td>
-                    {courseOutcomes.map((co) => (
-                      <td key={co.code} style={{ textAlign: 'center', fontSize: '14px', color: '#0f172a' }}>
-                        {overallCOAttainment}
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
           {/* Table 1 : Combined Mapping of CO to PO/PSO */}
           <div className="card" style={{ marginBottom: 0 }}>
             <div className="card-header" style={{ marginBottom: '12px' }}>
               <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
-                Table 1 : Combined Mapping of CO to PO/PSO ({selectedCourse.code})
+                Table 1 : Combined Mapping of CO to PO/PSO ({courseScope?.courseCode || courseScope?.code || 'Course'})
               </h3>
             </div>
 

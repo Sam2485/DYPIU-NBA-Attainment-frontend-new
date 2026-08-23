@@ -210,10 +210,10 @@ export function ApprovalProvider({ children }) {
 
       try {
         setError(null);
-        const response = await apiClient.post('/approvals/submit', {
-          ...approvalRequest,
-          courseOfferingId,
-        });
+        // The approval API identifies the batch-level course through
+        // resourceId/programmeBatchCourseId. courseOfferingId is retained
+        // only as the local store key and is not part of its request DTO.
+        const response = await apiClient.post('/approvals/submit', approvalRequest);
 
         const data = unwrapResponse(response);
         const result = normalizeApproval(data);

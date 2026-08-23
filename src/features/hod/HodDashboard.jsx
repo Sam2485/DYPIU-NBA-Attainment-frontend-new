@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   GraduationCap,
@@ -36,18 +36,21 @@ export default function HodDashboard() {
     hodWorkflowProgress = null,
     loadHodDashboard,
     loadHodSetupProgress,
+    selectedDepartmentId,
   } = useAcademic();
 
   const [screenLoading, setScreenLoading] = useState(false);
   const [screenError, setScreenError] = useState(null);
 
-  const fetchHodData = async () => {
+  const fetchHodData = useCallback(async (departmentId = selectedDepartmentId) => {
+    if (!departmentId) return;
+
     setScreenLoading(true);
     setScreenError(null);
     try {
       await Promise.allSettled([
-        loadHodDashboard ? loadHodDashboard(user?.departmentId) : Promise.resolve(),
-        loadHodSetupProgress ? loadHodSetupProgress(user?.departmentId) : Promise.resolve(),
+        loadHodDashboard ? loadHodDashboard(departmentId, user?.email) : Promise.resolve(),
+        loadHodSetupProgress ? loadHodSetupProgress(departmentId) : Promise.resolve(),
       ]);
     } catch (err) {
       console.warn('HodDashboard fetch failed:', err);
@@ -55,18 +58,18 @@ export default function HodDashboard() {
     } finally {
       setScreenLoading(false);
     }
-  };
+  }, [loadHodDashboard, loadHodSetupProgress, selectedDepartmentId, user?.email]);
 
   useEffect(() => {
-    fetchHodData();
-  }, [user?.departmentId]);
+    fetchHodData(selectedDepartmentId);
+  }, [fetchHodData, selectedDepartmentId]);
 
   const department = hodDashboard?.department ?? null;
   const statistics = hodDashboard?.statistics ?? {};
   const totalProgrammes = statistics.programmesCount ?? statistics.programmes ?? null;
   const totalCourses = statistics.coursesCount ?? null;
   const pendingApprovalsCount = statistics.pendingApprovalsCount ?? null;
-  const activeBatch = hodDashboard?.activeBatch ?? '—';
+  const activeBatch = hodDashboard?.activeBatch ?? statistics.activeBatches ?? '—';
 
   // ── Per-step completion tracking ───────────────────────────────────────────
   const safeProgress = hodWorkflowProgress ?? hodDashboard?.workflowProgress ?? hodDashboard?.setupProgress ?? {};

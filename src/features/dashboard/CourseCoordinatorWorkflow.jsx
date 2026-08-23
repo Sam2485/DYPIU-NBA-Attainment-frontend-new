@@ -6,6 +6,8 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import { useAuth } from '../../context/AuthContext';
+import { useDashboard } from '../../context/dashboard';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
 
 // ── Inline step components ─────────────────────────────────────────────────────
@@ -35,21 +37,26 @@ const STEPS = [
 export default function CourseCoordinatorWorkflow() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
 
   const {
-    availableCourses          = [],
-    courses                   = [],
-    setCourseId               = () => {},
-    selectedCourse            = null,
-    workflowProgressStore     = {},
-    ccWorkflowProgress        = null,
+    courseOfferings           = [],
+    selectedCourseOffering    = null,
+    selectCourseOffering      = () => {},
+    loadAssignedCourseOfferings = () => Promise.resolve([]),
+    loadCourseOutcomes        = () => Promise.resolve([]),
+    loadCourseMapping         = () => Promise.resolve(null),
     courseOfferingId          = null,
-    markWorkflowStepComplete  = () => {},
   } = useAcademic();
+  const {
+    ccWorkflowProgress = null,
+    markWorkflowStepComplete = () => Promise.resolve(null),
+    loadCcSetupProgress = () => Promise.resolve(null),
+  } = useDashboard();
 
-  const course = selectedCourse || availableCourses[0] || null;
+  const course = selectedCourseOffering || courseOfferings[0] || null;
   const courseId = course?.id || null;
-  const courseProgress = (courseOfferingId && workflowProgressStore[courseOfferingId]) || (courseId && workflowProgressStore[courseId]) || ccWorkflowProgress || {};
+  const courseProgress = ccWorkflowProgress || {};
 
   // ── Per-step completion flags ──
   const stepDone = STEPS.map((s, idx) => {
@@ -78,6 +85,30 @@ export default function CourseCoordinatorWorkflow() {
   );
 
   useEffect(() => {
+    let isCurrent = true;
+    loadAssignedCourseOfferings(user).then((offerings) => {
+      if (!isCurrent || offerings.length === 0) return;
+      const selected = offerings.find((offering) => offering.id === courseOfferingId) || offerings[0];
+      selectCourseOffering(selected);
+    }).catch(() => {});
+    return () => { isCurrent = false; };
+  }, [loadAssignedCourseOfferings, selectCourseOffering, user]);
+
+  useEffect(() => {
+    if (currentStep !== 1 || !courseOfferingId) return;
+    loadCourseOutcomes(courseOfferingId).catch(() => {});
+  }, [courseOfferingId, currentStep, loadCourseOutcomes]);
+
+  useEffect(() => {
+    if (currentStep !== 2 || !courseOfferingId) return;
+    loadCourseMapping(courseOfferingId).catch(() => {});
+  }, [courseOfferingId, currentStep, loadCourseMapping]);
+
+  useEffect(() => {
+    if (courseOfferingId) loadCcSetupProgress(courseOfferingId).catch(() => {});
+  }, [courseOfferingId, loadCcSetupProgress]);
+
+  useEffect(() => {
     const s = parseInt(searchParams.get('step'), 10);
     if (!s || isNaN(s) || s < 1 || s > STEPS.length) {
       setSearchParams({ step: firstIncompleteStep }, { replace: true });
@@ -94,18 +125,18 @@ export default function CourseCoordinatorWorkflow() {
   };
 
   // ── Save & Next ──────────────────────────────────────────────────────────────
-  const handleSaveAndNext = () => {
+  const handleSaveAndNext = async () => {
     if (courseId) {
-      markWorkflowStepComplete(courseOfferingId || courseId, STEPS[currentStep - 1].path);
+      await markWorkflowStepComplete(courseOfferingId || courseId, STEPS[currentStep - 1].path);
     }
     if (currentStep < STEPS.length) {
       goToStep(currentStep + 1);
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     if (courseId) {
-      markWorkflowStepComplete(courseOfferingId || courseId, STEPS[STEPS.length - 1].path);
+      await markWorkflowStepComplete(courseOfferingId || courseId, STEPS[STEPS.length - 1].path);
     }
     navigate('/dashboard');
   };
@@ -140,9 +171,10 @@ export default function CourseCoordinatorWorkflow() {
             <select
               value={course?.id || ''}
               onChange={(e) => {
-                const nextCourseId = e.target.value;
-                setCourseId(nextCourseId);
-                const nextProg = workflowProgressStore[nextCourseId] || {};
+                const nextOffering = courseOfferings.find((offering) => offering.id === e.target.value);
+                if (!nextOffering) return;
+                selectCourseOffering(nextOffering);
+                const nextProg = workflowProgressStore[nextOffering.id] || {};
                 const nextIncompleteIdx = STEPS.findIndex((s, idx) => {
                   if (Array.isArray(nextProg?.stepStatus)) return !nextProg.stepStatus[idx];
                   return !nextProg[s.path];
@@ -158,8 +190,10 @@ export default function CourseCoordinatorWorkflow() {
                 cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
-              {(availableCourses.length > 0 ? availableCourses : courses).map((c) => (
-                <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+              {courseOfferings.map((offering) => (
+                <option key={offering.id} value={offering.id}>
+                  {offering.courseCode || 'Course'} — {offering.courseName || 'Programme Batch Course'} · Sem {offering.semester ?? '—'}
+                </option>
               ))}
             </select>
             <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />

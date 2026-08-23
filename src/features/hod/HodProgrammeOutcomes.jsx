@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Trash2, X, CheckCircle2, ChevronDown } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
@@ -33,6 +33,9 @@ export default function HodProgrammeOutcomes() {
     masterProgrammes = [],
     programmeId,
     setProgrammeId,
+    selectedDepartmentId,
+    loadProgrammes = () => Promise.resolve([]),
+    loadProgrammeOutcomes = () => Promise.resolve(null),
     activePOs = [],
     activePSOs = [],
     activePEOs = [],
@@ -40,6 +43,29 @@ export default function HodProgrammeOutcomes() {
     updateProgrammePSOs = () => {},
     updateProgrammePEOs = () => {},
   } = useAcademic();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDepartmentOutcomes = async () => {
+      const programmes = await loadProgrammes(selectedDepartmentId);
+      if (cancelled) return;
+
+      const activeProgrammeId = programmeId && programmes.some((programme) => programme.id === programmeId)
+        ? programmeId
+        : programmes[0]?.id;
+
+      if (!activeProgrammeId) return;
+      if (activeProgrammeId !== programmeId) {
+        setProgrammeId(activeProgrammeId);
+        return;
+      }
+      await loadProgrammeOutcomes(activeProgrammeId);
+    };
+
+    loadDepartmentOutcomes().catch(() => {});
+    return () => { cancelled = true; };
+  }, [loadProgrammeOutcomes, loadProgrammes, programmeId, selectedDepartmentId, setProgrammeId]);
 
   const selectedProgramme =
     masterProgrammes.find((p) => p.id === programmeId) ||

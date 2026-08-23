@@ -11,10 +11,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
-import { useAuth } from '../../context/AuthContext';
 
 export default function HodProgrammeCoordinators() {
-  const { user } = useAuth();
   const {
     masterProgrammes = [],
     programmeCoordinators = [],
@@ -23,6 +21,7 @@ export default function HodProgrammeCoordinators() {
     loadProgrammeCoordinators = () => Promise.resolve([]),
     loadHodCoordinators = () => Promise.resolve([]),
     assignHodCoordinator = () => Promise.resolve(null),
+    selectedDepartmentId,
   } = useAcademic();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,11 +31,11 @@ export default function HodProgrammeCoordinators() {
 
   useEffect(() => {
     Promise.allSettled([
-      loadProgrammes(user?.departmentId),
+      loadProgrammes(selectedDepartmentId),
       loadProgrammeCoordinators(),
-      loadHodCoordinators(user?.departmentId),
+      loadHodCoordinators(selectedDepartmentId),
     ]);
-  }, [loadHodCoordinators, loadProgrammeCoordinators, loadProgrammes, user?.departmentId]);
+  }, [loadHodCoordinators, loadProgrammeCoordinators, loadProgrammes, selectedDepartmentId]);
 
   const assignmentsByProgrammeId = useMemo(
     () => new Map(hodCoordinatorAssignments.map((assignment) => [assignment.programmeId, assignment])),
@@ -44,7 +43,7 @@ export default function HodProgrammeCoordinators() {
   );
 
   const departmentProgrammes = masterProgrammes.filter(
-    (programme) => !user?.departmentId || programme.departmentId === user.departmentId
+    (programme) => !selectedDepartmentId || programme.departmentId === selectedDepartmentId
   );
 
   // Filter programmes for display

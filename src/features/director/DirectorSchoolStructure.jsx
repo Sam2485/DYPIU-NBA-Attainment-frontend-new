@@ -11,7 +11,7 @@ export default function DirectorSchoolStructure() {
     masterProgrammes = [],
     loadSchools,
     loadDepartments,
-    loadProgrammes,
+    loadMasterProgrammes,
   } = useAcademic();
 
   const [loading, setLoading] = useState(false);
@@ -31,7 +31,7 @@ export default function DirectorSchoolStructure() {
 
       await Promise.allSettled([
         loadDepartments ? loadDepartments(schoolId) : Promise.resolve(),
-        loadProgrammes ? loadProgrammes() : Promise.resolve(),
+        loadMasterProgrammes ? loadMasterProgrammes() : Promise.resolve(),
       ]);
     } catch (err) {
       console.warn('DirectorSchoolStructure fetch failed:', err);
@@ -43,7 +43,7 @@ export default function DirectorSchoolStructure() {
 
   useEffect(() => {
     fetchData();
-  }, [loadDepartments, loadProgrammes, loadSchools, selectedSchool?.id, selectedSchoolId]);
+  }, [loadDepartments, loadMasterProgrammes, loadSchools, selectedSchool?.id, selectedSchoolId]);
 
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
   const ink = '#0f172a';
