@@ -21,22 +21,20 @@ export const reportsApi = {
   // Course ATR
   // -----------------------------------------------------------------------
 
-  getCourseAtr: (courseOfferingId) =>
+  getCourseAtr: (programmeBatchCourseId) =>
     apiClient.get(
-      `/reports/course-offerings/${courseOfferingId}/course-atr`
+      `/programme-batch-courses/${programmeBatchCourseId}/atr`
     ),
 
-  saveCourseAtr: (data) =>
-    apiClient.post(
-      '/reports/course-offerings/course-atr',
+  saveCourseAtr: (programmeBatchCourseId, data) =>
+    apiClient.put(
+      `/programme-batch-courses/${programmeBatchCourseId}/atr`,
       data
     ),
 
-  submitCourseAtr: (courseOfferingId, submittedBy) =>
+  submitCourseAtr: (programmeBatchCourseId) =>
     apiClient.post(
-      `/reports/course-offerings/${courseOfferingId}/course-atr/submit`,
-      null,
-      { params: submittedBy ? { submittedBy } : {} }
+      `/programme-batch-courses/${programmeBatchCourseId}/atr/submit`
     ),
 
   getCourseAtrs: (params = {}) =>
@@ -96,10 +94,10 @@ export const reportsApi = {
     ),
 
   getCourseAttainment: (
-    courseOfferingId
+    programmeBatchCourseId
   ) =>
     apiClient.get(
-      `/reports/attainment-main/course/${courseOfferingId}`
+      `/programme-batch-courses/${programmeBatchCourseId}/attainment-main`
     ),
 
   // -----------------------------------------------------------------------

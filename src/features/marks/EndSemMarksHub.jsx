@@ -75,12 +75,45 @@ export default function EndSemMarksHub({ hideFooter = false }) {
   const thresholdPercentage = examinationData?.thresholdPercentage ?? 60;
   const studentMarks = Array.isArray(examinationData?.studentMarks) ? examinationData.studentMarks : [];
 
-  const coList = [...new Set([
-    ...activeCOs.map((co) => co.code).filter(Boolean),
+  const apiCoKeys = [...new Set([
     ...Object.keys(coLevels),
     ...Object.keys(coMaxMarks),
     ...studentMarks.flatMap((student) => Object.keys(student?.coMarks || {})),
-  ])];
+  ])].sort((left, right) => {
+    const leftNumber = Number(String(left).match(/\d+$/)?.[0]);
+    const rightNumber = Number(String(right).match(/\d+$/)?.[0]);
+    if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) return leftNumber - rightNumber;
+    return String(left).localeCompare(String(right));
+  });
+
+  // The outcome definition and the uploaded sheet can use different labels
+  // for the same ordinal CO (for example, C321.1 in the definition and CO1
+  // in the sheet). Pair them by position so they produce one column, never
+  // duplicate columns.
+  const definedCOs = activeCOs.filter((co) => co?.code);
+  const coColumns = definedCOs.length > 0
+    ? definedCOs.map((co, index) => {
+      const definitionCode = co.code;
+      const apiKey = [definitionCode, `CO${index + 1}`, apiCoKeys[index]]
+        .find((key) => key && apiCoKeys.includes(key)) ?? null;
+      return {
+        id: definitionCode,
+        definitionCode,
+        apiKey: apiKey ?? definitionCode,
+        label: apiKey && apiKey !== definitionCode
+          ? `${definitionCode} – ${apiKey}`
+          : definitionCode,
+      };
+    })
+    : apiCoKeys.map((apiKey) => ({
+      id: apiKey,
+      definitionCode: apiKey,
+      apiKey,
+      label: apiKey,
+    }));
+
+  const readCoValue = (source, column) =>
+    source?.[column.apiKey] ?? source?.[column.definitionCode];
   const visibleStudentMarks = showAllStudents ? studentMarks : studentMarks.slice(0, 10);
 
   return (
@@ -220,24 +253,26 @@ export default function EndSemMarksHub({ hideFooter = false }) {
               </tr>
             </thead>
             <tbody>
-              {coList.length === 0 ? (
+              {coColumns.length === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
                     No Course Outcomes or Examination Marks available. Upload a marks sheet above to calculate direct attainment.
                   </td>
                 </tr>
               ) : (
-                coList.map((coCode) => {
-                  const level = coLevels[coCode] != null ? Number(coLevels[coCode]) : null;
-                  const pct = coPercentages[coCode] != null ? Number(coPercentages[coCode]) : null;
-                  const maxMarks = coMaxMarks[coCode];
-                  const thresholdMarks = coThresholdMarks[coCode];
+                coColumns.map((column) => {
+                  const levelValue = readCoValue(coLevels, column);
+                  const percentageValue = readCoValue(coPercentages, column);
+                  const level = levelValue != null ? Number(levelValue) : null;
+                  const pct = percentageValue != null ? Number(percentageValue) : null;
+                  const maxMarks = readCoValue(coMaxMarks, column);
+                  const thresholdMarks = readCoValue(coThresholdMarks, column);
 
                   return (
-                    <tr key={coCode}>
-                      <td style={{ fontWeight: '700', color: '#2563eb' }}>{coCode}</td>
+                    <tr key={column.id}>
+                      <td style={{ fontWeight: '700', color: '#2563eb' }}>{column.label}</td>
                       <td style={{ textAlign: 'center', fontWeight: '600' }}>{totalStudents}</td>
-                      <td style={{ textAlign: 'center', fontWeight: '700' }}>{studentsAboveThreshold[coCode] ?? '—'}</td>
+                      <td style={{ textAlign: 'center', fontWeight: '700' }}>{readCoValue(studentsAboveThreshold, column) ?? '—'}</td>
                       <td style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>
                         {pct != null ? `${pct.toFixed(2)}%` : '—'}
                       </td>
@@ -297,13 +332,13 @@ export default function EndSemMarksHub({ hideFooter = false }) {
                 <th style={{ width: '72px', textAlign: 'center' }}>Sr. No.</th>
                 <th>PRN No.</th>
                 <th>Student Name</th>
-                {coList.map((coCode) => <th key={coCode} style={{ textAlign: 'center' }}>{coCode}</th>)}
+                {coColumns.map((column) => <th key={column.id} style={{ textAlign: 'center' }}>{column.label}</th>)}
               </tr>
             </thead>
             <tbody>
               {studentMarks.length === 0 ? (
                 <tr>
-                  <td colSpan={3 + Math.max(coList.length, 1)} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                  <td colSpan={3 + Math.max(coColumns.length, 1)} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
                     No uploaded student marks available.
                   </td>
                 </tr>
@@ -313,9 +348,9 @@ export default function EndSemMarksHub({ hideFooter = false }) {
                     <td style={{ textAlign: 'center', fontWeight: '600' }}>{student.srNo ?? index + 1}</td>
                     <td style={{ fontWeight: '600' }}>{student.prn ?? '—'}</td>
                     <td>{student.studentName ?? '—'}</td>
-                    {coList.map((coCode) => (
-                      <td key={coCode} style={{ textAlign: 'center', fontWeight: '600' }}>
-                        {student.coMarks?.[coCode] ?? '—'}
+                    {coColumns.map((column) => (
+                      <td key={column.id} style={{ textAlign: 'center', fontWeight: '600' }}>
+                        {readCoValue(student.coMarks, column) ?? '—'}
                       </td>
                     ))}
                   </tr>

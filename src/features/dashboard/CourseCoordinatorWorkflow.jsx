@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   BookOpen, Map, Upload, ClipboardList,
@@ -46,6 +46,7 @@ export default function CourseCoordinatorWorkflow() {
     loadAssignedCourseOfferings = () => Promise.resolve([]),
     loadCourseOutcomes        = () => Promise.resolve([]),
     loadCourseMapping         = () => Promise.resolve(null),
+    batchId                   = null,
     courseOfferingId          = null,
   } = useAcademic();
   const {
@@ -56,6 +57,7 @@ export default function CourseCoordinatorWorkflow() {
 
   const course = selectedCourseOffering || courseOfferings[0] || null;
   const courseId = course?.id || null;
+  const programmeBatchCourseId = selectedCourseOffering?.programmeBatchCourseId ?? courseOfferingId;
   const courseProgress = ccWorkflowProgress || {};
 
   // ── Per-step completion flags ──
@@ -83,16 +85,21 @@ export default function CourseCoordinatorWorkflow() {
   const [currentStep, setCurrentStep] = useState(
     hasValidParam ? parsedStep : firstIncompleteStep
   );
+  const selectedOfferingIdRef = useRef(courseOfferingId);
+
+  useEffect(() => {
+    selectedOfferingIdRef.current = courseOfferingId;
+  }, [courseOfferingId]);
 
   useEffect(() => {
     let isCurrent = true;
-    loadAssignedCourseOfferings(user).then((offerings) => {
+    loadAssignedCourseOfferings(user, batchId).then((offerings) => {
       if (!isCurrent || offerings.length === 0) return;
-      const selected = offerings.find((offering) => offering.id === courseOfferingId) || offerings[0];
+      const selected = offerings.find((offering) => offering.id === selectedOfferingIdRef.current) || offerings[0];
       selectCourseOffering(selected);
     }).catch(() => {});
     return () => { isCurrent = false; };
-  }, [loadAssignedCourseOfferings, selectCourseOffering, user]);
+  }, [batchId, loadAssignedCourseOfferings, selectCourseOffering, user]);
 
   useEffect(() => {
     if (currentStep !== 1 || !courseOfferingId) return;
@@ -100,9 +107,9 @@ export default function CourseCoordinatorWorkflow() {
   }, [courseOfferingId, currentStep, loadCourseOutcomes]);
 
   useEffect(() => {
-    if (currentStep !== 2 || !courseOfferingId) return;
-    loadCourseMapping(courseOfferingId).catch(() => {});
-  }, [courseOfferingId, currentStep, loadCourseMapping]);
+    if (currentStep !== 2 || !programmeBatchCourseId) return;
+    loadCourseMapping(programmeBatchCourseId).catch(() => {});
+  }, [currentStep, loadCourseMapping, programmeBatchCourseId]);
 
   useEffect(() => {
     if (courseOfferingId) loadCcSetupProgress(courseOfferingId).catch(() => {});

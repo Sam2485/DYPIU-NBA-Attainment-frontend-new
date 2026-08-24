@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   CheckCircle2,
@@ -50,6 +51,7 @@ const labelStyle = {
 };
 
 export default function HodBatchManagement() {
+  const navigate = useNavigate();
   const {
     masterProgrammes = [],
     batches = [],
@@ -75,7 +77,11 @@ export default function HodBatchManagement() {
   useEffect(() => {
     const loadProgrammeData = async () => {
       const programmes = await loadProgrammes(selectedDepartmentId ?? null);
-      setSelectedProgrammeId((currentId) => currentId || programmes[0]?.id || '');
+      setSelectedProgrammeId((currentId) =>
+        programmes.some((programme) => programme.id === currentId)
+          ? currentId
+          : programmes[0]?.id || ''
+      );
     };
 
     loadProgrammeData().catch(() => {});
@@ -182,17 +188,6 @@ export default function HodBatchManagement() {
       setToastMessage('Batch created successfully.');
       setTimeout(() => setToastMessage(null), 3000);
     }
-  };
-
-  const handleToggleBatchStatus = async (batch) => {
-    await updateBatch(batch.id, {
-      name: batch.name,
-      programmeId: batch.programmeId,
-      startYear: batch.startYear,
-      endYear: batch.endYear,
-      academicYear: batch.academicYear,
-      status: batch.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
-    });
   };
 
   // ── Student Roster Handlers ─────────────────────────────────────────────
@@ -323,7 +318,7 @@ export default function HodBatchManagement() {
                 Batch Enrolment Roster
               </span>
               <h2 style={{ margin: '8px 0 4px', fontSize: '22px', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.02em' }}>
-                {selectedBatchForRoster.programmeName || selectedProgramme.name} — {selectedBatchForRoster.name}
+                {selectedBatchForRoster.programmeName || selectedProgramme?.name || 'Programme Batch'} — {selectedBatchForRoster.name}
               </h2>
               <p style={{ margin: 0, fontSize: '13px', color: '#475569', fontWeight: '600' }}>
                 Student Permanent Registration Numbers (PRNs) & Academic Records
@@ -767,7 +762,7 @@ export default function HodBatchManagement() {
                       <span style={{ color: '#cbd5e1' }}>·</span>
                       <span>{batch.yearLevel || '—'}</span>
                       <span style={{ color: '#cbd5e1' }}>·</span>
-                      <span>{batch.programmeName || selectedProgramme.name}</span>
+                      <span>{batch.programmeName || selectedProgramme?.name || '—'}</span>
                       <span style={{ color: '#cbd5e1' }}>·</span>
                       <span style={{ color: '#4f46e5', fontWeight: '700' }}>{studentsCount} Enrolled Students</span>
                     </div>
@@ -790,18 +785,16 @@ export default function HodBatchManagement() {
 
                     <button
                       type="button"
-                      onClick={() => handleToggleBatchStatus(batch)}
+                      onClick={() => navigate('/hod/setup-workflow?step=2')}
                       style={{
                         height: '32px', padding: '0 12px', fontSize: '12px', fontWeight: '600',
-                        border: isActive ? '1px solid #fca5a5' : '1px solid #a7f3d0',
-                        background: isActive ? '#fef2f2' : '#f0fdf4',
-                        color: isActive ? '#dc2626' : '#16a34a',
+                        border: '1px solid #c7d2fe', background: '#eef2ff', color: accent,
                         borderRadius: '7px', cursor: 'pointer',
                         display: 'inline-flex', alignItems: 'center', gap: '5px', fontFamily: 'inherit',
                       }}
+                      title="Edit batch status and coordinator"
                     >
-                      {isActive ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
-                      {isActive ? 'Deactivate' : 'Activate'}
+                      <Edit2 size={14} /> Edit
                     </button>
 
                     {/* REPLACED EDIT WITH ARROW BUTTON TO OPEN BATCH STUDENT ROSTER */}

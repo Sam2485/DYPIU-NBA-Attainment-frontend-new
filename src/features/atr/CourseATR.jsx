@@ -11,6 +11,17 @@ const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderR
 const ink        = '#0f172a';
 const muted      = '#64748b';
 const accent     = '#4f46e5';
+const EMPTY_OBJECT = {};
+const EMPTY_ARRAY = [];
+const atrSignature = (outcomes = []) => JSON.stringify(outcomes.map((item) => ({
+  code: item.code,
+  statement: item.statement ?? '',
+  target: item.target ?? null,
+  actual: item.actual ?? null,
+  pct: item.pct ?? null,
+  remark: item.remark ?? '',
+  actions: (item.actions ?? []).filter(Boolean),
+})));
 const inputStyle = {
   height: '40px', fontSize: '13px', border: '1px solid #e2e8f0',
   borderRadius: '8px', padding: '0 12px', background: '#ffffff',
@@ -46,43 +57,66 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   const isCoordinator  = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
   const [showHistory, setShowHistory] = useState(showHistoryProp ?? false);
+  const [savedSignature, setSavedSignature] = useState(null);
 
   useEffect(() => {
     if (showHistoryProp !== undefined) setShowHistory(showHistoryProp);
   }, [showHistoryProp]);
+
+  useEffect(() => {
+    // Saving applies to one programme-batch course only.
+    setSavedSignature(null);
+  }, [courseOfferingId]);
 
   const allCourses = availableCourses.length > 0 ? availableCourses : courses;
   const currentCourse = courseId
     ? allCourses.find((c) => c.id === courseId) || selectedCourse
     : selectedCourseOffering || selectedCourse;
 
-  const activeCourseId = courseOfferingId || courseId || currentCourse?.id || selectedCourse?.id || null;
-  const courseOutcomes = activeCOs.length > 0 ? activeCOs : (currentCourse?.courseOutcomes || []);
+  // All Course ATR API operations are scoped to the selected programme-batch
+  // course, never to the underlying master-course ID.
+  const activeCourseId = selectedCourseOffering?.programmeBatchCourseId
+    ?? courseOfferingId
+    ?? courseId
+    ?? currentCourse?.id
+    ?? selectedCourse?.id
+    ?? null;
+  const apiOutcomes = Array.isArray(apiCourseAtr?.outcomes) ? apiCourseAtr.outcomes : EMPTY_ARRAY;
+  const courseOutcomes = apiOutcomes.length > 0
+    ? apiOutcomes
+    : (activeCOs.length > 0 ? activeCOs : (currentCourse?.courseOutcomes || EMPTY_ARRAY));
 
-  const verificationData = (activeCourseId && courseVerificationStore[activeCourseId]) || {};
-  const atrStatus = verificationData.atrStatus || 'DRAFT';
+  // Context stores can legitimately be null before their first load. Normalize
+  // them before looking up the selected programme-batch-course ID.
+  const verificationStore = courseVerificationStore ?? EMPTY_OBJECT;
+  const atrDraftStore = courseAtrStore ?? EMPTY_OBJECT;
+  const verificationData = (activeCourseId && verificationStore[activeCourseId]) || {};
+  const atrStatus = apiCourseAtr?.status || verificationData.atrStatus || 'DRAFT';
   const atrRemarks = verificationData.atrRemarks || '';
   const verifiedBy = verificationData.verifiedBy || 'Programme Coordinator';
 
   const isApproved = atrStatus === 'VERIFIED' || atrStatus === 'APPROVED';
   const isRevision = atrStatus === 'REJECTED' || atrStatus === 'REVISION_REQUESTED' || atrStatus === 'NEEDS_REVISION';
-  const isSubmitted = atrStatus === 'SUBMITTED' || atrStatus === 'PENDING_APPROVAL';
+  const isSubmitted = atrStatus === 'SUBMITTED' || atrStatus === 'PENDING_APPROVAL' || atrStatus === 'SUBMITTED_FOR_VERIFICATION';
 
   // Build ATR list from COs
   const buildList = () => {
-    const saved    = (activeCourseId && courseAtrStore[activeCourseId]) || [];
+    const savedValue = (activeCourseId && atrDraftStore[activeCourseId]) || EMPTY_ARRAY;
+    const saved = Array.isArray(savedValue) ? savedValue : EMPTY_ARRAY;
     const savedMap = new Map(saved.map((i) => [i.code, i]));
     if (courseOutcomes.length === 0) return saved;
     return courseOutcomes.map((co) => {
-      const ex     = savedMap.get(co.code);
-      const target = ex?.target ?? co.targetLevel ?? 2.50;
-      const actual = ex?.actual ?? co.attainment ?? null;
-      const pct    = actual !== null ? Number(((actual / target) * 100).toFixed(2)) : 0;
+      const code = co.outcomeCode ?? co.code;
+      const ex     = savedMap.get(code);
+      const target = Number(ex?.target ?? co.targetLevel ?? 2.50);
+      const rawActual = ex?.actual ?? co.attainmentLevel ?? co.attainment ?? null;
+      const actual = rawActual == null || rawActual === '' ? null : Number(rawActual);
+      const pct    = Number(ex?.pct ?? co.achievementPercentage ?? (actual !== null ? ((actual / target) * 100) : 0));
       const met    = actual !== null && actual >= target;
       return {
-        code: co.code, statement: co.statement, target, actual, pct, met,
-        remark:  ex?.remark  ?? (met  ? 'Target achieved. Maintain current teaching methodology and continuous assessment structure.' : ''),
-        actions: ex?.actions ?? (met  ? [] : [
+        code, statement: co.outcomeStatement ?? co.statement ?? '', target, actual, pct, met,
+        remark: ex?.remark ?? co.observation ?? (met ? 'Target achieved. Maintain current teaching methodology and continuous assessment structure.' : ''),
+        actions: ex?.actions ?? co.actions ?? (met ? [] : [
           `Conduct extra tutorial sessions on ${co.statement ? co.statement.slice(0, 45) : ''}...`,
           'Provide additional practice numericals and interactive assignment problem sets.',
         ]),
@@ -91,7 +125,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   };
 
   const [coList, setCoList] = useState(buildList);
-  useEffect(() => { setCoList(buildList()); }, [activeCourseId, currentCourse, courseOutcomes, courseAtrStore]);
+  useEffect(() => { setCoList(buildList()); }, [activeCourseId, currentCourse, courseOutcomes, atrDraftStore]);
 
   useEffect(() => {
     if (activeCourseId) loadCourseATR(activeCourseId).catch(() => {});
@@ -116,22 +150,46 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   }, [apiCourseAtr]);
 
   const reportStatus = atrStatus;
-  const locked       = readOnly || isApproved || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+  const locked       = readOnly || isApproved || isSubmitted || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+  const currentSignature = atrSignature(coList);
+  const isSaved = savedSignature !== null && savedSignature === currentSignature;
 
   // ── Handlers ──────────────────────────────────────────────────────────────
+  const createAtrPayload = () => ({
+    status: 'DRAFT',
+    outcomes: coList.map((item) => ({
+      outcomeCode: item.code,
+      outcomeStatement: item.statement,
+      targetLevel: Number(item.target),
+      attainmentLevel: item.actual == null ? null : Number(item.actual),
+      achievementPercentage: Number(item.pct),
+      observation: item.remark,
+      actions: item.actions.filter(Boolean),
+    })),
+  });
+
+  const handleSaveATR = async ({ silent = false } = {}) => {
+    if (!activeCourseId) return;
+    try {
+      await saveCourseATR(activeCourseId, createAtrPayload());
+      setSavedSignature(currentSignature);
+      if (!silent) alert('Course ATR saved successfully.');
+      return true;
+    } catch (error) {
+      console.error('Failed to save Course ATR:', error);
+      if (!silent) alert('Unable to save the Course ATR. Please try again.');
+      return false;
+    }
+  };
+
   const handleSaveSubmit = async () => {
     if (!activeCourseId) return;
     try {
-      await saveCourseATR({
-        courseOffering: { id: activeCourseId },
-        outcomes: coList.map((item) => ({
-          outcomeCode: item.code,
-          targetLevel: Number(item.target),
-          attainmentLevel: Number(item.actual),
-          actions: item.actions.filter(Boolean),
-        })),
-      });
-      await submitCourseATR(activeCourseId, user?.email);
+      if (!isSaved) {
+        const saved = await handleSaveATR({ silent: true });
+        if (!saved) return;
+      }
+      await submitCourseATR(activeCourseId);
       alert(`Course ATR for ${currentCourse?.courseCode || currentCourse?.code || 'this course'} has been submitted for review.`);
     } catch (error) {
       console.error('Failed to save Course ATR:', error);
@@ -147,6 +205,9 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
 
   const metCount  = coList.filter((c) => c.met).length;
   const gapCount  = coList.length - metCount;
+  const formatLevel = (value) => value == null || !Number.isFinite(Number(value))
+    ? '—'
+    : Number(value).toFixed(2);
 
   // Carry-forward reference data
   const prevBatch = {
@@ -185,10 +246,16 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
               )}
 
               {!locked ? (
-                <button onClick={handleSaveSubmit}
-                  style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
-                  <Send size={14} /> Submit ATR for Review
-                </button>
+                <>
+                  <button onClick={handleSaveATR} disabled={isSaved || coList.length === 0}
+                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: isSaved ? '#f1f5f9' : '#ffffff', color: isSaved ? '#64748b' : accent, border: `1px solid ${isSaved ? '#cbd5e1' : accent}`, borderRadius: '8px', cursor: isSaved ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                    <Save size={14} /> {isSaved ? 'Saved' : 'Save ATR'}
+                  </button>
+                  <button onClick={handleSaveSubmit}
+                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                    <Send size={14} /> Submit ATR for Review
+                  </button>
+                </>
               ) : (
                 <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                   <Lock size={13} /> Report Locked
@@ -212,6 +279,18 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
         </div>
       )}
 
+      {hideHeader && !locked && (
+        <div style={{ ...surface, padding: '12px 16px', marginBottom: '14px', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
+          <button onClick={handleSaveATR} disabled={isSaved || coList.length === 0}
+            style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: isSaved ? '#f1f5f9' : '#ffffff', color: isSaved ? '#64748b' : accent, border: `1px solid ${isSaved ? '#cbd5e1' : accent}`, borderRadius: '8px', cursor: isSaved ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+            <Save size={14} /> {isSaved ? 'Saved' : 'Save ATR'}
+          </button>
+          <button onClick={handleSaveSubmit}
+            style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+            <Send size={14} /> Submit ATR for Review
+          </button>
+        </div>
+      )}
 
       {/* ── APPROVAL / REVISION / SUBMISSION STATUS BANNERS ──────────────── */}
       {!hideHeader && !showHistory && isRevision && (
@@ -308,12 +387,17 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
                   <tbody>
                     <tr>
                       <td style={{ textAlign: 'center', fontWeight: '800', color: accent, verticalAlign: 'top', paddingTop: '12px' }}>{co.code}</td>
-                      <td style={{ textAlign: 'center', fontWeight: '700', color: muted, verticalAlign: 'top', paddingTop: '12px' }}>{co.target.toFixed(2)}</td>
-                      <td style={{ textAlign: 'center', fontWeight: '800', color: co.met ? '#16a34a' : '#dc2626', verticalAlign: 'top', paddingTop: '12px' }}>{co.actual.toFixed(2)}</td>
+                      <td style={{ textAlign: 'center', fontWeight: '700', color: muted, verticalAlign: 'top', paddingTop: '12px' }}>{formatLevel(co.target)}</td>
+                      <td style={{ textAlign: 'center', fontWeight: '800', color: co.met ? '#16a34a' : '#dc2626', verticalAlign: 'top', paddingTop: '12px' }}>{formatLevel(co.actual)}</td>
                       <td style={{ textAlign: 'center', verticalAlign: 'top', paddingTop: '12px' }}>
                         <span style={{ display: 'inline-block', fontSize: '11px', fontWeight: '700', background: co.met ? '#dcfce7' : '#fee2e2', color: co.met ? '#15803d' : '#991b1b', borderRadius: '5px', padding: '3px 8px' }}>
                           {co.pct.toFixed(1)}% {co.met ? 'Achieved' : 'Gap'}
                         </span>
+                        {co.remark && (
+                          <div style={{ marginTop: '7px', fontSize: '11.5px', lineHeight: 1.4, color: muted, textAlign: 'left' }}>
+                            {co.remark}
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
                         {co.met ? (
@@ -377,10 +461,16 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
       {!hideFooter && isFaculty && (
         <div style={{ ...surface, padding: '14px 20px', marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           {!locked ? (
-            <button onClick={handleSaveSubmit}
-              style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
-              <Send size={14} /> Submit ATR for Review
-            </button>
+            <>
+              <button onClick={handleSaveATR} disabled={isSaved || coList.length === 0}
+                style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: isSaved ? '#f1f5f9' : '#ffffff', color: isSaved ? '#64748b' : accent, border: `1px solid ${isSaved ? '#cbd5e1' : accent}`, borderRadius: '8px', cursor: isSaved ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                <Save size={14} /> {isSaved ? 'Saved' : 'Save ATR'}
+              </button>
+              <button onClick={handleSaveSubmit}
+                style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                <Send size={14} /> Submit ATR for Review
+              </button>
+            </>
           ) : (
             <span style={{ height: '40px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               <Lock size={14} /> Report Locked

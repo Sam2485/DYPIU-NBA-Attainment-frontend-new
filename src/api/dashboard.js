@@ -32,14 +32,16 @@ export const dashboardApi = {
     );
   },
 
-  getProgrammeCoordinatorDashboard: (
-    programmeId
-  ) => {
+  getProgrammeCoordinatorDashboard: (masterProgrammeId, coordinatorEmail) => {
     const params = {};
 
-    if (programmeId) {
-      params.programmeId =
-        programmeId;
+    if (masterProgrammeId) {
+      params.masterProgrammeId =
+        masterProgrammeId;
+    }
+
+    if (coordinatorEmail) {
+      params.coordinatorEmail = coordinatorEmail;
     }
 
     return apiClient.get(

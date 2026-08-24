@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAcademic } from '../../context/AcademicContext';
@@ -90,6 +90,7 @@ const FACULTY_NAV = [
 
 export default function AppSidebar() {
   const { user, role, logout } = useAuth();
+  const courseCoordinatorBatchScopeRef = useRef(null);
   const {
     academicYear = '2025-26',
     setAcademicYear = () => {},
@@ -100,12 +101,16 @@ export default function AppSidebar() {
     selectedCourseOffering,
     courseOfferings = [],
     programmeId,
+    setProgrammeId = () => {},
+    masterProgrammes = [],
     hodDashboard = null,
     departments = [],
     selectedDepartmentId,
     setSelectedDepartmentId = () => {},
     loadDepartments = () => Promise.resolve([]),
     loadMasterProgrammes = () => Promise.resolve([]),
+    loadCoordinatorMasterProgrammes = () => Promise.resolve([]),
+    loadCourseCoordinatorProgrammeBatches = () => Promise.resolve([]),
   } = useAcademic();
   const navigate = useNavigate();
   const location = useLocation();
@@ -194,6 +199,29 @@ export default function AppSidebar() {
     if (role !== 'HOD' || selectedDepartmentId || departments.length === 0) return;
     setSelectedDepartmentId(user?.departmentId ?? departments[0]?.id ?? null);
   }, [departments, role, selectedDepartmentId, setSelectedDepartmentId, user?.departmentId]);
+
+  useEffect(() => {
+    if (role !== 'PROGRAMME_COORDINATOR') return;
+    loadCoordinatorMasterProgrammes(user?.email).then((programmes) => {
+      if (!programmeId && programmes[0]?.id) setProgrammeId(programmes[0].id);
+    }).catch(() => {});
+  }, [loadCoordinatorMasterProgrammes, programmeId, role, setProgrammeId, user?.email]);
+
+  useEffect(() => {
+    if (role !== 'FACULTY' || !user?.email) return;
+    if (courseCoordinatorBatchScopeRef.current === user.email) return;
+    courseCoordinatorBatchScopeRef.current = user.email;
+    let isCurrent = true;
+    loadCourseCoordinatorProgrammeBatches(user.email).then((loadedBatches) => {
+      if (!isCurrent || loadedBatches.length === 0) return;
+      const hasSelectedBatch = loadedBatches.some((batch) => batch.id === batchId);
+      if (!hasSelectedBatch) {
+        const initialBatch = loadedBatches.find((batch) => batch.status === 'ACTIVE') || loadedBatches[0];
+        setBatchId(initialBatch?.id ?? null);
+      }
+    }).catch(() => {});
+    return () => { isCurrent = false; };
+  }, [batchId, loadCourseCoordinatorProgrammeBatches, role, setBatchId, user?.email]);
   const currentSpan = isHod
     ? (hodDashboard?.activeBatch ?? '—')
     : selectedBatch
@@ -350,7 +378,7 @@ export default function AppSidebar() {
                 ACTIVE
               </span>
             </div>
-            {role !== 'HOD' && (
+            {role !== 'HOD' && role !== 'PROGRAMME_COORDINATOR' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 32, padding: '0 8px', borderRadius: 8, border: '1px solid rgba(165,180,252,0.20)', background: 'rgba(15,23,42,0.40)' }}>
                 <span style={{ width: 22, height: 22, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'rgba(129,140,248,0.18)', color: '#c7d2fe', flexShrink: 0 }}>
                   <Icon name="shield" active size={13} />
@@ -378,6 +406,21 @@ export default function AppSidebar() {
                   ))}
                 </select>
               </div>
+            )}
+            {role === 'PROGRAMME_COORDINATOR' && (
+              <select
+                aria-label="Master programme"
+                value={programmeId ?? ''}
+                onChange={(event) => setProgrammeId(event.target.value)}
+                disabled={masterProgrammes.length === 0}
+                style={{ width: '100%', height: 32, borderRadius: 8, border: '1px solid rgba(165,180,252,0.30)', background: '#1e293b', color: '#f8fafc', fontSize: 11.5, fontWeight: 700, padding: '0 8px', fontFamily: 'inherit', cursor: masterProgrammes.length ? 'pointer' : 'not-allowed', outline: 'none' }}
+              >
+                {masterProgrammes.length === 0 ? <option value="">No assigned master programmes</option> : masterProgrammes.map((programme) => (
+                  <option key={programme.id} value={programme.id} style={{ color: '#0f172a', background: '#ffffff' }}>
+                    {programme.code || programme.id} — {programme.name}
+                  </option>
+                ))}
+              </select>
             )}
           </div>
           <div style={{ height: '1px', background: 'rgba(148, 163, 184, 0.18)', width: '100%', flexShrink: 0 }} />
@@ -417,6 +460,23 @@ export default function AppSidebar() {
                 </span>
               </div>
             </div>
+            <select
+              value={batchId ?? ''}
+              onChange={(event) => setBatchId(event.target.value || null)}
+              disabled={batches.length === 0}
+              aria-label="Programme batch"
+              style={{ width: '100%', height: 32, borderRadius: 8, border: '1px solid rgba(103,232,249,0.28)', background: 'rgba(15,23,42,0.55)', color: '#f8fafc', padding: '0 8px', fontSize: 11.5, fontWeight: 700, outline: 'none', cursor: batches.length === 0 ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
+            >
+              {batches.length === 0 ? (
+                <option value="">No assigned programme batches</option>
+              ) : (
+                batches.map((batch) => (
+                  <option key={batch.id} value={batch.id} style={{ color: '#0f172a', background: '#ffffff' }}>
+                    {batch.name || batch.programmeBatchId}
+                  </option>
+                ))
+              )}
+            </select>
           </div>
           <div style={{ height: '1px', background: 'rgba(148, 163, 184, 0.18)', width: '100%', flexShrink: 0 }} />
         </>

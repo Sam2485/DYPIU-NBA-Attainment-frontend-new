@@ -99,6 +99,27 @@ export const academicApi = {
   deleteBatch: (id) =>
     apiClient.delete(`/academic/batches/${id}`),
 
+  // =========================
+  // Programme Batches
+  // =========================
+  getProgrammeBatches: (masterProgrammeId) => {
+    const params = {};
+    if (masterProgrammeId) params.masterProgrammeId = masterProgrammeId;
+    return apiClient.get('/programme-batches', { params });
+  },
+
+  createProgrammeBatch: (data) =>
+    apiClient.post('/programme-batches', data),
+
+  updateProgrammeBatch: (id, data) =>
+    apiClient.put(`/programme-batches/${id}`, data),
+
+  deleteProgrammeBatch: (id) =>
+    apiClient.delete(`/programme-batches/${id}`),
+
+  updateProgrammeBatchStatus: (id, data) =>
+    apiClient.post(`/programme-batches/${id}/status`, data),
+
   getBatchContext: (batchId) =>
     apiClient.get(`/academic/batches/${batchId}/context`),
 
@@ -135,6 +156,25 @@ export const academicApi = {
     apiClient.delete(`/academic/courses/${id}`),
 
   // =========================
+  // Master Courses
+  // =========================
+  getMasterCourses: ({ masterProgrammeId, programmeBatchId } = {}) => {
+    const params = {};
+    if (masterProgrammeId) params.masterProgrammeId = masterProgrammeId;
+    if (programmeBatchId) params.programmeBatchId = programmeBatchId;
+    return apiClient.get('/academic/master-courses', { params });
+  },
+
+  createMasterCourse: (data) =>
+    apiClient.post('/academic/master-courses', data),
+
+  updateMasterCourse: (id, data) =>
+    apiClient.put(`/academic/master-courses/${id}`, data),
+
+  deleteMasterCourse: (id) =>
+    apiClient.delete(`/academic/master-courses/${id}`),
+
+  // =========================
   // Course Offerings
   // =========================
   getCourseOfferings: (batchId) => {
@@ -159,19 +199,19 @@ export const academicApi = {
   // Course Offering Outcomes
   // =========================
   getCourseOutcomes: (offeringId) =>
-    apiClient.get(`/academic/course-offerings/${offeringId}/outcomes`),
+    apiClient.get(`/programme-batch-courses/${offeringId}/course-outcomes`),
 
   saveCourseOutcomes: (offeringId, data) =>
-    apiClient.post(`/academic/course-offerings/${offeringId}/outcomes`, data),
+    apiClient.post(`/programme-batch-courses/${offeringId}/course-outcomes`, data),
 
   // =========================
   // Course Offering Mapping
   // =========================
   getCourseMapping: (offeringId) =>
-    apiClient.get(`/academic/course-offerings/${offeringId}/mappings`),
+    apiClient.get(`/programme-batch-courses/${offeringId}/co-po-pso-mappings`),
 
   saveCourseMapping: (offeringId, data) =>
-    apiClient.put(`/academic/course-offerings/${offeringId}/mappings`, data),
+    apiClient.put(`/programme-batch-courses/${offeringId}/co-po-pso-mappings`, data),
 
   // =========================
   // Programme Targets

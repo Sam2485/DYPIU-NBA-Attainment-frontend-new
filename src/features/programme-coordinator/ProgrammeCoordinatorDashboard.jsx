@@ -13,17 +13,19 @@ import {
   PlayCircle,
   FileText,
   ShieldCheck,
+  ClipboardList,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import { ScreenLoadingState, ScreenErrorState } from '../../components/common/ScreenState';
 
-// ── Programme Coordinator 4-Step Setup Workflow Definition ───────────────────
+// ── Programme Coordinator 5-Step Programme-Batch Workflow ────────────────────
 const PC_STEPS = [
-  { step: 1, label: 'Add Courses',        desc: 'Add & allocate courses under programme',      path: '/programme-coordinator/setup-workflow?step=1', icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
-  { step: 2, label: 'Set PO/PSO Targets', desc: 'Configure PO & PSO target levels (1.0 – 3.0)', path: '/programme-coordinator/setup-workflow?step=2', icon: Target,       color: '#7c3aed', bg: '#f5f3ff' },
-  { step: 3, label: 'Programme ATR',     desc: 'Fill & submit Programme Action Taken Report', path: '/programme-coordinator/setup-workflow?step=3', icon: Layers,       color: '#0284c7', bg: '#f0f9ff' },
-  { step: 4, label: 'Review and Confirm', desc: 'Verify setup summary & finish',               path: '/programme-coordinator/setup-workflow?step=4', icon: CheckCircle2, color: '#059669', bg: '#f0fdf4' },
+  { step: 1, label: 'Add Courses', desc: 'Add courses to the programme batch', path: '/programme-coordinator/setup-workflow?step=1', icon: BookOpen, color: '#4f46e5', bg: '#eef2ff' },
+  { step: 2, label: 'Set PO/PSO Target', desc: 'Set programme-batch PO and PSO targets', path: '/programme-coordinator/setup-workflow?step=2', icon: Target, color: '#7c3aed', bg: '#f5f3ff' },
+  { step: 3, label: 'Indirect Programme-Batch Attainment', desc: 'Upload and calculate indirect attainment', path: '/programme-coordinator/setup-workflow?step=3', icon: ClipboardList, color: '#0284c7', bg: '#f0f9ff' },
+  { step: 4, label: 'Programme-Batch ATR', desc: 'Prepare the programme-batch action taken report', path: '/programme-coordinator/setup-workflow?step=4', icon: Layers, color: '#0f766e', bg: '#f0fdfa' },
+  { step: 5, label: 'Review and Confirm', desc: 'Verify setup summary and finish', path: '/programme-coordinator/setup-workflow?step=5', icon: CheckCircle2, color: '#059669', bg: '#f0fdf4' },
 ];
 
 export default function ProgrammeCoordinatorDashboard() {
@@ -32,11 +34,11 @@ export default function ProgrammeCoordinatorDashboard() {
   const {
     programmeId = null,
     setProgrammeId,
-    selectedBatch = null,
-    batches = [],
+    setBatchId,
     programmeCoordinatorDashboard = null,
+    pcWorkflowProgress = null,
     loadProgrammeCoordinatorDashboard,
-    loadBatches,
+    loadPcSetupProgress,
   } = useAcademic();
 
   const [screenLoading, setScreenLoading] = useState(false);
@@ -46,7 +48,7 @@ export default function ProgrammeCoordinatorDashboard() {
 
   // The coordinator is scoped to the programme assigned in the authenticated
   // user payload. Keep that programme selected before navigating to setup.
-  const activeProgId = user?.programmeId || programmeId || programmeCoordinatorDashboard?.programmeId;
+  const activeProgId = programmeId || user?.programmeId || programmeCoordinatorDashboard?.masterProgrammeId;
 
   useEffect(() => {
     if (activeProgId && programmeId !== activeProgId) {
@@ -59,10 +61,13 @@ export default function ProgrammeCoordinatorDashboard() {
     setScreenError(null);
     try {
       if (!activeProgId) return;
-      await Promise.all([
-        loadProgrammeCoordinatorDashboard(activeProgId),
-        loadBatches({ targetProgrammeId: activeProgId }),
-      ]);
+      const dashboard = await loadProgrammeCoordinatorDashboard(activeProgId, user?.email);
+      const activeBatch = dashboard?.batches?.find((batch) => batch.status === 'ACTIVE') || dashboard?.batches?.[0];
+      const activeBatchId = activeBatch?.programmeBatchId ?? activeBatch?.id;
+      if (activeBatchId) {
+        setBatchId(activeBatchId);
+        await loadPcSetupProgress(activeProgId, activeBatchId, user?.email);
+      }
     } catch (err) {
       console.warn('ProgrammeCoordinatorDashboard fetch failed:', err);
       setScreenError(err?.customMessage || err?.message || 'Failed to load Programme Coordinator dashboard.');
@@ -73,15 +78,16 @@ export default function ProgrammeCoordinatorDashboard() {
 
   useEffect(() => {
     fetchPcData();
-  }, [activeProgId, loadBatches, loadProgrammeCoordinatorDashboard]);
+  }, [activeProgId, loadPcSetupProgress, loadProgrammeCoordinatorDashboard, setBatchId, user?.email]);
 
   const dashboardStatistics = programmeCoordinatorDashboard?.statistics ?? {};
-  const courseCount = dashboardStatistics.coursesCount ?? dashboardStatistics.courses ?? 0;
+  const courseCount = dashboardStatistics.courses ?? dashboardStatistics.coursesCount ?? 0;
   const pendingVerifications = dashboardStatistics.pendingVerifications ?? 0;
-  const activeBatchLabel = programmeCoordinatorDashboard?.activeBatch || selectedBatch?.name || batches[0]?.name || '—';
+  const dashboardBatches = programmeCoordinatorDashboard?.batches ?? [];
+  const activeBatchLabel = dashboardBatches.find((batch) => batch.status === 'ACTIVE')?.name || dashboardBatches[0]?.name || '—';
 
   // ── Per-step completion tracking ───────────────────────────────────────────
-  const safeProgress = programmeCoordinatorDashboard?.setupProgress ?? {};
+  const safeProgress = pcWorkflowProgress ?? programmeCoordinatorDashboard?.setupProgress ?? {};
   const workflowProgress = programmeCoordinatorDashboard?.workflowProgress ?? {};
   const stepStatus = PC_STEPS.map((s, idx) => {
     if (Object.prototype.hasOwnProperty.call(workflowProgress, String(s.step))) {

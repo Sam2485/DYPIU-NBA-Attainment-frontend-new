@@ -53,13 +53,11 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { uploadProgrammeExitSurvey = () => Promise.resolve(null), programmeSurveyData = null } = useAttainment();
-  const hasLoadedProgrammes = useRef(false);
-  const hasLoadedCourseCoordinators = useRef(false);
   const {
     masterProgrammes = [],
     programmeId,
-    setProgrammeId,
     batches = [],
+    programmeCoordinatorDashboard = null,
     batchId,
     setBatchId,
     selectedBatch = null,
@@ -70,19 +68,20 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     courseCoordinators = [],
     loadProgrammeBatchOutcomes = () => Promise.resolve({ pos: [], psos: [], peos: [] }),
     saveProgrammeBatchOutcomeDefinitions = () => Promise.resolve(null),
-    loadCourses = () => Promise.resolve([]),
+    loadMasterCourses = () => Promise.resolve([]),
     loadCourseOfferings = () => Promise.resolve([]),
-    addCourseOffering = () => Promise.resolve(null),
-    updateCourseOffering = () => Promise.resolve(null),
+    addProgrammeBatchCourse = () => Promise.resolve(null),
+    updateProgrammeBatchCourse = () => Promise.resolve(null),
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
     pcWorkflowProgressStore = {},
     markPcWorkflowStepComplete = () => {},
-    facultyList = [],
+    completePcSetupProgress = () => Promise.resolve(null),
+    loadCoordinatorProgrammeBatches = () => Promise.resolve([]),
     loadCourseCoordinators = () => Promise.resolve([]),
-    loadProgrammes = () => Promise.resolve([]),
-    loadBatches = () => Promise.resolve([]),
   } = useAcademic();
+  const loadedBatchScopeRef = useRef(null);
+  const loadedCourseCoordinatorsRef = useRef(false);
 
   // Context data is initially empty while the selected programme is restored.
   // Defaults in destructuring do not cover an explicit null value, so normalize
@@ -90,53 +89,33 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const safeCourseVerificationStore = courseVerificationStore ?? {};
   const safePcWorkflowProgressStore = pcWorkflowProgressStore ?? {};
 
-  // The contract scopes this request by coordinatorEmail, so the selector can
-  // only contain programmes assigned to the logged-in coordinator.
+  // Refresh the available batches for the programme selected in the sidebar.
+  // The selected batch is restored from session storage and retained whenever
+  // it is still part of this returned coordinator-scoped list.
   useEffect(() => {
-    if (hasLoadedProgrammes.current) return undefined;
-    hasLoadedProgrammes.current = true;
+    if (!programmeId || !user?.email) return;
+    const requestScope = `${programmeId}:${user.email}`;
+    if (loadedBatchScopeRef.current === requestScope) return;
+    loadedBatchScopeRef.current = requestScope;
+
     let isCurrent = true;
-
-    loadProgrammes(null, user?.email).then((loadedProgrammes) => {
+    loadCoordinatorProgrammeBatches(user.email, programmeId).then((loadedBatches) => {
       if (!isCurrent) return;
-      const hasCurrentProgramme = loadedProgrammes.some((programme) => programme.id === programmeId);
-      if (!hasCurrentProgramme) {
-        const assignedProgramme = loadedProgrammes.find((programme) => programme.id === user?.programmeId);
-        setProgrammeId(assignedProgramme?.id ?? loadedProgrammes[0]?.id ?? null);
-      }
-    }).catch(() => {});
-
-    return () => { isCurrent = false; };
-  }, [loadProgrammes, programmeId, setProgrammeId, user?.email, user?.programmeId]);
-
-  // Batches are scoped to the currently selected programme. Select the first
-  // active returned batch only when no valid batch is already selected.
-  useEffect(() => {
-    if (!programmeId) return;
-    let isCurrent = true;
-
-    loadBatches({ targetProgrammeId: programmeId }).then((loadedBatches) => {
-      if (!isCurrent) return;
-      const coordinatorBatches = loadedBatches.filter((batch) => {
-        const hasAssignment = batch.coordinatorId || batch.coordinatorEmail;
-        if (!hasAssignment) return true;
-        return String(batch.coordinatorId ?? '') === String(user?.id ?? '')
-          || String(batch.coordinatorEmail ?? '').toLowerCase() === String(user?.email ?? '').toLowerCase();
-      });
-      const hasSelectedBatch = coordinatorBatches.some((batch) => batch.id === batchId);
+      const hasSelectedBatch = loadedBatches.some((batch) => String(batch.id) === String(batchId));
       if (!hasSelectedBatch) {
-        const initialBatch = coordinatorBatches.find((batch) => batch.status === 'ACTIVE') || coordinatorBatches[0];
+        const initialBatch = loadedBatches.find((batch) => batch.status === 'ACTIVE') || loadedBatches[0];
         setBatchId(initialBatch?.id ?? null);
       }
     }).catch(() => {});
 
     return () => { isCurrent = false; };
-  }, [batchId, loadBatches, programmeId, setBatchId, user?.email, user?.id]);
+  }, [batchId, loadCoordinatorProgrammeBatches, programmeId, setBatchId, user?.email]);
 
-  const activeFaculties = facultyList.length > 0 ? facultyList : [];
   // The server should enforce this scope. When assignment metadata is returned
   // with a batch, also keep unrelated batches out of this coordinator's UI.
-  const assignedBatches = batches.filter((batch) => {
+  const availableBatches = batches.length > 0 ? batches : (programmeCoordinatorDashboard?.batches ?? []);
+  const assignedBatches = availableBatches.filter((batch) => {
+    if (programmeId && (batch.masterProgrammeId ?? batch.programmeId) !== programmeId) return false;
     const hasAssignment = batch.coordinatorId || batch.coordinatorEmail;
     if (!hasAssignment) return true;
     return String(batch.coordinatorId ?? '') === String(user?.id ?? '')
@@ -241,24 +220,24 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   );
   const coordinatorOptions = courseCoordinators.filter((person) => person.role === 'FACULTY');
 
-  // A Programme Coordinator works with the HOD-created master-course catalogue
-  // and creates only batch-level offerings for their selected programme batch.
+  // The selector is populated from the HOD-created master-course catalogue
+  // for the master programme selected in the Programme Coordinator sidebar.
   useEffect(() => {
     if (currentStep !== 1 || !programmeId) return;
 
-    if (!hasLoadedCourseCoordinators.current) {
-      hasLoadedCourseCoordinators.current = true;
-      loadCourseCoordinators().then((faculty) => {
+    if (!loadedCourseCoordinatorsRef.current) {
+      loadedCourseCoordinatorsRef.current = true;
+      loadCourseCoordinators().then((coordinators) => {
         setNewCourseCoord((current) =>
-          faculty.some((person) => String(person.id) === String(current))
+          coordinators.some((person) => String(person.id) === String(current))
             ? current
-            : String(faculty[0]?.id ?? '')
+            : String(coordinators[0]?.id ?? '')
         );
       }).catch(() => {});
     }
-    loadCourses({ targetProgrammeId: programmeId }).catch(() => {});
+    loadMasterCourses({ masterProgrammeId: programmeId }).catch(() => {});
     if (batchId) loadCourseOfferings(batchId).catch(() => {});
-  }, [batchId, currentStep, loadCourseCoordinators, loadCourseOfferings, loadCourses, programmeId]);
+  }, [batchId, currentStep, loadCourseCoordinators, loadCourseOfferings, loadMasterCourses, programmeId]);
 
   // ── Step 2 – PO/PSO Targets ──────────────────────────────────────────────
   const [poTargetDraft, setPoTargetDraft] = useState({});
@@ -295,33 +274,32 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const handleAddCourse = async (e) => {
     e.preventDefault();
     const semester = semesterNumber(newCourseSem);
-    const academicYear = selectedBatch?.academicYear
-      ?? (selectedBatch?.startYear && selectedBatch?.endYear
-        ? `${selectedBatch.startYear}-${selectedBatch.endYear}`
-        : null);
     const masterCourse = masterCourses.find(
       (course) => String(course.id) === String(selectedMasterCourseId)
     );
     const coordinator = coordinatorOptions.find(
       (person) => String(person.id) === String(newCourseCoord)
     );
-    if (!masterCourse || !programmeId || !batchId || !semester || !academicYear || !coordinator) {
-      alert('Select a master course, semester, and FACULTY Course Coordinator before adding the batch course.');
+    if (!masterCourse || !programmeId || !batchId || !semester) {
+      alert('Select a master course and semester before adding the batch course.');
       return;
     }
 
     try {
-      await addCourseOffering({
-        programmeBatchId: batchId,
+      await addProgrammeBatchCourse({
         masterCourseId: masterCourse.id,
+        programmeBatchId: batchId,
+        semester,
+        courseCoordinatorId: coordinator?.id ?? null,
+        courseCoordinatorName: coordinator?.name ?? coordinator?.username ?? null,
+        assignedFaculty: coordinator
+          ? (coordinator.email
+            ? `${coordinator.name ?? coordinator.username ?? coordinator.email} (${coordinator.email})`
+            : (coordinator.name ?? coordinator.username ?? null))
+          : null,
         courseCodeOverride: newCourseCode.trim() || null,
         courseNameOverride: newCourseName.trim() || null,
-        semester,
-        academicYear,
-        courseCoordinatorId: coordinator.id,
-        assignedFaculty: coordinator.email ? [coordinator.email] : [],
       });
-      await loadCourseOfferings(batchId);
       setSelectedMasterCourseId('');
       setNewCourseCode('');
       setNewCourseName('');
@@ -338,17 +316,18 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     if (!coordinator) return;
 
     try {
-      await updateCourseOffering(offering.id, {
-        programmeBatchId: offering.programmeBatchId ?? batchId,
+      await updateProgrammeBatchCourse(offering.programmeBatchCourseId ?? offering.id, {
         masterCourseId: offering.masterCourseId ?? offering.courseId,
+        programmeBatchId: offering.programmeBatchId ?? batchId,
+        semester: semesterNumber(offering.semester) ?? semesterNumber(newCourseSem),
+        courseCoordinatorId: coordinator.id,
+        courseCoordinatorName: coordinator.name ?? coordinator.username ?? '',
+        assignedFaculty: coordinator.email
+          ? `${coordinator.name ?? coordinator.username ?? coordinator.email} (${coordinator.email})`
+          : (coordinator.name ?? coordinator.username ?? ''),
         courseCodeOverride: offering.courseCodeOverride ?? null,
         courseNameOverride: offering.courseNameOverride ?? null,
-        semester: semesterNumber(offering.semester) ?? semesterNumber(newCourseSem),
-        academicYear: offering.academicYear ?? selectedBatch?.academicYear,
-        courseCoordinatorId: coordinator.id,
-        assignedFaculty: coordinator.email ? [coordinator.email] : [],
       });
-      await loadCourseOfferings(batchId);
     } catch (error) {
       console.error('Failed to assign Course Coordinator:', error);
       alert('Unable to update the Course Coordinator. Please try again.');
@@ -382,7 +361,10 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     setProgrammeSurveyUploading(true);
     setProgrammeSurveyError(null);
     try {
-      const result = await uploadProgrammeExitSurvey({ targetProgrammeId: programmeId, targetBatchId: batchId, file });
+      const result = await uploadProgrammeExitSurvey({
+        targetBatchId: batchId,
+        file,
+      });
       setProgrammeSurveyResult(result);
     } catch (error) {
       console.error('Failed to upload programme end survey:', error);
@@ -415,8 +397,8 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     }
   };
 
-  const handleFinish = () => {
-    markPcWorkflowStepComplete(selectedProgramme.id, STEPS.length);
+  const handleFinish = async () => {
+    await completePcSetupProgress(programmeId, batchId);
     navigate('/programme-coordinator/dashboard');
   };
 
@@ -1050,7 +1032,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
               </p>
             </div>
             <div style={{ padding: '4px 0' }}>
-              <ProgrammeATR hideFooter={true} hideHeader={true} />
+              <ProgrammeATR hideFooter={true} />
             </div>
           </div>
         )}

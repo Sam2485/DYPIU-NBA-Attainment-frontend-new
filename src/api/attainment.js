@@ -43,11 +43,10 @@ export const attainmentApi = {
   saveSurveyResponses: (courseOfferingId, payload) =>
     apiClient.post(`/attainment/survey/${courseOfferingId}`, payload),
 
-  uploadSurveySheet: (courseOfferingId, formData) =>
+  uploadSurveySheet: (programmeBatchCourseId, formData) =>
     apiClient.post(
-      `/attainment/course-offerings/${courseOfferingId}/survey/upload`,
-      formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } }
+      `/programme-batch-courses/${programmeBatchCourseId}/survey/upload`,
+      formData
     ),
 
   // ---------------------------------------------------------------------------
@@ -65,9 +64,9 @@ export const attainmentApi = {
   getProgrammeAttainmentDataset: (programmeId, batchId) =>
     apiClient.get(`/attainment/programme/${programmeId}/batch/${batchId}/dataset`),
 
-  uploadProgrammeExitSurvey: (programmeId, batchId, formData) =>
+  uploadProgrammeExitSurvey: (batchId, formData) =>
     apiClient.post(
-      `/attainment/programmes/${programmeId}/batches/${batchId}/programme-survey/upload`,
+      `/programme-batches/${batchId}/survey/upload`,
       formData
     ),
 };

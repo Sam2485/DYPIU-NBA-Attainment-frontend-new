@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BookOpen, UserCheck, Calendar, Layers, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, Trash2, Edit3, X, AlertCircle, ChevronDown, GraduationCap } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
@@ -35,11 +35,11 @@ export default function HodSetupWorkflow() {
     programmeId,
     setProgrammeId,
     loadMasterProgrammes = () => Promise.resolve([]),
-    loadBatches = () => Promise.resolve([]),
+    loadProgrammeBatches = () => Promise.resolve([]),
     courses = [],
-    loadCourses = () => Promise.resolve([]),
-    createCourse = () => Promise.resolve(null),
-    deleteCourse = () => Promise.resolve(),
+    loadMasterCourses = () => Promise.resolve([]),
+    createMasterCourse = () => Promise.resolve(null),
+    deleteMasterCourse = () => Promise.resolve(),
     programmeCoordinators = [],
     loadProgrammeCoordinators = () => Promise.resolve([]),
     loadProgrammeOutcomes = () => Promise.resolve(),
@@ -49,9 +49,10 @@ export default function HodSetupWorkflow() {
     batches = [],
     batchId,
     setBatchId,
-    addBatch = () => {},
-    updateBatch = () => {},
-    deleteBatch = () => {},
+    createProgrammeBatch = () => Promise.resolve(null),
+    updateProgrammeBatch = () => Promise.resolve(null),
+    deleteProgrammeBatch = () => Promise.resolve(),
+    updateProgrammeBatchStatus = () => Promise.resolve(null),
     activePOs = [],
     activePSOs = [],
     activePEOs = [],
@@ -60,11 +61,17 @@ export default function HodSetupWorkflow() {
     updateProgrammePEOs = () => {},
     saveProgrammeOutcomeDefinitions = () => Promise.resolve(),
     saveProgrammeBatchOutcomeDefinitions = () => Promise.resolve(),
-    hodWorkflowProgressStore = {},
+    hodWorkflowProgress = null,
     markHodWorkflowStepComplete = () => {},
+    completeHodSetupProgress = () => Promise.resolve(),
     hodDashboard = null,
     selectedDepartmentId,
   } = useAcademic();
+
+  // Prevent step/programme state updates from repeatedly re-requesting the
+  // same selected department's master programmes.
+  const loadedMasterProgrammeDepartmentRef = useRef(null);
+  const loadedBatchScopeRef = useRef(null);
 
   const [deleteModalConfig, setDeleteModalConfig] = useState({
     isOpen: false,
@@ -110,6 +117,7 @@ export default function HodSetupWorkflow() {
   const [editStartYear, setEditStartYear] = useState('');
   const [editEndYear, setEditEndYear] = useState('');
   const [editStatus, setEditStatus] = useState('ACTIVE');
+  const [editCoordinatorValue, setEditCoordinatorValue] = useState('');
 
   const handleStartEditBatch = (b) => {
     setEditingBatchId(b.id);
@@ -117,15 +125,35 @@ export default function HodSetupWorkflow() {
     setEditStartYear(b.startYear || '');
     setEditEndYear(b.endYear || '');
     setEditStatus(b.status || 'ACTIVE');
+    const coordinator = coordinatorOptions.find((item) =>
+      (b.coordinatorEmail && item.email === b.coordinatorEmail) ||
+      (b.coordinatorName && (item.name === b.coordinatorName || item.username === b.coordinatorName))
+    );
+    setEditCoordinatorValue(coordinator ? coordinatorValue(coordinator) : '');
   };
 
-  const handleSaveEditBatch = (bId) => {
-    updateBatch(bId, {
+  const handleSaveEditBatch = async (batch) => {
+    const coordinator = coordinatorOptions.find(
+      (item) => coordinatorValue(item) === editCoordinatorValue
+    );
+    const payload = {
       name: editBatchName,
+      masterProgrammeId: selectedProgramme.id,
       startYear: editStartYear,
       endYear: editEndYear,
       status: editStatus,
-    });
+      coordinatorName: coordinator?.name ?? batch.coordinatorName ?? null,
+      coordinatorEmail: coordinator?.email ?? batch.coordinatorEmail ?? null,
+    };
+    // Use the lifecycle endpoint whenever status changes; normal details are
+    // still saved through the programme-batch update endpoint.
+    if (batch.status !== editStatus && batch.status === 'INACTIVE') {
+      await updateProgrammeBatchStatus(batch.id, editStatus, 'Reactivating batch for update');
+    }
+    await updateProgrammeBatch(batch.id, { ...payload, status: batch.status === editStatus ? batch.status : 'ACTIVE' });
+    if (batch.status !== editStatus) {
+      await updateProgrammeBatchStatus(batch.id, editStatus, 'Updated from HOD batch setup');
+    }
     setEditingBatchId(null);
   };
 
@@ -134,7 +162,7 @@ export default function HodSetupWorkflow() {
       title: 'Delete Batch?',
       itemName: b.name,
       description: 'This action cannot be undone. All data associated with this batch will be permanently removed.',
-      onConfirm: () => deleteBatch(b.id),
+      onConfirm: () => deleteProgrammeBatch(b.id),
     });
   };
 
@@ -146,19 +174,47 @@ export default function HodSetupWorkflow() {
       b.programmeName === selectedProgramme.name
   );
 
+  const coordinatorValue = (coordinator) =>
+    String(coordinator?.email || coordinator?.id || coordinator?.username || '');
+  const coordinatorOptions = programmeCoordinators.reduce((unique, coordinator) => {
+    const value = coordinatorValue(coordinator);
+    if (value && !unique.some((item) => coordinatorValue(item) === value)) unique.push(coordinator);
+    return unique;
+  }, []);
+
   useEffect(() => {
     setBatchCoordinatorSelections((current) => {
       const next = { ...current };
       let changed = false;
       programmeBatches.forEach((batch) => {
-        if (next[batch.id] === undefined) {
-          next[batch.id] = batch.coordinatorId != null ? String(batch.coordinatorId) : '';
+        const assignedCoordinator = coordinatorOptions.find(
+          (coordinator) =>
+            (batch.coordinatorId != null && String(coordinator.id) === String(batch.coordinatorId)) ||
+            (batch.coordinatorEmail && coordinator.email === batch.coordinatorEmail) ||
+            (batch.coordinatorName && (coordinator.name === batch.coordinatorName || coordinator.username === batch.coordinatorName))
+        );
+        const storedCoordinatorValue = next[batch.id];
+
+        if (storedCoordinatorValue === undefined) {
+          // The programme-batches API may return only a coordinator name/email
+          // (with coordinatorId null). Keep that existing assignment visible.
+          next[batch.id] = assignedCoordinator
+            ? coordinatorValue(assignedCoordinator)
+            : batch.coordinatorName || batch.coordinator || batch.coordinatorEmail
+            ? `existing:${batch.coordinatorEmail || batch.coordinatorName || batch.coordinator}`
+            : '';
+          changed = true;
+        } else if (storedCoordinatorValue.startsWith('existing:') && assignedCoordinator) {
+          // The coordinator list can arrive after the batch list. Replace the
+          // temporary display option with the real selector option so its name
+          // is shown once, and the value remains editable/savable.
+          next[batch.id] = coordinatorValue(assignedCoordinator);
           changed = true;
         }
       });
       return changed ? next : current;
     });
-  }, [programmeBatches]);
+  }, [programmeBatches, coordinatorOptions]);
 
   // Step 3: Outcomes State
   const [outcomeTab, setOutcomeTab] = useState('PO');
@@ -168,7 +224,7 @@ export default function HodSetupWorkflow() {
   const [outcomesSaveState, setOutcomesSaveState] = useState('idle');
 
   // ── Per-step completion flags ──────────────────────────────────────────────
-  const progProgress = (selectedProgramme?.id && hodWorkflowProgressStore[selectedProgramme.id]) || {};
+  const progProgress = hodWorkflowProgress || {};
   const stepDone = STEPS.map((s, idx) => {
     if (Array.isArray(progProgress?.stepStatus)) {
       return !!progProgress.stepStatus[idx];
@@ -181,26 +237,25 @@ export default function HodSetupWorkflow() {
   const completedCount = stepDone.filter(Boolean).length;
   const progressPct = Math.round((completedCount / STEPS.length) * 100);
 
-  const firstIncompleteIdx = stepDone.findIndex((done) => !done);
-  const firstIncompleteStep = firstIncompleteIdx !== -1 ? firstIncompleteIdx + 1 : 1;
-
   const rawStepParam = searchParams.get('step');
   const parsedStep = parseInt(rawStepParam, 10);
   const hasValidParam = parsedStep >= 1 && parsedStep <= STEPS.length;
 
   const [currentStep, setCurrentStep] = useState(
-    hasValidParam ? parsedStep : firstIncompleteStep
+    hasValidParam ? parsedStep : 1
   );
 
   useEffect(() => {
     const s = parseInt(searchParams.get('step'), 10);
     if (!s || isNaN(s) || s < 1 || s > STEPS.length) {
-      setSearchParams({ step: firstIncompleteStep }, { replace: true });
-      setCurrentStep(firstIncompleteStep);
+      // Progress is display-only. A refresh must never redirect the HOD to
+      // the first incomplete/current backend step.
+      setSearchParams({ step: 1 }, { replace: true });
+      setCurrentStep(1);
     } else if (s !== currentStep) {
       setCurrentStep(s);
     }
-  }, [searchParams, firstIncompleteStep]);
+  }, [searchParams, currentStep, setSearchParams]);
 
   // A workflow refresh has no preloaded screen data. Load the progress record
   // once so the correct initial step can be determined, then load only the
@@ -209,14 +264,29 @@ export default function HodSetupWorkflow() {
     loadHodSetupProgress(selectedDepartmentId).catch(() => {});
   }, [loadHodSetupProgress, selectedDepartmentId]);
 
+  // Batches are scoped by the master programme selected in the sidebar and
+  // the signed-in HOD. Load once per scope on workflow entry and reuse the
+  // returned list as the user moves through the workflow steps.
+  useEffect(() => {
+    if (!programmeId || !user?.email) return;
+    const requestScope = `${programmeId}:${user.email}`;
+    if (loadedBatchScopeRef.current === requestScope) return;
+    loadedBatchScopeRef.current = requestScope;
+    loadProgrammeBatches(programmeId, user.email).catch(() => {});
+  }, [loadProgrammeBatches, programmeId, user?.email]);
+
   useEffect(() => {
     let cancelled = false;
 
     const loadCurrentStep = async () => {
-      // Master programmes are authoritative. Always fetch and scope them by
-      // the department chosen in the universal HOD sidebar selector.
-      const programmes = await loadMasterProgrammes(selectedDepartmentId);
+      // Fetch master programmes once for each department selection. Further
+      // workflow step changes reuse the already scoped shared list.
+      const programmes = loadedMasterProgrammeDepartmentRef.current === selectedDepartmentId
+        ? masterProgrammes
+        : await loadMasterProgrammes(selectedDepartmentId);
       if (cancelled) return;
+
+      loadedMasterProgrammeDepartmentRef.current = selectedDepartmentId;
 
       const targetProgrammeId = programmeId || programmes[0]?.id;
       if (!programmeId && targetProgrammeId) {
@@ -228,23 +298,15 @@ export default function HodSetupWorkflow() {
       if (!targetProgrammeId) return;
 
       if (currentStep === 1) {
-        await loadCourses({ targetProgrammeId });
+        await loadMasterCourses({ masterProgrammeId: targetProgrammeId });
       } else if (currentStep === 2) {
-        await loadBatches({ targetProgrammeId });
       } else if (currentStep === 3) {
-        await Promise.all([
-          loadBatches({ targetProgrammeId }),
-          loadProgrammeCoordinators(),
-        ]);
+        await loadProgrammeCoordinators();
       } else if (currentStep === 4) {
-        await loadBatches({ targetProgrammeId });
       } else if (currentStep === 5) {
         // Review renders the summary of batches and outcomes, so these are
-        // its only additional dependencies.
-        await Promise.all([
-          loadBatches({ targetProgrammeId }),
-          loadProgrammeOutcomes(targetProgrammeId, { includeTargets: false }),
-        ]);
+        // already loaded; outcomes are this step's only extra dependency.
+        await loadProgrammeOutcomes(targetProgrammeId, { includeTargets: false });
       }
     };
 
@@ -252,13 +314,12 @@ export default function HodSetupWorkflow() {
     return () => { cancelled = true; };
   }, [
     currentStep,
-    loadBatches,
-    loadCourses,
+    loadProgrammeBatches,
+    loadMasterCourses,
     loadProgrammeCoordinators,
     loadProgrammeBatchOutcomes,
     loadProgrammeOutcomes,
     loadMasterProgrammes,
-    masterProgrammes,
     programmeId,
     setProgrammeId,
     selectedDepartmentId,
@@ -297,7 +358,7 @@ export default function HodSetupWorkflow() {
     if (!selectedProgramme?.id || !newCourseCode.trim() || !newCourseName.trim()) return;
 
     try {
-      await createCourse({
+      await createMasterCourse({
         masterProgrammeId: selectedProgramme.id,
         code: newCourseCode.trim().toUpperCase(),
         name: newCourseName.trim(),
@@ -308,7 +369,7 @@ export default function HodSetupWorkflow() {
       setNewCourseCode('');
       setNewCourseName('');
       setNewCourseType('THEORY');
-      await loadCourses({ targetProgrammeId: selectedProgramme.id });
+      await loadMasterCourses({ masterProgrammeId: selectedProgramme.id });
     } catch (error) {
       console.error('Failed to add master course:', error);
       alert(error?.message || 'Unable to add the master course.');
@@ -320,7 +381,7 @@ export default function HodSetupWorkflow() {
       title: 'Delete Master Course?',
       itemName: `${course.code} — ${course.name}`,
       description: 'Remove this course from the selected master programme catalogue.',
-      onConfirm: () => deleteCourse(course.id),
+      onConfirm: () => deleteMasterCourse(course.id),
     });
   };
 
@@ -340,15 +401,13 @@ export default function HodSetupWorkflow() {
     const s = parseInt(startYearInput, 10), en = parseInt(endYearInput, 10);
     if (!s || s <= 2020 || !en || en <= s || !selectedProgramme?.id) return;
 
-    // POST /academic/batches accepts this exact contract shape. In particular,
-    // years are numbers and academicYear is the full four-digit range.
-    const batch = await addBatch({
-      id: `batch-${selectedProgramme.code.toLowerCase()}-${s}-${String(en).slice(-2)}`,
+    const batch = await createProgrammeBatch({
+      masterProgrammeId: selectedProgramme.id,
       name: `${s}-${en} Batch`,
-      programmeId: selectedProgramme.id,
       startYear: s,
       endYear: en,
-      academicYear: `${s}-${en}`,
+      durationYears,
+      yearLevel: 'First Year',
       status: 'ACTIVE',
     });
     if (batch?.id) setBatchId(batch.id);
@@ -357,8 +416,8 @@ export default function HodSetupWorkflow() {
   const handleBulkSaveCoordinatorAssignments = async () => {
     const assignments = programmeBatches
       .map((batch) => {
-        const coordinator = programmeCoordinators.find(
-          (person) => String(person.id) === String(batchCoordinatorSelections[batch.id])
+        const coordinator = coordinatorOptions.find(
+          (person) => coordinatorValue(person) === String(batchCoordinatorSelections[batch.id])
         );
         return coordinator ? { batch, coordinator } : null;
       })
@@ -371,18 +430,18 @@ export default function HodSetupWorkflow() {
 
     setAssignmentSaveState('saving');
     try {
-      await Promise.all(assignments.map(({ batch, coordinator }) => updateBatch(batch.id, {
+      await Promise.all(assignments.map(({ batch, coordinator }) => updateProgrammeBatch(batch.id, {
         name: batch.name,
         masterProgrammeId: selectedProgramme.id,
-        programmeId: selectedProgramme.id,
         startYear: batch.startYear,
         endYear: batch.endYear,
+        durationYears: batch.durationYears ?? durationYears,
+        yearLevel: batch.yearLevel ?? null,
         status: batch.status,
-        coordinatorId: coordinator.id,
         coordinatorName: coordinator.name,
         coordinatorEmail: coordinator.email,
       })));
-      await loadBatches({ targetProgrammeId: selectedProgramme.id });
+      await loadProgrammeBatches(selectedProgramme.id, user?.email);
       setAssignmentSaveState('saved');
     } catch (error) {
       console.error('Failed to save programme coordinator assignments:', error);
@@ -621,7 +680,7 @@ export default function HodSetupWorkflow() {
       const saved = outcomesAreSaved || await handleSaveBatchOutcomes();
       if (!saved) return;
     }
-    markHodWorkflowStepComplete(selectedProgramme.id, currentStep);
+    await markHodWorkflowStepComplete(selectedProgramme.id, currentStep);
     if (currentStep < STEPS.length) {
       goToStep(currentStep + 1);
     }
@@ -633,8 +692,8 @@ export default function HodSetupWorkflow() {
     }
   };
 
-  const handleFinish = () => {
-    markHodWorkflowStepComplete(selectedProgramme.id, STEPS.length);
+  const handleFinish = async () => {
+    await completeHodSetupProgress();
     navigate('/hod/dashboard');
   };
 
@@ -678,11 +737,6 @@ export default function HodSetupWorkflow() {
               onChange={(e) => {
                 const nextProgId = e.target.value;
                 setProgrammeId(nextProgId);
-                const nextProgObj = masterProgrammes.find((p) => p.id === nextProgId);
-                const nextProgState = hodWorkflowProgressStore[nextProgId] || {};
-                const nextIncompleteIdx = STEPS.findIndex((s) => !nextProgState[s.number]);
-                const nextStepNum = nextIncompleteIdx !== -1 ? nextIncompleteIdx + 1 : 1;
-                goToStep(nextStepNum);
               }}
               style={{
                 height: '38px',
@@ -919,6 +973,7 @@ export default function HodSetupWorkflow() {
                 <th>Batch Name</th>
                 <th style={{ width: '140px' }}>Start AY</th>
                 <th style={{ width: '140px' }}>End AY</th>
+                <th style={{ width: '220px' }}>Programme Coordinator</th>
                 <th style={{ width: '130px', textAlign: 'center' }}>Status</th>
                 <th style={{ width: '110px', textAlign: 'center' }}>Actions</th>
               </tr>
@@ -926,7 +981,7 @@ export default function HodSetupWorkflow() {
             <tbody>
               {programmeBatches.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: muted, fontSize: '12.5px' }}>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: muted, fontSize: '12.5px' }}>
                     No active batches found for {selectedProgramme.name}. Create one above to get started.
                   </td>
                 </tr>
@@ -971,6 +1026,26 @@ export default function HodSetupWorkflow() {
                         <span style={{ color: muted }}>{b.endYear}</span>
                       )}
                     </td>
+                    <td>
+                      {isEditing ? (
+                        <select
+                          value={editCoordinatorValue}
+                          onChange={(event) => setEditCoordinatorValue(event.target.value)}
+                          style={{ ...inputStyle, height: '34px', fontSize: '11.5px' }}
+                        >
+                          <option value="">Unassigned</option>
+                          {coordinatorOptions.map((coordinator) => (
+                            <option key={coordinatorValue(coordinator)} value={coordinatorValue(coordinator)}>
+                              {coordinator.name || coordinator.username || coordinator.email}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span style={{ color: b.coordinatorName || b.coordinatorEmail ? ink : muted, fontSize: '12px', fontWeight: '600' }}>
+                          {b.coordinatorName || b.coordinator || b.coordinatorEmail || 'Unassigned'}
+                        </span>
+                      )}
+                    </td>
                     <td style={{ textAlign: 'center' }}>
                       {isEditing ? (
                         <select
@@ -980,7 +1055,7 @@ export default function HodSetupWorkflow() {
                         >
                           <option value="ACTIVE">ACTIVE</option>
                           <option value="INACTIVE">INACTIVE</option>
-                          <option value="COMPLETED">COMPLETED</option>
+                          <option value="GRADUATED">GRADUATED</option>
                         </select>
                       ) : (
                         <span style={{ fontSize: '11px', fontWeight: '800', background: b.status === 'ACTIVE' ? '#dcfce7' : '#f1f5f9', color: b.status === 'ACTIVE' ? '#15803d' : '#475569', borderRadius: '5px', padding: '2px 8px' }}>
@@ -993,7 +1068,7 @@ export default function HodSetupWorkflow() {
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                           <button
                             type="button"
-                            onClick={() => handleSaveEditBatch(b.id)}
+                            onClick={() => handleSaveEditBatch(b)}
                             style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
                             title="Save Batch"
                           >
@@ -1087,8 +1162,13 @@ export default function HodSetupWorkflow() {
                       </span>
                     </td>
                     <td>
+                      {(() => {
+                        const selectedValue = batchCoordinatorSelections[batch.id] ?? '';
+                        const hasSavedCoordinatorOnly = selectedValue.startsWith('existing:');
+                        const savedCoordinatorLabel = batch.coordinatorName || batch.coordinator || batch.coordinatorEmail;
+                        return (
                       <select
-                        value={batchCoordinatorSelections[batch.id] ?? ''}
+                        value={selectedValue}
                         onChange={(event) => {
                           setAssignmentSaveState('idle');
                           setBatchCoordinatorSelections((current) => ({ ...current, [batch.id]: event.target.value }));
@@ -1096,12 +1176,17 @@ export default function HodSetupWorkflow() {
                         style={{ ...inputStyle, height: '34px', fontSize: '12px', cursor: 'pointer', color: accent, fontWeight: '600' }}
                       >
                         <option value="">Select Programme Coordinator</option>
-                        {programmeCoordinators.map((coordinator) => (
-                          <option key={coordinator.id} value={String(coordinator.id)}>
+                        {hasSavedCoordinatorOnly && (
+                          <option value={selectedValue}>{savedCoordinatorLabel}</option>
+                        )}
+                        {coordinatorOptions.map((coordinator) => (
+                          <option key={coordinatorValue(coordinator)} value={coordinatorValue(coordinator)}>
                             {coordinator.name || coordinator.username || coordinator.email}
                           </option>
                         ))}
                       </select>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}

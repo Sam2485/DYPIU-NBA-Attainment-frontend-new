@@ -74,12 +74,43 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
   const totalResponses = surveyData?.totalStudents ?? surveyData?.totalResponses ?? surveyResponses.length;
   const overallIndirectCoAttainment = surveyData?.overallIndirectCoAttainment ?? surveyData?.averageAttainmentLevel ?? 0;
 
-  const coList = [...new Set([
-    ...activeCOs.map((co) => co.code).filter(Boolean),
+  const apiCoKeys = [...new Set([
     ...Object.keys(level1Counts),
     ...Object.keys(overallIndirectPercentages),
     ...surveyResponses.flatMap((response) => Object.keys(response?.coFeedbacks || response?.coRatings || {})),
-  ])];
+  ])].sort((left, right) => {
+    const leftNumber = Number(String(left).match(/\d+$/)?.[0]);
+    const rightNumber = Number(String(right).match(/\d+$/)?.[0]);
+    if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) return leftNumber - rightNumber;
+    return String(left).localeCompare(String(right));
+  });
+
+  // A defined CO code (such as C321.1) and the survey key (CO1) identify the
+  // same ordinal outcome. Render a single paired column instead of one for
+  // each label.
+  const definedCOs = activeCOs.filter((co) => co?.code);
+  const coColumns = definedCOs.length > 0
+    ? definedCOs.map((co, index) => {
+      const definitionCode = co.code;
+      const apiKey = [definitionCode, `CO${index + 1}`, apiCoKeys[index]]
+        .find((key) => key && apiCoKeys.includes(key)) ?? null;
+      return {
+        id: definitionCode,
+        definitionCode,
+        apiKey: apiKey ?? definitionCode,
+        label: apiKey && apiKey !== definitionCode
+          ? `${definitionCode} – ${apiKey}`
+          : definitionCode,
+      };
+    })
+    : apiCoKeys.map((apiKey) => ({
+      id: apiKey,
+      definitionCode: apiKey,
+      apiKey,
+      label: apiKey,
+    }));
+  const readCoValue = (source, column) =>
+    source?.[column.apiKey] ?? source?.[column.definitionCode];
   const formatPercentage = (value) => value != null ? Number(value).toFixed(2) : '—';
 
   return (
@@ -192,13 +223,13 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
             <thead>
               <tr>
                 <th colSpan={2}>Indirect Attainment Metric</th>
-                {coList.map((coCode) => <th key={coCode} style={{ textAlign: 'center' }}>{coCode}</th>)}
+                {coColumns.map((column) => <th key={column.id} style={{ textAlign: 'center' }}>{column.label}</th>)}
               </tr>
             </thead>
             <tbody>
-              {coList.length === 0 ? (
+              {coColumns.length === 0 ? (
                 <tr>
-                  <td colSpan={2 + Math.max(coList.length, 1)} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                  <td colSpan={2 + Math.max(coColumns.length, 1)} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
                     No Course Outcomes or Survey responses available. Upload a survey file above to calculate indirect attainment.
                   </td>
                 </tr>
@@ -215,27 +246,31 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
                     <tr key={`${group}-${label}`} style={index === 3 ? { borderTop: '2px solid #cbd5e1' } : undefined}>
                       <td style={{ fontWeight: '700', color: '#334155' }}>{group}</td>
                       <td style={{ fontWeight: '700', textAlign: 'center' }}>{label}</td>
-                      {coList.map((coCode) => (
-                        <td key={coCode} style={{ textAlign: 'center', fontWeight: '600' }}>
-                          {group.startsWith('%') ? formatPercentage(values[coCode]) : values[coCode] ?? '—'}
+                      {coColumns.map((column) => (
+                        <td key={column.id} style={{ textAlign: 'center', fontWeight: '600' }}>
+                          {group.startsWith('%') ? formatPercentage(readCoValue(values, column)) : readCoValue(values, column) ?? '—'}
                         </td>
                       ))}
                     </tr>
                   ))}
                   <tr style={{ background: '#0ea5e9', color: '#082f49', fontWeight: '800', borderTop: '2px solid #0284c7' }}>
                     <td colSpan={2} style={{ fontSize: '14px' }}>Overall Indirect %</td>
-                    {coList.map((coCode) => (
-                      <td key={coCode} style={{ textAlign: 'center', fontSize: '14px' }}>{formatPercentage(overallIndirectPercentages[coCode])}</td>
+                    {coColumns.map((column) => (
+                      <td key={column.id} style={{ textAlign: 'center', fontSize: '14px' }}>{formatPercentage(readCoValue(overallIndirectPercentages, column))}</td>
                     ))}
                   </tr>
                   <tr style={{ background: '#f8fafc' }}>
                     <td colSpan={2} style={{ fontWeight: '700' }}>Indirect Attainment Score / Level</td>
-                    {coList.map((coCode) => (
-                      <td key={coCode} style={{ textAlign: 'center', fontWeight: '700' }}>
-                        {indirectAttainmentScores[coCode] != null ? Number(indirectAttainmentScores[coCode]).toFixed(2) : '—'}
-                        {coAttainmentLevels[coCode] != null ? ` / L${coAttainmentLevels[coCode]}` : ''}
+                    {coColumns.map((column) => {
+                      const score = readCoValue(indirectAttainmentScores, column);
+                      const level = readCoValue(coAttainmentLevels, column);
+                      return (
+                      <td key={column.id} style={{ textAlign: 'center', fontWeight: '700' }}>
+                        {score != null ? Number(score).toFixed(2) : '—'}
+                        {level != null ? ` / L${level}` : ''}
                       </td>
-                    ))}
+                      );
+                    })}
                   </tr>
                 </>
               )}
@@ -258,26 +293,24 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
             <thead>
               <tr>
                 <th style={{ width: '72px', textAlign: 'center' }}>Sr. No.</th>
-                <th>PRN No.</th>
-                <th>Student Name</th>
-                {coList.map((coCode) => <th key={coCode} style={{ textAlign: 'center' }}>{coCode}</th>)}
+                <th>Survey Record</th>
+                {coColumns.map((column) => <th key={column.id} style={{ textAlign: 'center' }}>{column.label}</th>)}
               </tr>
             </thead>
             <tbody>
               {surveyResponses.length === 0 ? (
                 <tr>
-                  <td colSpan={3 + Math.max(coList.length, 1)} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                  <td colSpan={2 + Math.max(coColumns.length, 1)} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
                     No uploaded survey responses available.
                   </td>
                 </tr>
               ) : surveyResponses.map((response, index) => (
                 <tr key={`${response.prn ?? 'response'}-${response.srNo ?? index}`}>
                   <td style={{ textAlign: 'center', fontWeight: '600' }}>{response.srNo ?? index + 1}</td>
-                  <td style={{ fontWeight: '600' }}>{response.prn ?? '—'}</td>
-                  <td>{response.studentName ?? '—'}</td>
-                  {coList.map((coCode) => (
-                    <td key={coCode} style={{ textAlign: 'center' }}>
-                      {response.coFeedbacks?.[coCode] ?? response.coRatings?.[coCode] ?? '—'}
+                  <td style={{ fontWeight: '600' }}>{response.prn ?? response.studentName ?? `Survey ${index + 1}`}</td>
+                  {coColumns.map((column) => (
+                    <td key={column.id} style={{ textAlign: 'center' }}>
+                      {readCoValue(response.coFeedbacks, column) ?? readCoValue(response.coRatings, column) ?? '—'}
                     </td>
                   ))}
                 </tr>

@@ -36,20 +36,30 @@ export const DIRECTOR_WORKFLOW_STEPS = [
 ];
 
 export const HOD_WORKFLOW_STEPS = [
-  { step: 1, number: 1, title: 'Master Courses', label: 'Master Courses', desc: 'Build the programme course catalogue', path: '/hod/setup-workflow?step=1', icon: 'BookOpen' },
-  { step: 2, number: 2, title: 'Batch Setup', label: 'Batch Setup', desc: 'Initialize student batch cycle', path: '/hod/batch-management', icon: 'Calendar' },
-  { step: 3, number: 3, title: 'Coordinator Allocation', label: 'Coordinator Allocation', desc: 'Assign a coordinator to each batch', path: '/hod/setup-workflow?step=3', icon: 'UserCheck' },
-  { step: 4, number: 4, title: 'PO / PSO / PEO', label: 'PO / PSO / PEO', desc: 'Define outcome framework', path: '/hod/programme-outcomes', icon: 'Layers' },
-  { step: 5, number: 5, title: 'Review & Confirm', label: 'Review & Confirm', desc: 'Verify setup summary & finish', path: '/hod/reports', icon: 'CheckCircle2' },
+  { step: 1, key: 'master_courses', number: 1, title: 'Master Courses', label: 'Master Courses', desc: 'Build the programme course catalogue', path: '/hod/setup-workflow?step=1', icon: 'BookOpen' },
+  { step: 2, key: 'batch', number: 2, title: 'Batch Setup', label: 'Batch Setup', desc: 'Initialize student batch cycle', path: '/hod/batch-management', icon: 'Calendar' },
+  { step: 3, key: 'coordinators', number: 3, title: 'Coordinator Allocation', label: 'Coordinator Allocation', desc: 'Assign a coordinator to each batch', path: '/hod/setup-workflow?step=3', icon: 'UserCheck' },
+  { step: 4, key: 'outcomes', number: 4, title: 'PO / PSO / PEO', label: 'PO / PSO / PEO', desc: 'Define outcome framework', path: '/hod/programme-outcomes', icon: 'Layers' },
+  { step: 5, key: 'review', number: 5, title: 'Review & Confirm', label: 'Review & Confirm', desc: 'Verify setup summary & finish', path: '/hod/reports', icon: 'CheckCircle2' },
 ];
 
+const HOD_STEP_ALIASES = {
+  master_courses: 1, master_course: 1, mastercourse: 1, course: 1, courses: 1,
+  batch: 2, batches: 2, batch_setup: 2,
+  coordinators: 3, coordinator: 3, coordinator_allocation: 3, allocation: 3, programme_coordinator: 3,
+  outcomes: 4, outcome: 4, po_pso: 4, po_pso_peo: 4, pos: 4, peo: 4, peos: 4,
+  review: 5, review_and_confirm: 5, confirm: 5, review_confirm: 5,
+};
+
 export const PC_WORKFLOW_STEPS = [
-  { step: 1, number: 1, title: 'Add Courses', label: 'Add Courses', desc: 'Add & allocate courses under programme', path: '/programme-coordinator/setup-workflow?step=1', icon: 'BookOpen' },
-  { step: 2, number: 2, title: 'Set PO/PSO Targets', label: 'Set PO/PSO Targets', desc: 'Configure PO & PSO target levels', path: '/programme-coordinator/setup-workflow?step=2', icon: 'Target' },
-  { step: 3, number: 3, title: 'Indirect Attainment', label: 'Indirect Attainment', desc: 'Upload programme end survey', path: '/programme-coordinator/setup-workflow?step=3', icon: 'ClipboardList' },
-  { step: 4, number: 4, title: 'Programme ATR', label: 'Programme ATR', desc: 'Fill & submit Programme Action Taken Report', path: '/programme-coordinator/setup-workflow?step=4', icon: 'Layers' },
-  { step: 5, number: 5, title: 'Review & Confirm', label: 'Review & Confirm', desc: 'Verify setup summary & finish', path: '/programme-coordinator/setup-workflow?step=5', icon: 'CheckCircle2' },
+  { step: 1, key: 'courses', number: 1, title: 'Add Courses', label: 'Add Courses', desc: 'Add courses to the programme batch', path: '/programme-coordinator/setup-workflow?step=1', icon: 'BookOpen' },
+  { step: 2, key: 'po_pso_target', number: 2, title: 'Set PO/PSO Target', label: 'Set PO/PSO Target', desc: 'Set programme-batch PO and PSO targets', path: '/programme-coordinator/setup-workflow?step=2', icon: 'Target' },
+  { step: 3, key: 'indirect_attainment', number: 3, title: 'Indirect Programme-Batch Attainment', label: 'Indirect Programme-Batch Attainment', desc: 'Upload and calculate indirect attainment', path: '/programme-coordinator/setup-workflow?step=3', icon: 'ClipboardList' },
+  { step: 4, key: 'programme_atr', number: 4, title: 'Programme-Batch ATR', label: 'Programme-Batch ATR', desc: 'Prepare the programme-batch action taken report', path: '/programme-coordinator/setup-workflow?step=4', icon: 'Layers' },
+  { step: 5, key: 'review', number: 5, title: 'Review & Confirm', label: 'Review & Confirm', desc: 'Verify setup summary & finish', path: '/programme-coordinator/setup-workflow?step=5', icon: 'CheckCircle2' },
 ];
+
+const PC_STEP_ALIASES = { courses: 1, course: 1, po_pso_target: 2, po_pso_targets: 2, indirect_attainment: 3, programme_atr: 4, review: 5 };
 
 /* ========================================================================== */
 /* RESPONSE HELPERS                                                           */
@@ -75,7 +85,7 @@ const unwrap = (response) => {
 /* SETUP PROGRESS NORMALIZATION                                               */
 /* ========================================================================== */
 
-const normalizeProgress = (data, totalSteps) => {
+const normalizeProgress = (data, totalSteps, stepAliases = {}) => {
   const source = data ?? {};
 
   const stepNumber = (value) => {
@@ -89,7 +99,8 @@ const normalizeProgress = (data, totalSteps) => {
       program: 3,
       review: 4,
     };
-    return namedSteps[String(value ?? '').trim().toLowerCase()] ?? null;
+    const key = String(value ?? '').trim().toLowerCase();
+    return stepAliases[key] ?? namedSteps[key] ?? null;
   };
 
   const currentStep = source.currentStep ?? source.step ?? null;
@@ -278,8 +289,8 @@ export function DashboardProvider({ children }) {
   );
 
   const loadProgrammeCoordinatorDashboard = useCallback(
-    async (targetProgrammeId = programmeId) => {
-      if (!targetProgrammeId) {
+    async (targetMasterProgrammeId = programmeId, coordinatorEmail = user?.email) => {
+      if (!targetMasterProgrammeId) {
         setProgrammeCoordinatorDashboard(null);
         return null;
       }
@@ -289,7 +300,8 @@ export function DashboardProvider({ children }) {
         setError(null);
 
         const response = await dashboardApi.getProgrammeCoordinatorDashboard(
-          targetProgrammeId
+          targetMasterProgrammeId,
+          coordinatorEmail
         );
         const data = unwrap(response);
         setProgrammeCoordinatorDashboard(data);
@@ -301,7 +313,7 @@ export function DashboardProvider({ children }) {
         return null;
       }
     },
-    [programmeId]
+    [programmeId, user?.email]
   );
 
   const loadCourseCoordinatorDashboard = useCallback(
@@ -356,7 +368,7 @@ export function DashboardProvider({ children }) {
         if (targetDepartmentId) params.departmentId = targetDepartmentId;
 
         const response = await apiClient.get('/academic/hod/setup-progress', { params });
-        const normalized = normalizeProgress(unwrap(response), HOD_WORKFLOW_STEPS.length);
+        const normalized = normalizeProgress(unwrap(response), HOD_WORKFLOW_STEPS.length, HOD_STEP_ALIASES);
         setHodWorkflowProgress(normalized);
         return normalized;
       } catch (err) {
@@ -375,14 +387,13 @@ export function DashboardProvider({ children }) {
       }
 
       try {
-        const params = {
-          coordinatorEmail,
-          programmeId: targetProgrammeId,
-          batchId: targetBatchId,
-        };
+        // The coordinator endpoint resolves the assigned programme-batch
+        // scope from the authenticated coordinator/email. Do not send
+        // programme or batch selectors on this read request.
+        const params = coordinatorEmail ? { coordinatorEmail } : {};
 
         const response = await apiClient.get('/academic/coordinator/setup-progress', { params });
-        const normalized = normalizeProgress(unwrap(response), PC_WORKFLOW_STEPS.length);
+        const normalized = normalizeProgress(unwrap(response), PC_WORKFLOW_STEPS.length, PC_STEP_ALIASES);
         setPcWorkflowProgress(normalized);
         return normalized;
       } catch (err) {
@@ -481,22 +492,24 @@ export function DashboardProvider({ children }) {
   const saveHodSetupProgress = useCallback(
     async (nextStep, completedStep) => {
       try {
+        const canonicalStep = HOD_WORKFLOW_STEPS.find(
+          (item) => item.step === Number(completedStep)
+        )?.key;
         const completedSteps = [
           ...(hodWorkflowProgress?.completedSteps || []),
-          Number(completedStep),
+          canonicalStep,
         ].filter((v, i, arr) => arr.indexOf(v) === i);
 
         const payload = {
           departmentId: selectedDepartmentId ?? user?.departmentId,
-          email: user?.email,
           hodEmail: user?.email,
-          step: nextStep,
-          completedStep: String(completedStep),
+          currentStep: nextStep,
+          completedStep: canonicalStep,
           completedSteps,
         };
 
         const response = await apiClient.post('/academic/hod/setup-progress', payload);
-        const normalized = normalizeProgress(unwrap(response), HOD_WORKFLOW_STEPS.length);
+        const normalized = normalizeProgress(unwrap(response), HOD_WORKFLOW_STEPS.length, HOD_STEP_ALIASES);
         setHodWorkflowProgress(normalized);
         return normalized;
       } catch (err) {
@@ -507,6 +520,18 @@ export function DashboardProvider({ children }) {
     [selectedDepartmentId, user?.departmentId, user?.email, hodWorkflowProgress?.completedSteps]
   );
 
+  const completeHodSetupProgress = useCallback(async () => {
+    const departmentId = selectedDepartmentId ?? user?.departmentId;
+    const params = {};
+    if (departmentId) params.departmentId = departmentId;
+    if (user?.email) params.hodEmail = user.email;
+
+    const response = await apiClient.post('/academic/hod/setup-progress/complete', null, { params });
+    const normalized = normalizeProgress(unwrap(response), HOD_WORKFLOW_STEPS.length, HOD_STEP_ALIASES);
+    setHodWorkflowProgress(normalized);
+    return normalized;
+  }, [selectedDepartmentId, user?.departmentId, user?.email]);
+
   const savePcSetupProgress = useCallback(
     async (nextStep, completedStep) => {
       if (!programmeId || !batchId) {
@@ -514,22 +539,17 @@ export function DashboardProvider({ children }) {
       }
 
       try {
+        const canonicalStep = PC_WORKFLOW_STEPS.find((item) => item.step === Number(completedStep))?.key;
         const completedSteps = [
           ...(pcWorkflowProgress?.completedSteps || []),
-          Number(completedStep),
+          canonicalStep,
         ].filter((v, i, arr) => arr.indexOf(v) === i);
 
-        const payload = {
-          coordinatorEmail: user?.email,
-          programmeId,
-          batchId,
-          currentStep: nextStep,
-          completedStep: String(completedStep),
-          completedSteps,
-        };
+        const payload = { completedStep: canonicalStep, completedSteps };
+        const params = { programmeId, batchId, currentStep: nextStep };
 
-        const response = await apiClient.post('/academic/coordinator/setup-progress', payload);
-        const normalized = normalizeProgress(unwrap(response), PC_WORKFLOW_STEPS.length);
+        const response = await apiClient.post('/academic/coordinator/setup-progress', payload, { params });
+        const normalized = normalizeProgress(unwrap(response), PC_WORKFLOW_STEPS.length, PC_STEP_ALIASES);
         setPcWorkflowProgress(normalized);
         return normalized;
       } catch (err) {
@@ -539,6 +559,16 @@ export function DashboardProvider({ children }) {
     },
     [programmeId, batchId, user?.email, pcWorkflowProgress?.completedSteps]
   );
+
+  const completePcSetupProgress = useCallback(async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
+    const params = {};
+    if (targetProgrammeId) params.programmeId = targetProgrammeId;
+    if (targetBatchId) params.batchId = targetBatchId;
+    const response = await apiClient.post('/academic/coordinator/setup-progress/complete', null, { params });
+    const normalized = normalizeProgress(unwrap(response), PC_WORKFLOW_STEPS.length, PC_STEP_ALIASES);
+    setPcWorkflowProgress(normalized);
+    return normalized;
+  }, [programmeId, batchId]);
 
   const saveCcSetupProgress = useCallback(
     async (nextStep, completedStep) => {
@@ -950,7 +980,9 @@ export function DashboardProvider({ children }) {
     /* Explicit Savers */
     saveDirectorSetupProgress,
     saveHodSetupProgress,
+    completeHodSetupProgress,
     savePcSetupProgress,
+    completePcSetupProgress,
     saveCcSetupProgress,
     saveWorkflowProgress,
 

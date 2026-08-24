@@ -35,7 +35,10 @@ export default function HodProgrammeOutcomes() {
     setProgrammeId,
     selectedDepartmentId,
     loadProgrammes = () => Promise.resolve([]),
-    loadProgrammeOutcomes = () => Promise.resolve(null),
+    batches = [],
+    loadProgrammeBatches = () => Promise.resolve([]),
+    loadProgrammeBatchOutcomes = () => Promise.resolve(null),
+    saveProgrammeBatchOutcomeDefinitions = () => Promise.resolve(null),
     activePOs = [],
     activePSOs = [],
     activePEOs = [],
@@ -43,6 +46,16 @@ export default function HodProgrammeOutcomes() {
     updateProgrammePSOs = () => {},
     updateProgrammePEOs = () => {},
   } = useAcademic();
+
+  const [selectedBatchId, setSelectedBatchId] = useState('');
+  const [savedSignature, setSavedSignature] = useState(null);
+  const [saveState, setSaveState] = useState('idle');
+
+  const outcomesSignature = (pos = activePOs, psos = activePSOs, peos = activePEOs) => JSON.stringify({
+    pos: pos.map(({ code, statement, description, competencies = [] }) => ({ code, statement: statement ?? description ?? '', competencies })),
+    psos: psos.map(({ code, statement, description, competencies = [] }) => ({ code, statement: statement ?? description ?? '', competencies })),
+    peos: peos.map(({ code, statement, description }) => ({ code, statement: statement ?? description ?? '' })),
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -60,12 +73,34 @@ export default function HodProgrammeOutcomes() {
         setProgrammeId(activeProgrammeId);
         return;
       }
-      await loadProgrammeOutcomes(activeProgrammeId);
     };
 
     loadDepartmentOutcomes().catch(() => {});
     return () => { cancelled = true; };
-  }, [loadProgrammeOutcomes, loadProgrammes, programmeId, selectedDepartmentId, setProgrammeId]);
+  }, [loadProgrammes, programmeId, selectedDepartmentId, setProgrammeId]);
+
+  useEffect(() => {
+    if (!programmeId) return;
+    loadProgrammeBatches(programmeId)
+      .then((programmeBatches) => {
+        setSelectedBatchId((current) =>
+          programmeBatches.some((batch) => batch.id === current)
+            ? current
+            : programmeBatches[0]?.id ?? ''
+        );
+      })
+      .catch(() => {});
+  }, [loadProgrammeBatches, programmeId]);
+
+  useEffect(() => {
+    if (!programmeId || !selectedBatchId) return;
+    loadProgrammeBatchOutcomes(programmeId, selectedBatchId)
+      .then(({ pos = [], psos = [], peos = [] } = {}) => {
+        setSavedSignature(outcomesSignature(pos, psos, peos));
+        setSaveState('idle');
+      })
+      .catch(() => {});
+  }, [loadProgrammeBatchOutcomes, programmeId, selectedBatchId]);
 
   const selectedProgramme =
     masterProgrammes.find((p) => p.id === programmeId) ||
@@ -237,6 +272,25 @@ export default function HodProgrammeOutcomes() {
     });
   };
 
+  const currentSignature = outcomesSignature();
+  const isSaved = !!selectedBatchId && savedSignature === currentSignature;
+  const handleSaveOutcomes = async () => {
+    if (!programmeId || !selectedBatchId || isSaved) return;
+    setSaveState('saving');
+    try {
+      await saveProgrammeBatchOutcomeDefinitions(programmeId, selectedBatchId, {
+        pos: activePOs,
+        psos: normalisedPSOs,
+        peos: activePEOs,
+      });
+      setSavedSignature(outcomesSignature());
+      setSaveState('saved');
+    } catch (error) {
+      setSaveState('error');
+      alert(error?.message || 'Unable to save outcomes.');
+    }
+  };
+
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
 
@@ -284,10 +338,19 @@ export default function HodProgrammeOutcomes() {
         </div>
       </div>
 
-      {/* ── SECTION HEADER + TAB STRIP + ADD BUTTON ──────────────────────────── */}
+      {/* ── BATCH SELECTOR + TAB STRIP + SAVE OUTCOMES ───────────────────────── */}
       <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ position: 'relative', minWidth: '210px' }}>
+          <select value={selectedBatchId} onChange={(event) => setSelectedBatchId(event.target.value)} style={{ ...inputStyle, height: '36px', paddingRight: '30px', cursor: 'pointer', appearance: 'none' }}>
+            {batches.length === 0 ? <option value="">No programme batches available</option> : batches.map((batch) => (
+              <option key={batch.id} value={batch.id}>{batch.name} · {batch.status}</option>
+            ))}
+          </select>
+          <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+        </div>
+
         {/* Tab strip */}
-        <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px' }}>
+        <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px', marginLeft: 'auto' }}>
           {[
             ['PO',  `POs (${activePOs.length})`],
             ['PSO', `PSOs (${normalisedPSOs.length})`],
@@ -315,31 +378,9 @@ export default function HodProgrammeOutcomes() {
           ))}
         </div>
 
-        {/* Add button */}
-        {activeTab === 'PO' && (
-          <button
-            onClick={handleAddPO}
-            style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Plus size={14} /> Add PO
-          </button>
-        )}
-        {activeTab === 'PSO' && (
-          <button
-            onClick={handleAddPSO}
-            style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#059669', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Plus size={14} /> Add PSO
-          </button>
-        )}
-        {activeTab === 'PEO' && (
-          <button
-            onClick={handleAddPEO}
-            style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Plus size={14} /> Add PEO
-          </button>
-        )}
+        <button onClick={handleSaveOutcomes} disabled={!selectedBatchId || isSaved || saveState === 'saving'} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '800', background: isSaved ? '#f0fdf4' : accent, color: isSaved ? '#15803d' : '#fff', border: isSaved ? '1px solid #86efac' : 'none', borderRadius: '8px', cursor: !selectedBatchId || isSaved || saveState === 'saving' ? 'not-allowed' : 'pointer', opacity: !selectedBatchId ? 0.55 : 1, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <CheckCircle2 size={14} /> {saveState === 'saving' ? 'Saving…' : isSaved ? 'Saved' : 'Save Outcomes'}
+        </button>
       </div>
 
       {/* ── TAB: PO ───────────────────────────────────────────────────────────── */}

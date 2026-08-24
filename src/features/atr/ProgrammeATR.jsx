@@ -71,7 +71,9 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const [selectedBatchId, setSelectedBatchId] = useState(() => selectedBatch?.id || batches?.[0]?.id || '');
   const currentBatchObj = batchList.find((b) => b.id === selectedBatchId) || batchList[0] || null;
   const isPreviousBatch = currentBatchObj?.name?.includes('Archived') || currentBatchObj?.name?.includes('Graduated');
-  const locked = readOnly || isPreviousBatch || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
+  const isSubmittedForReview = reportStatus === 'SUBMITTED_FOR_VERIFICATION' || reportStatus === 'SUBMITTED';
+  const locked = readOnly || isPreviousBatch || isSubmittedForReview || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
+  const [atrSaveState, setAtrSaveState] = useState('idle');
 
   // ── Build PO/PSO ATR list ──────────────────────────────────────────
   const progTargets = poPsoTargets ?? { poTargets: {}, psoTargets: {} };
@@ -124,7 +126,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     if (!activeProgId || !selectedBatchId) return;
     let isCurrent = true;
 
-    loadProgrammeATR(activeProgId, selectedBatchId).then((atr) => {
+    loadProgrammeATR(selectedBatchId).then((atr) => {
       if (!isCurrent || !atr) return;
       const outcomeDefinitions = [...normPOs, ...normPSOs];
       const reportOutcomes = [
@@ -155,26 +157,45 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     }).catch(() => {});
 
     return () => { isCurrent = false; };
-  }, [activeProgId, loadProgrammeATR, selectedBatchId, activePOs, activePSOs]);
+  }, [loadProgrammeATR, selectedBatchId, activePOs, activePSOs]);
 
-  const handleSaveSubmit = async () => {
-    if (!activeProgId || !selectedBatchId) return;
+  const buildAtrPayload = () => {
     const outcomesPayload = (type) => atrList
       .filter((item) => item.type === type)
       .map((item) => ({
         outcomeCode: item.code,
+        outcomeStatement: item.statement,
+        targetLevel: Number(item.target) || 0,
+        attainmentLevel: Number(item.actual) || 0,
+        achievementPercentage: Number(item.pct) || 0,
+        observation: item.remark || '',
         actions: item.actions.filter(Boolean),
       }));
+    return {
+      status: 'DRAFT',
+      poOutcomes: outcomesPayload('PO'),
+      psoOutcomes: outcomesPayload('PSO'),
+    };
+  };
 
+  const handleSaveAtr = async () => {
+    if (!selectedBatchId || locked) return;
     try {
-      await saveProgrammeATR(activeProgId, selectedBatchId, {
-        poOutcomes: outcomesPayload('PO'),
-        psoOutcomes: outcomesPayload('PSO'),
-      });
-      await submitProgrammeATR(activeProgId, selectedBatchId);
-      alert(`Programme ATR for ${currentProg?.name || 'Programme'} submitted successfully.`);
+      setAtrSaveState('saving');
+      await saveProgrammeATR(selectedBatchId, buildAtrPayload());
+      setAtrSaveState('saved');
     } catch (error) {
       console.error('Failed to save Programme ATR:', error);
+      setAtrSaveState('error');
+    }
+  };
+
+  const handleSubmitAtrForReview = async () => {
+    if (!selectedBatchId || locked) return;
+    try {
+      await submitProgrammeATR(selectedBatchId);
+    } catch (error) {
+      console.error('Failed to submit Programme ATR:', error);
     }
   };
 
@@ -320,13 +341,19 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
               )}
 
               {!locked ? (
-                <button onClick={handleSaveSubmit}
-                  style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
-                  <Send size={14} /> Submit Report for Review
-                </button>
+                <>
+                  <button onClick={handleSaveAtr}
+                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                    <Save size={14} /> {atrSaveState === 'saving' ? 'Saving…' : atrSaveState === 'saved' ? 'Saved' : 'Save ATR'}
+                  </button>
+                  <button onClick={handleSubmitAtrForReview}
+                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: '#ffffff', color: accent, border: `1px solid ${accent}`, borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                    <Send size={14} /> Submit ATR for Review
+                  </button>
+                </>
               ) : (
                 <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Lock size={13} /> {isPreviousBatch ? `${currentBatchObj.name} (Archived)` : 'Report Locked'}
+                  <Lock size={13} /> {isPreviousBatch ? `${currentBatchObj.name} (Archived)` : isSubmittedForReview ? 'Submitted for Review' : 'Report Locked'}
                 </span>
               )}
             </div>
@@ -422,7 +449,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
       )}
 
       {/* ── PENDING REVIEW BANNER ─────────────────────────────────────────── */}
-      {!showHistory && reportStatus === 'SUBMITTED' && (
+      {!showHistory && isSubmittedForReview && (
         <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
           <Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} />
           <div>
@@ -474,7 +501,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
       {!hideFooter && isFaculty && (
         <div style={{ ...surface, padding: '14px 20px', marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           {!locked ? (
-            <button onClick={handleSaveSubmit}
+            <button onClick={handleSubmitAtrForReview}
               style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
               <Send size={14} /> Submit Report for Review
             </button>

@@ -20,12 +20,13 @@ import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import { ScreenLoadingState, ScreenErrorState } from '../../components/common/ScreenState';
 
-// ── HOD 4-Step Setup Workflow Definition ─────────────────────────────────────
+// ── HOD 5-Step Department Setup Workflow Definition ──────────────────────────
 const HOD_STEPS = [
-  { step: 1, label: 'Programme Coordinator', desc: 'Assign coordinator for programme', path: '/hod/programme-coordinators', icon: UserCheck,   color: '#4f46e5', bg: '#eef2ff' },
-  { step: 2, label: 'Batch Setup',          desc: 'Initialize student batch cycle',   path: '/hod/batch-management',      icon: Calendar,    color: '#0284c7', bg: '#f0f9ff' },
-  { step: 3, label: 'PO / PSO / PEO',       desc: 'Define outcome framework',         path: '/hod/programme-outcomes',    icon: Layers,      color: '#7c3aed', bg: '#f5f3ff' },
-  { step: 4, label: 'Review & Confirm',     desc: 'Verify setup summary & finish',    path: '/hod/reports',               icon: CheckCircle2,color: '#059669', bg: '#f0fdf4' },
+  { step: 1, label: 'Master Course',          desc: 'Build the master course catalogue', path: '/hod/setup-workflow?step=1', icon: GraduationCap, color: '#4f46e5', bg: '#eef2ff' },
+  { step: 2, label: 'Batch Setup',            desc: 'Create programme batches',         path: '/hod/setup-workflow?step=2', icon: Calendar,      color: '#0284c7', bg: '#f0f9ff' },
+  { step: 3, label: 'Coordinator Allocation', desc: 'Assign programme coordinators',    path: '/hod/setup-workflow?step=3', icon: UserCheck,     color: '#7c3aed', bg: '#f5f3ff' },
+  { step: 4, label: 'PO / PSO / PEO',         desc: 'Define the outcome framework',    path: '/hod/setup-workflow?step=4', icon: Layers,        color: '#0f766e', bg: '#f0fdfa' },
+  { step: 5, label: 'Review & Confirm',       desc: 'Verify setup and finish',          path: '/hod/setup-workflow?step=5', icon: CheckCircle2,  color: '#059669', bg: '#f0fdf4' },
 ];
 
 export default function HodDashboard() {

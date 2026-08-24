@@ -337,10 +337,13 @@ export function AttainmentProvider({ children }) {
   );
 
   const updateCourseAtrData = useCallback(
-    async (newAtrData) => {
+    async (targetProgrammeBatchCourseId = courseOfferingId, newAtrData = {}) => {
+      if (!targetProgrammeBatchCourseId) {
+        throw new Error('programmeBatchCourseId is required');
+      }
       try {
         setError(null);
-        const response = await reportsApi.saveCourseAtr(newAtrData);
+        const response = await reportsApi.saveCourseAtr(targetProgrammeBatchCourseId, newAtrData);
         const data = unwrapResponse(response);
         setCourseAtrStore(data);
         return data;
@@ -350,7 +353,7 @@ export function AttainmentProvider({ children }) {
         throw err;
       }
     },
-    []
+    [courseOfferingId]
   );
 
   const submitCourseAtr = useCallback(
@@ -361,7 +364,7 @@ export function AttainmentProvider({ children }) {
 
       try {
         setError(null);
-        const response = await reportsApi.submitCourseAtr(targetOfferingId, submittedBy);
+        const response = await reportsApi.submitCourseAtr(targetOfferingId);
         const data = unwrapResponse(response);
 
         const refreshed = await reportsApi.getCourseAtr(targetOfferingId);
@@ -382,68 +385,69 @@ export function AttainmentProvider({ children }) {
   /* ======================================================================== */
 
   const loadProgrammeAtr = useCallback(
-    async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
-      if (!targetProgrammeId || !targetBatchId) {
+    async (targetBatchId = batchId) => {
+      if (!targetBatchId) {
         setProgrammeAtrStore(null);
         return null;
       }
       try {
         setError(null);
-        const response = await apiClient.get(`/atr/programme/${targetProgrammeId}`, {
-          params: { batchId: targetBatchId },
-        });
+        const response = await apiClient.get(`/programme-batches/${targetBatchId}/atr`);
         const data = unwrapResponse(response);
         setProgrammeAtrStore(data);
         return data;
       } catch (err) {
-        console.warn(`loadProgrammeAtr(${targetProgrammeId}, ${targetBatchId}) failed:`, err);
+        console.warn(`loadProgrammeAtr(${targetBatchId}) failed:`, err);
         setError(err?.customMessage || err?.message || 'Failed to load programme ATR');
         return null;
       }
     },
-    [programmeId, batchId]
+    [batchId]
   );
 
   const updateProgrammeAtr = useCallback(
-    async (targetProgrammeId = programmeId, programmeAtrData = {}) => {
-      if (!targetProgrammeId) {
-        throw new Error('programmeId is required');
+    async (targetBatchId = batchId, programmeAtrData = {}) => {
+      if (!targetBatchId) {
+        throw new Error('programmeBatchId is required');
       }
 
       try {
         setError(null);
-        const response = await reportsApi.saveProgrammeAtr(programmeAtrData);
+        const response = await apiClient.post(
+          `/programme-batches/${targetBatchId}/atr`,
+          programmeAtrData
+        );
         const data = unwrapResponse(response);
         setProgrammeAtrStore(data);
         return data;
       } catch (err) {
-        console.warn(`updateProgrammeAtr(${targetProgrammeId}) failed:`, err);
+        console.warn(`updateProgrammeAtr(${targetBatchId}) failed:`, err);
         setError(err?.customMessage || err?.message || 'Failed to save programme ATR');
         throw err;
       }
     },
-    [programmeId]
+    [batchId]
   );
 
   const submitProgrammeAtr = useCallback(
-    async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
-      if (!targetProgrammeId || !targetBatchId) {
-        throw new Error('programmeId and batchId are required');
+    async (targetBatchId = batchId) => {
+      if (!targetBatchId) {
+        throw new Error('programmeBatchId is required');
       }
 
       try {
         setError(null);
-        const response = await reportsApi.submitProgrammeAtr(targetProgrammeId, targetBatchId);
+        const response = await apiClient.post(`/programme-batches/${targetBatchId}/atr/submit`);
         const data = unwrapResponse(response);
-        await loadProgrammeAtr(targetProgrammeId, targetBatchId);
+        setProgrammeAtrStore((previous) => ({ ...previous, ...data }));
         return data;
       } catch (err) {
-        console.warn(`submitProgrammeAtr(${targetProgrammeId}, ${targetBatchId}) failed:`, err);
+        console.warn(`submitProgrammeAtr(${targetBatchId}) failed:`, err);
         setError(err?.customMessage || err?.message || 'Failed to submit programme ATR');
         throw err;
       }
     },
-    [programmeId, batchId, loadProgrammeAtr]
+    [batchId]
   );
 
   /* ======================================================================== */
@@ -475,19 +479,24 @@ export function AttainmentProvider({ children }) {
   );
 
   const uploadProgrammeExitSurvey = useCallback(async ({
-    targetProgrammeId = programmeId,
     targetBatchId = batchId,
     file,
   }) => {
-    if (!targetProgrammeId || !targetBatchId) throw new Error('programmeId and batchId are required');
+    if (!targetBatchId) throw new Error('programmeBatchId is required');
     if (!file) throw new Error('Excel file is required');
     const formData = new FormData();
     formData.append('file', file);
     try {
       setError(null);
-      const response = await apiClient.post('/attainment/programme-survey/upload', formData, {
-        params: { programmeId: targetProgrammeId, batchId: targetBatchId },
-      });
+      const response = await apiClient.post(
+        `/programme-batches/${targetBatchId}/survey/upload`,
+        formData,
+        {
+          // Let the browser add multipart/form-data with its generated boundary.
+          // The shared api client supplies the JWT Authorization header.
+          headers: { 'Content-Type': undefined },
+        }
+      );
       const data = unwrapResponse(response);
       setProgrammeSurveyData(data);
       return data;
@@ -495,7 +504,7 @@ export function AttainmentProvider({ children }) {
       setError(err?.customMessage || err?.message || 'Failed to upload programme exit survey');
       throw err;
     }
-  }, [programmeId, batchId]);
+  }, [batchId]);
 
   /* ======================================================================== */
   /* Context value with aliases for 100% backward compatibility               */

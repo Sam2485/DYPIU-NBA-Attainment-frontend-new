@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FileSpreadsheet, Grid2X2, Save } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
@@ -15,11 +15,13 @@ export default function COMappingMatrix({ hideFooter = false }) {
     activeCOs,
     yearMetrics,
     activeAttainmentConfig,
+    coMapping = null,
     updateCourseMapping = () => Promise.resolve(null),
   } = useAcademic();
 
   const [activeTab, setActiveTab] = useState('po-detail'); // 'po-detail', 'pso-detail', 'combined'
   const courseScope = selectedCourseOffering ?? selectedCourse;
+  const programmeBatchCourseId = selectedCourseOffering?.programmeBatchCourseId ?? courseOfferingId;
 
   // Dynamic parameters from Attainment Configuration
   const directWeight = activeAttainmentConfig?.directWeight || 80;
@@ -37,20 +39,63 @@ export default function COMappingMatrix({ hideFooter = false }) {
     : null;
 
   // Dynamic PO & PSO codes arrays from Outcome Management
-  const poList = (activePOs || []).map((p) => p.code);
-  const psoList = (activePSOs || []).map((p) => p.code);
-  const courseOutcomes = activeCOs || [];
+  // The programme-batch-course mapping endpoint is authoritative for this
+  // screen. Context outcomes are only a fallback while its response loads.
+  const mappingPOs = useMemo(
+    () => Array.isArray(coMapping?.pos) && coMapping.pos.length > 0 ? coMapping.pos : (activePOs || []),
+    [activePOs, coMapping?.pos]
+  );
+  const mappingPSOs = useMemo(
+    () => Array.isArray(coMapping?.psos) && coMapping.psos.length > 0 ? coMapping.psos : (activePSOs || []),
+    [activePSOs, coMapping?.psos]
+  );
+  const courseOutcomes = useMemo(
+    () => Array.isArray(coMapping?.cos) && coMapping.cos.length > 0 ? coMapping.cos : (activeCOs || []),
+    [activeCOs, coMapping?.cos]
+  );
+  const poList = mappingPOs.map((p) => p.code);
+  const psoList = mappingPSOs.map((p) => p.code);
 
   // Keyword Stores for POs & PSOs (keyed by courseId)
   const [poKeywordsStore, setPoKeywordsStore] = useState({});
   const [psoKeywordsStore, setPsoKeywordsStore] = useState({});
+  const [savedMatrix, setSavedMatrix] = useState({});
+
+  useEffect(() => {
+    setSavedMatrix(coMapping?.matrix ?? {});
+  }, [coMapping]);
+
+  useEffect(() => {
+    const hydrateKeywordStore = (apiStore, outcomeDefinitions) => {
+      if (!programmeBatchCourseId || !apiStore || !outcomeDefinitions.length) return {};
+      return {
+        [programmeBatchCourseId]: Object.fromEntries(outcomeDefinitions.map((outcome) => {
+          const competencies = Array.isArray(outcome.competencies) ? outcome.competencies : [];
+          return [outcome.code, competencies.map((competency, competencyIndex) => ({
+            ...competency,
+            keywords: Object.fromEntries(courseOutcomes.map((co) => {
+              const coId = co.courseOutcomeId ?? co.id;
+              const keywords = apiStore?.[coId]?.[outcome.code] ?? [];
+              // The API stores one keyword list per CO/outcome. Show it in the
+              // first competency row; editing still serializes all rows back
+              // into the contract's single list.
+              return [co.code, competencyIndex === 0 && Array.isArray(keywords) ? keywords.join(', ') : ''];
+            })),
+          }))];
+        })),
+      };
+    };
+
+    setPoKeywordsStore(hydrateKeywordStore(coMapping?.poKeywordsStore, mappingPOs));
+    setPsoKeywordsStore(hydrateKeywordStore(coMapping?.psoKeywordsStore, mappingPSOs));
+  }, [coMapping, courseOutcomes, mappingPOs, mappingPSOs, programmeBatchCourseId]);
 
   // Helper to get PO competencies dynamically
   const getCoursePoCompetencies = (poCode) => {
     const courseStore = (courseScope?.id && poKeywordsStore[courseScope.id]) || {};
     if (courseStore[poCode]) return courseStore[poCode];
 
-    const poObj = activePOs.find((p) => p.code === poCode);
+    const poObj = mappingPOs.find((p) => p.code === poCode);
     if (poObj && poObj.competencies && poObj.competencies.length > 0) {
       return poObj.competencies.map((c) => ({ ...c, keywords: c.keywords || {} }));
     }
@@ -63,7 +108,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
     const courseStore = (courseScope?.id && psoKeywordsStore[courseScope.id]) || {};
     if (courseStore[psoCode]) return courseStore[psoCode];
 
-    const psoObj = activePSOs.find((p) => p.code === psoCode);
+    const psoObj = mappingPSOs.find((p) => p.code === psoCode);
     if (psoObj && psoObj.competencies && psoObj.competencies.length > 0) {
       return psoObj.competencies.map((c) => ({ ...c, keywords: c.keywords || {} }));
     }
@@ -145,10 +190,16 @@ export default function COMappingMatrix({ hideFooter = false }) {
     courseOutcomes.forEach((co) => {
       matrix[co.code] = {};
       poList.forEach((poCode) => {
-        matrix[co.code][poCode] = computePoStrengthForCO(poCode, co.code);
+        const storedLevel = savedMatrix[co.code]?.[poCode];
+        matrix[co.code][poCode] = Number.isInteger(storedLevel)
+          ? storedLevel
+          : computePoStrengthForCO(poCode, co.code);
       });
       psoList.forEach((psoCode) => {
-        matrix[co.code][psoCode] = computePsoStrengthForCO(psoCode, co.code);
+        const storedLevel = savedMatrix[co.code]?.[psoCode];
+        matrix[co.code][psoCode] = Number.isInteger(storedLevel)
+          ? storedLevel
+          : computePsoStrengthForCO(psoCode, co.code);
       });
     });
     return matrix;
@@ -158,6 +209,8 @@ export default function COMappingMatrix({ hideFooter = false }) {
 
   // Combined Average Helper
   const calculateCombinedAverage = (key) => {
+    const serverAverage = coMapping?.poAverages?.[key] ?? coMapping?.psoAverages?.[key];
+    if (serverAverage !== undefined && serverAverage !== null) return Number(serverAverage).toFixed(2);
     let sum = 0;
     let count = 0;
     courseOutcomes.forEach((co) => {
@@ -171,23 +224,39 @@ export default function COMappingMatrix({ hideFooter = false }) {
   };
 
   const handleSave = async () => {
-    if (!courseOfferingId) {
+    if (!programmeBatchCourseId) {
       alert('Select an assigned programme-batch course before saving the mapping.');
       return;
     }
     const toMappings = (outcomes, outcomeKey) => courseOutcomes.flatMap((co) => outcomes
       .map((outcome) => ({
-        courseOutcomeId: co.id,
+        courseOutcomeId: co.courseOutcomeId ?? co.id,
         [outcomeKey]: outcome.code,
         mappingLevel: derivedMatrix[co.code]?.[outcome.code],
       }))
       .filter((item) => Number.isInteger(item.mappingLevel) && item.mappingLevel >= 1 && item.mappingLevel <= 3)
     );
+    const toKeywordStore = (store, outcomes) => Object.fromEntries(
+      courseOutcomes.map((co) => {
+        const outcomeId = co.courseOutcomeId ?? co.id;
+        const courseStore = store[courseScope?.id] ?? {};
+        const keywordEntries = Object.fromEntries(outcomes.map((outcome) => {
+          const keywords = (courseStore[outcome.code] ?? [])
+            .map((competency) => competency?.keywords?.[co.code])
+            .filter((keyword) => typeof keyword === 'string' && keyword.trim());
+          return [outcome.code, keywords];
+        }));
+        return [outcomeId, keywordEntries];
+      }).filter(([outcomeId]) => Boolean(outcomeId))
+    );
     try {
-      await updateCourseMapping({
-        coPoMappings: toMappings(activePOs, 'poCode'),
-        coPsoMappings: toMappings(activePSOs, 'psoCode'),
-      }, courseOfferingId);
+      const saved = await updateCourseMapping({
+        poMappings: toMappings(mappingPOs, 'poCode'),
+        psoMappings: toMappings(mappingPSOs, 'psoCode'),
+        poKeywordsStore: toKeywordStore(poKeywordsStore, mappingPOs),
+        psoKeywordsStore: toKeywordStore(psoKeywordsStore, mappingPSOs),
+      }, programmeBatchCourseId);
+      setSavedMatrix(saved?.matrix ?? derivedMatrix);
       alert(`CO to PO & PSO mapping saved for ${selectedCourseOffering?.courseCode || selectedCourse?.code || 'the selected offering'}.`);
     } catch (error) {
       console.error('Failed to save CO mapping:', error);
@@ -274,7 +343,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
       {/* VIEW 1: Detailed PO Competencies Keyword Mapping Sheet */}
       {activeTab === 'po-detail' && (
         <div>
-          {activePOs.map((poDef) => {
+          {mappingPOs.map((poDef) => {
             const comps = getCoursePoCompetencies(poDef.code);
 
             return (
@@ -421,12 +490,12 @@ export default function COMappingMatrix({ hideFooter = false }) {
       {/* VIEW 2: Detailed PSO Competencies Keyword Mapping Sheet */}
       {activeTab === 'pso-detail' && (
         <div>
-          {activePSOs.length === 0 ? (
+          {mappingPSOs.length === 0 ? (
             <div className="card" style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
               No Programme Specific Outcomes (PSOs) defined for this programme yet.
             </div>
           ) : (
-            activePSOs.map((psoDef) => {
+            mappingPSOs.map((psoDef) => {
               const comps = getCoursePsoCompetencies(psoDef.code);
 
               return (
