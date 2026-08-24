@@ -22,7 +22,9 @@ export default function LoginPage() {
   useEffect(() => {
     if (isAuthenticated) {
       const from = location.state?.from?.pathname;
-      if (from && from !== '/login') {
+      if (role === 'ADMIN') {
+        navigate('/admin/dashboard', { replace: true });
+      } else if (from && from !== '/login') {
         navigate(from, { replace: true });
       } else if (role === 'DIRECTOR') {
         navigate('/director/dashboard', { replace: true });
@@ -94,8 +96,8 @@ export default function LoginPage() {
           position: 'absolute',
           inset: 0,
           background: 'linear-gradient(135deg, rgba(10, 16, 30, 0.78) 0%, rgba(15, 23, 42, 0.85) 50%, rgba(6, 11, 25, 0.92) 100%)',
-          backdropFilter: 'blur(2px)',
-          WebkitBackdropFilter: 'blur(2px)',
+          backdropFilter: 'blur(0px)',
+          WebkitBackdropFilter: 'blur(0px)',
           zIndex: 1,
         }}
       />
@@ -118,21 +120,13 @@ export default function LoginPage() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '14px',
-            background: 'rgba(255, 255, 255, 0.94)',
-            padding: '8px 18px',
-            borderRadius: '16px',
-            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.25)',
-            border: '1px solid rgba(255, 255, 255, 0.4)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
           }}
         >
           <img
             src={dypLogo}
             alt="DYPIU Logo"
             style={{
-              height: '48px',
+              height: '125px',
               width: 'auto',
               objectFit: 'contain',
               display: 'block',
@@ -145,21 +139,13 @@ export default function LoginPage() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '14px',
-            background: 'rgba(255, 255, 255, 0.94)',
-            padding: '8px 18px',
-            borderRadius: '16px',
-            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.25)',
-            border: '1px solid rgba(255, 255, 255, 0.4)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
           }}
         >
           <img
             src={iqacLogo}
             alt="IQAC Logo"
             style={{
-              height: '48px',
+              height: '125px',
               width: 'auto',
               objectFit: 'contain',
               display: 'block',
@@ -185,8 +171,8 @@ export default function LoginPage() {
             width: '100%',
             maxWidth: '460px',
             background: 'rgba(15, 23, 42, 0.68)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
             border: '1px solid rgba(255, 255, 255, 0.16)',
             borderRadius: '24px',
             boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.2)',

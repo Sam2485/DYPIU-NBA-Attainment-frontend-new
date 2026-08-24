@@ -41,14 +41,14 @@ const targetSignature = (pos, psos, poTargets, psoTargets) => JSON.stringify({
 });
 
 const STEPS = [
-  { number: 1, title: 'Add Courses',        desc: 'Add & allocate courses under programme',      path: '/programme-coordinator/courses',         icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
-  { number: 2, title: 'Set PO/PSO Targets', desc: 'Configure PO & PSO target levels (1.0 – 3.0)', path: '/programme-coordinator/target-settings', icon: Target,       color: '#7c3aed', bg: '#f5f3ff' },
-  { number: 3, title: 'Indirect Attainment', desc: 'Upload programme end survey', path: '/programme-coordinator/indirect-attainment', icon: ClipboardList, color: '#059669', bg: '#f0fdf4' },
-  { number: 4, title: 'Programme ATR',     desc: 'Fill & submit Programme Action Taken Report', path: '/programme-coordinator/programme-atr',   icon: Layers,       color: '#0284c7', bg: '#f0f9ff' },
-  { number: 5, title: 'Review and Confirm', desc: 'Verify setup summary & finish',               path: '/programme-coordinator/reports',         icon: CheckCircle2, color: '#059669', bg: '#f0fdf4' },
+  { number: 1, key: 'courses', title: 'Add Courses',        desc: 'Add & allocate courses under programme',      path: '/programme-coordinator/courses',         icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
+  { number: 2, key: 'po_pso_target', title: 'Set PO/PSO Targets', desc: 'Configure PO & PSO target levels (1.0 – 3.0)', path: '/programme-coordinator/target-settings', icon: Target,       color: '#7c3aed', bg: '#f5f3ff' },
+  { number: 3, key: 'indirect_attainment', title: 'Indirect Attainment', desc: 'Upload programme end survey', path: '/programme-coordinator/indirect-attainment', icon: ClipboardList, color: '#059669', bg: '#f0fdf4' },
+  { number: 4, key: 'programme_atr', title: 'Programme ATR',     desc: 'Fill & submit Programme Action Taken Report', path: '/programme-coordinator/programme-atr',   icon: Layers,       color: '#0284c7', bg: '#f0f9ff' },
+  { number: 5, key: 'review', title: 'Review and Confirm', desc: 'Verify setup summary & finish',               path: '/programme-coordinator/reports',         icon: CheckCircle2, color: '#059669', bg: '#f0fdf4' },
 ];
 
-export default function ProgrammeCoordinatorSetupWorkflow() {
+export default function ProgrammeCoordinatorSetupWorkflow({ standaloneTargetSettings = false }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
@@ -74,9 +74,10 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     updateProgrammeBatchCourse = () => Promise.resolve(null),
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
-    pcWorkflowProgressStore = {},
-    markPcWorkflowStepComplete = () => {},
-    completePcSetupProgress = () => Promise.resolve(null),
+    setupProgress = null,
+    loadSetupProgress = () => Promise.resolve(null),
+    saveSetupProgress = () => Promise.resolve(null),
+    completeProgrammeCoordinatorSetupProgress = () => Promise.resolve(null),
     loadCoordinatorProgrammeBatches = () => Promise.resolve([]),
     loadCourseCoordinators = () => Promise.resolve([]),
   } = useAcademic();
@@ -87,7 +88,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   // Defaults in destructuring do not cover an explicit null value, so normalize
   // each record store before indexing it.
   const safeCourseVerificationStore = courseVerificationStore ?? {};
-  const safePcWorkflowProgressStore = pcWorkflowProgressStore ?? {};
+  const loadedProgressScopeRef = useRef(null);
 
   // Refresh the available batches for the programme selected in the sidebar.
   // The selected batch is restored from session storage and retained whenever
@@ -110,6 +111,15 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
 
     return () => { isCurrent = false; };
   }, [batchId, loadCoordinatorProgrammeBatches, programmeId, setBatchId, user?.email]);
+
+  // Setup progress is scoped by the master programme selected in the sidebar.
+  useEffect(() => {
+    if (!programmeId || !user?.email) return;
+    const scope = `${programmeId}:${user.email}`;
+    if (loadedProgressScopeRef.current === scope) return;
+    loadedProgressScopeRef.current = scope;
+    loadSetupProgress().catch(() => {});
+  }, [loadSetupProgress, programmeId, user?.email]);
 
   // The server should enforce this scope. When assignment metadata is returned
   // with a batch, also keep unrelated batches out of this coordinator's UI.
@@ -168,13 +178,22 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const programmeSemesters = Array.from({ length: totalSemesters }, (_, i) => `Sem ${ROMAN_NUMERALS[i] || i + 1}`);
 
   // ── Per-step completion flags ──────────────────────────────────────────────
-  const progProgress = (selectedProgramme?.id && safePcWorkflowProgressStore[selectedProgramme.id]) || {};
+  const progProgress = setupProgress ?? {};
   const stepDone = STEPS.map((s, idx) => {
-    if (Array.isArray(progProgress?.stepStatus)) {
-      return !!progProgress.stepStatus[idx];
+    const stepStatus = progProgress?.stepStatus ?? progProgress?.stepStatuses;
+    if (Array.isArray(stepStatus)) {
+      return !!stepStatus[idx];
     }
     if (Array.isArray(progProgress?.completedSteps)) {
-      return progProgress.completedSteps.includes(s.number);
+      return progProgress.completedSteps.some((step) => (
+        String(step) === s.key || Number(step) === s.number
+      ));
+    }
+    // Older responses expose only the current step. All preceding steps have
+    // necessarily completed and should still receive their green check.
+    const reportedCurrentStep = Number(progProgress?.currentStep);
+    if (Number.isFinite(reportedCurrentStep) && reportedCurrentStep > 0) {
+      return s.number < reportedCurrentStep;
     }
     return !!progProgress?.[s.number] || !!progProgress?.[s.path];
   });
@@ -189,10 +208,15 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   const hasValidParam = parsedStep >= 1 && parsedStep <= STEPS.length;
 
   const [currentStep, setCurrentStep] = useState(
-    hasValidParam ? parsedStep : firstIncompleteStep
+    standaloneTargetSettings ? 2 : (hasValidParam ? parsedStep : firstIncompleteStep)
   );
 
   useEffect(() => {
+    if (standaloneTargetSettings) {
+      if (currentStep !== 2) setCurrentStep(2);
+      return;
+    }
+
     const s = parseInt(searchParams.get('step'), 10);
     if (!s || isNaN(s) || s < 1 || s > STEPS.length) {
       setSearchParams({ step: firstIncompleteStep }, { replace: true });
@@ -200,7 +224,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
     } else if (s !== currentStep) {
       setCurrentStep(s);
     }
-  }, [searchParams, firstIncompleteStep]);
+  }, [currentStep, firstIncompleteStep, searchParams, setSearchParams, standaloneTargetSettings]);
 
   const goToStep = (n) => {
     setCurrentStep(n);
@@ -381,7 +405,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
       if (currentStep === 2) {
         await handleSaveTargets();
       }
-      await markPcWorkflowStepComplete(selectedProgramme.id, currentStep);
+      await saveSetupProgress(Math.min(currentStep + 1, STEPS.length), currentStep);
       if (currentStep < STEPS.length) goToStep(currentStep + 1);
     } catch (error) {
       console.error('Failed to save Programme Coordinator setup progress:', error);
@@ -398,7 +422,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
   };
 
   const handleFinish = async () => {
-    await completePcSetupProgress(programmeId, batchId);
+    await completeProgrammeCoordinatorSetupProgress();
     navigate('/programme-coordinator/dashboard');
   };
 
@@ -524,7 +548,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
       )}
 
       {/* ── STEP STEPPER (icon circles) ───────────────────────────────────────── */}
-      <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px' }}>
+      {!standaloneTargetSettings && <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px' }}>
         <div style={{ position: 'relative' }}>
           {/* connector line */}
           <div style={{
@@ -579,7 +603,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
             })}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* ── STEP CONTENT ──────────────────────────────────────────────────── */}
       <div style={{ ...surface, padding: '24px', marginBottom: '20px' }}>
@@ -1107,7 +1131,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
       </div>{/* end step content */}
 
       {/* ── FOOTER NAV ────────────────────────────────────────────────────── */}
-      <div style={{
+      {!standaloneTargetSettings && <div style={{
         ...surface,
         padding: '14px 20px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -1201,7 +1225,7 @@ export default function ProgrammeCoordinatorSetupWorkflow() {
             </button>
           )}
         </div>
-      </div>
+      </div>}
 
     </div>
   );

@@ -69,10 +69,8 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
   const level3Percentages = surveyData?.level3Percentages || {};
   const overallIndirectPercentages = surveyData?.overallIndirectPercentages || {};
   const coAttainmentLevels = surveyData?.coAttainmentLevels || {};
-  const indirectAttainmentScores = surveyData?.indirectAttainmentScores || {};
   const surveyResponses = Array.isArray(surveyData?.surveyResponses) ? surveyData.surveyResponses : [];
   const totalResponses = surveyData?.totalStudents ?? surveyData?.totalResponses ?? surveyResponses.length;
-  const overallIndirectCoAttainment = surveyData?.overallIndirectCoAttainment ?? surveyData?.averageAttainmentLevel ?? 0;
 
   const apiCoKeys = [...new Set([
     ...Object.keys(level1Counts),
@@ -211,11 +209,6 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
               {totalResponses > 0 ? `${totalResponses} Student Responses Collected` : 'No survey data uploaded yet'}
             </span>
           </div>
-          {totalResponses > 0 && (
-            <span className="badge badge-active" style={{ fontSize: '13px', padding: '6px 12px' }}>
-              Overall Indirect CO Attainment: {Number(overallIndirectCoAttainment).toFixed(2)}
-            </span>
-          )}
         </div>
 
         <div style={{ overflowX: 'auto', width: '100%' }}>
@@ -236,12 +229,12 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
               ) : (
                 <>
                   {[
-                    ['Count of each level', 'Level 1', level1Counts],
-                    ['Count of each level', 'Level 2', level2Counts],
-                    ['Count of each level', 'Level 3', level3Counts],
-                    ['% of students', 'Level 1', level1Percentages],
-                    ['% of students', 'Level 2', level2Percentages],
-                    ['% of students', 'Level 3', level3Percentages],
+                    ['Count of each level', '1', level1Counts],
+                    ['Count of each level', '2', level2Counts],
+                    ['Count of each level', '3', level3Counts],
+                    ['% of students', '1', level1Percentages],
+                    ['% of students', '2', level2Percentages],
+                    ['% of students', '3', level3Percentages],
                   ].map(([group, label, values], index) => (
                     <tr key={`${group}-${label}`} style={index === 3 ? { borderTop: '2px solid #cbd5e1' } : undefined}>
                       <td style={{ fontWeight: '700', color: '#334155' }}>{group}</td>
@@ -260,14 +253,12 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
                     ))}
                   </tr>
                   <tr style={{ background: '#f8fafc' }}>
-                    <td colSpan={2} style={{ fontWeight: '700' }}>Indirect Attainment Score / Level</td>
+                    <td colSpan={2} style={{ fontWeight: '700' }}>Indirect Attainment Level</td>
                     {coColumns.map((column) => {
-                      const score = readCoValue(indirectAttainmentScores, column);
                       const level = readCoValue(coAttainmentLevels, column);
                       return (
                       <td key={column.id} style={{ textAlign: 'center', fontWeight: '700' }}>
-                        {score != null ? Number(score).toFixed(2) : '—'}
-                        {level != null ? ` / L${level}` : ''}
+                        {level ?? '—'}
                       </td>
                       );
                     })}

@@ -3,6 +3,11 @@ import { Save, Check, ChevronDown, AlertCircle, CheckCircle2, Lock, Send, Clock 
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
+import ProgrammeCoordinatorSetupWorkflow from './ProgrammeCoordinatorSetupWorkflow';
+
+export default function ProgrammeTargetSettings() {
+  return <ProgrammeCoordinatorSetupWorkflow standaloneTargetSettings />;
+}
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -20,7 +25,7 @@ const TARGET_INPUT = {
   style: { height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: accent, background: '#ffffff' },
 };
 
-export default function ProgrammeTargetSettings() {
+function LegacyProgrammeTargetSettings() {
   const { user } = useAuth();
   const {
     masterProgrammes    = [],

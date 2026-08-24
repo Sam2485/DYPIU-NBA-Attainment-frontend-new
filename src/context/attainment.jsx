@@ -204,16 +204,16 @@ export function AttainmentProvider({ children }) {
   /* ======================================================================== */
 
   const loadSurveyData = useCallback(
-    async (targetOfferingId = courseOfferingId) => {
-      if (!targetOfferingId) return null;
+    async (programmeBatchCourseId = courseOfferingId) => {
+      if (!programmeBatchCourseId) return null;
       try {
         setError(null);
-        const response = await attainmentApi.getSurveyAttainment(targetOfferingId);
+        const response = await attainmentApi.getSurveyAttainment(programmeBatchCourseId);
         const data = unwrapResponse(response);
         setSurveyData(data);
         return data;
       } catch (err) {
-        console.warn(`loadSurveyData(${targetOfferingId}) failed:`, err);
+        console.warn(`loadSurveyData(${programmeBatchCourseId}) failed:`, err);
         setError(err?.customMessage || err?.message || 'Failed to load survey data');
         return null;
       }

@@ -74,6 +74,7 @@ const toAuthenticatedUser = (backendUser, fallbackEmail = null) => {
     role,
     roleLabel: getRoleLabel(role),
     schoolId: backendUser.schoolId ?? backendUser.school_id ?? null,
+    schoolName: backendUser.schoolName ?? backendUser.school_name ?? backendUser.school?.name ?? null,
     departmentId: backendUser.departmentId ?? backendUser.department_id ?? null,
     programmeId: backendUser.programmeId ?? backendUser.programme_id ?? null,
     school: backendUser.school ?? null,
@@ -315,7 +316,7 @@ export function AuthProvider({ children }) {
 
         case 'ADMIN':
           targetPath =
-            '/director/dashboard';
+            '/admin/dashboard';
           break;
 
         default:

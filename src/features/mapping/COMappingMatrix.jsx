@@ -75,11 +75,16 @@ export default function COMappingMatrix({ hideFooter = false }) {
             ...competency,
             keywords: Object.fromEntries(courseOutcomes.map((co) => {
               const coId = co.courseOutcomeId ?? co.id;
-              const keywords = apiStore?.[coId]?.[outcome.code] ?? [];
-              // The API stores one keyword list per CO/outcome. Show it in the
-              // first competency row; editing still serializes all rows back
-              // into the contract's single list.
-              return [co.code, competencyIndex === 0 && Array.isArray(keywords) ? keywords.join(', ') : ''];
+              const storedKeywords = apiStore?.[coId]?.[outcome.code];
+              const competencyCode = competency.code ?? `${outcome.code}.${competencyIndex + 1}`;
+
+              // New contract: CO -> PO/PSO -> competencyCode -> keywords[].
+              // Fall back to the old flat array only so pre-migration records
+              // remain visible; the old format cannot preserve row identity.
+              const keywords = Array.isArray(storedKeywords)
+                ? (competencyIndex === 0 ? storedKeywords : [])
+                : storedKeywords?.[competencyCode] ?? [];
+              return [co.code, Array.isArray(keywords) ? keywords.join(', ') : ''];
             })),
           }))];
         })),
@@ -241,10 +246,16 @@ export default function COMappingMatrix({ hideFooter = false }) {
         const outcomeId = co.courseOutcomeId ?? co.id;
         const courseStore = store[courseScope?.id] ?? {};
         const keywordEntries = Object.fromEntries(outcomes.map((outcome) => {
-          const keywords = (courseStore[outcome.code] ?? [])
-            .map((competency) => competency?.keywords?.[co.code])
-            .filter((keyword) => typeof keyword === 'string' && keyword.trim());
-          return [outcome.code, keywords];
+          const competencies = courseStore[outcome.code] ?? [];
+          const competencyEntries = Object.fromEntries(competencies.map((competency, competencyIndex) => {
+            const competencyCode = competency?.code ?? `${outcome.code}.${competencyIndex + 1}`;
+            const keywords = String(competency?.keywords?.[co.code] ?? '')
+              .split(',')
+              .map((keyword) => keyword.trim())
+              .filter(Boolean);
+            return [competencyCode, keywords];
+          }));
+          return [outcome.code, competencyEntries];
         }));
         return [outcomeId, keywordEntries];
       }).filter(([outcomeId]) => Boolean(outcomeId))

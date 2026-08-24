@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen,
@@ -33,28 +33,27 @@ export default function ProgrammeCoordinatorDashboard() {
   const { user } = useAuth();
   const {
     programmeId = null,
-    setProgrammeId,
+    masterProgrammes = [],
+    batchId,
     setBatchId,
     programmeCoordinatorDashboard = null,
     pcWorkflowProgress = null,
     loadProgrammeCoordinatorDashboard,
-    loadPcSetupProgress,
   } = useAcademic();
 
   const [screenLoading, setScreenLoading] = useState(false);
   const [screenError, setScreenError] = useState(null);
+  const dashboardRequestScopeRef = useRef(null);
 
-  const selectedProgramme = programmeCoordinatorDashboard?.programme ?? null;
+  const selectedSidebarProgramme = masterProgrammes.find(
+    (programme) => String(programme.id) === String(programmeId)
+  ) ?? null;
+  const selectedProgramme = programmeCoordinatorDashboard?.programme ?? selectedSidebarProgramme;
 
-  // The coordinator is scoped to the programme assigned in the authenticated
-  // user payload. Keep that programme selected before navigating to setup.
-  const activeProgId = programmeId || user?.programmeId || programmeCoordinatorDashboard?.masterProgrammeId;
-
-  useEffect(() => {
-    if (activeProgId && programmeId !== activeProgId) {
-      setProgrammeId(activeProgId);
-    }
-  }, [activeProgId, programmeId, setProgrammeId]);
+  // The sidebar resolves the coordinator's assigned programmes first. Do not
+  // call the dashboard until its selected master programme exists in that
+  // authoritative list.
+  const activeProgId = selectedSidebarProgramme?.id ?? null;
 
   const fetchPcData = async () => {
     setScreenLoading(true);
@@ -62,11 +61,15 @@ export default function ProgrammeCoordinatorDashboard() {
     try {
       if (!activeProgId) return;
       const dashboard = await loadProgrammeCoordinatorDashboard(activeProgId, user?.email);
-      const activeBatch = dashboard?.batches?.find((batch) => batch.status === 'ACTIVE') || dashboard?.batches?.[0];
+      const activeBatch =
+        dashboard?.batches?.find((batch) => (
+          (batch.programmeBatchId ?? batch.id) === dashboard?.setupProgress?.programmeBatchId
+        )) ??
+        dashboard?.batches?.find((batch) => batch.status === 'ACTIVE') ??
+        dashboard?.batches?.[0];
       const activeBatchId = activeBatch?.programmeBatchId ?? activeBatch?.id;
-      if (activeBatchId) {
+      if (activeBatchId && !batchId) {
         setBatchId(activeBatchId);
-        await loadPcSetupProgress(activeProgId, activeBatchId, user?.email);
       }
     } catch (err) {
       console.warn('ProgrammeCoordinatorDashboard fetch failed:', err);
@@ -77,17 +80,35 @@ export default function ProgrammeCoordinatorDashboard() {
   };
 
   useEffect(() => {
+    if (!activeProgId || !user?.email) return;
+    const requestScope = `${activeProgId}:${user.email.toLowerCase()}`;
+    if (dashboardRequestScopeRef.current === requestScope) return;
+    dashboardRequestScopeRef.current = requestScope;
     fetchPcData();
-  }, [activeProgId, loadPcSetupProgress, loadProgrammeCoordinatorDashboard, setBatchId, user?.email]);
+  }, [activeProgId, loadProgrammeCoordinatorDashboard, setBatchId, user?.email]);
 
   const dashboardStatistics = programmeCoordinatorDashboard?.statistics ?? {};
   const courseCount = dashboardStatistics.courses ?? dashboardStatistics.coursesCount ?? 0;
+  const courseOfferingsCount =
+    dashboardStatistics.programmeBatchCourses ??
+    dashboardStatistics.programmeBatchCoursesCount ??
+    dashboardStatistics.totalProgrammeBatchCourses ??
+    dashboardStatistics.courseOfferings ??
+    0;
   const pendingVerifications = dashboardStatistics.pendingVerifications ?? 0;
+  const pendingCourseAtrApprovals = dashboardStatistics.pendingCourseAtrApprovals ?? 0;
   const dashboardBatches = programmeCoordinatorDashboard?.batches ?? [];
-  const activeBatchLabel = dashboardBatches.find((batch) => batch.status === 'ACTIVE')?.name || dashboardBatches[0]?.name || '—';
+  const activeBatchLabel =
+    programmeCoordinatorDashboard?.activeBatch ??
+    dashboardBatches.find((batch) => (
+      (batch.programmeBatchId ?? batch.id) === programmeCoordinatorDashboard?.setupProgress?.programmeBatchId
+    ))?.name ??
+    dashboardBatches.find((batch) => batch.status === 'ACTIVE')?.name ??
+    dashboardBatches[0]?.name ??
+    '—';
 
   // ── Per-step completion tracking ───────────────────────────────────────────
-  const safeProgress = pcWorkflowProgress ?? programmeCoordinatorDashboard?.setupProgress ?? {};
+  const safeProgress = programmeCoordinatorDashboard?.setupProgress ?? pcWorkflowProgress ?? {};
   const workflowProgress = programmeCoordinatorDashboard?.workflowProgress ?? {};
   const stepStatus = PC_STEPS.map((s, idx) => {
     if (Object.prototype.hasOwnProperty.call(workflowProgress, String(s.step))) {
@@ -236,16 +257,16 @@ export default function ProgrammeCoordinatorDashboard() {
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>In active curriculum</div>
         </div>
 
-        {/* POs & PSOs */}
+        {/* Course Offerings */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>POs & PSOs</span>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Course Offerings</span>
             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f5f3ff', display: 'grid', placeItems: 'center', color: '#7c3aed' }}>
               <Target size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>—</div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>Not provided by dashboard</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{courseOfferingsCount}</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>Across the selected batches</div>
         </div>
 
         {/* Pending Verifications */}
@@ -260,7 +281,9 @@ export default function ProgrammeCoordinatorDashboard() {
             {pendingVerifications}
           </div>
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>
-            {pendingVerifications > 0 ? 'From Course Coordinators' : 'All up to date'}
+            {pendingVerifications > 0
+              ? `${pendingCourseAtrApprovals} course ATR approval(s) pending`
+              : 'All up to date'}
           </div>
         </div>
 

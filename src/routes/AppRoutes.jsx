@@ -32,6 +32,7 @@ import DirectorSetupWorkflowPage from '../pages/director/DirectorSetupWorkflowPa
 import ProgrammeCoordinatorDashboardPage from '../pages/programme-coordinator/ProgrammeCoordinatorDashboardPage';
 import ProgrammeCoordinatorSetupWorkflowPage from '../pages/programme-coordinator/ProgrammeCoordinatorSetupWorkflowPage';
 import ProgrammeTargetSettingsPage from '../pages/programme-coordinator/ProgrammeTargetSettingsPage';
+import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
 
 // HOD Pages
 import HodBatchManagementPage from '../pages/hod/HodBatchManagementPage';
@@ -65,6 +66,14 @@ function ProtectedRoute({ children }) {
   );
 }
 
+function AdminRoute({ children }) {
+  const { role, isRestoringSession } = useAuth();
+
+  if (isRestoringSession) return null;
+  if (role !== 'ADMIN') return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -85,6 +94,16 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <CourseCoordinatorWorkflowPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/dashboard"
+        element={
+          <ProtectedRoute>
+            <AdminRoute>
+              <AdminDashboardPage />
+            </AdminRoute>
           </ProtectedRoute>
         }
       />

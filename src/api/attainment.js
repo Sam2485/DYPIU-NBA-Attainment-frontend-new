@@ -37,8 +37,10 @@ export const attainmentApi = {
   // ---------------------------------------------------------------------------
   // Indirect Assessment (Course End Survey) - Sheet 3
   // ---------------------------------------------------------------------------
-  getSurveyAttainment: (courseOfferingId) =>
-    apiClient.get(`/attainment/survey/${courseOfferingId}`),
+  // Survey results are owned by the programme-batch-course, not the legacy
+  // course-offering attainment endpoint.
+  getSurveyAttainment: (programmeBatchCourseId) =>
+    apiClient.get(`/programme-batch-courses/${programmeBatchCourseId}/survey`),
 
   saveSurveyResponses: (courseOfferingId, payload) =>
     apiClient.post(`/attainment/survey/${courseOfferingId}`, payload),

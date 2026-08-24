@@ -155,6 +155,14 @@ const normalizeCourse = (course) => ({
   courseOfferingId: course?.courseOfferingId ?? null,
 });
 
+const PC_SETUP_STEP_KEYS = {
+  1: 'courses',
+  2: 'po_pso_target',
+  3: 'indirect_attainment',
+  4: 'programme_atr',
+  5: 'review',
+};
+
 const normalizeOffering = (offering) => ({
   id: offering?.id ?? offering?.programmeBatchCourseId ?? null,
   programmeBatchCourseId: offering?.programmeBatchCourseId ?? offering?.id ?? null,
@@ -1082,7 +1090,8 @@ export function AcademicProvider({ children }) {
   const loadProgrammeCoordinatorDashboard = useCallback(
     async (targetProgrammeId = programmeId) => {
       try {
-        const params = targetProgrammeId ? { programmeId: targetProgrammeId } : {};
+        const params = targetProgrammeId ? { masterProgrammeId: targetProgrammeId } : {};
+        if (user?.email) params.coordinatorEmail = user.email;
         const response = await apiClient.get('/dashboard/programme-coordinator', { params });
         const data = unwrap(response);
         setProgrammeCoordinatorDashboard(data);
@@ -1092,7 +1101,7 @@ export function AcademicProvider({ children }) {
         return null;
       }
     },
-    [programmeId]
+    [programmeId, user?.email]
   );
 
   const loadCourseCoordinatorDashboard = useCallback(
@@ -1131,12 +1140,11 @@ export function AcademicProvider({ children }) {
         if (user?.email) params.hodEmail = user.email;
         response = await apiClient.get('/academic/hod/setup-progress', { params });
       } else if (role === 'PROGRAMME_COORDINATOR') {
-        if (!programmeId || !batchId) return null;
+        if (!programmeId) return null;
         response = await apiClient.get('/academic/coordinator/setup-progress', {
           params: {
             coordinatorEmail: user?.email,
-            programmeId,
-            batchId,
+            masterProgrammeId: programmeId,
           },
         });
       } else if (role === 'FACULTY' || role === 'COURSE_COORDINATOR') {
@@ -1199,12 +1207,17 @@ export function AcademicProvider({ children }) {
         };
       } else if (role === 'PROGRAMME_COORDINATOR') {
         endpoint = '/academic/coordinator/setup-progress';
+        const completedStepKey = PC_SETUP_STEP_KEYS[Number(completedStep)] ?? String(completedStep);
+        const completedSteps = [
+          ...(Array.isArray(setupProgress?.completedSteps) ? setupProgress.completedSteps : []),
+          completedStepKey,
+        ].map(String).filter((step, index, allSteps) => allSteps.indexOf(step) === index);
         payload = {
-          coordinatorEmail: user?.email,
-          programmeId,
+          masterProgrammeId: programmeId,
           batchId,
+          coordinatorEmail: user?.email,
           currentStep: nextStep,
-          completedStep: String(completedStep),
+          completedSteps,
         };
       } else if (role === 'FACULTY' || role === 'COURSE_COORDINATOR') {
         endpoint = '/academic/course-coordinator/setup-progress';
@@ -1232,8 +1245,24 @@ export function AcademicProvider({ children }) {
       batchId,
       courseId,
       courseOfferingId,
+      setupProgress?.completedSteps,
     ]
   );
+
+  const completeProgrammeCoordinatorSetupProgress = useCallback(async () => {
+    if (!programmeId) {
+      throw new Error('masterProgrammeId is required to complete Programme Coordinator setup progress.');
+    }
+
+    const response = await apiClient.post(
+      '/academic/coordinator/setup-progress/complete',
+      null,
+      { params: { masterProgrammeId: programmeId } }
+    );
+    const data = unwrap(response);
+    setSetupProgress(data);
+    return data;
+  }, [programmeId]);
 
   /* --- School CRUD --- */
   const createSchool = useCallback(async (data) => {
@@ -1936,6 +1965,7 @@ export function AcademicProvider({ children }) {
     setupProgress,
     loadSetupProgress,
     saveSetupProgress,
+    completeProgrammeCoordinatorSetupProgress,
 
     /* Students */
     students,

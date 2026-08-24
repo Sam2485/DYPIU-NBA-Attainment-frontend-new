@@ -91,6 +91,7 @@ const FACULTY_NAV = [
 export default function AppSidebar() {
   const { user, role, logout } = useAuth();
   const courseCoordinatorBatchScopeRef = useRef(null);
+  const coordinatorMasterProgrammeScopeRef = useRef(null);
   const {
     academicYear = '2025-26',
     setAcademicYear = () => {},
@@ -201,9 +202,22 @@ export default function AppSidebar() {
   }, [departments, role, selectedDepartmentId, setSelectedDepartmentId, user?.departmentId]);
 
   useEffect(() => {
-    if (role !== 'PROGRAMME_COORDINATOR') return;
+    if (role !== 'PROGRAMME_COORDINATOR' || !user?.email) return;
+    const requestScope = user.email.toLowerCase();
+    if (coordinatorMasterProgrammeScopeRef.current === requestScope) return;
+    coordinatorMasterProgrammeScopeRef.current = requestScope;
+
     loadCoordinatorMasterProgrammes(user?.email).then((programmes) => {
-      if (!programmeId && programmes[0]?.id) setProgrammeId(programmes[0].id);
+      const storedProgrammeId = typeof window === 'undefined'
+        ? null
+        : sessionStorage.getItem(`nba_pc_selected_master_programme:${user.email}`);
+      const preferredProgrammeId = programmeId ?? storedProgrammeId;
+      const selectedProgrammeExists = programmes.some(
+        (programme) => String(programme.id) === String(preferredProgrammeId)
+      );
+      if (!selectedProgrammeExists) {
+        setProgrammeId(programmes[0]?.id ?? null);
+      }
     }).catch(() => {});
   }, [loadCoordinatorMasterProgrammes, programmeId, role, setProgrammeId, user?.email]);
 
@@ -335,11 +349,11 @@ export default function AppSidebar() {
             letterSpacing: '0.04em',
           }}
         >
-          NBA
+          OBE
         </div>
         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <strong style={{ color: '#fff', fontSize: 13.5, fontWeight: 800, lineHeight: 1.2 }}>
-            NBA Attainment System
+            OBE Attainment System
           </strong>
           <span style={{ color: '#8292ad', fontSize: 10.5, lineHeight: 1.2 }}>
             D. Y. Patil International University
