@@ -3,6 +3,7 @@ import {
   useContext,
   useState,
   useEffect,
+  useCallback,
 } from 'react';
 
 import apiClient from '../api/client';
@@ -287,7 +288,7 @@ export function UserProvider({
   /* Refresh Users                                                            */
   /* ------------------------------------------------------------------------ */
 
-  const refreshUsers =
+  const refreshUsers = useCallback(
     async () => {
       setLoading(true);
       setError(null);
@@ -341,7 +342,9 @@ export function UserProvider({
       } finally {
         setLoading(false);
       }
-    };
+    },
+    []
+  );
 
   /* ------------------------------------------------------------------------ */
   /* Get User                                                                 */

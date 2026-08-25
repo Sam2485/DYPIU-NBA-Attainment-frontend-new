@@ -27,7 +27,10 @@ export default function AdminDashboardPage() {
   const [selectedRole, setSelectedRole] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => { Promise.all([refreshUsers(), loadSchools()]).catch(() => {}); }, [loadSchools, refreshUsers]);
+  useEffect(() => {
+    Promise.all([refreshUsers(), loadSchools()]).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const openAddUser = () => { setEditingUser(null); setUserForm(emptyUser); setError(''); setShowUserModal(true); };
   const openEditUser = (target) => { setEditingUser(target); setUserForm({ name: target.name || '', email: target.email || '', password: '', role: target.role || 'FACULTY', schoolId: target.schoolId || '' }); setError(''); setShowUserModal(true); };
   const saveUser = async (event) => {
