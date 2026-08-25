@@ -395,11 +395,8 @@ export function AuthProvider({ children }) {
     } finally {
       setUser(null);
       setRole(null);
-      setToken(null);
-      clearApiAuthToken();
-      clearStoredSession();
-      window.location.href =
-        '/login';
+      const basePath = import.meta.env.BASE_URL ? import.meta.env.BASE_URL.replace(/\/+$/, '') : '/nba';
+      window.location.href = `${basePath}/login`;
     }
   };
 

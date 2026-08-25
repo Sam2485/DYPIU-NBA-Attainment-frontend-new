@@ -40,7 +40,8 @@ export class ErrorBoundary extends Component {
     if (window.history.length > 1) {
       window.history.back();
     } else {
-      window.location.href = '/dashboard';
+      const basePath = import.meta.env.BASE_URL ? import.meta.env.BASE_URL.replace(/\/+$/, '') : '/nba';
+      window.location.href = `${basePath}/dashboard`;
     }
   };
 

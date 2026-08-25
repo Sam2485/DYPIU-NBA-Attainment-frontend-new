@@ -45,10 +45,10 @@ export const AuthProvider = ({ children }) => {
       await authApi.logout().catch(() => {});
     } finally {
       sessionStorage.removeItem('authToken');
-      sessionStorage.removeItem('admin_user');
       setToken(null);
       setUser(null);
-      window.location.href = '/login';
+      const basePath = import.meta.env.BASE_URL ? import.meta.env.BASE_URL.replace(/\/+$/, '') : '/nba';
+      window.location.href = `${basePath}/login`;
     }
   }, []);
 
