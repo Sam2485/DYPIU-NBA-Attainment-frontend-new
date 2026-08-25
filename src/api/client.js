@@ -15,17 +15,24 @@ const resolveBaseUrl = () => {
       : `${trimmed}/api/v1`;
   }
 
-  if (
-    typeof window !== 'undefined' &&
-    window.location?.hostname
-  ) {
+  if (typeof window !== 'undefined') {
+    // When served through reverse proxy under /nba
+    if (window.location.pathname.startsWith('/nba')) {
+      return '/nba/api/v1';
+    }
+
+    // When running in local Vite dev server on port 5173
+    if (window.location.port === '5173') {
+      return '/api/v1';
+    }
+
     const protocol = window.location.protocol || 'http:';
     const host = window.location.hostname;
 
-    return `${protocol}//${host}:8080/api/v1`;
+    return `${protocol}//${host}:8010/api/v1`;
   }
 
-  return 'https://localhost:8080/api/v1';
+  return '/nba/api/v1';
 };
 
 /* ========================================================================== */

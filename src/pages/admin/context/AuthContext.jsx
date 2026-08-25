@@ -44,11 +44,10 @@ export const AuthProvider = ({ children }) => {
     try {
       await authApi.logout().catch(() => {});
     } finally {
-      sessionStorage.removeItem('authToken');
-      sessionStorage.removeItem('admin_user');
       setToken(null);
       setUser(null);
-      window.location.href = '/login';
+      const isNba = typeof window !== 'undefined' && window.location.pathname.startsWith('/nba');
+      window.location.href = isNba ? '/nba/login' : '/login';
     }
   }, []);
 

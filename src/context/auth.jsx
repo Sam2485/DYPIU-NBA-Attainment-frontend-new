@@ -393,13 +393,8 @@ export function AuthProvider({ children }) {
         error
       );
     } finally {
-      setUser(null);
-      setRole(null);
-      setToken(null);
-      clearApiAuthToken();
-      clearStoredSession();
-      window.location.href =
-        '/login';
+      const isNba = typeof window !== 'undefined' && window.location.pathname.startsWith('/nba');
+      window.location.href = isNba ? '/nba/login' : '/login';
     }
   };
 

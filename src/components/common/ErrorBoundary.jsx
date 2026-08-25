@@ -40,7 +40,8 @@ export class ErrorBoundary extends Component {
     if (window.history.length > 1) {
       window.history.back();
     } else {
-      window.location.href = '/dashboard';
+      const isNba = typeof window !== 'undefined' && window.location.pathname.startsWith('/nba');
+      window.location.href = isNba ? '/nba/dashboard' : '/dashboard';
     }
   };
 

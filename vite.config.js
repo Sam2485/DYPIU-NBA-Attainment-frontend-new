@@ -2,15 +2,21 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
+  base: './',
   plugins: [react()],
   server: {
     port: 5173,
     proxy: {
       '/api/v1': {
-        // target: 'http://localhost:8010 ',
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8010',
         changeOrigin: true,
         secure: false,
+      },
+      '/nba/api/v1': {
+        target: 'http://localhost:8010',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/nba/, ''),
       },
     },
   },
