@@ -288,8 +288,9 @@ export default function HodSetupWorkflow() {
 
       loadedMasterProgrammeDepartmentRef.current = selectedDepartmentId;
 
-      const targetProgrammeId = programmeId || programmes[0]?.id;
-      if (!programmeId && targetProgrammeId) {
+      const hasSelectedProgramme = programmes.some((programme) => programme.id === programmeId);
+      const targetProgrammeId = hasSelectedProgramme ? programmeId : programmes[0]?.id;
+      if (targetProgrammeId && targetProgrammeId !== programmeId) {
         setProgrammeId(targetProgrammeId);
         // Wait for the selected programme state before requesting the active
         // tab's programme-scoped endpoint.

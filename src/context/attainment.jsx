@@ -405,6 +405,23 @@ export function AttainmentProvider({ children }) {
     [batchId]
   );
 
+  const loadPreviousYearProgrammeAtr = useCallback(
+    async (targetBatchId = batchId) => {
+      if (!targetBatchId) return null;
+
+      try {
+        setError(null);
+        const response = await reportsApi.getPreviousYearProgrammeAtr(targetBatchId);
+        return unwrapResponse(response);
+      } catch (err) {
+        console.warn(`loadPreviousYearProgrammeAtr(${targetBatchId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to load the previous-year programme ATR');
+        return null;
+      }
+    },
+    [batchId]
+  );
+
   const updateProgrammeAtr = useCallback(
     async (targetBatchId = batchId, programmeAtrData = {}) => {
       if (!targetBatchId) {
@@ -578,6 +595,8 @@ export function AttainmentProvider({ children }) {
     programmeATR: programmeAtrStore,
     loadProgrammeAtr,
     loadProgrammeATR: loadProgrammeAtr,
+    loadPreviousYearProgrammeAtr,
+    loadPreviousYearProgrammeATR: loadPreviousYearProgrammeAtr,
     updateProgrammeAtr,
     saveProgrammeATR: updateProgrammeAtr,
     submitProgrammeAtr,

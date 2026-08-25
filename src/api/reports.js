@@ -55,6 +55,11 @@ export const reportsApi = {
       `/reports/programmes/${programmeId}/batches/${batchId}/programme-atr`
     ),
 
+  getPreviousYearProgrammeAtr: (programmeBatchId) =>
+    apiClient.get(
+      `/atr/programme/previous-year/${programmeBatchId}`
+    ),
+
   saveProgrammeAtr: (data) =>
     apiClient.post(
       '/reports/programmes/programme-atr',

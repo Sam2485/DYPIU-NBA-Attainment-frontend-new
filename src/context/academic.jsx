@@ -221,6 +221,10 @@ export function AcademicProvider({ children }) {
     () => `nba_hod_selected_department:${user?.email ?? user?.id ?? 'current-user'}`,
     [user?.email, user?.id]
   );
+  const getHodProgrammeStorageKey = useCallback(
+    () => `nba_hod_selected_master_programme:${user?.email ?? user?.id ?? 'current-user'}`,
+    [user?.email, user?.id]
+  );
 
   /* ------------------------------------------------------------------------ */
   /* Global selections                                                        */
@@ -248,7 +252,12 @@ export function AcademicProvider({ children }) {
     return sessionStorage.getItem(getCourseCoordinatorSelectionStorageKey(selection));
   };
 
-  const [programmeId, setProgrammeIdState] = useState(() => readPcSelection('master_programme'));
+  const [programmeId, setProgrammeIdState] = useState(() => {
+    if (role === 'HOD' && typeof window !== 'undefined') {
+      return sessionStorage.getItem(`nba_hod_selected_master_programme:${user?.email ?? user?.id ?? 'current-user'}`);
+    }
+    return readPcSelection('master_programme');
+  });
   const [batchId, setBatchIdState] = useState(
     () => readPcSelection('programme_batch') ?? readCourseCoordinatorSelection('programme_batch')
   );
@@ -282,6 +291,14 @@ export function AcademicProvider({ children }) {
       : sessionStorage.getItem(getHodDepartmentStorageKey());
     setSelectedDepartmentIdState(persistedDepartmentId ?? user?.departmentId ?? null);
   }, [getHodDepartmentStorageKey, role, selectedDepartmentId, user?.departmentId]);
+
+  useEffect(() => {
+    if (role !== 'HOD' || programmeId) return;
+    const persistedProgrammeId = typeof window === 'undefined'
+      ? null
+      : sessionStorage.getItem(getHodProgrammeStorageKey());
+    if (persistedProgrammeId) setProgrammeIdState(persistedProgrammeId);
+  }, [getHodProgrammeStorageKey, programmeId, role]);
 
   useEffect(() => {
     if (role !== 'PROGRAMME_COORDINATOR') return;
@@ -356,6 +373,9 @@ export function AcademicProvider({ children }) {
       const key = `nba_hod_selected_department:${user?.email ?? user?.id ?? 'current-user'}`;
       if (nextDepartmentId) sessionStorage.setItem(key, nextDepartmentId);
       else sessionStorage.removeItem(key);
+      // A master programme belongs to a department, so it cannot be reused
+      // after the HOD deliberately changes the department scope.
+      sessionStorage.removeItem(`nba_hod_selected_master_programme:${user?.email ?? user?.id ?? 'current-user'}`);
     }
     // A programme, batch, course, or offering from the previous department
     // must never remain selected after the HOD changes department scope.
@@ -1759,6 +1779,11 @@ export function AcademicProvider({ children }) {
   const setProgrammeId = useCallback((newProgrammeId) => {
     const nextProgrammeId = newProgrammeId || null;
     setProgrammeIdState(nextProgrammeId);
+    if (role === 'HOD' && typeof window !== 'undefined') {
+      const key = `nba_hod_selected_master_programme:${user?.email ?? user?.id ?? 'current-user'}`;
+      if (nextProgrammeId) sessionStorage.setItem(key, nextProgrammeId);
+      else sessionStorage.removeItem(key);
+    }
     if (role === 'PROGRAMME_COORDINATOR' && typeof window !== 'undefined') {
       const key = `nba_pc_selected_master_programme:${user?.email ?? user?.id ?? 'current-user'}`;
       if (nextProgrammeId) sessionStorage.setItem(key, nextProgrammeId);

@@ -39,6 +39,7 @@ export default function ProgrammeCoordinatorDashboard() {
     programmeCoordinatorDashboard = null,
     pcWorkflowProgress = null,
     loadProgrammeCoordinatorDashboard,
+    loadPcSetupProgress,
   } = useAcademic();
 
   const [screenLoading, setScreenLoading] = useState(false);
@@ -71,6 +72,7 @@ export default function ProgrammeCoordinatorDashboard() {
       if (activeBatchId && !batchId) {
         setBatchId(activeBatchId);
       }
+      await loadPcSetupProgress(activeProgId, activeBatchId, user?.email);
     } catch (err) {
       console.warn('ProgrammeCoordinatorDashboard fetch failed:', err);
       setScreenError(err?.customMessage || err?.message || 'Failed to load Programme Coordinator dashboard.');
@@ -85,31 +87,77 @@ export default function ProgrammeCoordinatorDashboard() {
     if (dashboardRequestScopeRef.current === requestScope) return;
     dashboardRequestScopeRef.current = requestScope;
     fetchPcData();
-  }, [activeProgId, loadProgrammeCoordinatorDashboard, setBatchId, user?.email]);
+  }, [activeProgId, loadPcSetupProgress, loadProgrammeCoordinatorDashboard, setBatchId, user?.email]);
 
-  const dashboardStatistics = programmeCoordinatorDashboard?.statistics ?? {};
-  const courseCount = dashboardStatistics.courses ?? dashboardStatistics.coursesCount ?? 0;
-  const courseOfferingsCount =
-    dashboardStatistics.programmeBatchCourses ??
-    dashboardStatistics.programmeBatchCoursesCount ??
-    dashboardStatistics.totalProgrammeBatchCourses ??
-    dashboardStatistics.courseOfferings ??
-    0;
-  const pendingVerifications = dashboardStatistics.pendingVerifications ?? 0;
-  const pendingCourseAtrApprovals = dashboardStatistics.pendingCourseAtrApprovals ?? 0;
-  const dashboardBatches = programmeCoordinatorDashboard?.batches ?? [];
+  const dashboardProgrammeId =
+    programmeCoordinatorDashboard?.programme?.id ??
+    programmeCoordinatorDashboard?.masterProgrammeId ??
+    programmeCoordinatorDashboard?.programmeId ??
+    null;
+  const scopedDashboard = dashboardProgrammeId && String(dashboardProgrammeId) !== String(activeProgId)
+    ? null
+    : programmeCoordinatorDashboard;
+  const dashboardStatistics = scopedDashboard?.statistics ?? scopedDashboard?.stats ?? {};
+  const countValue = (...values) => {
+    const value = values.find((candidate) => Number.isFinite(Number(candidate)));
+    return value === undefined ? 0 : Number(value);
+  };
+  const courseCount = countValue(
+    dashboardStatistics.courses,
+    dashboardStatistics.coursesCount,
+    dashboardStatistics.masterCourses,
+    dashboardStatistics.masterCoursesCount,
+    scopedDashboard?.totalCoursesCount,
+    scopedDashboard?.courses?.length
+  );
+  const courseOfferingsCount = countValue(
+    dashboardStatistics.programmeBatchCourses,
+    dashboardStatistics.programmeBatchCoursesCount,
+    dashboardStatistics.totalProgrammeBatchCourses,
+    dashboardStatistics.courseOfferings,
+    dashboardStatistics.courseOfferingsCount,
+    scopedDashboard?.programmeBatchCoursesCount,
+    scopedDashboard?.courseOfferingsCount,
+    scopedDashboard?.programmeBatchCourses?.length
+  );
+  const pendingVerifications = countValue(
+    dashboardStatistics.pendingVerifications,
+    dashboardStatistics.pendingVerificationCount,
+    scopedDashboard?.pendingVerificationsCount
+  );
+  const pendingCourseAtrApprovals = countValue(
+    dashboardStatistics.pendingCourseAtrApprovals,
+    dashboardStatistics.pendingCourseAtrApprovalCount,
+    scopedDashboard?.pendingCourseAtrApprovals
+  );
+  const dashboardBatches = scopedDashboard?.batches ?? [];
   const activeBatchLabel =
-    programmeCoordinatorDashboard?.activeBatch ??
+    scopedDashboard?.activeBatch ??
     dashboardBatches.find((batch) => (
-      (batch.programmeBatchId ?? batch.id) === programmeCoordinatorDashboard?.setupProgress?.programmeBatchId
+      (batch.programmeBatchId ?? batch.id) === scopedDashboard?.setupProgress?.programmeBatchId
     ))?.name ??
     dashboardBatches.find((batch) => batch.status === 'ACTIVE')?.name ??
     dashboardBatches[0]?.name ??
     '—';
 
   // ── Per-step completion tracking ───────────────────────────────────────────
-  const safeProgress = programmeCoordinatorDashboard?.setupProgress ?? pcWorkflowProgress ?? {};
-  const workflowProgress = programmeCoordinatorDashboard?.workflowProgress ?? {};
+  const safeProgress = pcWorkflowProgress ?? scopedDashboard?.setupProgress ?? {};
+  const workflowProgress = scopedDashboard?.workflowProgress ?? {};
+  const stepNumber = (value) => {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return numeric;
+    const aliases = {
+      courses: 1,
+      course: 1,
+      po_pso_target: 2,
+      po_pso_targets: 2,
+      targets: 2,
+      indirect_attainment: 3,
+      programme_atr: 4,
+      review: 5,
+    };
+    return aliases[String(value ?? '').trim().toLowerCase()] ?? null;
+  };
   const stepStatus = PC_STEPS.map((s, idx) => {
     if (Object.prototype.hasOwnProperty.call(workflowProgress, String(s.step))) {
       return Boolean(workflowProgress[String(s.step)]);
@@ -118,9 +166,16 @@ export default function ProgrammeCoordinatorDashboard() {
       return !!safeProgress.stepStatus[idx];
     }
     if (Array.isArray(safeProgress.completedSteps)) {
-      return safeProgress.completedSteps.some((step) => Number(step) === s.step);
+      return safeProgress.completedSteps.some((step) => stepNumber(step) === s.step);
     }
-    return !!safeProgress[s.step] || !!safeProgress[`step-${s.step}`];
+    const namedStep = PC_STEPS[idx].label.toLowerCase().replaceAll(' ', '_').replace('/', '_');
+    return Boolean(
+      safeProgress[s.step] ||
+      safeProgress[`step-${s.step}`] ||
+      safeProgress.stepStatuses?.[s.step] === 'COMPLETED' ||
+      safeProgress.stepStatuses?.[PC_STEPS[idx].key] === 'COMPLETED' ||
+      safeProgress[namedStep]
+    );
   });
 
   const completedCount = stepStatus.filter(Boolean).length;

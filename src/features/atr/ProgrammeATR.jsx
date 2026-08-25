@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Save, CheckCircle2, Clock, ShieldCheck, Printer,
-  ChevronDown, AlertCircle, Plus, Lock, Send, History,
+  AlertCircle, Plus, Lock, Send, History,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -11,12 +11,6 @@ const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderR
 const ink        = '#0f172a';
 const muted      = '#64748b';
 const accent     = '#4f46e5';
-const inputStyle = {
-  height: '40px', fontSize: '13px', border: '1px solid #e2e8f0',
-  borderRadius: '8px', padding: '0 12px', background: '#ffffff',
-  color: ink, width: '100%', outline: 'none', fontFamily: 'inherit',
-};
-
 const parseObservations = (observationsJson) => {
   if (Array.isArray(observationsJson)) return observationsJson;
   if (typeof observationsJson !== 'string' || !observationsJson.trim()) return [];
@@ -28,14 +22,11 @@ const parseObservations = (observationsJson) => {
   }
 };
 
-export default function ProgrammeATR({ courseId = null, programmeId: propProgrammeId = null, hideFooter = false, hideHeader = false, readOnly = false }) {
+export default function ProgrammeATR({ courseId = null, programmeId: propProgrammeId = null, batchId: propBatchId = null, hideFooter = false, hideHeader = false, readOnly = false }) {
   const { user, role } = useAuth();
   const {
     selectedCourse,
-    selectedProgramme,
     selectedBatch,
-    masterProgrammes = [],
-    setProgrammeId  = () => {},
     batches         = [],
     activePOs       = [],
     activePSOs      = [],
@@ -43,6 +34,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     programmeId     = 'prog-1',
     programmeATR = null,
     loadProgrammeATR = () => Promise.resolve(null),
+    loadPreviousYearProgrammeATR = () => Promise.resolve(null),
     saveProgrammeATR = () => Promise.resolve(null),
     submitProgrammeATR = () => Promise.resolve(null),
     courseVerificationStore = {},
@@ -50,12 +42,10 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   } = useAcademic();
 
   const [showHistory, setShowHistory] = useState(false);
-
-  // Carry-forward data for previous academic cycle
-  const prevCycleActions = [];
+  const [previousYearAtr, setPreviousYearAtr] = useState(null);
+  const [previousYearLoadState, setPreviousYearLoadState] = useState('idle');
 
   const activeProgId = propProgrammeId || programmeId || null;
-  const currentProg = (masterProgrammes || []).find((p) => p.id === activeProgId) || selectedProgramme || null;
   const targetCourseId = courseId || selectedCourse?.id || null;
   const progAtrKey = activeProgId ? `prog-atr-${activeProgId}` : '';
   const safeVerificationStore = courseVerificationStore ?? {};
@@ -68,7 +58,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' || role === 'HOD';
 
   const batchList = batches || [];
-  const [selectedBatchId, setSelectedBatchId] = useState(() => selectedBatch?.id || batches?.[0]?.id || '');
+  const [selectedBatchId, setSelectedBatchId] = useState(() => propBatchId || selectedBatch?.id || batches?.[0]?.id || '');
   const currentBatchObj = batchList.find((b) => b.id === selectedBatchId) || batchList[0] || null;
   const isPreviousBatch = currentBatchObj?.name?.includes('Archived') || currentBatchObj?.name?.includes('Graduated');
   const isSubmittedForReview = reportStatus === 'SUBMITTED_FOR_VERIFICATION' || reportStatus === 'SUBMITTED';
@@ -119,8 +109,49 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   useEffect(() => { setAtrList(buildList()); }, [programmeId, targetCourseId, activePOs.length, activePSOs.length]);
 
   useEffect(() => {
-    if (selectedBatch?.id) setSelectedBatchId(selectedBatch.id);
-  }, [selectedBatch?.id]);
+    if (propBatchId || selectedBatch?.id) setSelectedBatchId(propBatchId || selectedBatch.id);
+  }, [propBatchId, selectedBatch?.id]);
+
+  useEffect(() => {
+    if (!showHistory || !selectedBatchId) return;
+    let isCurrent = true;
+    setPreviousYearLoadState('loading');
+    setPreviousYearAtr(null);
+
+    loadPreviousYearProgrammeATR(selectedBatchId)
+      .then((atr) => {
+        if (!isCurrent) return;
+        setPreviousYearAtr(atr);
+        setPreviousYearLoadState(atr ? 'loaded' : 'empty');
+      })
+      .catch(() => {
+        if (isCurrent) setPreviousYearLoadState('error');
+      });
+
+    return () => { isCurrent = false; };
+  }, [loadPreviousYearProgrammeATR, selectedBatchId, showHistory]);
+
+  const previousYearOutcomes = [
+    ...(previousYearAtr?.poOutcomes ?? []).map((outcome) => ({ ...outcome, type: 'PO' })),
+    ...(previousYearAtr?.psoOutcomes ?? []).map((outcome) => ({ ...outcome, type: 'PSO' })),
+  ];
+  const previousYearAtrList = previousYearOutcomes.map((outcome) => {
+    const target = Number(outcome.targetLevel ?? outcome.target) || 0;
+    const actual = Number(outcome.attainmentLevel ?? outcome.attainment) || 0;
+    return {
+      code: outcome.outcomeCode,
+      type: outcome.type,
+      statement: outcome.outcomeStatement ?? '',
+      target,
+      actual,
+      pct: Number(outcome.achievementPercentage) || (target ? Number(((actual / target) * 100).toFixed(1)) : 0),
+      met: actual >= target,
+      remark: outcome.observation ?? '',
+      actions: outcome.actions ?? [],
+    };
+  });
+  const previousYearPoList = previousYearAtrList.filter((item) => item.type === 'PO');
+  const previousYearPsoList = previousYearAtrList.filter((item) => item.type === 'PSO');
 
   useEffect(() => {
     if (!activeProgId || !selectedBatchId) return;
@@ -210,7 +241,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const gapCount = atrList.length - metCount;
 
   // ── ATR Card renderer ────────────────────────────────────────────
-  const renderCard = (item, accentColor) => {
+  const renderCard = (item, accentColor, isReadOnly = locked) => {
     const idx       = atrList.findIndex((i) => i.code === item.code);
     const borderCol = item.met ? '#bbf7d0' : '#fecaca';
     const bgCol     = item.met ? '#f0fdf4'  : '#fef2f2';
@@ -248,7 +279,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
               </td>
               <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
                 {item.met ? (
-                  locked ? (
+                  isReadOnly ? (
                     <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#475569', fontSize: '12.5px' }}>
                       {item.remark || 'Target achieved. Maintain current teaching strategy.'}
                     </div>
@@ -264,7 +295,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
                     {item.actions.map((act, aIdx) => (
                       <div key={aIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                         <span style={{ fontWeight: '800', color: '#3b82f6', minWidth: '68px', fontSize: '12px', paddingTop: '9px' }}>Action {aIdx + 1}:</span>
-                        {locked ? (
+                        {isReadOnly ? (
                           <div style={{ flex: 1, background: '#f8fafc', padding: '6px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#475569', fontSize: '12px' }}>
                             {act}
                           </div>
@@ -274,7 +305,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
                             style={{ flex: 1, fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '6px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: '#ffffff' }}
                           />
                         )}
-                        {!locked && item.actions.length > 1 && (
+                        {!isReadOnly && item.actions.length > 1 && (
                           <button onClick={() => handleDeleteAction(idx, aIdx)}
                             style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
                             <span style={{ fontSize: '15px', lineHeight: 1 }}>×</span>
@@ -282,7 +313,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
                         )}
                       </div>
                     ))}
-                    {!locked && (
+                    {!isReadOnly && (
                       <button onClick={() => handleAddAction(idx)}
                         style={{ alignSelf: 'flex-start', height: '28px', padding: '0 12px', fontSize: '11.5px', fontWeight: '700', background: '#f8fafc', color: accent, border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>
                         <Plus size={12} /> Add Action
@@ -312,35 +343,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
-              {/* Programme selector */}
-              {!propProgrammeId && (
-                <div style={{ position: 'relative', minWidth: '280px' }}>
-                  <select
-                    value={activeProgId}
-                    onChange={(e) => setProgrammeId(e.target.value)}
-                    style={{
-                      ...inputStyle,
-                      height: '38px',
-                      paddingRight: '32px',
-                      appearance: 'none',
-                      cursor: 'pointer',
-                      fontWeight: '700',
-                      color: accent,
-                      background: '#f5f3ff',
-                      border: '1.5px solid #c7d2fe',
-                    }}
-                  >
-                    {masterProgrammes.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.code} — {p.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
-                </div>
-              )}
-
-              {!locked ? (
+              {!showHistory && (!locked ? (
                 <>
                   <button onClick={handleSaveAtr}
                     style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
@@ -355,7 +358,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
                 <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                   <Lock size={13} /> {isPreviousBatch ? `${currentBatchObj.name} (Archived)` : isSubmittedForReview ? 'Submitted for Review' : 'Report Locked'}
                 </span>
-              )}
+              ))}
             </div>
           </div>
 
@@ -378,26 +381,30 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
       {showHistory && (
         <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px', borderColor: '#a5b4fc', borderWidth: '1.5px' }}>
           <div style={{ fontSize: '11px', fontWeight: '700', color: accent, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-            Programme ATR Carry-Forward — Previous Academic Batch · Verified by Head of Department (HOD)
+            Programme ATR Carry-Forward{previousYearAtr?.batch?.name ? ` — ${previousYearAtr.batch.name}` : ' — Previous Academic Batch'}
           </div>
-          <table className="audit-data-table">
-            <thead>
-              <tr>
-                <th style={{ width: '90px', textAlign: 'center' }}>Outcome</th>
-                <th>Action Taken (Previous Batch)</th>
-                <th>Impact Observed in Current Batch</th>
-              </tr>
-            </thead>
-            <tbody>
-              {prevCycleActions.map((a) => (
-                <tr key={a.code}>
-                  <td style={{ textAlign: 'center', fontWeight: '800', color: accent }}>{a.code}</td>
-                  <td style={{ fontSize: '12.5px' }}>{a.actionPlan}</td>
-                  <td style={{ fontSize: '12.5px', color: '#16a34a', fontWeight: '600' }}>{a.impact}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {previousYearLoadState === 'loading' ? (
+            <div style={{ padding: '14px 0', fontSize: '12.5px', color: muted }}>Loading the previous academic batch ATR…</div>
+          ) : previousYearLoadState === 'error' ? (
+            <div style={{ padding: '14px 0', fontSize: '12.5px', color: '#b91c1c' }}>Unable to load the previous academic batch ATR.</div>
+          ) : previousYearAtrList.length === 0 ? (
+            <div style={{ padding: '14px 0', fontSize: '12.5px', color: muted }}>No previous-year Programme ATR is available for this batch.</div>
+          ) : (
+            <>
+              <div style={{ background: '#f8fafc', borderLeft: '4px solid #4f46e5', padding: '10px 14px', borderRadius: '0 6px 6px 0', marginBottom: '14px' }}>
+                <h4 style={{ margin: 0, fontSize: '14px', color: ink, fontWeight: '800' }}>Programme Outcomes (POs)</h4>
+              </div>
+              <div style={{ display: 'grid', gap: '14px', marginBottom: '28px' }}>
+                {previousYearPoList.map((outcome) => renderCard(outcome, accent, true))}
+              </div>
+              <div style={{ background: '#f0f9ff', borderLeft: '4px solid #0284c7', padding: '10px 14px', borderRadius: '0 6px 6px 0', marginBottom: '14px' }}>
+                <h4 style={{ margin: 0, fontSize: '14px', color: ink, fontWeight: '800' }}>Programme Specific Outcomes (PSOs)</h4>
+              </div>
+              <div style={{ display: 'grid', gap: '14px' }}>
+                {previousYearPsoList.map((outcome) => renderCard(outcome, '#0284c7', true))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -463,55 +470,59 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
         </div>
       )}
 
-      {/* ── PO SECTION HEADING ────────────────────────────────────────────── */}
-      <div style={{ background: '#f8fafc', borderLeft: '4px solid #4f46e5', padding: '10px 14px', borderRadius: '0 6px 6px 0', marginBottom: '14px' }}>
-        <h4 style={{ margin: 0, fontSize: '14px', color: ink, fontWeight: '800' }}>
-          Programme Outcomes (POs)
-        </h4>
-      </div>
+      {/* The carry-forward view is intentionally exclusive: never mix the
+          previous-year reference with editable/current-cycle ATR content. */}
+      {!showHistory && <>
+        {/* ── PO SECTION HEADING ──────────────────────────────────────────── */}
+        <div style={{ background: '#f8fafc', borderLeft: '4px solid #4f46e5', padding: '10px 14px', borderRadius: '0 6px 6px 0', marginBottom: '14px' }}>
+          <h4 style={{ margin: 0, fontSize: '14px', color: ink, fontWeight: '800' }}>
+            Programme Outcomes (POs)
+          </h4>
+        </div>
 
-      <div style={{ display: 'grid', gap: '14px', marginBottom: '28px' }}>
-        {poList.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '24px', background: '#f8fafc', borderRadius: '8px', color: '#94a3b8', fontSize: '13px' }}>
-            No Programme Outcomes defined.
-          </div>
-        ) : (
-          poList.map((po) => renderCard(po, accent))
-        )}
-      </div>
-
-      {/* ── PSO SECTION HEADING ───────────────────────────────────────────── */}
-      <div style={{ background: '#f0f9ff', borderLeft: '4px solid #0284c7', padding: '10px 14px', borderRadius: '0 6px 6px 0', marginBottom: '14px' }}>
-        <h4 style={{ margin: 0, fontSize: '14px', color: ink, fontWeight: '800' }}>
-          Programme Specific Outcomes (PSOs)
-        </h4>
-      </div>
-
-      <div style={{ display: 'grid', gap: '14px' }}>
-        {psoList.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '24px', background: '#f0f9ff', borderRadius: '8px', color: '#94a3b8', fontSize: '13px' }}>
-            No Programme Specific Outcomes defined.
-          </div>
-        ) : (
-          psoList.map((pso) => renderCard(pso, '#0284c7'))
-        )}
-      </div>
-
-      {/* ── FOOTER ────────────────────────────────────────────────────────── */}
-      {!hideFooter && isFaculty && (
-        <div style={{ ...surface, padding: '14px 20px', marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-          {!locked ? (
-            <button onClick={handleSubmitAtrForReview}
-              style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
-              <Send size={14} /> Submit Report for Review
-            </button>
+        <div style={{ display: 'grid', gap: '14px', marginBottom: '28px' }}>
+          {poList.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px', background: '#f8fafc', borderRadius: '8px', color: '#94a3b8', fontSize: '13px' }}>
+              No Programme Outcomes defined.
+            </div>
           ) : (
-            <span style={{ height: '40px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <Lock size={14} /> Report Locked
-            </span>
+            poList.map((po) => renderCard(po, accent))
           )}
         </div>
-      )}
+
+        {/* ── PSO SECTION HEADING ─────────────────────────────────────────── */}
+        <div style={{ background: '#f0f9ff', borderLeft: '4px solid #0284c7', padding: '10px 14px', borderRadius: '0 6px 6px 0', marginBottom: '14px' }}>
+          <h4 style={{ margin: 0, fontSize: '14px', color: ink, fontWeight: '800' }}>
+            Programme Specific Outcomes (PSOs)
+          </h4>
+        </div>
+
+        <div style={{ display: 'grid', gap: '14px' }}>
+          {psoList.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px', background: '#f0f9ff', borderRadius: '8px', color: '#94a3b8', fontSize: '13px' }}>
+              No Programme Specific Outcomes defined.
+            </div>
+          ) : (
+            psoList.map((pso) => renderCard(pso, '#0284c7'))
+          )}
+        </div>
+
+        {/* ── FOOTER ──────────────────────────────────────────────────────── */}
+        {!hideFooter && isFaculty && (
+          <div style={{ ...surface, padding: '14px 20px', marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            {!locked ? (
+              <button onClick={handleSubmitAtrForReview}
+                style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                <Send size={14} /> Submit Report for Review
+              </button>
+            ) : (
+              <span style={{ height: '40px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Lock size={14} /> Report Locked
+              </span>
+            )}
+          </div>
+        )}
+      </>}
     </div>
   );
 }

@@ -387,10 +387,13 @@ export function DashboardProvider({ children }) {
       }
 
       try {
-        // The coordinator endpoint resolves the assigned programme-batch
-        // scope from the authenticated coordinator/email. Do not send
-        // programme or batch selectors on this read request.
-        const params = coordinatorEmail ? { coordinatorEmail } : {};
+        // Progress is scoped to the programme batch currently selected by the
+        // coordinator. Supplying that scope prevents another assigned
+        // programme's progress from appearing after a sidebar selection.
+        const params = {};
+        if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
+        if (targetProgrammeId) params.masterProgrammeId = targetProgrammeId;
+        if (targetBatchId) params.batchId = targetBatchId;
 
         const response = await apiClient.get('/academic/coordinator/setup-progress', { params });
         const normalized = normalizeProgress(unwrap(response), PC_WORKFLOW_STEPS.length, PC_STEP_ALIASES);
