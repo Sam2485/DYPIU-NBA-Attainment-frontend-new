@@ -44,11 +44,10 @@ export const AuthProvider = ({ children }) => {
     try {
       await authApi.logout().catch(() => {});
     } finally {
-      sessionStorage.removeItem('authToken');
       setToken(null);
       setUser(null);
-      const basePath = import.meta.env.BASE_URL ? import.meta.env.BASE_URL.replace(/\/+$/, '') : '/nba';
-      window.location.href = `${basePath}/login`;
+      const isNba = typeof window !== 'undefined' && window.location.pathname.startsWith('/nba');
+      window.location.href = isNba ? '/nba/login' : '/login';
     }
   }, []);
 

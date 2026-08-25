@@ -4,7 +4,8 @@ import AppRoutes from './routes/AppRoutes';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 export default function App() {
-  const basename = import.meta.env.BASE_URL ? import.meta.env.BASE_URL.replace(/\/+$/, '') : '/nba';
+  const isNba = typeof window !== 'undefined' && window.location.pathname.startsWith('/nba');
+  const basename = isNba ? '/nba' : '';
 
   return (
     <ErrorBoundary fallbackTitle="Application Error" fallbackMessage="An unhandled error occurred in the application. Please reload or contact support.">
