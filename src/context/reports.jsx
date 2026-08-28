@@ -105,9 +105,9 @@ export function ReportsProvider({ children }) {
       try {
         setError(null);
         const params = {};
-        if (targetProgrammeId) params.programmeId = targetProgrammeId;
-        if (targetCourseId) params.courseId = targetCourseId;
-        if (targetBatchId) params.batchId = targetBatchId;
+        if (targetProgrammeId) params.masterProgrammeId = targetProgrammeId;
+        if (targetCourseId) params.masterCourseId = targetCourseId;
+        if (targetBatchId) params.programmeBatchId = targetBatchId;
 
         const response = await reportsApi.getReportsSummary(params);
         const data = unwrap(response);
@@ -135,9 +135,9 @@ export function ReportsProvider({ children }) {
       try {
         setError(null);
         const params = {};
-        if (targetProgrammeId) params.programmeId = targetProgrammeId;
-        if (targetCourseId) params.courseId = targetCourseId;
-        if (targetBatchId) params.batchId = targetBatchId;
+        if (targetProgrammeId) params.masterProgrammeId = targetProgrammeId;
+        if (targetCourseId) params.masterCourseId = targetCourseId;
+        if (targetBatchId) params.programmeBatchId = targetBatchId;
 
         const response = await reportsApi.getCourseAtrs(params);
         const data = unwrapList(response);
@@ -164,8 +164,8 @@ export function ReportsProvider({ children }) {
       try {
         setError(null);
         const params = {};
-        if (targetProgrammeId) params.programmeId = targetProgrammeId;
-        if (targetBatchId) params.batchId = targetBatchId;
+        if (targetProgrammeId) params.masterProgrammeId = targetProgrammeId;
+        if (targetBatchId) params.programmeBatchId = targetBatchId;
 
         const response = await reportsApi.getProgrammeAtrs(params);
         const data = unwrapList(response);
@@ -451,9 +451,9 @@ export function ReportsProvider({ children }) {
     async (reportType = 'course') => {
       try {
         const params = {};
-        if (programmeId) params.programmeId = programmeId;
-        if (courseId) params.courseId = courseId;
-        if (batchId) params.batchId = batchId;
+        if (programmeId) params.masterProgrammeId = programmeId;
+        if (courseId) params.masterCourseId = courseId;
+        if (batchId) params.programmeBatchId = batchId;
         params.reportType = reportType;
 
         const response = await reportsApi.exportExcel(params);
@@ -480,9 +480,9 @@ export function ReportsProvider({ children }) {
     async (reportType = 'course') => {
       try {
         const params = {};
-        if (programmeId) params.programmeId = programmeId;
-        if (courseId) params.courseId = courseId;
-        if (batchId) params.batchId = batchId;
+        if (programmeId) params.masterProgrammeId = programmeId;
+        if (courseId) params.masterCourseId = courseId;
+        if (batchId) params.programmeBatchId = batchId;
         params.reportType = reportType;
 
         const response = await reportsApi.exportPdf(params);

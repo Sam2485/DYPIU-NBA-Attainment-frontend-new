@@ -36,68 +36,68 @@ export const academicApi = {
     apiClient.delete(`/academic/departments/${id}`),
 
   // =========================
-  // Programmes
+  // Master Programmes
   // =========================
   getProgrammes: (departmentId) => {
     const params = {};
     if (departmentId) params.departmentId = departmentId;
 
-    return apiClient.get('/academic/programmes', { params });
+    return apiClient.get('/academic/master-programmes', { params });
   },
 
   getProgrammeById: (id) =>
-    apiClient.get(`/academic/programmes/${id}`),
+    apiClient.get(`/academic/master-programmes/${id}`),
 
   createProgramme: (data) =>
-    apiClient.post('/academic/programmes', data),
+    apiClient.post('/academic/master-programmes', data),
 
   updateProgramme: (id, data) =>
-    apiClient.put(`/academic/programmes/${id}`, data),
+    apiClient.put(`/academic/master-programmes/${id}`, data),
 
   updateProgrammeCoordinator: (id, data) =>
-    apiClient.put(`/academic/programmes/${id}/coordinator`, data),
+    apiClient.put(`/academic/master-programmes/${id}/coordinator`, data),
 
   deleteProgramme: (id) =>
-    apiClient.delete(`/academic/programmes/${id}`),
+    apiClient.delete(`/academic/master-programmes/${id}`),
 
   // =========================
   // Master Programmes (authoritative hierarchy API)
   // =========================
   getMasterProgrammes: () =>
-    apiClient.get('/master-programmes'),
+    apiClient.get('/academic/master-programmes'),
 
   createMasterProgramme: (data) =>
-    apiClient.post('/master-programmes', data),
+    apiClient.post('/academic/master-programmes', data),
 
   updateMasterProgramme: (masterProgrammeId, data) =>
-    apiClient.put(`/master-programmes/${masterProgrammeId}`, data),
+    apiClient.put(`/academic/master-programmes/${masterProgrammeId}`, data),
 
   deleteMasterProgramme: (masterProgrammeId) =>
-    apiClient.delete(`/master-programmes/${masterProgrammeId}`),
+    apiClient.delete(`/academic/master-programmes/${masterProgrammeId}`),
 
   // =========================
-  // Batches
+  // Programme Batches
   // =========================
-  getBatches: ({ programmeId, userEmail, role } = {}) => {
+  getBatches: ({ masterProgrammeId, userEmail, role } = {}) => {
     const params = {};
-    if (programmeId) params.programmeId = programmeId;
+    if (masterProgrammeId) params.masterProgrammeId = masterProgrammeId;
     if (userEmail) params.userEmail = userEmail;
     if (role) params.role = role;
 
-    return apiClient.get('/academic/batches', { params });
+    return apiClient.get('/academic/programme-batches', { params });
   },
 
   createBatch: (data) =>
-    apiClient.post('/academic/batches', data),
+    apiClient.post('/academic/programme-batches', data),
 
   getBatchById: (id) =>
-    apiClient.get(`/academic/batches/${id}`),
+    apiClient.get(`/academic/programme-batches/${id}`),
 
   updateBatch: (id, data) =>
-    apiClient.put(`/academic/batches/${id}`, data),
+    apiClient.put(`/academic/programme-batches/${id}`, data),
 
   deleteBatch: (id) =>
-    apiClient.delete(`/academic/batches/${id}`),
+    apiClient.delete(`/academic/programme-batches/${id}`),
 
   // =========================
   // Programme Batches
@@ -105,55 +105,55 @@ export const academicApi = {
   getProgrammeBatches: (masterProgrammeId) => {
     const params = {};
     if (masterProgrammeId) params.masterProgrammeId = masterProgrammeId;
-    return apiClient.get('/programme-batches', { params });
+    return apiClient.get('/academic/programme-batches', { params });
   },
 
   createProgrammeBatch: (data) =>
-    apiClient.post('/programme-batches', data),
+    apiClient.post('/academic/programme-batches', data),
 
   updateProgrammeBatch: (id, data) =>
-    apiClient.put(`/programme-batches/${id}`, data),
+    apiClient.put(`/academic/programme-batches/${id}`, data),
 
   deleteProgrammeBatch: (id) =>
-    apiClient.delete(`/programme-batches/${id}`),
+    apiClient.delete(`/academic/programme-batches/${id}`),
 
   updateProgrammeBatchStatus: (id, data) =>
-    apiClient.post(`/programme-batches/${id}/status`, data),
+    apiClient.post(`/academic/programme-batches/${id}/status`, data),
 
-  getBatchContext: (batchId) =>
-    apiClient.get(`/academic/batches/${batchId}/context`),
+  getBatchContext: (programmeBatchId) =>
+    apiClient.get(`/academic/programme-batches/${programmeBatchId}/context`),
 
-  getStudents: (batchId) =>
-    apiClient.get(`/academic/batches/${batchId}/students`),
+  getStudents: (programmeBatchId) =>
+    apiClient.get(`/academic/programme-batches/${programmeBatchId}/students`),
 
-  createStudent: (batchId, data) =>
-    apiClient.post(`/academic/batches/${batchId}/students`, data),
+  createStudent: (programmeBatchId, data) =>
+    apiClient.post(`/academic/programme-batches/${programmeBatchId}/students`, data),
 
   deleteStudent: (id) =>
     apiClient.delete(`/academic/students/${id}`),
 
   // =========================
-  // Courses
+  // Master Courses
   // =========================
-  getCourses: (programmeId, batchId) => {
+  getCourses: (masterProgrammeId, programmeBatchId) => {
     const params = {};
-    if (programmeId) params.programmeId = programmeId;
-    if (batchId) params.batchId = batchId;
+    if (masterProgrammeId) params.masterProgrammeId = masterProgrammeId;
+    if (programmeBatchId) params.programmeBatchId = programmeBatchId;
 
-    return apiClient.get('/academic/courses', { params });
+    return apiClient.get('/academic/master-courses', { params });
   },
 
   createCourse: (data) =>
-    apiClient.post('/academic/courses', data),
+    apiClient.post('/academic/master-courses', data),
 
   getCourseById: (id) =>
-    apiClient.get(`/academic/courses/${id}`),
+    apiClient.get(`/academic/master-courses/${id}`),
 
   updateCourse: (id, data) =>
-    apiClient.put(`/academic/courses/${id}`, data),
+    apiClient.put(`/academic/master-courses/${id}`, data),
 
   deleteCourse: (id) =>
-    apiClient.delete(`/academic/courses/${id}`),
+    apiClient.delete(`/academic/master-courses/${id}`),
 
   // =========================
   // Master Courses
@@ -175,63 +175,63 @@ export const academicApi = {
     apiClient.delete(`/academic/master-courses/${id}`),
 
   // =========================
-  // Course Offerings
+  // Programme-Batch Courses
   // =========================
-  getCourseOfferings: (batchId) => {
-    const params = batchId ? { programmeBatchId: batchId } : {};
+  getCourseOfferings: (programmeBatchId) => {
+    const params = programmeBatchId ? { programmeBatchId } : {};
 
-    return apiClient.get('/academic/course-offerings', { params });
+    return apiClient.get('/academic/programme-batch-courses', { params });
   },
 
-  getCourseOfferingById: (offeringId) =>
-    apiClient.get(`/academic/course-offerings/${offeringId}`),
+  getCourseOfferingById: (programmeBatchCourseId) =>
+    apiClient.get(`/academic/programme-batch-courses/${programmeBatchCourseId}`),
 
   createCourseOffering: (data) =>
-    apiClient.post('/academic/course-offerings', data),
+    apiClient.post('/academic/programme-batch-courses', data),
 
   updateCourseOffering: (id, data) =>
-    apiClient.put(`/academic/course-offerings/${id}`, data),
+    apiClient.put(`/academic/programme-batch-courses/${id}`, data),
 
   deleteCourseOffering: (id) =>
-    apiClient.delete(`/academic/course-offerings/${id}`),
+    apiClient.delete(`/academic/programme-batch-courses/${id}`),
 
   // =========================
   // Course Offering Outcomes
   // =========================
   getCourseOutcomes: (offeringId) =>
-    apiClient.get(`/programme-batch-courses/${offeringId}/course-outcomes`),
+    apiClient.get(`/academic/programme-batch-courses/${offeringId}/course-outcomes`),
 
   saveCourseOutcomes: (offeringId, data) =>
-    apiClient.post(`/programme-batch-courses/${offeringId}/course-outcomes`, data),
+    apiClient.post(`/academic/programme-batch-courses/${offeringId}/course-outcomes`, data),
 
   // =========================
   // Course Offering Mapping
   // =========================
   getCourseMapping: (offeringId) =>
-    apiClient.get(`/programme-batch-courses/${offeringId}/co-po-pso-mappings`),
+    apiClient.get(`/academic/programme-batch-courses/${offeringId}/co-po-pso-mappings`),
 
   saveCourseMapping: (offeringId, data) =>
-    apiClient.put(`/programme-batch-courses/${offeringId}/co-po-pso-mappings`, data),
+    apiClient.put(`/academic/programme-batch-courses/${offeringId}/co-po-pso-mappings`, data),
 
   // =========================
   // Programme Targets
   // =========================
-  getProgrammeTargets: (programmeId, batchId) => {
-    const params = batchId ? { batchId } : {};
-    return apiClient.get(`/academic/programmes/${programmeId}/targets`, { params });
+  getProgrammeTargets: (masterProgrammeId, programmeBatchId) => {
+    const params = programmeBatchId ? { programmeBatchId } : {};
+    return apiClient.get(`/academic/master-programmes/${masterProgrammeId}/targets`, { params });
   },
 
-  saveProgrammeTargets: (programmeId, data) =>
-    apiClient.post(`/academic/programmes/${programmeId}/targets`, data),
+  saveProgrammeTargets: (masterProgrammeId, data) =>
+    apiClient.post(`/academic/master-programmes/${masterProgrammeId}/targets`, data),
 
   // =========================
   // Programme Competencies
   // =========================
-  getProgrammeCompetencies: (programmeId) =>
-    apiClient.get(`/academic/programmes/${programmeId}/competencies`),
+  getProgrammeCompetencies: (masterProgrammeId) =>
+    apiClient.get(`/academic/master-programmes/${masterProgrammeId}/competencies`),
 
-  saveProgrammeCompetencies: (programmeId, data) =>
-    apiClient.post(`/academic/programmes/${programmeId}/competencies`, data),
+  saveProgrammeCompetencies: (masterProgrammeId, data) =>
+    apiClient.post(`/academic/master-programmes/${masterProgrammeId}/competencies`, data),
 
   // =========================
   // Setup Progress
@@ -275,7 +275,7 @@ export const academicApi = {
   // Course Allocation
   // =========================
   allocateCourses: (data) =>
-    apiClient.post('/academic/courses/allocate', data),
+    apiClient.post('/academic/master-courses/allocate', data),
 
   // =========================
   // Role Directories

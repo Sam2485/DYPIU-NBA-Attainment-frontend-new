@@ -135,7 +135,7 @@ export function ApprovalProvider({ children }) {
         setError(null);
         const params = {};
         if (programmeId) {
-          params.programmeId = programmeId;
+          params.masterProgrammeId = programmeId;
         }
         if (departmentId) {
           params.departmentId = departmentId;

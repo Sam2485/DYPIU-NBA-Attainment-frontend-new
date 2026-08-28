@@ -323,7 +323,7 @@ export function DashboardProvider({ children }) {
         setError(null);
 
         const response = await dashboardApi.getCourseCoordinatorDashboard({
-          courseOfferingId: targetOfferingId,
+          programmeBatchCourseId: targetOfferingId,
           coordinatorEmail,
         });
         const data = unwrap(response);
@@ -393,7 +393,7 @@ export function DashboardProvider({ children }) {
         const params = {};
         if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
         if (targetProgrammeId) params.masterProgrammeId = targetProgrammeId;
-        if (targetBatchId) params.batchId = targetBatchId;
+        if (targetBatchId) params.programmeBatchId = targetBatchId;
 
         const response = await apiClient.get('/academic/coordinator/setup-progress', { params });
         const normalized = normalizeProgress(unwrap(response), PC_WORKFLOW_STEPS.length, PC_STEP_ALIASES);
@@ -422,7 +422,7 @@ export function DashboardProvider({ children }) {
          */
         const params = {
           coordinatorEmail,
-          courseId: targetOfferingOrCourse,
+          programmeBatchCourseId: targetOfferingOrCourse,
         };
 
         const response = await apiClient.get('/academic/course-coordinator/setup-progress', { params });
@@ -549,7 +549,11 @@ export function DashboardProvider({ children }) {
         ].filter((v, i, arr) => arr.indexOf(v) === i);
 
         const payload = { completedStep: canonicalStep, completedSteps };
-        const params = { programmeId, batchId, currentStep: nextStep };
+        const params = {
+          masterProgrammeId: programmeId,
+          programmeBatchId: batchId,
+          currentStep: nextStep,
+        };
 
         const response = await apiClient.post('/academic/coordinator/setup-progress', payload, { params });
         const normalized = normalizeProgress(unwrap(response), PC_WORKFLOW_STEPS.length, PC_STEP_ALIASES);
@@ -565,8 +569,8 @@ export function DashboardProvider({ children }) {
 
   const completePcSetupProgress = useCallback(async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
     const params = {};
-    if (targetProgrammeId) params.programmeId = targetProgrammeId;
-    if (targetBatchId) params.batchId = targetBatchId;
+    if (targetProgrammeId) params.masterProgrammeId = targetProgrammeId;
+    if (targetBatchId) params.programmeBatchId = targetBatchId;
     const response = await apiClient.post('/academic/coordinator/setup-progress/complete', null, { params });
     const normalized = normalizeProgress(unwrap(response), PC_WORKFLOW_STEPS.length, PC_STEP_ALIASES);
     setPcWorkflowProgress(normalized);
@@ -586,7 +590,7 @@ export function DashboardProvider({ children }) {
           String(completedStep),
         ].filter((value, index, all) => all.indexOf(value) === index);
         const payload = {
-          courseId: targetOfferingOrCourse,
+          programmeBatchCourseId: targetOfferingOrCourse,
           stepNumber: nextStep,
           completedSteps,
         };

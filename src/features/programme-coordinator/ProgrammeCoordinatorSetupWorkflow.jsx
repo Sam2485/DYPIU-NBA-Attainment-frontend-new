@@ -48,7 +48,10 @@ const STEPS = [
   { number: 5, key: 'review', title: 'Review and Confirm', desc: 'Verify setup summary & finish',               path: '/programme-coordinator/reports',         icon: CheckCircle2, color: '#059669', bg: '#f0fdf4' },
 ];
 
-export default function ProgrammeCoordinatorSetupWorkflow({ standaloneTargetSettings = false }) {
+export default function ProgrammeCoordinatorSetupWorkflow({
+  standaloneTargetSettings = false,
+  standaloneCourseManagement = false,
+}) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
@@ -208,10 +211,16 @@ export default function ProgrammeCoordinatorSetupWorkflow({ standaloneTargetSett
   const hasValidParam = parsedStep >= 1 && parsedStep <= STEPS.length;
 
   const [currentStep, setCurrentStep] = useState(
-    standaloneTargetSettings ? 2 : (hasValidParam ? parsedStep : firstIncompleteStep)
+    standaloneCourseManagement ? 1 : (standaloneTargetSettings ? 2 : (hasValidParam ? parsedStep : firstIncompleteStep))
   );
 
+  const isStandaloneView = standaloneTargetSettings || standaloneCourseManagement;
+
   useEffect(() => {
+    if (standaloneCourseManagement) {
+      if (currentStep !== 1) setCurrentStep(1);
+      return;
+    }
     if (standaloneTargetSettings) {
       if (currentStep !== 2) setCurrentStep(2);
       return;
@@ -224,7 +233,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({ standaloneTargetSett
     } else if (s !== currentStep) {
       setCurrentStep(s);
     }
-  }, [currentStep, firstIncompleteStep, searchParams, setSearchParams, standaloneTargetSettings]);
+  }, [currentStep, firstIncompleteStep, searchParams, setSearchParams, standaloneCourseManagement, standaloneTargetSettings]);
 
   const goToStep = (n) => {
     setCurrentStep(n);
@@ -242,7 +251,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({ standaloneTargetSett
   const programmeBatchCourses = courseOfferings.filter(
     (offering) => String(offering.batchId) === String(batchId)
   );
-  const coordinatorOptions = courseCoordinators.filter((person) => person.role === 'FACULTY');
+  // The API is requested with role=COURSE_COORDINATOR. Some valid responses
+  // identify those users as FACULTY, so retain both documented role values.
+  const coordinatorOptions = courseCoordinators.filter((person) =>
+    person.isActive !== false
+      && ['COURSE_COORDINATOR', 'FACULTY'].includes(String(person.role ?? '').toUpperCase())
+  );
 
   // The selector is populated from the HOD-created master-course catalogue
   // for the master programme selected in the Programme Coordinator sidebar.
@@ -314,15 +328,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({ standaloneTargetSett
         masterCourseId: masterCourse.id,
         programmeBatchId: batchId,
         semester,
-        courseCoordinatorId: coordinator?.id ?? null,
-        courseCoordinatorName: coordinator?.name ?? coordinator?.username ?? null,
-        assignedFaculty: coordinator
-          ? (coordinator.email
-            ? `${coordinator.name ?? coordinator.username ?? coordinator.email} (${coordinator.email})`
-            : (coordinator.name ?? coordinator.username ?? null))
-          : null,
-        courseCodeOverride: newCourseCode.trim() || null,
-        courseNameOverride: newCourseName.trim() || null,
+        courseCoordinatorEmail: coordinator?.email ?? null,
+        assignedFaculty: coordinator?.email ?? null,
       });
       setSelectedMasterCourseId('');
       setNewCourseCode('');
@@ -344,13 +351,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({ standaloneTargetSett
         masterCourseId: offering.masterCourseId ?? offering.courseId,
         programmeBatchId: offering.programmeBatchId ?? batchId,
         semester: semesterNumber(offering.semester) ?? semesterNumber(newCourseSem),
-        courseCoordinatorId: coordinator.id,
-        courseCoordinatorName: coordinator.name ?? coordinator.username ?? '',
-        assignedFaculty: coordinator.email
-          ? `${coordinator.name ?? coordinator.username ?? coordinator.email} (${coordinator.email})`
-          : (coordinator.name ?? coordinator.username ?? ''),
-        courseCodeOverride: offering.courseCodeOverride ?? null,
-        courseNameOverride: offering.courseNameOverride ?? null,
+        courseCoordinatorEmail: coordinator.email,
+        assignedFaculty: coordinator.email,
       });
     } catch (error) {
       console.error('Failed to assign Course Coordinator:', error);
@@ -548,7 +550,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({ standaloneTargetSett
       )}
 
       {/* ── STEP STEPPER (icon circles) ───────────────────────────────────────── */}
-      {!standaloneTargetSettings && <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px' }}>
+      {!isStandaloneView && <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px' }}>
         <div style={{ position: 'relative' }}>
           {/* connector line */}
           <div style={{
@@ -617,7 +619,9 @@ export default function ProgrammeCoordinatorSetupWorkflow({ standaloneTargetSett
           <div>
             <div style={{ marginBottom: '16px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>Programme Setup — Course &amp; Coordinator Roster</h3>
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>
+                  {standaloneCourseManagement ? 'Manage Courses' : 'Programme Setup — Course & Coordinator Roster'}
+                </h3>
                 <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>
                   Create programme-batch courses from the HOD master-course catalogue and assign their Course Coordinators.
                 </p>
@@ -1056,7 +1060,11 @@ export default function ProgrammeCoordinatorSetupWorkflow({ standaloneTargetSett
               </p>
             </div>
             <div style={{ padding: '4px 0' }}>
-              <ProgrammeATR hideFooter={true} />
+              <ProgrammeATR
+                programmeId={programmeId}
+                batchId={batchId}
+                hideFooter={true}
+              />
             </div>
           </div>
         )}
@@ -1131,7 +1139,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({ standaloneTargetSett
       </div>{/* end step content */}
 
       {/* ── FOOTER NAV ────────────────────────────────────────────────────── */}
-      {!standaloneTargetSettings && <div style={{
+      {!isStandaloneView && <div style={{
         ...surface,
         padding: '14px 20px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',

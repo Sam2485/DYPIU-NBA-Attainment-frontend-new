@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileCheck, Upload, CheckCircle2, AlertCircle, Loader2, X } from 'lucide-react';
+import { FileCheck, Upload, Download, CheckCircle2, AlertCircle, Loader2, X } from 'lucide-react';
 import { useAcademic } from '../../context/academic';
 import { useAttainment } from '../../context/attainment';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
@@ -16,6 +16,7 @@ export default function EndSemMarksHub({ hideFooter = false }) {
     examinationData,
     loadExaminationData,
     uploadEndSemMarks,
+    deleteExaminationMarks,
     loading: attainmentLoading,
   } = useAttainment();
 
@@ -27,6 +28,7 @@ export default function EndSemMarksHub({ hideFooter = false }) {
 
   useEffect(() => {
     if (courseOfferingId) {
+      setUploadedFileName(sessionStorage.getItem(`examination-upload:${courseOfferingId}`));
       loadExaminationData(courseOfferingId).catch(() => {});
     }
   }, [courseOfferingId, loadExaminationData]);
@@ -50,9 +52,10 @@ export default function EndSemMarksHub({ hideFooter = false }) {
         file,
       });
       setUploadedFileName(file.name);
+      sessionStorage.setItem(`examination-upload:${courseOfferingId}`, file.name);
       setShowAllStudents(false);
       setStatusMessage(
-        `File "${file.name}" uploaded and processed successfully! Processed for ${result?.totalStudents ?? 0} students.`
+        `File "${file.name}" uploaded and processed successfully! Processed for ${result?.totalStudents ?? result?.students?.length ?? 0} students.`
       );
     } catch (err) {
       console.error('Marks upload failed:', err);
@@ -65,15 +68,49 @@ export default function EndSemMarksHub({ hideFooter = false }) {
     }
   };
 
-  const coLevels = examinationData?.coAttainmentLevels || examinationData?.coAttainmentScores || {};
-  const coPercentages = examinationData?.percentageAboveThreshold || {};
+  const handleRemoveExamination = async () => {
+    if (!courseOfferingId || uploading) return;
+    if (!window.confirm('Remove the uploaded examination sheet and all saved examination marks for this course?')) return;
+    setUploading(true);
+    setErrorMessage(null);
+    try {
+      await deleteExaminationMarks(courseOfferingId);
+      setUploadedFileName(null);
+      sessionStorage.removeItem(`examination-upload:${courseOfferingId}`);
+      setShowAllStudents(false);
+      setStatusMessage('Uploaded examination sheet and all associated marks were removed.');
+    } catch (err) {
+      console.error('Examination marks removal failed:', err);
+      setErrorMessage(err?.customMessage || err?.message || 'Failed to remove examination marks sheet.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const coAttainments = examinationData?.coAttainments || {};
+  const coLevels = examinationData?.coAttainmentLevels
+    || examinationData?.coAttainmentScores
+    || Object.fromEntries(Object.entries(coAttainments).map(([code, value]) => [code, value?.attainmentLevel]));
+  const coPercentages = examinationData?.percentageAboveThreshold
+    || Object.fromEntries(Object.entries(coAttainments).map(([code, value]) => [code, value?.percentage]));
   const coMaxMarks = examinationData?.coMaxMarks || {};
-  const coThresholdMarks = examinationData?.coThresholdMarks || {};
-  const studentsAboveThreshold = examinationData?.studentsAboveThreshold || {};
-  const totalStudents = examinationData?.totalStudents ?? 0;
-  const overallDirectCoAttainment = examinationData?.overallDirectCoAttainment ?? examinationData?.averageAttainmentLevel ?? 0;
   const thresholdPercentage = examinationData?.thresholdPercentage ?? 60;
-  const studentMarks = Array.isArray(examinationData?.studentMarks) ? examinationData.studentMarks : [];
+  const coThresholdMarks = examinationData?.coThresholdMarks
+    || Object.fromEntries(Object.entries(coMaxMarks).map(([code, maxMarks]) => [code, Number(maxMarks) * Number(thresholdPercentage) / 100]));
+  const studentsAboveThreshold = examinationData?.studentsAboveThreshold
+    || Object.fromEntries(Object.entries(coAttainments).map(([code, value]) => [code, value?.studentsAboveThreshold]));
+  const studentMarks = Array.isArray(examinationData?.studentMarks)
+    ? examinationData.studentMarks
+    : Array.isArray(examinationData?.students) ? examinationData.students : [];
+  const totalStudents = examinationData?.totalStudents ?? studentMarks.length ?? 0;
+  const overallDirectCoAttainment = examinationData?.overallDirectCoAttainment
+    ?? examinationData?.averageAttainmentLevel
+    ?? (Object.values(coLevels).length
+      ? Object.values(coLevels).reduce((sum, level) => sum + Number(level || 0), 0) / Object.values(coLevels).length
+      : 0);
+  const uploadedSheetExists = Boolean(uploadedFileName || examinationData) && (
+    Boolean(uploadedFileName) || studentMarks.length > 0 || Object.keys(coMaxMarks).length > 0
+  );
 
   const apiCoKeys = [...new Set([
     ...Object.keys(coLevels),
@@ -144,6 +181,13 @@ export default function EndSemMarksHub({ hideFooter = false }) {
               </span>
             </div>
           </div>
+          <a
+            href="/examination-template.xlsx"
+            download="examination-template.xlsx"
+            style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+          >
+            <Download size={14} /> Download Template
+          </a>
         </div>
       </div>
 
@@ -193,19 +237,17 @@ export default function EndSemMarksHub({ hideFooter = false }) {
                 onChange={handleFileUpload}
                 disabled={uploading || !courseOfferingId}
               />
-              {uploadedFileName ? (
+              {uploadedSheetExists ? (
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '9px 12px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px', color: '#065f46', fontSize: '13px', fontWeight: '700' }}>
                   <FileCheck size={16} />
-                  <span>{uploadedFileName}</span>
+                  <span>{uploadedFileName || examinationData?.fileDetails?.fileName || examinationData?.fileName || 'Uploaded examination file'}</span>
                   <button
                     type="button"
-                    aria-label="Remove selected examination file"
-                    title="Remove file"
-                    onClick={() => {
-                      setUploadedFileName(null);
-                      setStatusMessage(null);
-                    }}
-                    style={{ display: 'inline-grid', placeItems: 'center', padding: 0, border: 'none', background: 'transparent', color: '#b91c1c', cursor: 'pointer' }}
+                    aria-label="Remove uploaded examination sheet and marks"
+                    title="Remove uploaded examination sheet and marks"
+                    onClick={handleRemoveExamination}
+                    disabled={uploading}
+                    style={{ display: 'inline-grid', placeItems: 'center', padding: 0, border: 'none', background: 'transparent', color: '#b91c1c', cursor: uploading ? 'wait' : 'pointer', opacity: uploading ? 0.55 : 1 }}
                   >
                     <X size={17} />
                   </button>

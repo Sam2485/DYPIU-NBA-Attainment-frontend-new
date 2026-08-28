@@ -7,6 +7,7 @@ import {
 } from 'react';
 
 import apiClient from '../api/client';
+import { useAuth } from './auth';
 
 export const UserContext =
   createContext(null);
@@ -79,8 +80,8 @@ const mapBackendUser = (user) => {
 
   return {
     id:
-      user.id != null
-        ? String(user.id)
+      (user.id ?? user.userId) != null
+        ? String(user.id ?? user.userId)
         : null,
 
     name:
@@ -123,7 +124,8 @@ const mapBackendUser = (user) => {
       user.department_id ??
       null,
 
-    programmeId:
+    masterProgrammeId:
+      user.masterProgrammeId ??
       user.programmeId ??
       user.programme_id ??
       null,
@@ -173,6 +175,7 @@ const mapBackendUser = (user) => {
 export function UserProvider({
   children,
 }) {
+  const { role, user: currentUser } = useAuth();
   const [
     users,
     setUsers,
@@ -200,10 +203,11 @@ export function UserProvider({
       setError(null);
 
       try {
-        const response =
-          await apiClient.get(
-            '/users'
-          );
+        const params = {};
+        if (role === 'DIRECTOR') params.schoolId = currentUser?.schoolId;
+        if (role === 'HOD') params.departmentId = currentUser?.departmentId;
+        if (role === 'PROGRAMME_COORDINATOR') params.masterProgrammeId = currentUser?.masterProgrammeId;
+        const response = await apiClient.get('/users', { params });
 
         const responseData =
           response?.data?.data ??
@@ -294,10 +298,11 @@ export function UserProvider({
       setError(null);
 
       try {
-        const response =
-          await apiClient.get(
-            '/users'
-          );
+        const params = {};
+        if (role === 'DIRECTOR') params.schoolId = currentUser?.schoolId;
+        if (role === 'HOD') params.departmentId = currentUser?.departmentId;
+        if (role === 'PROGRAMME_COORDINATOR') params.masterProgrammeId = currentUser?.masterProgrammeId;
+        const response = await apiClient.get('/users', { params });
 
         const responseData =
           response?.data?.data ??
@@ -649,10 +654,10 @@ export function UserProvider({
             }
           : {}),
 
-        ...(newUser.programmeId
+        ...(newUser.masterProgrammeId
           ? {
-              programmeId:
-                newUser.programmeId,
+              masterProgrammeId:
+                newUser.masterProgrammeId,
             }
           : {}),
       };

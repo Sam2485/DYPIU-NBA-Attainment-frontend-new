@@ -50,9 +50,9 @@ export const dashboardApi = {
     );
   },
 
-  getCourseCoordinatorDashboard: ({ courseOfferingId, coordinatorEmail } = {}) => {
+  getCourseCoordinatorDashboard: ({ programmeBatchCourseId, coordinatorEmail } = {}) => {
     const params = {};
-    if (courseOfferingId) params.courseOfferingId = courseOfferingId;
+    if (programmeBatchCourseId) params.programmeBatchCourseId = programmeBatchCourseId;
     if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
 
     return apiClient.get('/academic/course-coordinator/summary', { params });

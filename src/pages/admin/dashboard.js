@@ -9,14 +9,14 @@ export const dashboardApi = {
     const params = departmentId ? { departmentId } : {};
     return apiClient.get('/dashboard/hod', { params });
   },
-  getProgrammeCoordinatorDashboard: (programmeId) => {
-    const params = programmeId ? { programmeId } : {};
+  getProgrammeCoordinatorDashboard: (masterProgrammeId) => {
+    const params = masterProgrammeId ? { masterProgrammeId } : {};
     return apiClient.get('/dashboard/programme-coordinator', { params });
   },
-  getCourseCoordinatorDashboard: (courseId, batchId) => {
+  getCourseCoordinatorDashboard: (masterCourseId, programmeBatchId) => {
     const params = {};
-    if (courseId) params.courseId = courseId;
-    if (batchId) params.batchId = batchId;
+    if (masterCourseId) params.masterCourseId = masterCourseId;
+    if (programmeBatchId) params.programmeBatchId = programmeBatchId;
     return apiClient.get('/dashboard/course-coordinator', { params });
   },
 };

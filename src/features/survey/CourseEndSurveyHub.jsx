@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ClipboardList, Upload, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { ClipboardList, FileCheck, Upload, Download, CheckCircle2, AlertCircle, Loader2, X } from 'lucide-react';
 import { useAcademic } from '../../context/academic';
 import { useAttainment } from '../../context/attainment';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
@@ -16,15 +16,18 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
     surveyData,
     loadSurveyData,
     uploadCourseSurvey,
+    deleteSurveyData,
     loading: attainmentLoading,
   } = useAttainment();
 
   const [uploading, setUploading] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [uploadedFileName, setUploadedFileName] = useState(null);
 
   useEffect(() => {
     if (courseOfferingId) {
+      setUploadedFileName(sessionStorage.getItem(`survey-upload:${courseOfferingId}`));
       loadSurveyData(courseOfferingId).catch(() => {});
     }
   }, [courseOfferingId, loadSurveyData]);
@@ -48,8 +51,10 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
         file,
       });
       setStatusMessage(
-        `Survey file "${file.name}" processed successfully! Evaluated for ${result?.totalResponses ?? 0} student responses.`
+        `Survey file "${file.name}" processed successfully! Evaluated for ${result?.totalStudents ?? result?.totalResponses ?? result?.surveyResponses?.length ?? 0} student responses.`
       );
+      setUploadedFileName(file.name);
+      sessionStorage.setItem(`survey-upload:${courseOfferingId}`, file.name);
     } catch (err) {
       console.error('Survey upload failed:', err);
       setErrorMessage(
@@ -58,6 +63,24 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
     } finally {
       setUploading(false);
       e.target.value = '';
+    }
+  };
+
+  const handleRemoveSurvey = async () => {
+    if (!courseOfferingId || uploading) return;
+    if (!window.confirm('Remove the uploaded survey sheet and all saved survey responses for this course?')) return;
+    setUploading(true);
+    setErrorMessage(null);
+    try {
+      await deleteSurveyData(courseOfferingId);
+      setUploadedFileName(null);
+      sessionStorage.removeItem(`survey-upload:${courseOfferingId}`);
+      setStatusMessage('Uploaded survey sheet and all associated responses were removed.');
+    } catch (err) {
+      console.error('Survey removal failed:', err);
+      setErrorMessage(err?.customMessage || err?.message || 'Failed to remove survey data.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -71,6 +94,9 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
   const coAttainmentLevels = surveyData?.coAttainmentLevels || {};
   const surveyResponses = Array.isArray(surveyData?.surveyResponses) ? surveyData.surveyResponses : [];
   const totalResponses = surveyData?.totalStudents ?? surveyData?.totalResponses ?? surveyResponses.length;
+  const uploadedSheetExists = Boolean(uploadedFileName || surveyData?.fileDetails?.fileName) && (
+    Boolean(uploadedFileName) || surveyResponses.length > 0 || Object.keys(level1Counts).length > 0
+  );
 
   const apiCoKeys = [...new Set([
     ...Object.keys(level1Counts),
@@ -139,6 +165,13 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
               </span>
             </div>
           </div>
+          <a
+            href="/survey-template.xlsx"
+            download="survey-template.xlsx"
+            style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+          >
+            <Download size={14} /> Download Template
+          </a>
         </div>
       </div>
 
@@ -188,13 +221,17 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
                 onChange={handleFileUpload}
                 disabled={uploading || !courseOfferingId}
               />
-              <label
-                htmlFor="survey-file-input"
-                className={`btn btn-primary ${!courseOfferingId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                style={{ cursor: courseOfferingId ? 'pointer' : 'not-allowed' }}
-              >
-                <Upload size={15} /> Select Survey Excel
-              </label>
+              {uploadedSheetExists ? (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '9px 12px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px', color: '#065f46', fontSize: '13px', fontWeight: '700' }}>
+                  <FileCheck size={16} />
+                  <span>{uploadedFileName || surveyData?.fileDetails?.fileName || surveyData?.fileName || 'Uploaded survey file'}</span>
+                  <button type="button" aria-label="Remove uploaded survey sheet and responses" title="Remove uploaded survey sheet and responses" onClick={handleRemoveSurvey} disabled={uploading} style={{ display: 'inline-grid', placeItems: 'center', padding: 0, border: 'none', background: 'transparent', color: '#b91c1c', cursor: uploading ? 'wait' : 'pointer', opacity: uploading ? 0.55 : 1 }}><X size={17} /></button>
+                </div>
+              ) : (
+                <label htmlFor="survey-file-input" className={`btn btn-primary ${!courseOfferingId ? 'opacity-50 cursor-not-allowed' : ''}`} style={{ cursor: courseOfferingId ? 'pointer' : 'not-allowed' }}>
+                  <Upload size={15} /> Select Survey Excel
+                </label>
+              )}
             </>
           )}
         </div>

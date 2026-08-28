@@ -187,9 +187,9 @@ export default function ProgrammeCoordinatorDashboard() {
   const quickActions = [
     {
       id: 'setup',
-      title: 'Course Management',
+      title: 'Manage Courses',
       desc: 'Add courses, assign coordinators, and view course structures.',
-      path: '/academic',
+      path: '/programme-coordinator/manage-courses',
       icon: BookOpen,
       iconColor: '#4f46e5',
       iconBg: '#eef2ff',

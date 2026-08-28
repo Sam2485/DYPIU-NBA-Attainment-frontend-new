@@ -4,8 +4,8 @@ export const attainmentApi = {
   // ---------------------------------------------------------------------------
   // Attainment Configuration (Offering Scoped)
   // ---------------------------------------------------------------------------
-  getConfig: (courseOfferingId) =>
-    apiClient.get(`/attainment/configurations/${courseOfferingId}`),
+  getConfig: (programmeBatchCourseId) =>
+    apiClient.get(`/attainment/configurations/${programmeBatchCourseId}`),
 
   saveConfig: (config) =>
     apiClient.post('/attainment/configurations/save', config),
@@ -13,62 +13,67 @@ export const attainmentApi = {
   updateConfig: (configId, config) =>
     apiClient.put(`/attainment/configurations/${configId}`, config),
 
-  submitConfig: (courseOfferingId, submittedBy) =>
+  submitConfig: (programmeBatchCourseId, submittedBy) =>
     apiClient.post('/attainment/configurations/submit', null, {
-      params: { courseOfferingId, submittedBy },
+      params: { programmeBatchCourseId, submittedBy },
     }),
 
   // ---------------------------------------------------------------------------
   // Direct Assessment (Examination) - Sheet 2
   // ---------------------------------------------------------------------------
-  getExaminationAttainment: (courseOfferingId) =>
-    apiClient.get(`/attainment/examination/${courseOfferingId}`),
+  getExaminationAttainment: (programmeBatchCourseId) =>
+    apiClient.get(`/attainment/examination/${programmeBatchCourseId}`),
 
-  saveExaminationMarks: (courseOfferingId, payload) =>
-    apiClient.post(`/attainment/examination/${courseOfferingId}`, payload),
+  saveExaminationMarks: (programmeBatchCourseId, payload) =>
+    apiClient.post(`/attainment/examination/${programmeBatchCourseId}`, payload),
 
-  uploadExaminationSheet: (courseOfferingId, formData) =>
+  uploadExaminationSheet: (programmeBatchCourseId, formData) =>
     apiClient.post(
-      `/attainment/course-offerings/${courseOfferingId}/examination/upload`,
+      `/attainment/examination/${programmeBatchCourseId}/upload`,
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } }
     ),
 
+  deleteExaminationMarks: (programmeBatchCourseId) =>
+    apiClient.delete(`/attainment/examination/${programmeBatchCourseId}`),
+
   // ---------------------------------------------------------------------------
   // Indirect Assessment (Course End Survey) - Sheet 3
   // ---------------------------------------------------------------------------
-  // Survey results are owned by the programme-batch-course, not the legacy
-  // course-offering attainment endpoint.
   getSurveyAttainment: (programmeBatchCourseId) =>
-    apiClient.get(`/programme-batch-courses/${programmeBatchCourseId}/survey`),
+    apiClient.get(`/attainment/survey/${programmeBatchCourseId}`),
 
-  saveSurveyResponses: (courseOfferingId, payload) =>
-    apiClient.post(`/attainment/survey/${courseOfferingId}`, payload),
+  saveSurveyResponses: (programmeBatchCourseId, payload) =>
+    apiClient.post(`/attainment/survey/${programmeBatchCourseId}`, payload),
 
   uploadSurveySheet: (programmeBatchCourseId, formData) =>
     apiClient.post(
-      `/programme-batch-courses/${programmeBatchCourseId}/survey/upload`,
-      formData
+      `/attainment/survey/${programmeBatchCourseId}/upload`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
     ),
+
+  deleteSurveyData: (programmeBatchCourseId) =>
+    apiClient.delete(`/attainment/survey/${programmeBatchCourseId}`),
 
   // ---------------------------------------------------------------------------
   // CO Attainment Calculation
   // ---------------------------------------------------------------------------
-  calculateCourseCoAttainment: (courseOfferingId) =>
-    apiClient.get(`/attainment/course-offerings/${courseOfferingId}`),
+  calculateCourseCoAttainment: (programmeBatchCourseId) =>
+    apiClient.get(`/attainment/programme-batch-courses/${programmeBatchCourseId}`),
 
   // ---------------------------------------------------------------------------
   // Programme Attainment (Batch Scoped)
   // ---------------------------------------------------------------------------
-  getProgrammeAttainment: (programmeId, batchId) =>
-    apiClient.get(`/attainment/programme/${programmeId}/batch/${batchId}`),
+  getProgrammeAttainment: (masterProgrammeId, programmeBatchId) =>
+    apiClient.get(`/attainment/master-programmes/${masterProgrammeId}/programme-batches/${programmeBatchId}`),
 
-  getProgrammeAttainmentDataset: (programmeId, batchId) =>
-    apiClient.get(`/attainment/programme/${programmeId}/batch/${batchId}/dataset`),
+  getProgrammeAttainmentDataset: (masterProgrammeId, programmeBatchId) =>
+    apiClient.get(`/attainment/master-programmes/${masterProgrammeId}/programme-batches/${programmeBatchId}/dataset`),
 
-  uploadProgrammeExitSurvey: (batchId, formData) =>
+  uploadProgrammeExitSurvey: (programmeBatchId, formData) =>
     apiClient.post(
-      `/programme-batches/${batchId}/survey/upload`,
+      `/academic/programme-batches/${programmeBatchId}/survey/upload`,
       formData
     ),
 };

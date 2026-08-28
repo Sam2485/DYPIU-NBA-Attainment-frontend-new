@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAcademic } from '../../context/AcademicContext';
+import UserProfileModal from '../profile/UserProfileModal';
 
 // ── SVG icon map with centered SVG display ─────────────────────────────────────
 function Icon({ name, active = false, size = 16 }) {
@@ -56,7 +57,7 @@ const HOD_NAV = [
 // ── Programme Coordinator Nav Items ───────────────────────────────────────────────
 const PROGRAMME_COORDINATOR_NAV = [
   { id: 'dashboard',          path: '/programme-coordinator/dashboard',          icon: 'dashboard', label: 'Dashboard' },
-  { id: 'programme-setup',    path: '/academic',                                 icon: 'academic',  label: 'Programme Setup' },
+  { id: 'manage-courses',     path: '/programme-coordinator/manage-courses',     icon: 'academic',  label: 'Manage Courses' },
   { id: 'target-settings',    path: '/programme-coordinator/target-settings',    icon: 'config',    label: 'Target Settings' },
   { id: 'programme-atr',      path: '/programme-atr',                            icon: 'atr',       label: 'Programme ATR' },
   { id: 'verification-panel', path: '/coordinator-review',                       icon: 'poa',       label: 'Approvals' },
@@ -66,7 +67,7 @@ const PROGRAMME_COORDINATOR_NAV = [
 // ── Dropdown 1: Programme Setup & Management ───────────────────────────────────
 const PROGRAMME_SETUP_NAV = [
   { id: 'dashboard',     path: '/programme-coordinator/dashboard', icon: 'dashboard', label: 'Dashboard' },
-  { id: 'academic',      path: '/academic',      icon: 'academic',  label: 'Academic Setup' },
+  { id: 'manage-courses', path: '/programme-coordinator/manage-courses', icon: 'academic', label: 'Manage Courses' },
   { id: 'outcomes',      path: '/programme-coordinator/target-settings', icon: 'outcomes',  label: 'Target Settings' },
   { id: 'programme-atr', path: '/programme-atr', icon: 'atr',       label: 'Programme ATR' },
   { id: 'reports',       path: '/reports',       icon: 'reports',   label: 'Reports' },
@@ -280,6 +281,7 @@ export default function AppSidebar() {
   const [navOpenSetup, setNavOpenSetup] = useState(false);
   const [navOpenReview, setNavOpenReview] = useState(false);
   const [navOpenFaculty, setNavOpenFaculty] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const isCoordinatorRole = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
@@ -1125,8 +1127,16 @@ export default function AppSidebar() {
       </div>
 
       {/* ── Profile card ───────────────────────────────────────────── */}
-      <div
+      <button
+        type="button"
+        onClick={() => setIsProfileOpen(true)}
+        aria-label="Open account profile"
         style={{
+          width: '100%',
+          border: 0,
+          fontFamily: 'inherit',
+          textAlign: 'left',
+          cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           gap: 10,
@@ -1176,7 +1186,7 @@ export default function AppSidebar() {
         >
           <Icon name="profile" size={14} />
         </span>
-      </div>
+      </button>
 
       {/* ── Need Help card ─────────────────────────────────────────── */}
       <div
@@ -1242,6 +1252,14 @@ export default function AppSidebar() {
         <Icon name="logout" size={17} />
         <span style={{ color: '#f87171', fontWeight: 900, fontSize: 12 }}>Logout</span>
       </button>
+      <UserProfileModal
+        open={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        user={user}
+        roleLabel={roleText}
+        courseCount={courseOfferings.length}
+        batchName={selectedBatch?.name}
+      />
     </aside>
   );
 }

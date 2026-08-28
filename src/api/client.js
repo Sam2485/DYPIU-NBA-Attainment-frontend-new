@@ -1,50 +1,16 @@
 import axios from 'axios';
 
 /* ========================================================================== */
-/* Base URL                                                                   */
+/* Backend base URL                                                           */
 /* ========================================================================== */
 
-const resolveBaseUrl = () => {
-  const envUrl = import.meta.env.VITE_API_BASE_URL;
-
-  if (envUrl && envUrl.trim() !== '') {
-    const trimmed = envUrl.trim().replace(/\/+$/, '');
-
-    return trimmed.endsWith('/api/v1')
-      ? trimmed
-      : `${trimmed}/api/v1`;
-  }
-
-  if (typeof window !== 'undefined') {
-    // When served through reverse proxy under /nba
-    if (window.location.pathname.startsWith('/nba')) {
-      return '/nba/api/v1';
-    }
-
-    // When running in local Vite dev server on port 5173
-    if (window.location.port === '5173') {
-      return '/api/v1';
-    }
-
-    const protocol = window.location.protocol || 'http:';
-    const host = window.location.hostname;
-
-    return `${protocol}//${host}:8010/api/v1`;
-  }
-
-  return '/nba/api/v1';
-};
+const LOCAL_BACKEND_URL = 'http://localhost:8080/api/v1';
+const currentActiveUrl = import.meta.env.VITE_API_BASE_URL || LOCAL_BACKEND_URL;
 
 /* ========================================================================== */
 /* In-memory authentication token                                             */
 /* ========================================================================== */
 
-/*
- * AuthContext will set this immediately after successful login.
- *
- * This keeps apiClient and AuthContext synchronized without requiring
- * apiClient to directly depend on React context.
- */
 let authToken = null;
 
 export const setApiAuthToken = (token) => {
@@ -64,7 +30,7 @@ export const getApiAuthToken = () => {
 /* ========================================================================== */
 
 const apiClient = axios.create({
-  baseURL: resolveBaseUrl(),
+  baseURL: currentActiveUrl,
 
   headers: {
     'Content-Type': 'application/json',
@@ -123,6 +89,9 @@ const sanitizeRequestBody = (data) => {
 
 apiClient.interceptors.request.use(
   (config) => {
+    // Use the configured backend. Development defaults to localhost:8080.
+    config.baseURL = currentActiveUrl;
+
     const token = authToken;
 
     config.headers = config.headers || {};
@@ -139,17 +108,6 @@ apiClient.interceptors.request.use(
         `Bearer ${token}`;
     }
 
-    console.log('[AUTH DEBUG]', {
-      url: config.url,
-      hasToken: Boolean(token),
-      hasAuthorizationHeader:
-        Boolean(config.headers.Authorization),
-      authorizationPrefix:
-        config.headers.Authorization
-          ? config.headers.Authorization.substring(0, 20) + '...'
-          : null,
-    });
-
     return config;
   },
   (error) => Promise.reject(error)
@@ -161,7 +119,7 @@ apiClient.interceptors.request.use(
 
 apiClient.interceptors.response.use(
   (response) => {
-    console.log('[API RESPONSE]', {
+          console.log('[API RESPONSE]', {
       method: response.config?.method?.toUpperCase(),
       url: response.config?.url,
       status: response.status,
@@ -172,42 +130,18 @@ apiClient.interceptors.response.use(
       response: response.data,
     });
 
-    /*
-     * Preserve the existing application contract:
-     * callers receive response.data rather than AxiosResponse.
-     */
     return response.data;
   },
 
-  (error) => {
-    console.error('[API ERROR]', {
-      method: error.config?.method?.toUpperCase(),
-      url: error.config?.url,
-      status: error.response?.status,
-      params: error.config?.params,
-      requestBody: sanitizeRequestBody(
-        error.config?.data
-      ),
-      response: error.response?.data,
-      message: error.message,
-    });
+  async (error) => {
 
     /* ---------------------------------------------------------------------- */
     /* Authentication expiry                                                 */
     /* ---------------------------------------------------------------------- */
 
     if (error.response?.status === 401) {
-      /*
-       * Clear the in-memory token immediately so subsequent requests
-       * do not keep sending an expired/invalid JWT.
-       */
       clearApiAuthToken();
 
-      /*
-       * Keep legacy cleanup for any old browser-stored auth state.
-       * This can be removed later when authentication persistence
-       * is fully cleaned up.
-       */
       sessionStorage.removeItem('authToken');
       sessionStorage.removeItem('refreshToken');
       sessionStorage.removeItem('nba_auth_session');
@@ -264,7 +198,7 @@ apiClient.interceptors.response.use(
       error.customMessage = detailedMessage;
     } else if (error.request) {
       error.customMessage =
-        `Unable to connect to backend server at ${resolveBaseUrl()}.`;
+        `Unable to connect to backend server at ${currentActiveUrl}.`;
     } else {
       error.customMessage =
         error.message ||

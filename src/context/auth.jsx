@@ -76,7 +76,11 @@ const toAuthenticatedUser = (backendUser, fallbackEmail = null) => {
     schoolId: backendUser.schoolId ?? backendUser.school_id ?? null,
     schoolName: backendUser.schoolName ?? backendUser.school_name ?? backendUser.school?.name ?? null,
     departmentId: backendUser.departmentId ?? backendUser.department_id ?? null,
-    programmeId: backendUser.programmeId ?? backendUser.programme_id ?? null,
+    masterProgrammeId:
+      backendUser.masterProgrammeId ??
+      backendUser.programmeId ??
+      backendUser.programme_id ??
+      null,
     school: backendUser.school ?? null,
     department: backendUser.department ?? null,
     programme: backendUser.programme ?? null,
@@ -374,27 +378,31 @@ export function AuthProvider({ children }) {
   /* Logout                                                               */
   /* -------------------------------------------------------------------- */
 
-  const logout = async () => {
+  const logout = () => {
+    // Start server-side invalidation while the bearer token is still attached,
+    // but never let a slow/unavailable backend keep the user signed in here.
     try {
-      /*
-       * Tell backend to invalidate/logout the current session
-       * if the backend exposes this endpoint.
-       */
-      await apiClient.post(
-        '/auth/logout'
-      );
+      void apiClient.post('/auth/logout').catch((error) => {
+        console.warn('Backend logout request failed:', error);
+      });
     } catch (error) {
-      /*
-       * Even if the server logout request fails,
-       * local authentication state must be destroyed.
-       */
-      console.warn(
-        'Backend logout request failed:',
-        error
-      );
+      console.warn('Backend logout request could not be started:', error);
     } finally {
+      // Clear the persisted session before navigating. Without this, a full
+      // page reload at /login restores the previous user and appears to make
+      // logout do nothing.
+      clearApiAuthToken();
+      clearStoredSession();
+      sessionStorage.removeItem('authToken');
+      sessionStorage.removeItem('refreshToken');
+      sessionStorage.removeItem('admin_user');
+      localStorage.removeItem('authToken');
+      setToken(null);
+      setUser(null);
+      setRole(null);
+
       const isNba = typeof window !== 'undefined' && window.location.pathname.startsWith('/nba');
-      window.location.href = isNba ? '/nba/login' : '/login';
+      window.location.replace(isNba ? '/nba/login' : '/login');
     }
   };
 

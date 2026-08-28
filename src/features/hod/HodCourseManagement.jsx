@@ -115,16 +115,11 @@ export default function HodCourseManagement() {
       );
       if (batchId && coordinator) {
         await addCourseOffering({
-          id: `offering-${savedCourse.id}-${batchId}`,
-          courseId: savedCourse.id,
-          batchId,
-          courseName: savedCourse.name,
-          courseCode: savedCourse.code,
+          masterCourseId: savedCourse.masterCourseId ?? savedCourse.id,
+          programmeBatchId: batchId,
           semester: savedCourse.semester,
-          courseCoordinatorId: Number(coordinator.id),
-          courseCoordinator: coordinator.name || coordinator.username || coordinator.email,
           courseCoordinatorEmail: coordinator.email || '',
-          status: 'ALLOCATED',
+          assignedFaculty: coordinator.email || '',
         });
       }
       setNewCode('');

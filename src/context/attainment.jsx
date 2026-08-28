@@ -97,7 +97,7 @@ export function AttainmentProvider({ children }) {
       }
 
       const payload = {
-        courseOfferingId: targetOfferingId,
+        programmeBatchCourseId: targetOfferingId,
         directWeight: newConfig.directWeight ?? 80.0,
         indirectWeight: newConfig.indirectWeight ?? 20.0,
         internalWeight: newConfig.internalWeight ?? 30.0,
@@ -158,7 +158,7 @@ export function AttainmentProvider({ children }) {
       try {
         setError(null);
         const response = await attainmentApi.saveExaminationMarks(targetOfferingId, {
-          courseOfferingId: targetOfferingId,
+          programmeBatchCourseId: targetOfferingId,
           ...payload,
         });
         const data = unwrapResponse(response);
@@ -199,6 +199,22 @@ export function AttainmentProvider({ children }) {
     [courseOfferingId]
   );
 
+  const deleteExaminationMarks = useCallback(
+    async (targetOfferingId = courseOfferingId) => {
+      if (!targetOfferingId) throw new Error('programmeBatchCourseId is required');
+      try {
+        setError(null);
+        await attainmentApi.deleteExaminationMarks(targetOfferingId);
+        setExaminationData(null);
+      } catch (err) {
+        console.warn(`deleteExaminationMarks(${targetOfferingId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to remove examination marks');
+        throw err;
+      }
+    },
+    [courseOfferingId]
+  );
+
   /* ======================================================================== */
   /* 3. Indirect Survey Assessment Loaders & Mutators                         */
   /* ======================================================================== */
@@ -229,7 +245,7 @@ export function AttainmentProvider({ children }) {
       try {
         setError(null);
         const response = await attainmentApi.saveSurveyResponses(targetOfferingId, {
-          courseOfferingId: targetOfferingId,
+          programmeBatchCourseId: targetOfferingId,
           ...payload,
         });
         const data = unwrapResponse(response);
@@ -264,6 +280,22 @@ export function AttainmentProvider({ children }) {
       } catch (err) {
         console.warn(`uploadCourseSurvey(${offeringId}) failed:`, err);
         setError(err?.customMessage || err?.message || 'Failed to upload survey sheet');
+        throw err;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  const deleteSurveyData = useCallback(
+    async (targetOfferingId = courseOfferingId) => {
+      if (!targetOfferingId) throw new Error('programmeBatchCourseId is required');
+      try {
+        setError(null);
+        await attainmentApi.deleteSurveyData(targetOfferingId);
+        setSurveyData(null);
+      } catch (err) {
+        console.warn(`deleteSurveyData(${targetOfferingId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to remove survey data');
         throw err;
       }
     },
@@ -392,7 +424,7 @@ export function AttainmentProvider({ children }) {
       }
       try {
         setError(null);
-        const response = await apiClient.get(`/programme-batches/${targetBatchId}/atr`);
+        const response = await apiClient.get(`/academic/programme-batches/${targetBatchId}/atr`);
         const data = unwrapResponse(response);
         setProgrammeAtrStore(data);
         return data;
@@ -431,7 +463,7 @@ export function AttainmentProvider({ children }) {
       try {
         setError(null);
         const response = await apiClient.post(
-          `/programme-batches/${targetBatchId}/atr`,
+          `/academic/programme-batches/${targetBatchId}/atr`,
           programmeAtrData
         );
         const data = unwrapResponse(response);
@@ -454,7 +486,7 @@ export function AttainmentProvider({ children }) {
 
       try {
         setError(null);
-        const response = await apiClient.post(`/programme-batches/${targetBatchId}/atr/submit`);
+        const response = await apiClient.post(`/academic/programme-batches/${targetBatchId}/atr/submit`);
         const data = unwrapResponse(response);
         setProgrammeAtrStore((previous) => ({ ...previous, ...data }));
         return data;
@@ -506,7 +538,7 @@ export function AttainmentProvider({ children }) {
     try {
       setError(null);
       const response = await apiClient.post(
-        `/programme-batches/${targetBatchId}/survey/upload`,
+        `/academic/programme-batches/${targetBatchId}/survey/upload`,
         formData,
         {
           // Let the browser add multipart/form-data with its generated boundary.
@@ -559,6 +591,9 @@ export function AttainmentProvider({ children }) {
     uploadEndSemMarks,
     uploadDirectAssessment: uploadEndSemMarks,
     uploadExamination: uploadEndSemMarks,
+    deleteExaminationMarks,
+    deleteDirectAssessment: deleteExaminationMarks,
+    deleteExamination: deleteExaminationMarks,
 
     /* 3. Indirect Assessment */
     surveyData,
@@ -572,6 +607,9 @@ export function AttainmentProvider({ children }) {
     uploadCourseSurvey,
     uploadIndirectAssessment: uploadCourseSurvey,
     uploadSurvey: uploadCourseSurvey,
+    deleteSurveyData,
+    deleteIndirectAssessment: deleteSurveyData,
+    deleteSurvey: deleteSurveyData,
 
     /* 4. CO Attainment */
     courseAttainmentStore,

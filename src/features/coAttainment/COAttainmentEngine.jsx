@@ -99,7 +99,8 @@ export default function COAttainmentEngine({ hideFooter = false }) {
     return count > 0 ? (sum / count).toFixed(2) : '-';
   };
 
-  // Helper: Table 2 Final PO/PSO Attainment Value: (Average * Overall CO Attainment) / 3
+  // Table 2 contribution is calculated by the backend from the direct
+  // attainment and average mapping strength.
   const calculatePoPsoAttainment = (key) => {
     const serverRow = table2DirectPO.find((item) => item.poCode === key)
       ?? table2DirectPSO.find((item) => item.psoCode === key);
@@ -322,7 +323,7 @@ export default function COAttainmentEngine({ hideFooter = false }) {
               </tr>
               <tr style={{ background: '#f1f5f9', fontWeight: '800' }}>
                 <td style={{ fontWeight: '800', color: '#0f172a' }}>{displayCourseCode}</td>
-                <td style={{ fontWeight: '800', color: '#0f172a' }}>Final PO / PSO Attainment Value</td>
+                <td style={{ fontWeight: '800', color: '#0f172a' }}>Direct Attainment Contribution</td>
                 {displayPOs.map((po) => (
                   <td key={po} style={{ textAlign: 'center', fontSize: '13.5px', color: '#0f172a' }}>
                     {calculatePoPsoAttainment(po)}
@@ -364,16 +365,19 @@ export default function COAttainmentEngine({ hideFooter = false }) {
                   </td>
                 </tr>
               ) : [
+                ['Target Level', (item) => item.targetLevel != null ? Number(item.targetLevel).toFixed(2) : '—'],
                 ['Direct Attainment %', (item) => item.directPercentage != null ? `${Number(item.directPercentage).toFixed(2)}%` : '—'],
                 ['Direct Attainment', (item) => item.directLevel != null ? `L${item.directLevel}` : '—'],
                 ['Indirect Attainment %', (item) => item.indirectPercentage != null ? `${Number(item.indirectPercentage).toFixed(2)}%` : '—'],
                 ['Indirect Attainment', (item) => item.indirectScore != null ? `${Number(item.indirectScore).toFixed(2)}${item.indirectLevel != null ? ` / L${item.indirectLevel}` : ''}` : '—'],
                 ['Final Attainment', (item) => item.finalAttainment != null ? Number(item.finalAttainment).toFixed(2) : '—'],
+                ['Target Status', (item) => item.targetMet == null ? '—' : item.targetMet ? 'Met' : 'Not met'],
+                ['Observation', (item) => item.observation || '—'],
               ].map(([label, getValue], index) => (
-                <tr key={label} style={index === 4 ? { background: '#f1f5f9', fontWeight: '800', borderTop: '2px solid #cbd5e1' } : undefined}>
+                <tr key={label} style={label === 'Final Attainment' ? { background: '#f1f5f9', fontWeight: '800', borderTop: '2px solid #cbd5e1' } : undefined}>
                   <td style={{ fontWeight: '700', color: '#0f172a' }}>{label}</td>
                   {table3CoAttainments.map((item) => (
-                    <td key={item.coCode} style={{ textAlign: 'center', fontWeight: index === 4 ? '800' : '600' }}>
+                    <td key={item.coCode} style={{ textAlign: 'center', fontWeight: label === 'Final Attainment' ? '800' : '600', color: label === 'Target Status' && item.targetMet === false ? '#b91c1c' : undefined }}>
                       {getValue(item)}
                     </td>
                   ))}

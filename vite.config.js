@@ -8,12 +8,12 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api/v1': {
-        target: 'http://localhost:8010',
+        target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
       },
       '/nba/api/v1': {
-        target: 'http://localhost:8010',
+        target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/nba/, ''),
@@ -21,7 +21,7 @@ export default defineConfig({
     },
   },
   preview: {
-    port: 3010,
+    port: 3080,
     host: '0.0.0.0',
   },
   build: {

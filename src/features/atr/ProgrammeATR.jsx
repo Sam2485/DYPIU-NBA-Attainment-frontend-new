@@ -28,6 +28,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     selectedCourse,
     selectedBatch,
     batches         = [],
+    masterProgrammes = [],
     activePOs       = [],
     activePSOs      = [],
     poPsoTargets    = {},
@@ -60,6 +61,9 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const batchList = batches || [];
   const [selectedBatchId, setSelectedBatchId] = useState(() => propBatchId || selectedBatch?.id || batches?.[0]?.id || '');
   const currentBatchObj = batchList.find((b) => b.id === selectedBatchId) || batchList[0] || null;
+  const currentProgramme = masterProgrammes.find(
+    (programme) => String(programme.id) === String(activeProgId)
+  ) ?? programmeATR?.programme ?? { id: activeProgId };
   const isPreviousBatch = currentBatchObj?.name?.includes('Archived') || currentBatchObj?.name?.includes('Graduated');
   const isSubmittedForReview = reportStatus === 'SUBMITTED_FOR_VERIFICATION' || reportStatus === 'SUBMITTED';
   const locked = readOnly || isPreviousBatch || isSubmittedForReview || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
@@ -154,7 +158,9 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const previousYearPsoList = previousYearAtrList.filter((item) => item.type === 'PSO');
 
   useEffect(() => {
-    if (!activeProgId || !selectedBatchId) return;
+    // The Programme Batch ATR API is scoped solely by programmeBatchId.
+    // Do not wait for the master-programme store to resolve before fetching.
+    if (!selectedBatchId) return;
     let isCurrent = true;
 
     loadProgrammeATR(selectedBatchId).then((atr) => {
@@ -203,7 +209,19 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
         actions: item.actions.filter(Boolean),
       }));
     return {
+      reportType: 'PROGRAMME_ATR',
       status: 'DRAFT',
+      programme: {
+        id: currentProgramme.id,
+        code: currentProgramme.code ?? '',
+        name: currentProgramme.name ?? '',
+      },
+      batch: {
+        id: selectedBatchId,
+        name: currentBatchObj?.name ?? '',
+        startYear: currentBatchObj?.startYear ?? '',
+        endYear: currentBatchObj?.endYear ?? '',
+      },
       poOutcomes: outcomesPayload('PO'),
       psoOutcomes: outcomesPayload('PSO'),
     };

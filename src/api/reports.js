@@ -23,18 +23,18 @@ export const reportsApi = {
 
   getCourseAtr: (programmeBatchCourseId) =>
     apiClient.get(
-      `/programme-batch-courses/${programmeBatchCourseId}/atr`
+      `/academic/programme-batch-courses/${programmeBatchCourseId}/atr`
     ),
 
   saveCourseAtr: (programmeBatchCourseId, data) =>
     apiClient.put(
-      `/programme-batch-courses/${programmeBatchCourseId}/atr`,
+      `/academic/programme-batch-courses/${programmeBatchCourseId}/atr`,
       data
     ),
 
   submitCourseAtr: (programmeBatchCourseId) =>
     apiClient.post(
-      `/programme-batch-courses/${programmeBatchCourseId}/atr/submit`
+      `/academic/programme-batch-courses/${programmeBatchCourseId}/atr/submit`
     ),
 
   getCourseAtrs: (params = {}) =>
@@ -47,31 +47,25 @@ export const reportsApi = {
   // Programme ATR
   // -----------------------------------------------------------------------
 
-  getProgrammeAtr: (
-    programmeId,
-    batchId
-  ) =>
+  getProgrammeAtr: (programmeBatchId) =>
     apiClient.get(
-      `/reports/programmes/${programmeId}/batches/${batchId}/programme-atr`
+      `/academic/programme-batches/${programmeBatchId}/atr`
     ),
 
   getPreviousYearProgrammeAtr: (programmeBatchId) =>
     apiClient.get(
-      `/atr/programme/previous-year/${programmeBatchId}`
+      `/atr/master-programmes/previous-year/${programmeBatchId}`
     ),
 
-  saveProgrammeAtr: (data) =>
+  saveProgrammeAtr: (programmeBatchId, data) =>
     apiClient.post(
-      '/reports/programmes/programme-atr',
+      `/academic/programme-batches/${programmeBatchId}/atr`,
       data
     ),
 
-  submitProgrammeAtr: (
-    programmeId,
-    batchId
-  ) =>
+  submitProgrammeAtr: (programmeBatchId) =>
     apiClient.post(
-      `/reports/programmes/${programmeId}/batches/${batchId}/programme-atr/submit`
+      `/academic/programme-batches/${programmeBatchId}/atr/submit`
     ),
 
   getProgrammeAtrs: (params = {}) =>
@@ -85,15 +79,15 @@ export const reportsApi = {
   // -----------------------------------------------------------------------
 
   getProgrammeAttainment: (
-    programmeId,
-    batchId
+    masterProgrammeId,
+    programmeBatchId
   ) =>
     apiClient.get(
       '/reports/attainment-main',
       {
         params: {
-          programmeId,
-          batchId,
+          masterProgrammeId,
+          programmeBatchId,
         },
       }
     ),
@@ -102,7 +96,7 @@ export const reportsApi = {
     programmeBatchCourseId
   ) =>
     apiClient.get(
-      `/programme-batch-courses/${programmeBatchCourseId}/attainment-main`
+      `/programme-batch-courses/${programmeBatchCourseId}/co-attainment`
     ),
 
   // -----------------------------------------------------------------------
@@ -110,23 +104,23 @@ export const reportsApi = {
   // -----------------------------------------------------------------------
 
   getBatchComparison: (
-    programmeId,
-    batchIds
+    masterProgrammeId,
+    programmeBatchIds
   ) =>
     apiClient.get(
-      `/reports/programmes/${programmeId}/batch-comparison`,
+      `/reports/master-programmes/${masterProgrammeId}/batch-comparison`,
       {
         params: {
-          batchIds,
+          programmeBatchIds,
         },
       }
     ),
 
   getBatchSummary: (
-    batchId
+    programmeBatchId
   ) =>
     apiClient.get(
-      `/reports/batch/${batchId}/summary`
+      `/reports/programme-batches/${programmeBatchId}/summary`
     ),
 
   // -----------------------------------------------------------------------

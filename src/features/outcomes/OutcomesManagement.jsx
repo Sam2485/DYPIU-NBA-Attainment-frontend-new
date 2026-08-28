@@ -494,7 +494,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
     try {
       setIsSavingOutcomes(true);
       const payload = coList.map((co) => ({
-        ...(co.id ? { id: co.id } : {}),
+        ...(co.courseOutcomeId ?? co.id ? { courseOutcomeId: co.courseOutcomeId ?? co.id } : {}),
         code: String(co.code ?? '').trim(),
         statement: String(co.statement ?? '').trim(),
         targetLevel: Number(co.targetLevel ?? co.target ?? 2.5),

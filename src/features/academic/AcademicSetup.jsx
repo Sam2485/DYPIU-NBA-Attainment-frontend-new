@@ -137,7 +137,7 @@ export default function AcademicSetup() {
     try {
       const createdCourse = await createCourse({
       id: `crs-${newCode.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-      programmeId,
+      masterProgrammeId: programmeId,
       code: newCode.trim().toUpperCase(),
       name: newName.trim(),
       semester,
@@ -151,16 +151,11 @@ export default function AcademicSetup() {
 
       if (createdCourse?.id && batchId && coordinator?.id != null) {
         await addCourseOffering({
-          id: `offering-${createdCourse.id}-${batchId}`,
-          courseId: createdCourse.id,
-          batchId,
-          courseName: createdCourse.name,
-          courseCode: createdCourse.code,
+          masterCourseId: createdCourse.masterCourseId ?? createdCourse.id,
+          programmeBatchId: batchId,
           semester: createdCourse.semester,
-          courseCoordinatorId: coordinator.id,
-          courseCoordinator: coordinator.name,
           courseCoordinatorEmail: coordinator.email,
-          status: 'ALLOCATED',
+          assignedFaculty: coordinator.email,
         });
       }
 
@@ -188,28 +183,19 @@ export default function AcademicSetup() {
     try {
       if (offering) {
         await updateCourseOffering(offering.id, {
-          courseId: course.id,
-          batchId,
-          courseName: course.name,
-          courseCode: course.code,
+          masterCourseId: course.masterCourseId ?? course.id,
+          programmeBatchId: batchId,
           semester: course.semester,
-          courseCoordinatorId: coordinator.id,
-          courseCoordinator: coordinator.name,
           courseCoordinatorEmail: coordinator.email,
-          status: 'ALLOCATED',
+          assignedFaculty: coordinator.email,
         });
       } else {
         await addCourseOffering({
-          id: `offering-${course.id}-${batchId}`,
-          courseId: course.id,
-          batchId,
-          courseName: course.name,
-          courseCode: course.code,
+          masterCourseId: course.masterCourseId ?? course.id,
+          programmeBatchId: batchId,
           semester: course.semester,
-          courseCoordinatorId: coordinator.id,
-          courseCoordinator: coordinator.name,
           courseCoordinatorEmail: coordinator.email,
-          status: 'ALLOCATED',
+          assignedFaculty: coordinator.email,
         });
       }
     } catch (error) {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Building2, Plus, Save, Search, UserPlus, Users, X } from 'lucide-react';
+import { Building2, Plus, Save, Search, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useUser } from '../../context/user';
 import { useAcademic } from '../../context/AcademicContext';
@@ -15,7 +15,7 @@ function Modal({ title, onClose, children }) {
 
 export default function AdminDashboardPage() {
   const { user, logout } = useAuth();
-  const { users = [], refreshUsers = () => Promise.resolve([]), addUser = () => Promise.resolve(null), updateUser = () => Promise.resolve(null) } = useUser();
+  const { users = [], refreshUsers = () => Promise.resolve([]), addUser = () => Promise.resolve(null), updateUser = () => Promise.resolve(null), deleteUser = () => Promise.resolve(null) } = useUser();
   const { schools = [], loadSchools = () => Promise.resolve([]), createSchool = () => Promise.resolve(null) } = useAcademic();
   const [userForm, setUserForm] = useState(emptyUser);
   const [editingUser, setEditingUser] = useState(null);
@@ -23,6 +23,7 @@ export default function AdminDashboardPage() {
   const [showUserModal, setShowUserModal] = useState(false);
   const [showSchoolModal, setShowSchoolModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState(null);
   const [error, setError] = useState('');
   const [selectedRole, setSelectedRole] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,6 +56,28 @@ export default function AdminDashboardPage() {
     try { await createSchool({ name: schoolForm.name.trim(), code: schoolForm.code.trim(), estYear: schoolForm.estYear }); await loadSchools(); setShowSchoolModal(false); setSchoolForm({ name: '', code: '', estYear: new Date().getFullYear().toString() }); }
     catch (err) { setError(err?.response?.data?.message || err?.message || 'Unable to add school.'); } finally { setSaving(false); }
   };
+  const handleDeleteUser = async (targetUser) => {
+    const targetUserId = targetUser?.id ?? targetUser?.userId;
+    if (!targetUserId) return;
+    const targetName = targetUser.name || targetUser.username || targetUser.email || 'this user';
+    if (!window.confirm(`Permanently delete ${targetName}? This action cannot be undone.`)) return;
+
+    setDeletingUserId(targetUserId);
+    setError('');
+    try {
+      await deleteUser(targetUserId);
+      await refreshUsers();
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || 'Unable to delete user.');
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+  const getUserId = (member) => member?.id ?? member?.userId ?? null;
+  const isDeletingUser = (member) => {
+    const memberId = getUserId(member);
+    return deletingUserId != null && memberId != null && String(deletingUserId) === String(memberId);
+  };
   const schoolName = (schoolId) => schools.find((school) => (school.id ?? school.schoolId) === schoolId)?.name || '—';
   const roleMatches = (member, role) => role === 'ALL'
     || (role === 'FACULTY' && ['FACULTY', 'COURSE_COORDINATOR'].includes(member.role))
@@ -80,7 +103,7 @@ export default function AdminDashboardPage() {
     <section style={{ ...surface, marginTop: 20, padding: '18px 20px' }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><div><h2 style={{ margin: 0, fontSize: 16, color: '#0f172a' }}><Users size={17} style={{ verticalAlign: '-3px', marginRight: 6 }} />Institutional users</h2><p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#64748b' }}>Add users by role and school, or edit their email, password, role, and school.</p></div><div style={{ display: 'flex', gap: 8 }}><button type="button" onClick={() => { setError(''); setShowSchoolModal(true); }} style={{ height: 38, padding: '0 12px', background: '#fff', border: '1px solid #c7d2fe', color: '#4f46e5', borderRadius: 8, fontWeight: 700 }}><Building2 size={14} /> Add School</button><button type="button" onClick={openAddUser} style={{ height: 38, padding: '0 12px', background: '#4f46e5', border: 0, color: '#fff', borderRadius: 8, fontWeight: 700 }}><UserPlus size={14} /> Add User</button></div></div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginTop: 18 }}>{roleTabs.map((tab) => <button key={tab.id} type="button" onClick={() => setSelectedRole(tab.id)} style={{ textAlign: 'left', padding: '12px', borderRadius: 9, border: `1.5px solid ${selectedRole === tab.id ? '#6366f1' : '#e2e8f0'}`, background: selectedRole === tab.id ? '#eef2ff' : '#fff', color: '#0f172a', cursor: 'pointer' }}><span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: selectedRole === tab.id ? '#4f46e5' : '#64748b' }}>{tab.label}</span><strong style={{ display: 'block', marginTop: 3, fontSize: 22 }}>{tab.count}</strong></button>)}</div>
       <div style={{ position: 'relative', marginTop: 14 }}><Search size={16} style={{ position: 'absolute', left: 11, top: 11, color: '#64748b' }} /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search name, email, username, role, or school" style={{ ...fieldStyle, paddingLeft: 36 }} /></div>
-      <div style={{ overflowX: 'auto', marginTop: 14 }}><table className="audit-data-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>School</th><th style={{ textAlign: 'right' }}>Action</th></tr></thead><tbody>{filteredUsers.length === 0 ? <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#64748b' }}>No users match this filter.</td></tr> : filteredUsers.map((member) => <tr key={member.id}><td style={{ fontWeight: 700 }}>{member.name || member.username || '—'}</td><td>{member.email || '—'}</td><td><span style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5' }}>{member.role || '—'}</span></td><td>{schoolName(member.schoolId)}</td><td style={{ textAlign: 'right' }}><button type="button" onClick={() => openEditUser(member)} style={{ color: '#2563eb', background: '#fff', border: '1px solid #93c5fd', borderRadius: 6, padding: '6px 9px', fontWeight: 700 }}>Edit access</button></td></tr>)}</tbody></table></div>
+      <div style={{ overflowX: 'auto', marginTop: 14 }}><table className="audit-data-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>School</th><th style={{ textAlign: 'right' }}>Action</th></tr></thead><tbody>{filteredUsers.length === 0 ? <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#64748b' }}>No users match this filter.</td></tr> : filteredUsers.map((member) => <tr key={getUserId(member) ?? member.email}><td style={{ fontWeight: 700 }}>{member.name || member.username || '—'}</td><td>{member.email || '—'}</td><td><span style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5' }}>{member.role || '—'}</span></td><td>{schoolName(member.schoolId)}</td><td style={{ textAlign: 'right' }}><div style={{ display: 'inline-flex', gap: 8 }}><button type="button" onClick={() => openEditUser(member)} style={{ color: '#2563eb', background: '#fff', border: '1px solid #93c5fd', borderRadius: 6, padding: '6px 9px', fontWeight: 700 }}>Edit access</button><button type="button" onClick={() => handleDeleteUser(member)} disabled={isDeletingUser(member)} style={{ color: '#b91c1c', background: '#fff', border: '1px solid #fecaca', borderRadius: 6, padding: '6px 9px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5, cursor: isDeletingUser(member) ? 'wait' : 'pointer', opacity: isDeletingUser(member) ? 0.65 : 1 }}><Trash2 size={13} />{isDeletingUser(member) ? 'Deleting…' : 'Delete'}</button></div></td></tr>)}</tbody></table></div>
     </section>
   </div>
   {showUserModal && <Modal title={editingUser ? `Edit access — ${editingUser.name || editingUser.email}` : 'Add user'} onClose={() => setShowUserModal(false)}><form onSubmit={saveUser} style={{ padding: 20, display: 'grid', gap: 13 }}>{!editingUser && <label>Name<input value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} style={fieldStyle} /></label>}<label>Email<input type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} style={fieldStyle} /></label><label>Password {editingUser && <span style={{ color: '#64748b', fontWeight: 400 }}>(leave blank to keep unchanged)</span>}<input type="password" value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} style={fieldStyle} /></label><label>Role<select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} style={fieldStyle}>{ROLES.map((role) => <option key={role}>{role}</option>)}</select></label><label>School<select value={userForm.schoolId} onChange={(e) => setUserForm({ ...userForm, schoolId: e.target.value })} style={fieldStyle}><option value="">Select school</option>{schools.map((school) => <option key={school.id ?? school.schoolId} value={school.id ?? school.schoolId}>{school.name}</option>)}</select></label><button disabled={saving} style={{ height: 40, border: 0, borderRadius: 8, background: '#4f46e5', color: '#fff', fontWeight: 800 }}><Save size={14} /> {saving ? 'Saving…' : 'Save User'}</button></form></Modal>}

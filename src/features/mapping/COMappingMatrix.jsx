@@ -56,7 +56,9 @@ export default function COMappingMatrix({ hideFooter = false }) {
   const poList = mappingPOs.map((p) => p.code);
   const psoList = mappingPSOs.map((p) => p.code);
 
-  // Keyword Stores for POs & PSOs (keyed by courseId)
+  // Keyword Stores for POs & PSOs (keyed by programme-batch-course ID locally).
+  // The API uses CO code -> PO/PSO code -> keyword[][], where each inner
+  // array belongs to the matching competency index.
   const [poKeywordsStore, setPoKeywordsStore] = useState({});
   const [psoKeywordsStore, setPsoKeywordsStore] = useState({});
   const [savedMatrix, setSavedMatrix] = useState({});
@@ -70,20 +72,22 @@ export default function COMappingMatrix({ hideFooter = false }) {
       if (!programmeBatchCourseId || !apiStore || !outcomeDefinitions.length) return {};
       return {
         [programmeBatchCourseId]: Object.fromEntries(outcomeDefinitions.map((outcome) => {
-          const competencies = Array.isArray(outcome.competencies) ? outcome.competencies : [];
+          const competencies = Array.isArray(outcome.competencies) && outcome.competencies.length > 0
+            ? outcome.competencies
+            : [{ code: outcome.code, statement: outcome.statement || `${outcome.code} keyword mapping` }];
           return [outcome.code, competencies.map((competency, competencyIndex) => ({
             ...competency,
             keywords: Object.fromEntries(courseOutcomes.map((co) => {
-              const coId = co.courseOutcomeId ?? co.id;
-              const storedKeywords = apiStore?.[coId]?.[outcome.code];
+              const storedKeywords = apiStore?.[co.code]?.[outcome.code];
               const competencyCode = competency.code ?? `${outcome.code}.${competencyIndex + 1}`;
-
-              // New contract: CO -> PO/PSO -> competencyCode -> keywords[].
-              // Fall back to the old flat array only so pre-migration records
-              // remain visible; the old format cannot preserve row identity.
-              const keywords = Array.isArray(storedKeywords)
+              // Canonical format: PO/PSO -> keyword[][], indexed by each
+              // sub-competency. Also understand the documented keyed-object
+              // alternative without changing its source structure.
+              const keywords = Array.isArray(storedKeywords?.[competencyIndex])
+                ? storedKeywords[competencyIndex]
+                : Array.isArray(storedKeywords)
                 ? (competencyIndex === 0 ? storedKeywords : [])
-                : storedKeywords?.[competencyCode] ?? [];
+                : apiStore?.[co.code]?.[competencyCode] ?? storedKeywords?.[competencyCode] ?? [];
               return [co.code, Array.isArray(keywords) ? keywords.join(', ') : ''];
             })),
           }))];
@@ -97,12 +101,15 @@ export default function COMappingMatrix({ hideFooter = false }) {
 
   // Helper to get PO competencies dynamically
   const getCoursePoCompetencies = (poCode) => {
-    const courseStore = (courseScope?.id && poKeywordsStore[courseScope.id]) || {};
+    const courseStore = poKeywordsStore[programmeBatchCourseId] || {};
     if (courseStore[poCode]) return courseStore[poCode];
 
     const poObj = mappingPOs.find((p) => p.code === poCode);
-    if (poObj && poObj.competencies && poObj.competencies.length > 0) {
-      return poObj.competencies.map((c) => ({ ...c, keywords: c.keywords || {} }));
+    if (poObj) {
+      const competencies = Array.isArray(poObj.competencies) && poObj.competencies.length > 0
+        ? poObj.competencies
+        : [{ code: poObj.code, statement: poObj.statement || `${poObj.code} keyword mapping` }];
+      return competencies.map((c) => ({ ...c, keywords: c.keywords || {} }));
     }
 
     return [];
@@ -110,12 +117,15 @@ export default function COMappingMatrix({ hideFooter = false }) {
 
   // Helper to get PSO competencies dynamically
   const getCoursePsoCompetencies = (psoCode) => {
-    const courseStore = (courseScope?.id && psoKeywordsStore[courseScope.id]) || {};
+    const courseStore = psoKeywordsStore[programmeBatchCourseId] || {};
     if (courseStore[psoCode]) return courseStore[psoCode];
 
     const psoObj = mappingPSOs.find((p) => p.code === psoCode);
-    if (psoObj && psoObj.competencies && psoObj.competencies.length > 0) {
-      return psoObj.competencies.map((c) => ({ ...c, keywords: c.keywords || {} }));
+    if (psoObj) {
+      const competencies = Array.isArray(psoObj.competencies) && psoObj.competencies.length > 0
+        ? psoObj.competencies
+        : [{ code: psoObj.code, statement: psoObj.statement || `${psoObj.code} keyword mapping` }];
+      return competencies.map((c) => ({ ...c, keywords: c.keywords || {} }));
     }
 
     return [];
@@ -124,7 +134,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
   // Handler for PO Keyword edit
   const handlePoKeywordChange = (poCode, compIndex, coCode, val) => {
     setPoKeywordsStore((prev) => {
-      const courseStore = prev[courseScope?.id] || {};
+      const courseStore = prev[programmeBatchCourseId] || {};
       const comps = [...(courseStore[poCode] || getCoursePoCompetencies(poCode))];
       comps[compIndex] = {
         ...comps[compIndex],
@@ -135,7 +145,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
       };
       return {
         ...prev,
-        [courseScope?.id]: {
+        [programmeBatchCourseId]: {
           ...courseStore,
           [poCode]: comps,
         },
@@ -146,7 +156,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
   // Handler for PSO Keyword edit
   const handlePsoKeywordChange = (psoCode, compIndex, coCode, val) => {
     setPsoKeywordsStore((prev) => {
-      const courseStore = prev[courseScope?.id] || {};
+      const courseStore = prev[programmeBatchCourseId] || {};
       const comps = [...(courseStore[psoCode] || getCoursePsoCompetencies(psoCode))];
       comps[compIndex] = {
         ...comps[compIndex],
@@ -157,7 +167,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
       };
       return {
         ...prev,
-        [courseScope?.id]: {
+        [programmeBatchCourseId]: {
           ...courseStore,
           [psoCode]: comps,
         },
@@ -243,22 +253,17 @@ export default function COMappingMatrix({ hideFooter = false }) {
     );
     const toKeywordStore = (store, outcomes) => Object.fromEntries(
       courseOutcomes.map((co) => {
-        const outcomeId = co.courseOutcomeId ?? co.id;
-        const courseStore = store[courseScope?.id] ?? {};
+        const courseStore = store[programmeBatchCourseId] ?? {};
         const keywordEntries = Object.fromEntries(outcomes.map((outcome) => {
           const competencies = courseStore[outcome.code] ?? [];
-          const competencyEntries = Object.fromEntries(competencies.map((competency, competencyIndex) => {
-            const competencyCode = competency?.code ?? `${outcome.code}.${competencyIndex + 1}`;
-            const keywords = String(competency?.keywords?.[co.code] ?? '')
+          const competencyKeywordGroups = competencies.map((competency) => [...new Set(String(competency?.keywords?.[co.code] ?? '')
               .split(',')
               .map((keyword) => keyword.trim())
-              .filter(Boolean);
-            return [competencyCode, keywords];
-          }));
-          return [outcome.code, competencyEntries];
+              .filter(Boolean))]);
+          return [outcome.code, competencyKeywordGroups];
         }));
-        return [outcomeId, keywordEntries];
-      }).filter(([outcomeId]) => Boolean(outcomeId))
+        return [co.code, keywordEntries];
+      }).filter(([coCode]) => Boolean(coCode))
     );
     try {
       const saved = await updateCourseMapping({

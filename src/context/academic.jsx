@@ -112,8 +112,8 @@ const normalizeBatch = (batch) => ({
   id: batch?.id ?? batch?.programmeBatchId ?? null,
   programmeBatchId: batch?.programmeBatchId ?? batch?.id ?? null,
   name: batch?.name ?? null,
-  programmeId: batch?.programmeId ?? batch?.masterProgrammeId ?? null,
-  masterProgrammeId: batch?.masterProgrammeId ?? batch?.programmeId ?? null,
+  masterProgrammeId: batch?.masterProgrammeId ?? null,
+  programmeId: batch?.masterProgrammeId ?? null,
   programmeCode: batch?.programmeCode ?? null,
   programmeName: batch?.programmeName ?? null,
   durationYears: batch?.durationYears ?? null,
@@ -137,10 +137,8 @@ const normalizeCourse = (course) => ({
   masterCourseId: course?.masterCourseId ?? course?.id ?? null,
   code: course?.code ?? null,
   name: course?.name ?? null,
-  // Master-course APIs use masterProgrammeId while a few legacy responses use
-  // programmeId. Normalize both to the programme selector's ID.
-  programmeId: course?.programmeId ?? course?.masterProgrammeId ?? null,
-  masterProgrammeId: course?.masterProgrammeId ?? course?.programmeId ?? null,
+  masterProgrammeId: course?.masterProgrammeId ?? null,
+  programmeId: course?.masterProgrammeId ?? null,
   semester: course?.semester ?? null,
   credits: course?.credits ?? null,
   courseType: course?.courseType ?? null,
@@ -151,8 +149,6 @@ const normalizeCourse = (course) => ({
   status: course?.status ?? null,
   createdAt: course?.createdAt ?? null,
   updatedAt: course?.updatedAt ?? null,
-  batchId: course?.batchId ?? null,
-  courseOfferingId: course?.courseOfferingId ?? null,
 });
 
 const PC_SETUP_STEP_KEYS = {
@@ -166,15 +162,12 @@ const PC_SETUP_STEP_KEYS = {
 const normalizeOffering = (offering) => ({
   id: offering?.id ?? offering?.programmeBatchCourseId ?? null,
   programmeBatchCourseId: offering?.programmeBatchCourseId ?? offering?.id ?? null,
-  // Course-offering and programme-batch-course APIs describe the same
-  // batch-level course. Preserve its master-course lineage and display
-  // overrides so a coordinator can use a batch-specific course name.
-  courseId: offering?.courseId ?? offering?.masterCourseId ?? null,
-  masterCourseId: offering?.masterCourseId ?? offering?.courseId ?? null,
-  programmeId: offering?.programmeId ?? offering?.masterProgrammeId ?? null,
-  masterProgrammeId: offering?.masterProgrammeId ?? offering?.programmeId ?? null,
-  batchId: offering?.batchId ?? offering?.programmeBatchId ?? null,
-  programmeBatchId: offering?.programmeBatchId ?? offering?.batchId ?? null,
+  masterCourseId: offering?.masterCourseId ?? null,
+  courseId: offering?.masterCourseId ?? null,
+  masterProgrammeId: offering?.masterProgrammeId ?? null,
+  programmeId: offering?.masterProgrammeId ?? null,
+  programmeBatchId: offering?.programmeBatchId ?? null,
+  batchId: offering?.programmeBatchId ?? null,
   semester: offering?.semester ?? null,
   academicYear: offering?.academicYear ?? null,
   courseCoordinatorId: offering?.courseCoordinatorId ?? null,
@@ -204,10 +197,41 @@ const normalizeUser = (user) => ({
   role: user?.role ?? null,
   schoolId: user?.schoolId ?? null,
   departmentId: user?.departmentId ?? null,
-  programmeId: user?.programmeId ?? null,
+  masterProgrammeId: user?.masterProgrammeId ?? null,
   department: user?.department ?? null,
   programme: user?.programme ?? null,
   isActive: user?.isActive ?? user?.is_active ?? true,
+});
+
+const toMasterProgrammePayload = (data = {}) => ({
+  departmentId: data.departmentId,
+  code: data.code,
+  name: data.name,
+  durationYears: data.durationYears,
+});
+
+const toProgrammeBatchPayload = (data = {}) => ({
+  masterProgrammeId: data.masterProgrammeId ?? data.programmeId,
+  name: data.name,
+  startYear: data.startYear,
+  endYear: data.endYear,
+  durationYears: data.durationYears,
+});
+
+const toMasterCoursePayload = (data = {}) => ({
+  masterProgrammeId: data.masterProgrammeId ?? data.programmeId,
+  code: data.code,
+  name: data.name,
+  credits: data.credits,
+  courseType: data.courseType,
+});
+
+const toProgrammeBatchCoursePayload = (data = {}) => ({
+  masterCourseId: data.masterCourseId ?? data.courseId,
+  programmeBatchId: data.programmeBatchId ?? data.batchId,
+  semester: data.semester,
+  courseCoordinatorEmail: data.courseCoordinatorEmail,
+  assignedFaculty: data.assignedFaculty,
 });
 
 /* ========================================================================== */
@@ -285,11 +309,19 @@ export function AcademicProvider({ children }) {
   const masterProgrammeRequestsRef = useRef(new Map());
 
   useEffect(() => {
-    if (role !== 'HOD' || selectedDepartmentId) return;
+    if (role !== 'HOD') return;
     const persistedDepartmentId = typeof window === 'undefined'
       ? null
       : sessionStorage.getItem(getHodDepartmentStorageKey());
-    setSelectedDepartmentIdState(persistedDepartmentId ?? user?.departmentId ?? null);
+    
+    // HOD department selection must be fixed to user.departmentId
+    if (persistedDepartmentId && persistedDepartmentId !== user?.departmentId) {
+      sessionStorage.removeItem(getHodDepartmentStorageKey());
+    }
+    
+    if (user?.departmentId && selectedDepartmentId !== user?.departmentId) {
+       setSelectedDepartmentIdState(user?.departmentId);
+    }
   }, [getHodDepartmentStorageKey, role, selectedDepartmentId, user?.departmentId]);
 
   useEffect(() => {
@@ -448,12 +480,26 @@ export function AcademicProvider({ children }) {
   const loadSchools = useCallback(async () => {
     try {
       const response = await apiClient.get('/academic/schools');
-      const data = unwrapList(response).map(normalizeSchool);
+      let data = unwrapList(response).map(normalizeSchool);
+      
+      if (role === 'DIRECTOR') {
+         data = data.filter(s => s.id === user?.schoolId);
+      }
+      
       setSchools(data);
 
       if (data.length > 0) {
         const scopedSchool = data.find((school) => school.id === user?.schoolId);
-        setSelectedSchoolId((currentId) => currentId ?? scopedSchool?.id ?? data[0].id);
+        if (scopedSchool) {
+          setSelectedSchoolId(scopedSchool.id);
+        } else if (role === 'ADMIN') {
+           // Admin can select anything, but we shouldn't fallback to schools[0] automatically
+           // Wait, prompt says: "Never fall back to schools[0]... when the authenticated scope is absent"
+           // So just do nothing if no scope. But for ADMIN, they have no schoolId usually. So they just don't have a selection initially, or we leave it null.
+           // Actually, let's just not set it to data[0].id
+        }
+      } else {
+        setSelectedSchoolId(null);
       }
 
       return data;
@@ -461,28 +507,33 @@ export function AcademicProvider({ children }) {
       console.warn('loadSchools failed:', err);
       return [];
     }
-  }, [user?.schoolId]);
+  }, [user?.schoolId, role]);
 
   /* --- Departments --- */
   const loadDepartments = useCallback(async (targetSchoolId = null) => {
     try {
       const params = targetSchoolId ? { schoolId: targetSchoolId } : {};
       const response = await apiClient.get('/academic/departments', { params });
-      const data = unwrapList(response).map(normalizeDepartment);
+      let data = unwrapList(response).map(normalizeDepartment);
+      
+      if (role === 'HOD') {
+         data = data.filter(d => d.id === user?.departmentId);
+      }
+      
       setDepartments(data);
       return data;
     } catch (err) {
       console.warn('loadDepartments failed:', err);
       return [];
     }
-  }, []);
+  }, [role, user?.departmentId]);
 
   /* --- Programmes --- */
   const loadProgrammes = useCallback(async (targetDepartmentId = null, coordinatorEmail = null) => {
     try {
       const params = targetDepartmentId ? { departmentId: targetDepartmentId } : {};
       if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
-      const response = await apiClient.get('/academic/programmes', { params });
+      const response = await apiClient.get('/academic/master-programmes', { params });
       const data = unwrapList(response).map(normalizeProgramme);
       setProgrammes(data);
       return data;
@@ -505,7 +556,7 @@ export function AcademicProvider({ children }) {
       const params = {};
       if (targetDepartmentId) params.departmentId = targetDepartmentId;
       if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
-      const response = await apiClient.get('/master-programmes', { params });
+      const response = await apiClient.get('/academic/master-programmes', { params });
       const allProgrammes = unwrapList(response).map(normalizeProgramme);
       const data = allProgrammes.filter((programme) =>
         (!targetDepartmentId || programme.departmentId === targetDepartmentId) &&
@@ -529,7 +580,7 @@ export function AcademicProvider({ children }) {
     try {
       const params = {};
       if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
-      const response = await apiClient.get('/master-programmes/coordinator', { params });
+      const response = await apiClient.get('/academic/master-programmes', { params });
       const data = unwrapList(response).map(normalizeProgramme);
       setProgrammes(data);
       return data;
@@ -544,11 +595,11 @@ export function AcademicProvider({ children }) {
     async ({ targetProgrammeId = null, userEmail = null, targetRole = null } = {}) => {
       try {
         const params = {};
-        if (targetProgrammeId) params.programmeId = targetProgrammeId;
+        if (targetProgrammeId) params.masterProgrammeId = targetProgrammeId;
         if (userEmail) params.userEmail = userEmail;
         if (targetRole) params.role = targetRole;
 
-        const response = await apiClient.get('/academic/batches', { params });
+        const response = await apiClient.get('/academic/programme-batches', { params });
         const data = unwrapList(response).map(normalizeBatch);
         setBatches(data);
         return data;
@@ -565,7 +616,7 @@ export function AcademicProvider({ children }) {
       const params = {};
       if (masterProgrammeId) params.masterProgrammeId = masterProgrammeId;
       if (hodEmail) params.hodEmail = hodEmail;
-      const response = await apiClient.get('/programme-batches', { params });
+      const response = await apiClient.get('/academic/programme-batches', { params });
       const data = unwrapList(response).map(normalizeBatch);
       setBatches(data);
       return data;
@@ -580,7 +631,7 @@ export function AcademicProvider({ children }) {
       const params = {};
       if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
       if (masterProgrammeId) params.masterProgrammeId = masterProgrammeId;
-      const response = await apiClient.get('/programme-batches', { params });
+      const response = await apiClient.get('/academic/programme-batches', { params });
       const data = unwrapList(response).map(normalizeBatch);
       setBatches(data);
       return data;
@@ -594,7 +645,7 @@ export function AcademicProvider({ children }) {
     try {
       const params = {};
       if (courseCoordinatorEmail) params.courseCoordinatorEmail = courseCoordinatorEmail;
-      const response = await apiClient.get('/programme-batches', { params });
+      const response = await apiClient.get('/academic/programme-batches', { params });
       const data = unwrapList(response).map(normalizeBatch);
       setBatches(data);
       return data;
@@ -609,10 +660,10 @@ export function AcademicProvider({ children }) {
     async ({ targetProgrammeId = null, targetBatchId = null } = {}) => {
       try {
         const params = {};
-        if (targetProgrammeId) params.programmeId = targetProgrammeId;
-        if (targetBatchId) params.batchId = targetBatchId;
+        if (targetProgrammeId) params.masterProgrammeId = targetProgrammeId;
+        if (targetBatchId) params.programmeBatchId = targetBatchId;
 
-        const response = await apiClient.get('/academic/courses', { params });
+        const response = await apiClient.get('/academic/master-courses', { params });
         const data = unwrapList(response).map(normalizeCourse);
         setCourses(data);
         return data;
@@ -650,7 +701,7 @@ export function AcademicProvider({ children }) {
       return [];
     }
     try {
-      const response = await apiClient.get('/programme-batch-courses', {
+      const response = await apiClient.get('/academic/programme-batch-courses', {
         params: { programmeBatchId: targetBatchId },
       });
       const data = unwrapList(response).map(normalizeOffering);
@@ -674,7 +725,7 @@ export function AcademicProvider({ children }) {
     }
 
     try {
-      const response = await apiClient.get('/programme-batch-courses', {
+      const response = await apiClient.get('/academic/programme-batch-courses', {
         params: {
           programmeBatchId: targetBatchId,
           coordinatorEmail,
@@ -693,7 +744,7 @@ export function AcademicProvider({ children }) {
   const loadCourseOffering = useCallback(async (offeringId) => {
     if (!offeringId) return null;
     try {
-      const response = await apiClient.get(`/academic/course-offerings/${offeringId}`);
+      const response = await apiClient.get(`/academic/programme-batch-courses/${offeringId}`);
       const data = normalizeOffering(unwrap(response));
       setCourseOfferings((prev) => {
         const withoutCurrent = prev.filter((item) => item.id !== data.id);
@@ -710,7 +761,7 @@ export function AcademicProvider({ children }) {
   /* --- Course Coordinators / Faculty --- */
   const loadCourseCoordinators = useCallback(async () => {
     try {
-      const response = await apiClient.get('/users', {
+      const response = await apiClient.get('/academic/users', {
         params: { role: 'COURSE_COORDINATOR' },
       });
       const data = unwrapList(response).map(normalizeUser);
@@ -792,7 +843,7 @@ export function AcademicProvider({ children }) {
   const loadStudents = useCallback(async (targetBatchId = batchId) => {
     if (!targetBatchId) return [];
     try {
-      const response = await apiClient.get(`/academic/batches/${targetBatchId}/students`);
+      const response = await apiClient.get(`/academic/programme-batches/${targetBatchId}/students`);
       const data = unwrapList(response);
       setStudents(data);
       return data;
@@ -816,10 +867,10 @@ export function AcademicProvider({ children }) {
       try {
         // Load the documented outcome resources in order. Competencies are a
         // separate backend resource and are not required to render this tab.
-        const poResponse = await apiClient.get(`/outcomes/programmes/${targetProgrammeId}/pos`);
-        const psoResponse = await apiClient.get(`/outcomes/programmes/${targetProgrammeId}/psos`);
+        const poResponse = await apiClient.get(`/outcomes/master-programmes/${targetProgrammeId}/pos`);
+        const psoResponse = await apiClient.get(`/outcomes/master-programmes/${targetProgrammeId}/psos`);
         const peoResponse = includePEOs
-          ? await apiClient.get(`/outcomes/programmes/${targetProgrammeId}/peos`)
+          ? await apiClient.get(`/outcomes/master-programmes/${targetProgrammeId}/peos`)
           : null;
 
         const withStatement = (outcomes) => outcomes.map((outcome) => ({
@@ -838,7 +889,7 @@ export function AcademicProvider({ children }) {
         let targets = null;
         if (includeTargets) {
           const targetResponse = await apiClient.get(
-            `/academic/programmes/${targetProgrammeId}/targets`
+            `/academic/master-programmes/${targetProgrammeId}/targets`
           );
           targets = unwrap(targetResponse);
           setPoPsoTargets(targets);
@@ -864,7 +915,7 @@ export function AcademicProvider({ children }) {
 
     try {
       const response = await apiClient.get('/academic/outcomes', {
-        params: { programmeId: targetProgrammeId, batchId: targetBatchId },
+        params: { masterProgrammeId: targetProgrammeId, programmeBatchId: targetBatchId },
       });
       const data = unwrap(response) ?? {};
       const withStatement = (outcomes = []) => outcomes.map((outcome) => ({
@@ -890,9 +941,9 @@ export function AcademicProvider({ children }) {
     async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
       if (!targetProgrammeId) return null;
       try {
-        const params = targetBatchId ? { batchId: targetBatchId } : {};
+        const params = targetBatchId ? { programmeBatchId: targetBatchId } : {};
         const response = await apiClient.get(
-          `/academic/programmes/${targetProgrammeId}/targets`,
+          `/academic/master-programmes/${targetProgrammeId}/targets`,
           { params }
         );
         const data = unwrap(response);
@@ -982,7 +1033,7 @@ export function AcademicProvider({ children }) {
       }
       try {
         const response = await apiClient.get(
-          `/programme-batch-courses/${offeringId}/attainment-main`
+          `/academic/programme-batch-courses/${offeringId}/attainment-main`
         );
         const data = unwrap(response);
         setCoAttainment(data);
@@ -1003,7 +1054,7 @@ export function AcademicProvider({ children }) {
         return null;
       }
       try {
-        const response = await apiClient.get(`/programme-batch-courses/${programmeBatchCourseId}/atr`);
+        const response = await apiClient.get(`/academic/programme-batch-courses/${programmeBatchCourseId}/atr`);
         const data = unwrap(response);
         setCourseATR(data);
         return data;
@@ -1017,14 +1068,14 @@ export function AcademicProvider({ children }) {
 
   /* --- Programme ATR --- */
   const loadProgrammeATR = useCallback(
-    async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
-      if (!targetProgrammeId || !targetBatchId) {
+    async (targetProgrammeBatchId = batchId) => {
+      if (!targetProgrammeBatchId) {
         setProgrammeATR(null);
         return null;
       }
       try {
         const response = await apiClient.get(
-          `/reports/programmes/${targetProgrammeId}/batches/${targetBatchId}/programme-atr`
+          `/academic/programme-batches/${targetProgrammeBatchId}/atr`
         );
         const data = unwrap(response);
         setProgrammeATR(data);
@@ -1034,41 +1085,40 @@ export function AcademicProvider({ children }) {
         return null;
       }
     },
-    [programmeId, batchId]
+    [batchId]
   );
 
   const saveProgrammeATR = useCallback(
-    async (targetProgrammeId = programmeId, targetBatchId = batchId, payload = {}) => {
-      if (!targetProgrammeId || !targetBatchId) {
-        throw new Error('programmeId and batchId are required to save Programme ATR.');
+    async (targetProgrammeBatchId = batchId, payload = {}) => {
+      if (!targetProgrammeBatchId) {
+        throw new Error('programmeBatchId is required to save Programme ATR.');
       }
 
-      const response = await apiClient.post('/reports/programmes/programme-atr', {
-        programmeId: targetProgrammeId,
-        batchId: targetBatchId,
-        ...payload,
-      });
+      const response = await apiClient.post(
+        `/academic/programme-batches/${targetProgrammeBatchId}/atr`,
+        payload
+      );
       const data = unwrap(response);
       setProgrammeATR(data);
       return data;
     },
-    [programmeId, batchId]
+    [batchId]
   );
 
   const submitProgrammeATR = useCallback(
-    async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
-      if (!targetProgrammeId || !targetBatchId) {
-        throw new Error('programmeId and batchId are required to submit Programme ATR.');
+    async (targetProgrammeBatchId = batchId) => {
+      if (!targetProgrammeBatchId) {
+        throw new Error('programmeBatchId is required to submit Programme ATR.');
       }
 
       const response = await apiClient.post(
-        `/reports/programmes/${targetProgrammeId}/batches/${targetBatchId}/programme-atr/submit`
+        `/academic/programme-batches/${targetProgrammeBatchId}/atr/submit`
       );
       const data = unwrap(response);
       setProgrammeATR((previous) => ({ ...previous, ...data }));
       return data;
     },
-    [programmeId, batchId]
+    [batchId]
   );
 
   /* --- Dashboards --- */
@@ -1128,7 +1178,7 @@ export function AcademicProvider({ children }) {
     async (targetOfferingId = courseOfferingId, coordinatorEmail = user?.email) => {
       try {
         const params = {};
-        if (targetOfferingId) params.courseOfferingId = targetOfferingId;
+        if (targetOfferingId) params.programmeBatchCourseId = targetOfferingId;
         if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
         const response = await apiClient.get('/academic/course-coordinator/summary', {
           params,
@@ -1173,7 +1223,7 @@ export function AcademicProvider({ children }) {
         response = await apiClient.get('/academic/course-coordinator/setup-progress', {
           params: {
             coordinatorEmail: user?.email,
-            courseId: targetOfferingOrCourse,
+            programmeBatchCourseId: targetOfferingOrCourse,
           },
         });
       } else {
@@ -1234,7 +1284,7 @@ export function AcademicProvider({ children }) {
         ].map(String).filter((step, index, allSteps) => allSteps.indexOf(step) === index);
         payload = {
           masterProgrammeId: programmeId,
-          batchId,
+          programmeBatchId: batchId,
           coordinatorEmail: user?.email,
           currentStep: nextStep,
           completedSteps,
@@ -1243,7 +1293,7 @@ export function AcademicProvider({ children }) {
         endpoint = '/academic/course-coordinator/setup-progress';
         payload = {
           coordinatorEmail: user?.email,
-          courseId: courseOfferingId || courseId,
+          programmeBatchCourseId: courseOfferingId || courseId,
           currentStep: nextStep,
         };
       } else {
@@ -1321,42 +1371,26 @@ export function AcademicProvider({ children }) {
 
   /* --- Programme CRUD --- */
   const createProgramme = useCallback(async (data) => {
-    const res = await apiClient.post('/academic/programmes', data);
+    const res = await apiClient.post('/academic/master-programmes', toMasterProgrammePayload(data));
     const item = normalizeProgramme(unwrap(res));
     setProgrammes((prev) => [...prev.filter((p) => p.id !== item.id), item]);
     return item;
   }, []);
 
   const updateProgramme = useCallback(async (id, data) => {
-    const res = await apiClient.put(`/academic/programmes/${id}`, data);
+    const res = await apiClient.put(`/academic/master-programmes/${id}`, toMasterProgrammePayload(data));
     const item = normalizeProgramme(unwrap(res));
     setProgrammes((prev) => prev.map((p) => (p.id === id ? item : p)));
     return item;
   }, []);
 
   const deleteProgramme = useCallback(async (id) => {
-    await apiClient.delete(`/academic/programmes/${id}`);
+    await apiClient.delete(`/academic/master-programmes/${id}`);
     setProgrammes((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
-  const toMasterProgrammePayload = (data = {}, { includeDepartmentName = false } = {}) => {
-    const payload = {
-      departmentId: data.departmentId,
-      code: data.code,
-      name: data.name,
-      durationYears: data.durationYears,
-      status: data.status,
-      coordinator: data.coordinator,
-      coordinatorEmail: data.coordinatorEmail,
-    };
-    if (includeDepartmentName && data.departmentName !== undefined) {
-      payload.departmentName = data.departmentName;
-    }
-    return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined));
-  };
-
   const createMasterProgramme = useCallback(async (data) => {
-    const res = await apiClient.post('/master-programmes', toMasterProgrammePayload(data));
+    const res = await apiClient.post('/academic/master-programmes', toMasterProgrammePayload(data));
     const item = normalizeProgramme(unwrap(res));
     setProgrammes((prev) => [...prev.filter((programme) => programme.id !== item.id), item]);
     return item;
@@ -1364,8 +1398,8 @@ export function AcademicProvider({ children }) {
 
   const updateMasterProgramme = useCallback(async (masterProgrammeId, data) => {
     const res = await apiClient.put(
-      `/master-programmes/${masterProgrammeId}`,
-      toMasterProgrammePayload(data, { includeDepartmentName: true })
+      `/academic/master-programmes/${masterProgrammeId}`,
+      toMasterProgrammePayload(data)
     );
     const item = normalizeProgramme(unwrap(res));
     setProgrammes((prev) => prev.map((programme) => (
@@ -1375,51 +1409,54 @@ export function AcademicProvider({ children }) {
   }, []);
 
   const deleteMasterProgramme = useCallback(async (masterProgrammeId) => {
-    await apiClient.delete(`/master-programmes/${masterProgrammeId}`);
+    await apiClient.delete(`/academic/master-programmes/${masterProgrammeId}`);
     setProgrammes((prev) => prev.filter((programme) => programme.id !== masterProgrammeId));
   }, []);
 
   /* --- Batch CRUD --- */
   const createBatch = useCallback(async (data) => {
-    const res = await apiClient.post('/academic/batches', data);
+    const res = await apiClient.post('/academic/programme-batches', toProgrammeBatchPayload(data));
     const item = normalizeBatch(unwrap(res));
     setBatches((prev) => [...prev.filter((b) => b.id !== item.id), item]);
     return item;
   }, []);
 
   const updateBatch = useCallback(async (id, data) => {
-    const res = await apiClient.put(`/academic/batches/${id}`, data);
+    const res = await apiClient.put(`/academic/programme-batches/${id}`, toProgrammeBatchPayload(data));
     const item = normalizeBatch(unwrap(res));
     setBatches((prev) => prev.map((b) => (b.id === id ? item : b)));
     return item;
   }, []);
 
   const deleteBatch = useCallback(async (id) => {
-    await apiClient.delete(`/academic/batches/${id}`);
+    await apiClient.delete(`/academic/programme-batches/${id}`);
     setBatches((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
   const createProgrammeBatch = useCallback(async (data) => {
-    const response = await apiClient.post('/programme-batches', data);
+    const response = await apiClient.post('/academic/programme-batches', toProgrammeBatchPayload(data));
     const item = normalizeBatch(unwrap(response));
     setBatches((previous) => [...previous.filter((batch) => batch.id !== item.id), item]);
     return item;
   }, []);
 
   const updateProgrammeBatch = useCallback(async (programmeBatchId, data) => {
-    const response = await apiClient.put(`/programme-batches/${programmeBatchId}`, data);
+    const response = await apiClient.put(
+      `/academic/programme-batches/${programmeBatchId}`,
+      toProgrammeBatchPayload(data)
+    );
     const item = normalizeBatch(unwrap(response));
     setBatches((previous) => previous.map((batch) => batch.id === programmeBatchId ? item : batch));
     return item;
   }, []);
 
   const deleteProgrammeBatch = useCallback(async (programmeBatchId) => {
-    await apiClient.delete(`/programme-batches/${programmeBatchId}`);
+    await apiClient.delete(`/academic/programme-batches/${programmeBatchId}`);
     setBatches((previous) => previous.filter((batch) => batch.id !== programmeBatchId));
   }, []);
 
   const updateProgrammeBatchStatus = useCallback(async (programmeBatchId, status, reason = null) => {
-    const response = await apiClient.post(`/programme-batches/${programmeBatchId}/status`, {
+    const response = await apiClient.post(`/academic/programme-batches/${programmeBatchId}/status`, {
       status,
       ...(reason ? { reason } : {}),
     });
@@ -1432,26 +1469,26 @@ export function AcademicProvider({ children }) {
 
   /* --- Course CRUD --- */
   const createCourse = useCallback(async (data) => {
-    const res = await apiClient.post('/academic/courses', data);
+    const res = await apiClient.post('/academic/master-courses', toMasterCoursePayload(data));
     const item = normalizeCourse(unwrap(res));
     setCourses((prev) => [...prev.filter((c) => c.id !== item.id), item]);
     return item;
   }, []);
 
   const updateCourse = useCallback(async (id, data) => {
-    const res = await apiClient.put(`/academic/courses/${id}`, data);
+    const res = await apiClient.put(`/academic/master-courses/${id}`, toMasterCoursePayload(data));
     const item = normalizeCourse(unwrap(res));
     setCourses((prev) => prev.map((c) => (c.id === id ? item : c)));
     return item;
   }, []);
 
   const deleteCourse = useCallback(async (id) => {
-    await apiClient.delete(`/academic/courses/${id}`);
+    await apiClient.delete(`/academic/master-courses/${id}`);
     setCourses((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
   const createMasterCourse = useCallback(async (data) => {
-    const response = await apiClient.post('/academic/master-courses', data);
+    const response = await apiClient.post('/academic/master-courses', toMasterCoursePayload(data));
     const item = normalizeCourse(unwrap(response));
     setCourses((previous) => [...previous.filter((course) => course.id !== item.id), item]);
     return item;
@@ -1464,7 +1501,10 @@ export function AcademicProvider({ children }) {
 
   /* --- Course Offering CRUD --- */
   const addCourseOffering = useCallback(async (payload) => {
-    const response = await apiClient.post('/academic/course-offerings', payload);
+    const response = await apiClient.post(
+      '/academic/programme-batch-courses',
+      toProgrammeBatchCoursePayload(payload)
+    );
     const data = normalizeOffering(unwrap(response));
 
     setCourseOfferings((prev) => {
@@ -1482,7 +1522,10 @@ export function AcademicProvider({ children }) {
   // them in the existing offering collection because downstream course work
   // (COs, mappings and attainment) remains scoped by this generated ID.
   const addProgrammeBatchCourse = useCallback(async (payload) => {
-    const response = await apiClient.post('/programme-batch-courses', payload);
+    const response = await apiClient.post(
+      '/academic/programme-batch-courses',
+      toProgrammeBatchCoursePayload(payload)
+    );
     const data = normalizeOffering(unwrap(response));
 
     setCourseOfferings((prev) => {
@@ -1496,7 +1539,10 @@ export function AcademicProvider({ children }) {
 
   const updateCourseOffering = useCallback(
     async (offeringId, payload) => {
-      const response = await apiClient.put(`/academic/course-offerings/${offeringId}`, payload);
+      const response = await apiClient.put(
+        `/academic/programme-batch-courses/${offeringId}`,
+        toProgrammeBatchCoursePayload(payload)
+      );
       const data = normalizeOffering(unwrap(response));
 
       setCourseOfferings((prev) =>
@@ -1514,8 +1560,8 @@ export function AcademicProvider({ children }) {
   const updateProgrammeBatchCourse = useCallback(
     async (programmeBatchCourseId, payload) => {
       const response = await apiClient.put(
-        `/programme-batch-courses/${programmeBatchCourseId}`,
-        payload
+        `/academic/programme-batch-courses/${programmeBatchCourseId}`,
+        toProgrammeBatchCoursePayload(payload)
       );
       const data = normalizeOffering(unwrap(response));
 
@@ -1545,19 +1591,25 @@ export function AcademicProvider({ children }) {
         );
       }
 
+      const coordinator = courseCoordinators.find((user) => String(user.id) === String(coordinatorId));
+      if (!coordinator?.email) {
+        throw new Error('A course coordinator email is required for the programme-batch course assignment.');
+      }
+
       return updateCourseOffering(offering.id, {
-        courseId: offering.courseId,
-        batchId: offering.batchId,
+        masterCourseId: offering.masterCourseId,
+        programmeBatchId: offering.programmeBatchId,
         semester: offering.semester,
-        courseCoordinatorId: coordinatorId,
+        courseCoordinatorEmail: coordinator.email,
+        assignedFaculty: coordinator.email,
       });
     },
-    [batchId, courseOfferings, updateCourseOffering]
+    [batchId, courseCoordinators, courseOfferings, updateCourseOffering]
   );
 
   /* --- Course Allocation --- */
   const allocateCourses = useCallback(async (payload) => {
-    const response = await apiClient.post('/academic/courses/allocate', payload);
+    const response = await apiClient.post('/academic/master-courses/allocate', payload);
     return unwrap(response);
   }, []);
 
@@ -1603,7 +1655,7 @@ export function AcademicProvider({ children }) {
       }
 
       const body = {
-        courseOfferingId: targetOfferingId,
+        programmeBatchCourseId: targetOfferingId,
         directWeight: payload.directWeight ?? 80.0,
         indirectWeight: payload.indirectWeight ?? 20.0,
         directThreshold: payload.directThreshold ?? payload.targetThresholdPercentage ?? 60.0,
@@ -1626,13 +1678,13 @@ export function AcademicProvider({ children }) {
       if (!pId) throw new Error('programmeId is required');
 
       const payload = {
-        programmeId: pId,
-        batchId: targetBatchId || null,
+        masterProgrammeId: pId,
+        programmeBatchId: targetBatchId || null,
         poTargets,
         psoTargets,
       };
 
-      const response = await apiClient.post(`/academic/programmes/${pId}/targets`, payload);
+      const response = await apiClient.post(`/academic/master-programmes/${pId}/targets`, payload);
       const data = unwrap(response);
       setPoPsoTargets(data);
       return data;
@@ -1646,7 +1698,7 @@ export function AcademicProvider({ children }) {
     const pId = targetProgrammeId || programmeId;
     if (!pId) throw new Error('programmeId is required');
 
-    const response = await apiClient.post(`/outcomes/programmes/${pId}/targets`, {
+    const response = await apiClient.post(`/outcomes/master-programmes/${pId}/targets`, {
       poTargets,
       psoTargets,
     });
@@ -1699,9 +1751,9 @@ export function AcademicProvider({ children }) {
         throw new Error('Enter a code and outcome statement for every PO and PSO, plus a statement for each competency.');
       }
 
-      const poResponse = await apiClient.post(`/outcomes/programmes/${targetProgrammeId}/pos`, poPayload);
-      const psoResponse = await apiClient.post(`/outcomes/programmes/${targetProgrammeId}/psos`, psoPayload);
-      const peoResponse = await apiClient.post(`/outcomes/programmes/${targetProgrammeId}/peos`, peoPayload);
+      const poResponse = await apiClient.post(`/outcomes/master-programmes/${targetProgrammeId}/pos`, poPayload);
+      const psoResponse = await apiClient.post(`/outcomes/master-programmes/${targetProgrammeId}/psos`, psoPayload);
+      const peoResponse = await apiClient.post(`/outcomes/master-programmes/${targetProgrammeId}/peos`, peoPayload);
 
       const normalizeOutcomeDraft = (item) => ({
         ...item,
@@ -1730,8 +1782,8 @@ export function AcademicProvider({ children }) {
         })),
       }));
       const payload = {
-        programmeId: targetProgrammeId,
-        batchId: targetBatchId,
+        masterProgrammeId: targetProgrammeId,
+        programmeBatchId: targetBatchId,
         pos: outcomePayload(pos, true),
         psos: outcomePayload(psos, true),
         peos: outcomePayload(peos),
@@ -1743,7 +1795,7 @@ export function AcademicProvider({ children }) {
       const response = await apiClient[hasExistingOutcomes ? 'put' : 'post'](
         '/academic/outcomes',
         payload,
-        { params: { programmeId: targetProgrammeId, batchId: targetBatchId } }
+        { params: { masterProgrammeId: targetProgrammeId, programmeBatchId: targetBatchId } }
       );
       const data = unwrap(response) ?? {};
       setActivePOs((data.pos ?? payload.pos).map((item) => ({ ...item, statement: item.statement ?? item.description ?? '' })));
@@ -1759,7 +1811,7 @@ export function AcademicProvider({ children }) {
     async (targetBatchId, studentData) => {
       const bId = targetBatchId || batchId;
       if (!bId) throw new Error('batchId is required');
-      const response = await apiClient.post(`/academic/batches/${bId}/students`, studentData);
+      const response = await apiClient.post(`/academic/programme-batches/${bId}/students`, studentData);
       const data = unwrap(response);
       setStudents((prev) => [...prev, data]);
       return data;

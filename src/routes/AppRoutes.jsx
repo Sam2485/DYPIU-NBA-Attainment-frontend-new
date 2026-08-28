@@ -1,3 +1,14 @@
+
+/*
+ * IMPORTANT SECURITY NOTICE:
+ * Frontend route guards (RoleProtectedRoute) and scope limitations (e.g. academic loaders)
+ * are implemented here to improve UX ONLY.
+ * 
+ * You must assume the backend must independently derive scope from the JWT and deny 
+ * cross-scope requests, even if a client manipulates request parameters or bypasses the UI.
+ * Do not rely on selectable IDs, emails, or query parameters as authorization.
+ */
+
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -31,6 +42,7 @@ import DirectorSetupWorkflowPage from '../pages/director/DirectorSetupWorkflowPa
 // Programme Coordinator Pages
 import ProgrammeCoordinatorDashboardPage from '../pages/programme-coordinator/ProgrammeCoordinatorDashboardPage';
 import ProgrammeCoordinatorSetupWorkflowPage from '../pages/programme-coordinator/ProgrammeCoordinatorSetupWorkflowPage';
+import ProgrammeCoordinatorManageCoursesPage from '../pages/programme-coordinator/ProgrammeCoordinatorManageCoursesPage';
 import ProgrammeTargetSettingsPage from '../pages/programme-coordinator/ProgrammeTargetSettingsPage';
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
 
@@ -47,8 +59,9 @@ import CourseCoordinatorWorkflowPage from '../pages/CourseCoordinatorWorkflowPag
 
 import ErrorBoundary from '../components/common/ErrorBoundary';
 
-function ProtectedRoute({ children }) {
-  const { isAuthenticated, isRestoringSession } = useAuth();
+
+function RoleProtectedRoute({ children, allowedRoles }) {
+  const { isAuthenticated, isRestoringSession, role } = useAuth();
   const location = useLocation();
 
   if (isRestoringSession) {
@@ -59,6 +72,10 @@ function ProtectedRoute({ children }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
     <ErrorBoundary isScreen>
       {children}
@@ -66,13 +83,8 @@ function ProtectedRoute({ children }) {
   );
 }
 
-function AdminRoute({ children }) {
-  const { role, isRestoringSession } = useAuth();
 
-  if (isRestoringSession) return null;
-  if (role !== 'ADMIN') return <Navigate to="/dashboard" replace />;
-  return children;
-}
+
 
 export default function AppRoutes() {
   return (
@@ -84,27 +96,27 @@ export default function AppRoutes() {
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
             <DashboardPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/course-coordinator/workflow"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'FACULTY']}>
             <CourseCoordinatorWorkflowPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/admin/dashboard"
         element={
-          <ProtectedRoute>
-            <AdminRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN']}>
+            
               <AdminDashboardPage />
-            </AdminRoute>
-          </ProtectedRoute>
+            
+          </RoleProtectedRoute>
         }
       />
 
@@ -112,49 +124,49 @@ export default function AppRoutes() {
       <Route
         path="/director/dashboard"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}>
             <DashboardPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/director/setup-workflow"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}>
             <DirectorSetupWorkflowPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/director/school-structure"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}>
             <DirectorSchoolStructurePage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/director/department-management"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}>
             <DirectorDepartmentPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/director/programme-overview"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}>
             <DirectorProgrammeOverviewPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/director/reports"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}>
             <DirectorReportsPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
 
@@ -162,25 +174,33 @@ export default function AppRoutes() {
       <Route
         path="/programme-coordinator/dashboard"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'PROGRAMME_COORDINATOR']}>
             <ProgrammeCoordinatorDashboardPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/programme-coordinator/setup-workflow"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'PROGRAMME_COORDINATOR']}>
             <ProgrammeCoordinatorSetupWorkflowPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/programme-coordinator/manage-courses"
+        element={
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'PROGRAMME_COORDINATOR']}>
+            <ProgrammeCoordinatorManageCoursesPage />
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/programme-coordinator/target-settings"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'PROGRAMME_COORDINATOR']}>
             <ProgrammeTargetSettingsPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
 
@@ -188,65 +208,65 @@ export default function AppRoutes() {
       <Route
         path="/hod/dashboard"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'HOD']}>
             <DashboardPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/hod/setup-workflow"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'HOD']}>
             <HodSetupWorkflowPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/hod/batch-management"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'HOD']}>
             <HodBatchManagementPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/hod/programme-outcomes"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'HOD']}>
             <HodProgrammeOutcomesPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/hod/programme-coordinators"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'HOD']}>
             <HodProgrammeCoordinatorsPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/hod/approvals"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'HOD']}>
             <HodApprovalsPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/hod/programme-atr"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'HOD']}>
             <HodProgrammeATRPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/hod/reports"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'HOD']}>
             <HodReportsPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
 
@@ -254,137 +274,137 @@ export default function AppRoutes() {
       <Route
         path="/users"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN']}>
             <UsersPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/configurations"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
             <ConfigurationPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/attainment-config"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
             <ConfigurationPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/academic"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD']}>
             <AcademicPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/outcomes"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
             <OutcomesPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/co-targets"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <COTargetSettingPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/co-mapping"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
             <MappingPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/marks-upload"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
             <MarksPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/survey-upload"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
             <SurveyPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/co-attainment"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
             <COAttainmentPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/po-pso-attainment"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
             <POPSOAttainmentPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/attainment-overview"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
             <AttainmentOverviewPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/course-atr"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
             <CourseATRPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/atr-reports"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
             <ATRReportsPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/programme-atr"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <ProgrammeATRPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/coordinator-review"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'PROGRAMME_COORDINATOR', 'HOD']}>
             <CoordinatorReviewPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/reports"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
             <ReportsPage />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
 
