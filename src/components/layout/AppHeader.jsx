@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -16,11 +16,13 @@ export default function AppHeader() {
 
   const isFaculty = role === 'FACULTY';
   const isWorkflowRoute = location.pathname.includes('workflow');
+  const loadedSchoolRef = useRef(null);
 
   // Always refresh the authenticated user's school details when the header
   // loads, so the displayed name reflects the current school record.
   useEffect(() => {
-    if (user?.schoolId) {
+    if (user?.schoolId && loadedSchoolRef.current !== String(user.schoolId)) {
+      loadedSchoolRef.current = String(user.schoolId);
       loadSchools();
     }
   }, [loadSchools, user?.schoolId]);

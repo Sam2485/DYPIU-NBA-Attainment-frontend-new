@@ -100,22 +100,15 @@ export function AttainmentProvider({ children }) {
         programmeBatchCourseId: targetOfferingId,
         directWeight: newConfig.directWeight ?? 80.0,
         indirectWeight: newConfig.indirectWeight ?? 20.0,
-        internalWeight: newConfig.internalWeight ?? 30.0,
-        externalWeight: newConfig.externalWeight ?? 70.0,
-        targetThresholdPercentage:
-          newConfig.targetThresholdPercentage ?? newConfig.directThreshold ?? 60.0,
-        status: newConfig.status ?? 'DRAFT',
-        directLevelsJson:
-          newConfig.directLevelsJson ??
-          (newConfig.directLevels ? JSON.stringify(newConfig.directLevels) : null),
-        indirectLevelsJson:
-          newConfig.indirectLevelsJson ??
-          (newConfig.indirectLevels ? JSON.stringify(newConfig.indirectLevels) : null),
+        directThreshold: newConfig.directThreshold ?? 60.0,
+        indirectThreshold: newConfig.indirectThreshold ?? 60.0,
+        directLevels: newConfig.directLevels ?? [],
+        indirectLevels: newConfig.indirectLevels ?? [],
       };
 
       try {
         setError(null);
-        const response = await attainmentApi.saveConfig(payload);
+        const response = await attainmentApi.saveConfig(targetOfferingId, payload);
         const data = unwrapResponse(response);
         setAttainmentConfigs(data);
         return data;

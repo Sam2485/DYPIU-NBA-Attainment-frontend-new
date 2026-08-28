@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FileSpreadsheet,
   Download,
@@ -106,6 +106,11 @@ export default function ReportsHub() {
     availableCourses = [],
     courses = [],
     batches = [],
+    batchId,
+    courseOfferings = [],
+    selectedCourseOffering,
+    loadAssignedCourseOfferings = () => Promise.resolve([]),
+    selectCourseOffering = () => {},
   } = useAcademic();
 
   // Role Checks
@@ -114,6 +119,19 @@ export default function ReportsHub() {
   const isHod = role === 'HOD';
   const isDirector = role === 'DIRECTOR' || role === 'SCHOOL_DIRECTOR' || role === 'IQAC';
   const isHodOrDirector = isHod || isDirector;
+  const assignedOfferings = useMemo(
+    () => courseOfferings.filter((offering) => String(offering.batchId ?? offering.programmeBatchId) === String(batchId)),
+    [batchId, courseOfferings],
+  );
+
+  useEffect(() => {
+    if (!isCourseCoordinator || !user?.email || !batchId) return;
+    loadAssignedCourseOfferings(user, batchId).then((offerings) => {
+      const selectedId = selectedCourseOffering?.id;
+      const selectedStillAssigned = (offerings ?? []).some((offering) => offering.id === selectedId);
+      if (!selectedStillAssigned && offerings?.[0]) selectCourseOffering(offerings[0]);
+    }).catch(() => {});
+  }, [batchId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, selectedCourseOffering?.id, user]);
 
   // Role-based Programmes List
   const roleProgrammes = (() => {
@@ -175,7 +193,13 @@ export default function ReportsHub() {
 
   const allProgrammeCourses = roleCourses.length > 0 ? roleCourses : courses;
 
+  const selectedProgrammeBatchCourse = selectedCourseOffering ? {
+    ...selectedCourseOffering,
+    code: selectedCourseOffering.courseCode ?? selectedCourseOffering.code,
+    name: selectedCourseOffering.courseName ?? selectedCourseOffering.name,
+  } : null;
   const currentCourseObj =
+    (isCourseCoordinator ? selectedProgrammeBatchCourse : null) ||
     allProgrammeCourses.find((c) => c.id === courseId) ||
     allProgrammeCourses[0] ||
     { code: '310244', name: 'Computer Network and Security', id: 'crs-1' };
@@ -201,7 +225,8 @@ export default function ReportsHub() {
 
   // Batches
   const batchList = batches || [];
-  const currentBatchObj = batchList.find((b) => b.id === selectedBatchId) || batchList[0] || {};
+  const effectiveBatchId = isCourseCoordinator ? batchId : selectedBatchId;
+  const currentBatchObj = batchList.find((b) => b.id === effectiveBatchId) || batchList[0] || {};
   const isFinalSemCompleted = currentBatchObj?.isCompleted || currentBatchObj?.name?.includes('Completed') || currentBatchObj?.name?.includes('Graduated');
 
   // Effective Attainment View Mode (Force Course Coordinator to 'course-attainment')
@@ -326,6 +351,17 @@ export default function ReportsHub() {
 
           {/* Actions: Download & Print */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {isCourseCoordinator && <select
+              value={selectedCourseOffering?.id ?? ''}
+              onChange={(event) => {
+                const offering = assignedOfferings.find((item) => String(item.id) === event.target.value);
+                if (offering) selectCourseOffering(offering);
+              }}
+              disabled={!batchId || assignedOfferings.length === 0}
+              style={{ height: '38px', width: '220px', padding: '0 8px', border: '1.5px solid #cbd5e1', borderRadius: '8px', color: '#4f46e5', background: '#ffffff', fontSize: '12.5px', fontWeight: 700, fontFamily: 'inherit' }}
+            >
+              {assignedOfferings.length === 0 ? <option value="">No assigned courses</option> : assignedOfferings.map((offering) => <option key={offering.id} value={offering.id}>{offering.courseCode ?? offering.code ?? 'Course'} — {offering.courseName ?? offering.name ?? 'Programme-Batch Course'} · Sem {offering.semester ?? '—'}</option>)}
+            </select>}
             <button
               type="button"
               onClick={handleDownloadExcel}
@@ -419,7 +455,7 @@ export default function ReportsHub() {
           )}
 
           {/* 2. COURSE SELECTOR (For All Roles) */}
-          <div style={{ minWidth: '260px', flex: '1 1 260px' }}>
+          {!isCourseCoordinator && <div style={{ minWidth: '260px', flex: '1 1 260px' }}>
             <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
               Select Course (under {currentProgramme.code})
             </label>
@@ -449,10 +485,10 @@ export default function ReportsHub() {
               </select>
               <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
             </div>
-          </div>
+          </div>}
 
           {/* 3. ACADEMIC BATCH SELECTOR (For All Roles) */}
-          <div style={{ minWidth: '240px', flex: '1 1 240px' }}>
+          {!isCourseCoordinator && <div style={{ minWidth: '240px', flex: '1 1 240px' }}>
             <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
               Academic Batch
             </label>
@@ -482,7 +518,7 @@ export default function ReportsHub() {
               </select>
               <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
             </div>
-          </div>
+          </div>}
         </div>
       </div>
 

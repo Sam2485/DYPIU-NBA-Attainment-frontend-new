@@ -66,7 +66,7 @@ export default function CourseCoordinatorWorkflow() {
       return !!courseProgress.stepStatus[idx];
     }
     if (Array.isArray(courseProgress?.completedSteps)) {
-      return courseProgress.completedSteps.includes(s.number);
+      return courseProgress.completedSteps.map(String).includes(String(s.number));
     }
     return !!courseProgress?.[s.path] || !!courseProgress?.[s.number];
   });
@@ -112,8 +112,8 @@ export default function CourseCoordinatorWorkflow() {
   }, [currentStep, loadCourseMapping, programmeBatchCourseId]);
 
   useEffect(() => {
-    if (courseOfferingId) loadCcSetupProgress(courseOfferingId).catch(() => {});
-  }, [courseOfferingId, loadCcSetupProgress]);
+    if (batchId && user?.email) loadCcSetupProgress(batchId, user.email).catch(() => {});
+  }, [batchId, loadCcSetupProgress, user?.email]);
 
   useEffect(() => {
     const s = parseInt(searchParams.get('step'), 10);

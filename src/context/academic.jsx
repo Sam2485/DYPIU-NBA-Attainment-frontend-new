@@ -593,9 +593,17 @@ export function AcademicProvider({ children }) {
   /* --- Batches --- */
   const loadBatches = useCallback(
     async ({ targetProgrammeId = null, userEmail = null, targetRole = null } = {}) => {
+      // Programme batches are never a global resource. Requiring the master
+      // programme here prevents accidental unscoped calls that the backend
+      // correctly cannot resolve for governance users.
+      if (!targetProgrammeId) {
+        console.warn('loadBatches skipped: targetProgrammeId is required.');
+        setBatches([]);
+        return [];
+      }
       try {
         const params = {};
-        if (targetProgrammeId) params.masterProgrammeId = targetProgrammeId;
+        params.masterProgrammeId = targetProgrammeId;
         if (userEmail) params.userEmail = userEmail;
         if (targetRole) params.role = targetRole;
 

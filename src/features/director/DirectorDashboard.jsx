@@ -32,7 +32,6 @@ export default function DirectorDashboard() {
   const {
     directorDashboard = null,
     loadDirectorDashboard,
-    loadBatches,
   } = useAcademic();
 
   const [screenLoading, setScreenLoading] = useState(false);
@@ -42,10 +41,7 @@ export default function DirectorDashboard() {
     setScreenLoading(true);
     setScreenError(null);
     try {
-      await Promise.allSettled([
-        loadDirectorDashboard ? loadDirectorDashboard(user?.schoolId) : Promise.resolve(),
-        loadBatches ? loadBatches() : Promise.resolve(),
-      ]);
+      await (loadDirectorDashboard ? loadDirectorDashboard(user?.schoolId) : Promise.resolve());
     } catch (err) {
       console.warn('DirectorDashboard fetch failed:', err);
       setScreenError(err?.customMessage || err?.message || 'Failed to load Director dashboard.');

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck, Send, Lock } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
@@ -16,7 +16,7 @@ const outcomeSignature = (outcomes = []) => JSON.stringify(outcomes.map((outcome
   bloomsLevel: outcome.bloomsLevel ?? 'UNDERSTAND',
 })));
 
-export default function OutcomesManagement({ hideFooter = false }) {
+export default function OutcomesManagement({ hideFooter = false, hideHeader = false, readOnly = false, reviewCourseId = null, suppressPendingMessage = false }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isStandalone = searchParams.get('mode') === 'standalone';
@@ -32,6 +32,10 @@ export default function OutcomesManagement({ hideFooter = false }) {
     selectedCourse,
     selectedCourseOffering,
     courseOfferingId,
+    batchId,
+    courseOfferings = [],
+    selectCourseOffering = () => {},
+    loadAssignedCourseOfferings = () => Promise.resolve([]),
     activePOs = [],
     activePSOs = [],
     activePEOs = [],
@@ -39,18 +43,51 @@ export default function OutcomesManagement({ hideFooter = false }) {
     updateProgrammePOs = () => {},
     updateProgrammePSOs = () => {},
     updateProgrammePEOs = () => {},
+    loadCourseOutcomes = () => Promise.resolve([]),
     updateCourseCOs = () => {},
     coTargets = {},
     updateCourseCoTargets = () => {},
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
     submitCourseVerification = () => Promise.resolve(null),
+    loadProgrammeBatchCourseApprovalStatus = () => Promise.resolve(null),
   } = useAcademic();
 
   const courseScope = selectedCourseOffering ?? selectedCourse;
-  const targetCourseId = courseOfferingId || courseScope?.id || courseId || null;
+  const targetCourseId = reviewCourseId || courseOfferingId || courseScope?.id || courseId || null;
   const safeCoTargets = coTargets ?? EMPTY_TARGETS;
-  const currentCoVerificationStatus = courseVerificationStore[targetCourseId]?.coStatus || 'DRAFT';
+  const workspaceCoStatus = courseVerificationStore[targetCourseId]?.coStatus;
+  const directCoStatus = activeCOs[0]?.status ?? 'DRAFT';
+  const currentCoVerificationStatus = workspaceCoStatus && workspaceCoStatus !== 'DRAFT'
+    ? workspaceCoStatus
+    : directCoStatus;
+  const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
+  const assignedOfferings = useMemo(
+    () => courseOfferings.filter((offering) => String(offering.batchId ?? offering.programmeBatchId) === String(batchId)),
+    [batchId, courseOfferings],
+  );
+
+  useEffect(() => {
+    if (!isStandalone || !isCourseCoordinator || !user?.email || !batchId) return;
+    loadAssignedCourseOfferings(user, batchId).then((offerings) => {
+      const selectedId = selectedCourseOffering?.id;
+      const selectedStillAssigned = (offerings ?? []).some((offering) => offering.id === selectedId);
+      if (!selectedStillAssigned && offerings?.[0]) selectCourseOffering(offerings[0]);
+    }).catch(() => {});
+  }, [batchId, isCourseCoordinator, isStandalone, loadAssignedCourseOfferings, selectCourseOffering, selectedCourseOffering?.id, user]);
+
+  // The workflow loads this data from its Step 1 container. The sidebar's
+  // standalone Add COs screen renders this component directly, so it must
+  // load the exact same Programme-Batch-Course-scoped outcomes itself.
+  useEffect(() => {
+    if (targetCourseId) {
+      loadCourseOutcomes(targetCourseId).catch(() => {});
+    }
+  }, [loadCourseOutcomes, targetCourseId]);
+
+  useEffect(() => {
+    if (targetCourseId) loadProgrammeBatchCourseApprovalStatus(targetCourseId).catch(() => {});
+  }, [loadProgrammeBatchCourseApprovalStatus, targetCourseId]);
 
   const [localCoTargets, setLocalCoTargets] = useState({});
   const [savedOutcomeSignature, setSavedOutcomeSignature] = useState(null);
@@ -521,14 +558,13 @@ export default function OutcomesManagement({ hideFooter = false }) {
       setIsSubmittingForReview(true);
       await submitCourseVerification({
         courseOfferingId: targetCourseId,
-        // approval_requests.type accepts CO_DEFINITION for a Course Outcome
-        // submission; COURSE_OUTCOMES is a workflow label, not an API enum.
+        // POST /approvals/submit accepts CO_DEFINITION for the Course Outcomes
+        // and Targets review request. The local courseOfferingId is deliberately
+        // omitted by ApprovalContext before the request is sent.
         type: 'CO_DEFINITION',
         resourceId: targetCourseId,
         programmeBatchCourseId: targetCourseId,
-        masterProgrammeId: courseScope?.masterProgrammeId ?? courseScope?.programmeId ?? undefined,
         title: `CO Submission for ${courseScope?.courseCode || courseScope?.code || 'Course'}`,
-        details: `${coList.length} Course Outcome(s) defined`,
       });
       setCoList((current) => current.map((co) => ({ ...co, status: 'SUBMITTED' })));
       setIsSubmittedForReview(true);
@@ -551,10 +587,11 @@ export default function OutcomesManagement({ hideFooter = false }) {
   const pendingCoCount = coList.filter((c) => c.status === 'WAITING_FOR_APPROVAL' || c.status === 'SUBMITTED').length;
 
   const targetData = courseVerificationStore[targetCourseId] || {};
-  const isCoApproved = currentCoVerificationStatus === 'APPROVED' || currentCoVerificationStatus === 'VERIFIED' || targetData.coStatus === 'APPROVED' || targetData.coStatus === 'VERIFIED';
+  const isCoApproved = readOnly || currentCoVerificationStatus === 'APPROVED' || currentCoVerificationStatus === 'VERIFIED' || targetData.coStatus === 'APPROVED' || targetData.coStatus === 'VERIFIED';
   const outcomesDirty = savedOutcomeSignature === null || outcomeSignature(coList) !== savedOutcomeSignature;
   const outcomesPendingReview = isSubmittedForReview
     || currentCoVerificationStatus === 'SUBMITTED'
+    || currentCoVerificationStatus === 'PENDING'
     || currentCoVerificationStatus === 'PENDING_APPROVAL'
     || targetData.status === 'SUBMITTED_FOR_VERIFICATION'
     || targetData.status === 'PENDING';
@@ -562,8 +599,8 @@ export default function OutcomesManagement({ hideFooter = false }) {
   return (
     <div className="animated-page">
       {/* ── HEADER BANNER ─────────────────────────────────────────────────── */}
-      <div className="banner-dark-gradient" style={{ marginBottom: '20px' }}>
-        <div className="banner-content-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+      {!hideHeader && <div className="banner-dark-gradient" style={{ marginBottom: '20px' }}>
+          <div className="banner-content-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
               Add COs
@@ -571,6 +608,17 @@ export default function OutcomesManagement({ hideFooter = false }) {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
+            {isStandalone && isCourseCoordinator && <select
+              value={selectedCourseOffering?.id ?? ''}
+              onChange={(event) => {
+                const offering = assignedOfferings.find((item) => String(item.id) === event.target.value);
+                if (offering) selectCourseOffering(offering);
+              }}
+              disabled={!batchId || assignedOfferings.length === 0}
+              style={{ height: '38px', minWidth: '260px', padding: '0 10px', border: '1px solid #cbd5e1', borderRadius: '8px', color: '#0f172a', background: '#ffffff', fontWeight: '700', fontFamily: 'inherit' }}
+            >
+              {assignedOfferings.length === 0 ? <option value="">No assigned courses for this programme batch</option> : assignedOfferings.map((offering) => <option key={offering.id} value={offering.id}>{offering.courseCode ?? offering.code ?? 'Course'} — {offering.courseName ?? offering.name ?? 'Programme-Batch Course'} · Sem {offering.semester ?? '—'}</option>)}
+            </select>}
             {!isCoApproved ? (
               <>
                 <button
@@ -597,7 +645,7 @@ export default function OutcomesManagement({ hideFooter = false }) {
             )}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Director Pending Verifications Banner */}
       {(role === 'DIRECTOR' || role === 'IQAC') && (pendingPoCount > 0 || pendingPsoCount > 0) && (
@@ -1086,9 +1134,9 @@ export default function OutcomesManagement({ hideFooter = false }) {
           {/* Programme Coordinator Status & Rejection Remarks Banner */}
           {(() => {
             const targetData = courseVerificationStore[targetCourseId] || {};
-            const status = targetData.coStatus || currentCoVerificationStatus || 'PENDING_APPROVAL';
-            const remarks = targetData.coRemarks || '';
-            const verifier = targetData.verifiedBy || 'Programme Coordinator';
+            const status = currentCoVerificationStatus || 'DRAFT';
+            const remarks = targetData.coRemarks || activeCOs[0]?.revisionReason || '';
+            const verifier = targetData.coReviewer || activeCOs[0]?.reviewedBy || targetData.verifiedBy || 'Programme Coordinator';
 
             const isApproved = status === 'APPROVED' || status === 'VERIFIED';
             const isRejected = status === 'REJECTED' || status === 'REVISION_REQUESTED';
@@ -1118,6 +1166,10 @@ export default function OutcomesManagement({ hideFooter = false }) {
                   actionText="Modify the statements below and click 'Save COs' to re-submit for Programme Coordinator approval."
                 />
               );
+            }
+
+            if (!suppressPendingMessage && ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(status)) {
+              return <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', padding: '14px 18px', marginBottom: '18px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}><Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} /><div><strong style={{ fontSize: '13.5px', color: '#92400e', fontWeight: '800' }}>Submitted — Pending Programme Coordinator Review</strong><p style={{ margin: '2px 0 0', fontSize: '12px', color: '#b45309' }}>Course Outcomes and Targets are awaiting review by the Programme Coordinator.</p></div></div>;
             }
 
             return null;

@@ -93,6 +93,8 @@ export default function AppSidebar() {
   const { user, role, logout } = useAuth();
   const courseCoordinatorBatchScopeRef = useRef(null);
   const coordinatorMasterProgrammeScopeRef = useRef(null);
+  const hodDepartmentsLoadedRef = useRef(false);
+  const hodMasterProgrammeScopeRef = useRef(null);
   const {
     academicYear = '2025-26',
     setAcademicYear = () => {},
@@ -190,7 +192,8 @@ export default function AppSidebar() {
   const isHod = role === 'HOD';
 
   useEffect(() => {
-    if (role === 'HOD') {
+    if (role === 'HOD' && !hodDepartmentsLoadedRef.current) {
+      hodDepartmentsLoadedRef.current = true;
       loadDepartments();
     }
   }, [loadDepartments, role]);
@@ -201,6 +204,29 @@ export default function AppSidebar() {
     if (role !== 'HOD' || selectedDepartmentId || departments.length === 0) return;
     setSelectedDepartmentId(user?.departmentId ?? departments[0]?.id ?? null);
   }, [departments, role, selectedDepartmentId, setSelectedDepartmentId, user?.departmentId]);
+
+  useEffect(() => {
+    if (role !== 'HOD' || !selectedDepartmentId) return;
+    const requestScope = String(selectedDepartmentId);
+    if (hodMasterProgrammeScopeRef.current === requestScope) return;
+    hodMasterProgrammeScopeRef.current = requestScope;
+
+    loadMasterProgrammes(selectedDepartmentId).then((programmes) => {
+      const storedProgrammeId = typeof window === 'undefined'
+        ? null
+        : sessionStorage.getItem(`nba_hod_selected_master_programme:${user?.email ?? 'default'}`);
+      const preferredProgrammeId = programmeId ?? storedProgrammeId;
+      if (!programmes.some((programme) => String(programme.id) === String(preferredProgrammeId))) {
+        setProgrammeId(programmes[0]?.id ?? null);
+      }
+    }).catch(() => {});
+  }, [loadMasterProgrammes, programmeId, role, selectedDepartmentId, setProgrammeId, user?.email]);
+
+  useEffect(() => {
+    if (role === 'HOD' && programmeId) {
+      sessionStorage.setItem(`nba_hod_selected_master_programme:${user?.email ?? 'default'}`, programmeId);
+    }
+  }, [programmeId, role, user?.email]);
 
   useEffect(() => {
     if (role !== 'PROGRAMME_COORDINATOR' || !user?.email) return;
@@ -268,9 +294,10 @@ export default function AppSidebar() {
   };
 
   const handleHodDepartmentChange = (departmentId) => {
-    // Start the authoritative master-programme request immediately when the
-    // user changes the universal HOD department scope.
-    loadMasterProgrammes(departmentId).catch(() => {});
+    // The HOD master-programme effect below reloads the scoped programmes.
+    // Clear the old selection first so no HOD screen can request its batches.
+    hodMasterProgrammeScopeRef.current = null;
+    setProgrammeId(null);
     setSelectedDepartmentId(departmentId);
   };
 
@@ -405,7 +432,7 @@ export default function AppSidebar() {
               </div>
             )}
             {role === 'HOD' && (
-              <div>
+              <div style={{ display: 'grid', gap: 6 }}>
                 <select
                   id="hod-universal-department"
                   value={selectedDepartmentId ?? ''}
@@ -418,6 +445,19 @@ export default function AppSidebar() {
                   ) : departments.map((department) => (
                     <option key={department.id} value={department.id} style={{ color: '#0f172a', background: '#ffffff' }}>
                       {department.name || department.code || department.id}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  aria-label="HOD master programme"
+                  value={programmeId ?? ''}
+                  onChange={(event) => setProgrammeId(event.target.value || null)}
+                  disabled={masterProgrammes.length === 0}
+                  style={{ width: '100%', height: 32, borderRadius: 8, border: '1px solid rgba(165,180,252,0.30)', background: '#1e293b', color: '#f8fafc', fontSize: 11.5, fontWeight: 700, padding: '0 8px', fontFamily: 'inherit', cursor: masterProgrammes.length ? 'pointer' : 'not-allowed', outline: 'none' }}
+                >
+                  {masterProgrammes.length === 0 ? <option value="">No master programmes available</option> : masterProgrammes.map((programme) => (
+                    <option key={programme.id} value={programme.id} style={{ color: '#0f172a', background: '#ffffff' }}>
+                      {programme.code || programme.id} — {programme.name}
                     </option>
                   ))}
                 </select>

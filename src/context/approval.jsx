@@ -198,6 +198,50 @@ export function ApprovalProvider({ children }) {
     []
   );
 
+  // Canonical approval workspace for a programme-batch-course. This is the
+  // source of truth used by Course Coordinator screens after a page refresh.
+  const loadProgrammeBatchCourseApprovalStatus = useCallback(
+    async (programmeBatchCourseId) => {
+      if (!programmeBatchCourseId) return null;
+      try {
+        const response = await apiClient.get(`/approvals/programme-batch-courses/${programmeBatchCourseId}`);
+        const workspace = unwrapResponse(response) ?? {};
+        const items = Array.isArray(workspace.approvalItems) ? workspace.approvalItems : [];
+        const priority = ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION', 'APPROVED', 'VERIFIED', 'REVISION_REQUESTED', 'REJECTED'];
+        const latestItem = (types) => {
+          const matching = items.filter((item) => types.includes(item.type));
+          return priority.map((status) => matching.find((item) => item.status === status)).find(Boolean) ?? null;
+        };
+        const coApproval = latestItem(['CO_DEFINITION', 'COURSE_OUTCOMES_TARGETS']);
+        const configApproval = latestItem(['ATTAINMENT_CONFIGURATION', 'ATTAINMENT_SETTINGS']);
+        const atrApproval = latestItem(['COURSE_ATR']);
+        const reviewerName = (item) => item?.reviewedBy?.name ?? item?.reviewedBy ?? item?.verifiedBy ?? null;
+        const data = {
+          courseOfferingId: programmeBatchCourseId,
+          approvalItems: items,
+          coStatus: coApproval?.status ?? 'DRAFT',
+          coReviewer: reviewerName(coApproval),
+          coRemarks: coApproval?.revisionReason ?? null,
+          configStatus: configApproval?.status ?? 'DRAFT',
+          configReviewer: reviewerName(configApproval),
+          configRemarks: configApproval?.revisionReason ?? null,
+          atrStatus: atrApproval?.status ?? 'DRAFT',
+          atrReviewer: reviewerName(atrApproval),
+          atrRemarks: atrApproval?.revisionReason ?? null,
+        };
+        setCourseVerificationStore((previous) => ({
+          ...previous,
+          [programmeBatchCourseId]: { ...(previous[programmeBatchCourseId] || {}), ...data },
+        }));
+        return data;
+      } catch (err) {
+        console.warn(`loadProgrammeBatchCourseApprovalStatus(${programmeBatchCourseId}) failed:`, err);
+        return null;
+      }
+    },
+    []
+  );
+
   /* ======================================================================== */
   /* 4. Formal Approval Submission                                            */
   /* ======================================================================== */
@@ -655,6 +699,7 @@ export function ApprovalProvider({ children }) {
     /* CourseOffering verification */
     getCourseVerification,
     getVerificationStatus: getCourseVerification,
+    loadProgrammeBatchCourseApprovalStatus,
     submitCourseVerification,
     verifyStatus,
     requestRevision,

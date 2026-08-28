@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Sliders, Save, CheckCircle2, Clock, ShieldCheck, Target, Layers, PieChart, Award, Zap, ChevronDown, AlertCircle, Lock } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Sliders, Save, CheckCircle2, Clock, ShieldCheck, Target, Layers, PieChart, Award, Zap, ChevronDown, AlertCircle, Lock, Send } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAcademic } from '../../context/AcademicContext';
+import { useAttainment } from '../../context/attainment';
+import { useApproval } from '../../context/approval';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 // ── Style tokens ───────────────────────────────────────────────────────────
@@ -10,13 +12,19 @@ const ink = '#0f172a';
 const muted = '#64748b';
 const accent = '#4f46e5';
 
-export default function AttainmentConfig() {
+export default function AttainmentConfig({ hideHeader = false, readOnly = false, reviewCourseId = null, suppressPendingMessage = false }) {
   const { role, user } = useAuth();
   const {
     academicYear,
     programmeId,
     selectedProgramme,
     selectedCourse,
+    selectedCourseOffering,
+    courseOfferingId,
+    batchId,
+    courseOfferings = [],
+    selectCourseOffering = () => {},
+    loadAssignedCourseOfferings = () => Promise.resolve([]),
     availableCourses = [],
     attainmentConfigs = {},
     updateCourseAttainmentConfig,
@@ -26,25 +34,51 @@ export default function AttainmentConfig() {
     updatePoPsoTargets,
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
+    loadProgrammeBatchCourseApprovalStatus = () => Promise.resolve(null),
   } = useAcademic();
+  const {
+    attainmentConfigs: apiConfig = null,
+    loadAttainmentConfig = () => Promise.resolve(null),
+    updateCourseAttainmentConfig: saveApiConfig = () => Promise.resolve(null),
+  } = useAttainment();
+  const { submitApproval = () => Promise.resolve(null) } = useApproval();
 
   const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+  const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
+  const programmeBatchCourseId = reviewCourseId ?? selectedCourseOffering?.programmeBatchCourseId ?? courseOfferingId ?? null;
+  const safePoPsoTargets = poPsoTargets ?? {};
+  const safeAttainmentConfigs = attainmentConfigs ?? {};
+  const safeVerificationStore = courseVerificationStore ?? {};
+  const assignedOfferings = useMemo(
+    () => courseOfferings.filter((offering) => String(offering.batchId ?? offering.programmeBatchId) === String(batchId)),
+    [batchId, courseOfferings],
+  );
 
   const courseList = availableCourses.length > 0 ? availableCourses : [
     { id: 'crs-1', code: '310244', name: 'Computer Network and Security' },
     { id: 'crs-2', code: 'CS301', name: 'Data Structures & Algorithms' },
   ];
 
-  const [activeCourseId, setActiveCourseId] = useState(selectedCourse?.id || 'crs-1');
+  const [activeCourseId, setActiveCourseId] = useState(programmeBatchCourseId || selectedCourse?.id || 'crs-1');
 
   useEffect(() => {
-    if (selectedCourse?.id) {
-      setActiveCourseId(selectedCourse.id);
+    const targetId = isCourseCoordinator ? programmeBatchCourseId : selectedCourse?.id;
+    if (targetId) {
+      setActiveCourseId(targetId);
     }
-  }, [selectedCourse]);
+  }, [isCourseCoordinator, programmeBatchCourseId, selectedCourse]);
+
+  useEffect(() => {
+    if (!isCourseCoordinator || !user?.email || !batchId) return;
+    loadAssignedCourseOfferings(user, batchId).then((offerings) => {
+      const selectedId = selectedCourseOffering?.id;
+      const selectedStillAssigned = (offerings ?? []).some((offering) => offering.id === selectedId);
+      if (!selectedStillAssigned && offerings?.[0]) selectCourseOffering(offerings[0]);
+    }).catch(() => {});
+  }, [batchId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, selectedCourseOffering?.id, user]);
 
   // Step 5: PO & PSO Target Levels state for active Programme (Scale 1.0 - 3.0)
-  const currentProgTargets = (programmeId && poPsoTargets?.[programmeId]) || {
+  const currentProgTargets = (programmeId && safePoPsoTargets[programmeId]) || {
     poTargets: {},
     psoTargets: {},
   };
@@ -53,11 +87,11 @@ export default function AttainmentConfig() {
   const [localPsoTargets, setLocalPsoTargets] = useState(currentProgTargets.psoTargets || {});
 
   useEffect(() => {
-    if (poPsoTargets[programmeId]) {
-      setLocalPoTargets(poPsoTargets[programmeId].poTargets || {});
-      setLocalPsoTargets(poPsoTargets[programmeId].psoTargets || {});
+    if (safePoPsoTargets[programmeId]) {
+      setLocalPoTargets(safePoPsoTargets[programmeId].poTargets || {});
+      setLocalPsoTargets(safePoPsoTargets[programmeId].psoTargets || {});
     }
-  }, [programmeId, poPsoTargets]);
+  }, [programmeId, safePoPsoTargets]);
 
   const handleSavePoPsoTargets = () => {
     updatePoPsoTargets(programmeId, localPoTargets, localPsoTargets);
@@ -65,7 +99,7 @@ export default function AttainmentConfig() {
   };
 
   // Attainment Configuration Store (Direct/Indirect weights, Threshold, Direct/Indirect Level 1-3 Bands)
-  const currentConfig = attainmentConfigs[activeCourseId] || {
+  const defaultConfig = {
     courseCode: selectedCourse?.code || '310244',
     courseName: selectedCourse?.name || 'Course Title',
     directWeight: 80,
@@ -83,6 +117,23 @@ export default function AttainmentConfig() {
     ],
     status: 'DRAFT',
   };
+  const [localCourseConfig, setLocalCourseConfig] = useState(defaultConfig);
+  const [isSubmittingForReview, setIsSubmittingForReview] = useState(false);
+
+  useEffect(() => {
+    if ((isCourseCoordinator || reviewCourseId) && programmeBatchCourseId) {
+      loadAttainmentConfig(programmeBatchCourseId).catch(() => {});
+      loadProgrammeBatchCourseApprovalStatus(programmeBatchCourseId).catch(() => {});
+    }
+  }, [isCourseCoordinator, loadAttainmentConfig, loadProgrammeBatchCourseApprovalStatus, programmeBatchCourseId, reviewCourseId]);
+
+  useEffect(() => {
+    if (isCourseCoordinator) setLocalCourseConfig(apiConfig || defaultConfig);
+  }, [apiConfig, isCourseCoordinator, programmeBatchCourseId]);
+
+  const currentConfig = (isCourseCoordinator || reviewCourseId)
+    ? localCourseConfig
+    : safeAttainmentConfigs[activeCourseId] || defaultConfig;
 
   const handleDirectWeightChange = (val) => {
     const direct = Math.min(100, Math.max(0, Number(val)));
@@ -90,11 +141,12 @@ export default function AttainmentConfig() {
       ...currentConfig,
       directWeight: direct,
       indirectWeight: 100 - direct,
-      status: 'SUBMITTED',
+      status: 'DRAFT',
       proposedBy: user?.name || 'Course Coordinator',
       proposedAt: new Date().toISOString().split('T')[0],
     };
-    updateCourseAttainmentConfig(activeCourseId, updated);
+    if (isCourseCoordinator) setLocalCourseConfig(updated);
+    else updateCourseAttainmentConfig(activeCourseId, updated);
   };
 
   const handleThresholdChange = (val) => {
@@ -102,11 +154,12 @@ export default function AttainmentConfig() {
     const updated = {
       ...currentConfig,
       directThreshold: threshold,
-      status: 'SUBMITTED',
+      status: 'DRAFT',
       proposedBy: user?.name || 'Course Coordinator',
       proposedAt: new Date().toISOString().split('T')[0],
     };
-    updateCourseAttainmentConfig(activeCourseId, updated);
+    if (isCourseCoordinator) setLocalCourseConfig(updated);
+    else updateCourseAttainmentConfig(activeCourseId, updated);
   };
 
   const handleDirectLevelChange = (levelIndex, field, val) => {
@@ -120,11 +173,12 @@ export default function AttainmentConfig() {
     const updated = {
       ...currentConfig,
       directLevels: updatedLevels,
-      status: 'SUBMITTED',
+      status: 'DRAFT',
       proposedBy: user?.name || 'Course Coordinator',
       proposedAt: new Date().toISOString().split('T')[0],
     };
-    updateCourseAttainmentConfig(activeCourseId, updated);
+    if (isCourseCoordinator) setLocalCourseConfig(updated);
+    else updateCourseAttainmentConfig(activeCourseId, updated);
   };
 
   const handleIndirectLevelChange = (levelIndex, field, val) => {
@@ -138,15 +192,16 @@ export default function AttainmentConfig() {
     const updated = {
       ...currentConfig,
       indirectLevels: updatedLevels,
-      status: 'SUBMITTED',
+      status: 'DRAFT',
       proposedBy: user?.name || 'Course Coordinator',
       proposedAt: new Date().toISOString().split('T')[0],
     };
-    updateCourseAttainmentConfig(activeCourseId, updated);
+    if (isCourseCoordinator) setLocalCourseConfig(updated);
+    else updateCourseAttainmentConfig(activeCourseId, updated);
   };
 
   const handleVerifyConfig = (cId) => {
-    const targetConfig = attainmentConfigs[cId] || currentConfig;
+    const targetConfig = safeAttainmentConfigs[cId] || currentConfig;
     const updated = {
       ...targetConfig,
       status: 'VERIFIED',
@@ -158,10 +213,30 @@ export default function AttainmentConfig() {
     alert(`Attainment configuration for ${targetConfig?.courseCode || 'course'} verified and approved by Programme Coordinator!`);
   };
 
-  const currentVerificationStatus = courseVerificationStore[activeCourseId]?.configStatus || currentConfig.status || 'DRAFT';
+  const workspaceConfigStatus = safeVerificationStore[activeCourseId]?.configStatus;
+  const currentVerificationStatus = workspaceConfigStatus && workspaceConfigStatus !== 'DRAFT'
+    ? workspaceConfigStatus
+    : (currentConfig.status || 'DRAFT');
   const isApproved = currentVerificationStatus === 'VERIFIED' || currentVerificationStatus === 'APPROVED';
+  const isLocked = readOnly || isApproved;
+  const isPendingReview = ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(currentVerificationStatus);
 
-  const handleSaveConfig = () => {
+  const handleSaveConfig = async () => {
+    if (isCourseCoordinator) {
+      if (!programmeBatchCourseId) {
+        alert('Select an assigned programme-batch course in the sidebar first.');
+        return;
+      }
+      try {
+        const saved = await saveApiConfig({ ...currentConfig, programmeBatchCourseId }, programmeBatchCourseId);
+        setLocalCourseConfig(saved || currentConfig);
+        alert('Attainment settings saved successfully.');
+      } catch (error) {
+        console.error('Failed to save attainment settings:', error);
+        alert('Unable to save attainment settings. Please try again.');
+      }
+      return;
+    }
     const updatedConfig = {
       ...currentConfig,
       status: 'SUBMITTED',
@@ -173,10 +248,45 @@ export default function AttainmentConfig() {
     alert(`Attainment Configurations for ${currentConfig.courseCode || selectedCourse?.code || 'selected course'} submitted for Programme Coordinator review!`);
   };
 
+  const handleSubmitForReview = async () => {
+    if (!programmeBatchCourseId) {
+      alert('Select an assigned programme-batch course in the sidebar first.');
+      return;
+    }
+
+    try {
+      setIsSubmittingForReview(true);
+
+      // Persist the current form before requesting Programme Coordinator
+      // review, so the approval always refers to the saved configuration.
+      const saved = await saveApiConfig(
+        { ...currentConfig, programmeBatchCourseId },
+        programmeBatchCourseId,
+      );
+      const config = saved || currentConfig;
+
+      await submitApproval({
+        courseOfferingId: programmeBatchCourseId,
+        type: 'ATTAINMENT_CONFIGURATION',
+        title: `Attainment Configuration for ${config.courseName || selectedCourseOffering?.courseName || selectedCourse?.name || 'Course'}`,
+        programmeBatchCourseId,
+        resourceId: programmeBatchCourseId,
+      });
+
+      setLocalCourseConfig({ ...config, status: 'SUBMITTED' });
+      alert('Attainment settings submitted for Programme Coordinator review.');
+    } catch (error) {
+      console.error('Failed to submit attainment settings for review:', error);
+      alert('Unable to submit attainment settings for review. Please try again.');
+    } finally {
+      setIsSubmittingForReview(false);
+    }
+  };
+
   return (
     <div className="animated-page">
       {/* Standard Header Banner */}
-      <div className="banner-dark-gradient" style={{ marginBottom: '20px' }}>
+      {!hideHeader && <div className="banner-dark-gradient" style={{ marginBottom: '20px' }}>
         <div className="banner-content-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
@@ -185,8 +295,19 @@ export default function AttainmentConfig() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            {isCourseCoordinator && <select
+              value={selectedCourseOffering?.id ?? ''}
+              onChange={(event) => {
+                const offering = assignedOfferings.find((item) => String(item.id) === event.target.value);
+                if (offering) selectCourseOffering(offering);
+              }}
+              disabled={!batchId || assignedOfferings.length === 0}
+              style={{ height: '38px', minWidth: '270px', padding: '0 10px', border: '1px solid #cbd5e1', borderRadius: '8px', color: '#0f172a', background: '#ffffff', fontWeight: 700, fontFamily: 'inherit' }}
+            >
+              {assignedOfferings.length === 0 ? <option value="">No assigned courses for this programme batch</option> : assignedOfferings.map((offering) => <option key={offering.id} value={offering.id}>{offering.courseCode ?? offering.code ?? 'Course'} — {offering.courseName ?? offering.name ?? 'Programme-Batch Course'} · Sem {offering.semester ?? '—'}</option>)}
+            </select>}
             {/* Course Selector Dropdown */}
-            <div style={{ position: 'relative' }}>
+            {!isCourseCoordinator && <div style={{ position: 'relative' }}>
               <select
                 value={activeCourseId}
                 onChange={(e) => setActiveCourseId(e.target.value)}
@@ -224,12 +345,28 @@ export default function AttainmentConfig() {
                   pointerEvents: 'none',
                 }}
               />
-            </div>
+            </div>}
 
             {!isApproved ? (
-              <button className="btn btn-primary" onClick={handleSaveConfig} style={{ height: '38px' }}>
-                <Save size={15} /> {!isCoordinator ? 'Submit Configuration Proposal for Review' : 'Save Attainment Configurations'}
-              </button>
+              isCourseCoordinator ? (
+                <>
+                  <button className="btn btn-primary" onClick={handleSaveConfig} style={{ height: '38px' }}>
+                    <Save size={15} /> Save Attainment Settings
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleSubmitForReview}
+                    disabled={isSubmittingForReview || isPendingReview}
+                    style={{ height: '38px', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', opacity: isSubmittingForReview || isPendingReview ? 0.5 : 1, cursor: isSubmittingForReview || isPendingReview ? 'not-allowed' : 'pointer' }}
+                  >
+                    <Send size={15} /> {isSubmittingForReview ? 'Submitting…' : isPendingReview ? 'Submitted' : 'Submit for Review'}
+                  </button>
+                </>
+              ) : (
+                <button className="btn btn-primary" onClick={handleSaveConfig} style={{ height: '38px' }}>
+                  <Save size={15} /> {!isCoordinator ? 'Submit Configuration Proposal for Review' : 'Save Attainment Configurations'}
+                </button>
+              )
             ) : (
               <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <Lock size={13} /> Settings Locked
@@ -237,7 +374,7 @@ export default function AttainmentConfig() {
             )}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Verification / Rejection Status Banner */}
       {isApproved && (
@@ -248,7 +385,7 @@ export default function AttainmentConfig() {
               ✓ Approved & Locked by Programme Coordinator
             </span>
             <span style={{ fontSize: '12px', color: '#166534', display: 'block', marginTop: '2px' }}>
-              Attainment configuration has been verified and approved by {courseVerificationStore[activeCourseId]?.verifiedBy || 'Programme Coordinator'}. Settings are now locked.
+              Attainment configuration has been verified and approved by {safeVerificationStore[activeCourseId]?.configReviewer || currentConfig.reviewedBy || 'Programme Coordinator'}. Settings are now locked.
             </span>
           </div>
         </div>
@@ -262,9 +399,16 @@ export default function AttainmentConfig() {
               ⚠️ Action Required — Sent Back for Revisions by Programme Coordinator
             </span>
             <span style={{ fontSize: '12.5px', color: '#b91c1c', display: 'block', marginTop: '3px', fontWeight: '600' }}>
-              <strong>Remarks Forwarded:</strong> "{courseVerificationStore[activeCourseId]?.configRemarks || 'Please review threshold settings and revise target parameters before resubmission.'}"
+              <strong>Remarks Forwarded:</strong> "{safeVerificationStore[activeCourseId]?.configRemarks || currentConfig.revisionReason || 'Please review threshold settings and revise target parameters before resubmission.'}"
             </span>
           </div>
+        </div>
+      )}
+
+      {!suppressPendingMessage && isPendingReview && (
+        <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+          <Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} />
+          <div><span style={{ fontSize: '13.5px', fontWeight: '800', color: '#92400e' }}>Submitted — Pending Programme Coordinator Review</span><span style={{ fontSize: '12px', color: '#b45309', display: 'block', marginTop: '2px' }}>Attainment settings are awaiting review by the Programme Coordinator.</span></div>
         </div>
       )}
 
@@ -321,7 +465,7 @@ export default function AttainmentConfig() {
                     className="form-input"
                     value={currentConfig.directWeight}
                     onChange={(e) => handleDirectWeightChange(e.target.value)}
-                    disabled={isApproved}
+                    disabled={isLocked}
                     min="0"
                     max="100"
                     style={{ width: '84px', fontWeight: '900', fontSize: '16px', color: '#4f46e5', textAlign: 'center', padding: '6px 10px', border: '1.5px solid #c7d2fe', borderRadius: '8px', background: isApproved ? '#f8fafc' : '#ffffff', cursor: isApproved ? 'not-allowed' : 'text' }}
@@ -374,7 +518,7 @@ export default function AttainmentConfig() {
                     className="form-input"
                     value={currentConfig.directThreshold}
                     onChange={(e) => handleThresholdChange(e.target.value)}
-                    disabled={isApproved}
+                    disabled={isLocked}
                     min="0"
                     max="100"
                     style={{ width: '84px', fontWeight: '900', fontSize: '16px', color: '#059669', textAlign: 'center', padding: '6px 10px', border: '1.5px solid #a7f3d0', borderRadius: '8px', background: isApproved ? '#f8fafc' : '#ffffff', cursor: isApproved ? 'not-allowed' : 'text' }}
@@ -433,7 +577,7 @@ export default function AttainmentConfig() {
                             type="number"
                             min="0"
                             max="100"
-                            disabled={isApproved}
+                            disabled={isLocked}
                             value={lvl.minPercentage}
                             onChange={(e) => handleDirectLevelChange(index, 'minPercentage', e.target.value)}
                             className="form-input"
@@ -448,7 +592,7 @@ export default function AttainmentConfig() {
                             type="number"
                             min="0"
                             max="100"
-                            disabled={isApproved}
+                            disabled={isLocked}
                             value={lvl.maxPercentage}
                             onChange={(e) => handleDirectLevelChange(index, 'maxPercentage', e.target.value)}
                             className="form-input"
@@ -507,7 +651,7 @@ export default function AttainmentConfig() {
                             type="number"
                             min="0"
                             max="100"
-                            disabled={isApproved}
+                            disabled={isLocked}
                             value={lvl.minPercentage}
                             onChange={(e) => handleIndirectLevelChange(index, 'minPercentage', e.target.value)}
                             className="form-input"
@@ -522,7 +666,7 @@ export default function AttainmentConfig() {
                             type="number"
                             min="0"
                             max="100"
-                            disabled={isApproved}
+                            disabled={isLocked}
                             value={lvl.maxPercentage}
                             onChange={(e) => handleIndirectLevelChange(index, 'maxPercentage', e.target.value)}
                             className="form-input"

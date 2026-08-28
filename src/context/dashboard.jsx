@@ -408,21 +408,16 @@ export function DashboardProvider({ children }) {
   );
 
   const loadCcSetupProgress = useCallback(
-    async (targetOfferingOrCourse = (courseOfferingId || courseId), coordinatorEmail = user?.email) => {
-      if (!targetOfferingOrCourse) {
+    async (targetProgrammeBatchId = batchId, coordinatorEmail = user?.email) => {
+      if (!targetProgrammeBatchId || !coordinatorEmail) {
         setCcWorkflowProgress(null);
         return null;
       }
 
       try {
-        /*
-         * CRITICAL:
-         * For Course Coordinator setup-progress:
-         * courseId = COURSE OFFERING ID
-         */
         const params = {
           coordinatorEmail,
-          programmeBatchCourseId: targetOfferingOrCourse,
+          programmeBatchId: targetProgrammeBatchId,
         };
 
         const response = await apiClient.get('/academic/course-coordinator/setup-progress', { params });
@@ -434,7 +429,7 @@ export function DashboardProvider({ children }) {
         return null;
       }
     },
-    [courseOfferingId, courseId, user?.email]
+    [batchId, user?.email]
   );
 
   /* General role-based workflow loader */

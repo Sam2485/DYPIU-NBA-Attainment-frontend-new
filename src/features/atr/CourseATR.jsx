@@ -28,7 +28,7 @@ const inputStyle = {
   color: ink, width: '100%', outline: 'none', fontFamily: 'inherit',
 };
 
-export default function CourseATR({ hideFooter = false, hideHeader = false, showHistoryProp, readOnly = false, courseId, batchId = null }) {
+export default function CourseATR({ hideFooter = false, hideHeader = false, showHistoryProp, readOnly = false, courseId, batchId = null, showAssignedCourseSelector = false, assignedOfferings = [], onSelectOffering = () => {}, selectorDisabled = false, suppressPendingMessage = false }) {
   const navigate = useNavigate();
   const { role, user } = useAuth();
   const {
@@ -45,6 +45,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
     updateCourseAtrData          = () => {},
     courseVerificationStore      = {},
     updateCourseVerificationStatus = () => {},
+    loadProgrammeBatchCourseApprovalStatus = () => Promise.resolve(null),
   } = useAcademic();
   const {
     courseATR: apiCourseAtr = null,
@@ -91,13 +92,16 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   const verificationStore = courseVerificationStore ?? EMPTY_OBJECT;
   const atrDraftStore = courseAtrStore ?? EMPTY_OBJECT;
   const verificationData = (activeCourseId && verificationStore[activeCourseId]) || {};
-  const atrStatus = apiCourseAtr?.status || verificationData.atrStatus || 'DRAFT';
-  const atrRemarks = verificationData.atrRemarks || '';
-  const verifiedBy = verificationData.verifiedBy || 'Programme Coordinator';
+  const approvalAtrStatus = verificationData.atrStatus;
+  const atrStatus = approvalAtrStatus && approvalAtrStatus !== 'DRAFT'
+    ? approvalAtrStatus
+    : (apiCourseAtr?.status || 'DRAFT');
+  const atrRemarks = verificationData.atrRemarks || apiCourseAtr?.verificationComments || '';
+  const verifiedBy = verificationData.atrReviewer || apiCourseAtr?.verifiedBy || verificationData.verifiedBy || 'Programme Coordinator';
 
   const isApproved = atrStatus === 'VERIFIED' || atrStatus === 'APPROVED';
   const isRevision = atrStatus === 'REJECTED' || atrStatus === 'REVISION_REQUESTED' || atrStatus === 'NEEDS_REVISION';
-  const isSubmitted = atrStatus === 'SUBMITTED' || atrStatus === 'PENDING_APPROVAL' || atrStatus === 'SUBMITTED_FOR_VERIFICATION';
+  const isSubmitted = ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(atrStatus);
 
   // Build ATR list from COs
   const buildList = () => {
@@ -128,8 +132,11 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   useEffect(() => { setCoList(buildList()); }, [activeCourseId, currentCourse, courseOutcomes, atrDraftStore]);
 
   useEffect(() => {
-    if (activeCourseId) loadCourseATR(activeCourseId).catch(() => {});
-  }, [activeCourseId, loadCourseATR]);
+    if (activeCourseId) {
+      loadCourseATR(activeCourseId).catch(() => {});
+      loadProgrammeBatchCourseApprovalStatus(activeCourseId).catch(() => {});
+    }
+  }, [activeCourseId, loadCourseATR, loadProgrammeBatchCourseApprovalStatus]);
 
   useEffect(() => {
     if (!apiCourseAtr?.outcomes) return;
@@ -223,14 +230,22 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
       {/* ── PAGE HEADER ───────────────────────────────────────────────────── */}
       {!hideHeader && (
         <div style={{ ...surface, padding: '20px 24px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: '12px' }}>
             <div>
               <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
                 Course ATR
               </h2>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap', marginLeft: 'auto' }}>
+              {showAssignedCourseSelector && <select
+                value={selectedCourseOffering?.id ?? ''}
+                onChange={(event) => onSelectOffering(event.target.value)}
+                disabled={selectorDisabled || assignedOfferings.length === 0}
+                style={{ ...inputStyle, height: '38px', width: '220px', padding: '0 8px', fontWeight: '700', color: ink, cursor: selectorDisabled || assignedOfferings.length === 0 ? 'not-allowed' : 'pointer' }}
+              >
+                {assignedOfferings.length === 0 ? <option value="">No assigned courses for this programme batch</option> : assignedOfferings.map((offering) => <option key={offering.id} value={offering.id}>{offering.courseCode ?? offering.code ?? 'Course'} — {offering.courseName ?? offering.name ?? 'Programme-Batch Course'} · Sem {offering.semester ?? '—'}</option>)}
+              </select>}
               {/* Course selector */}
               {!courseId && (
                 <div style={{ position: 'relative', minWidth: '240px' }}>
@@ -318,7 +333,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
         </div>
       )}
 
-      {!hideHeader && !showHistory && isSubmitted && !isApproved && (
+      {!hideHeader && !showHistory && !suppressPendingMessage && isSubmitted && !isApproved && (
         <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '10px', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
           <Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} />
           <div>
