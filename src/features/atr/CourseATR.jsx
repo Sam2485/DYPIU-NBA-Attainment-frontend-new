@@ -156,6 +156,8 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const createAtrPayload = () => ({
+    reportType: 'COURSE_ATR',
+    courseOffering: { id: activeCourseId },
     status: 'DRAFT',
     outcomes: coList.map((item) => ({
       outcomeCode: item.code,

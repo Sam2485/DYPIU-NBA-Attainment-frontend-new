@@ -53,8 +53,14 @@ export default function COAttainmentEngine({ hideFooter = false }) {
   const courseOutcomes = table3CoAttainments.length > 0
     ? table3CoAttainments.map((item) => ({ code: item.coCode, statement: item.statement }))
     : activeCOs;
-  const poList = [...new Set(table1Mapping.flatMap((item) => Object.keys(item.poMappings ?? {})))];
-  const psoList = [...new Set(table1Mapping.flatMap((item) => Object.keys(item.psoMappings ?? {})))];
+  const poList = [...new Set([
+    ...table1Mapping.flatMap((item) => Object.keys(item.poMappings ?? {})),
+    ...table2DirectPO.map((item) => item.poCode).filter(Boolean),
+  ])];
+  const psoList = [...new Set([
+    ...table1Mapping.flatMap((item) => Object.keys(item.psoMappings ?? {})),
+    ...table2DirectPSO.map((item) => item.psoCode).filter(Boolean),
+  ])];
   const displayPOs = poList.length > 0 ? poList : activePOs.map((p) => p.code);
   const displayPSOs = psoList.length > 0 ? psoList : activePSOs.map((p) => p.code);
 
@@ -86,7 +92,9 @@ export default function COAttainmentEngine({ hideFooter = false }) {
   const calculateAverageMapping = (key) => {
     const serverRow = table2DirectPO.find((item) => item.poCode === key)
       ?? table2DirectPSO.find((item) => item.psoCode === key);
-    if (serverRow?.averageMapping != null) return Number(serverRow.averageMapping).toFixed(2);
+    // A Table 2 row is authoritative. Explicit null means the outcome is
+    // intentionally unmapped and must remain a dash in the UI.
+    if (serverRow) return serverRow.averageMapping != null ? Number(serverRow.averageMapping).toFixed(2) : '-';
     let sum = 0;
     let count = 0;
     courseOutcomes.forEach((co) => {
@@ -104,7 +112,7 @@ export default function COAttainmentEngine({ hideFooter = false }) {
   const calculatePoPsoAttainment = (key) => {
     const serverRow = table2DirectPO.find((item) => item.poCode === key)
       ?? table2DirectPSO.find((item) => item.psoCode === key);
-    if (serverRow?.directContribution != null) return Number(serverRow.directContribution).toFixed(2);
+    if (serverRow) return serverRow.directContribution != null ? Number(serverRow.directContribution).toFixed(2) : '-';
     const avg = calculateAverageMapping(key);
     if (avg === '-' || overallCOAttainment == null) return '-';
     return ((parseFloat(avg) * parseFloat(overallCOAttainment)) / 3).toFixed(2);
@@ -342,10 +350,15 @@ export default function COAttainmentEngine({ hideFooter = false }) {
 
       {/* Table 3: CO-level attainment report */}
       <div className="card">
-        <div className="card-header" style={{ marginBottom: '12px' }}>
+        <div className="card-header" style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
           <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
             Table 3 : CO Attainment Report ({courseOutcomes.length} COs)
           </h3>
+          {overallCOAttainment != null && (
+            <span style={{ padding: '6px 10px', borderRadius: 999, background: '#dcfce7', border: '1px solid #86efac', color: '#166534', fontSize: '12px', fontWeight: '800', whiteSpace: 'nowrap' }}>
+              Overall CO Attainment: {Number(overallCOAttainment).toFixed(2)}
+            </span>
+          )}
         </div>
         <div style={{ overflowX: 'auto', width: '100%' }}>
           <table className="audit-data-table">
@@ -365,19 +378,16 @@ export default function COAttainmentEngine({ hideFooter = false }) {
                   </td>
                 </tr>
               ) : [
-                ['Target Level', (item) => item.targetLevel != null ? Number(item.targetLevel).toFixed(2) : '—'],
                 ['Direct Attainment %', (item) => item.directPercentage != null ? `${Number(item.directPercentage).toFixed(2)}%` : '—'],
-                ['Direct Attainment', (item) => item.directLevel != null ? `L${item.directLevel}` : '—'],
+                ['Direct Attainment', (item) => item.directLevel != null ? `${item.directLevel}` : '—'],
                 ['Indirect Attainment %', (item) => item.indirectPercentage != null ? `${Number(item.indirectPercentage).toFixed(2)}%` : '—'],
-                ['Indirect Attainment', (item) => item.indirectScore != null ? `${Number(item.indirectScore).toFixed(2)}${item.indirectLevel != null ? ` / L${item.indirectLevel}` : ''}` : '—'],
+                ['Indirect Attainment', (item) => item.indirectLevel != null ? `${item.indirectLevel}` : '—'],
                 ['Final Attainment', (item) => item.finalAttainment != null ? Number(item.finalAttainment).toFixed(2) : '—'],
-                ['Target Status', (item) => item.targetMet == null ? '—' : item.targetMet ? 'Met' : 'Not met'],
-                ['Observation', (item) => item.observation || '—'],
               ].map(([label, getValue], index) => (
                 <tr key={label} style={label === 'Final Attainment' ? { background: '#f1f5f9', fontWeight: '800', borderTop: '2px solid #cbd5e1' } : undefined}>
                   <td style={{ fontWeight: '700', color: '#0f172a' }}>{label}</td>
                   {table3CoAttainments.map((item) => (
-                    <td key={item.coCode} style={{ textAlign: 'center', fontWeight: label === 'Final Attainment' ? '800' : '600', color: label === 'Target Status' && item.targetMet === false ? '#b91c1c' : undefined }}>
+                    <td key={item.coCode} style={{ textAlign: 'center', fontWeight: label === 'Final Attainment' ? '800' : '600' }}>
                       {getValue(item)}
                     </td>
                   ))}

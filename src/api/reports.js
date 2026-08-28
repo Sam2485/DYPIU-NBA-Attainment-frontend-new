@@ -23,18 +23,18 @@ export const reportsApi = {
 
   getCourseAtr: (programmeBatchCourseId) =>
     apiClient.get(
-      `/academic/programme-batch-courses/${programmeBatchCourseId}/atr`
+      `/programme-batch-courses/${programmeBatchCourseId}/atr`
     ),
 
   saveCourseAtr: (programmeBatchCourseId, data) =>
     apiClient.put(
-      `/academic/programme-batch-courses/${programmeBatchCourseId}/atr`,
+      `/programme-batch-courses/${programmeBatchCourseId}/atr`,
       data
     ),
 
   submitCourseAtr: (programmeBatchCourseId) =>
     apiClient.post(
-      `/academic/programme-batch-courses/${programmeBatchCourseId}/atr/submit`
+      `/programme-batch-courses/${programmeBatchCourseId}/atr/submit`
     ),
 
   getCourseAtrs: (params = {}) =>
