@@ -50,7 +50,7 @@ export default function HodDashboard() {
     setScreenError(null);
     try {
       await Promise.allSettled([
-        loadHodDashboard ? loadHodDashboard(departmentId, user?.email) : Promise.resolve(),
+        loadHodDashboard ? loadHodDashboard(departmentId) : Promise.resolve(),
         loadHodSetupProgress ? loadHodSetupProgress(departmentId) : Promise.resolve(),
       ]);
     } catch (err) {
@@ -59,7 +59,7 @@ export default function HodDashboard() {
     } finally {
       setScreenLoading(false);
     }
-  }, [loadHodDashboard, loadHodSetupProgress, selectedDepartmentId, user?.email]);
+  }, [loadHodDashboard, loadHodSetupProgress, selectedDepartmentId]);
 
   useEffect(() => {
     fetchHodData(selectedDepartmentId);
@@ -70,7 +70,7 @@ export default function HodDashboard() {
   const totalProgrammes = statistics.programmesCount ?? statistics.programmes ?? null;
   const totalCourses = statistics.coursesCount ?? null;
   const pendingApprovalsCount = statistics.pendingApprovalsCount ?? null;
-  const activeBatch = hodDashboard?.activeBatch ?? statistics.activeBatches ?? '—';
+  const activeBatches = statistics.activeBatches ?? '—';
 
   // ── Per-step completion tracking ───────────────────────────────────────────
   const safeProgress = hodWorkflowProgress ?? hodDashboard?.workflowProgress ?? hodDashboard?.setupProgress ?? {};
@@ -175,7 +175,7 @@ export default function HodDashboard() {
             Welcome, {user?.name || 'Department HOD'}
           </h1>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            {department?.name ?? '—'} &nbsp;·&nbsp; Active Batch: <strong style={{ color: ink }}>{activeBatch}</strong>
+            {department?.name ?? '—'} &nbsp;·&nbsp; Active Batches: <strong style={{ color: ink }}>{activeBatches}</strong>
           </p>
         </div>
         <div style={{ marginLeft: 'auto' }}>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Save, CheckCircle2, Clock, ShieldCheck, Printer,
   AlertCircle, Plus, Lock, Send, History,
@@ -22,12 +22,17 @@ const parseObservations = (observationsJson) => {
   }
 };
 
-export default function ProgrammeATR({ courseId = null, programmeId: propProgrammeId = null, batchId: propBatchId = null, hideFooter = false, hideHeader = false, readOnly = false }) {
+export default function ProgrammeATR({ courseId = null, programmeId: propProgrammeId = null, batchId: propBatchId = null, hideFooter = false, hideHeader = false, readOnly = false, showBatchSelector = true }) {
   const { user, role } = useAuth();
   const {
     selectedCourse,
     selectedBatch,
+    batchId,
+    setBatchId = () => {},
     batches         = [],
+    loadCoordinatorProgrammeBatches = () => Promise.resolve([]),
+    programmeCoordinatorApprovals = [],
+    loadProgrammeCoordinatorApprovals = () => Promise.resolve([]),
     masterProgrammes = [],
     activePOs       = [],
     activePSOs      = [],
@@ -51,23 +56,44 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const progAtrKey = activeProgId ? `prog-atr-${activeProgId}` : '';
   const safeVerificationStore = courseVerificationStore ?? {};
   const vRecord = (progAtrKey && safeVerificationStore[progAtrKey]) || (activeProgId && safeVerificationStore[`allocation-${activeProgId}`]) || (targetCourseId && safeVerificationStore[targetCourseId]) || {};
-  const reportStatus = programmeATR?.status ?? vRecord.programmeAtrStatus ?? 'DRAFT';
-  const verificationRemarks = programmeATR?.verificationComments ?? vRecord.programmeAtrRemarks ?? '';
-  const verifierName = programmeATR?.verifiedBy ?? vRecord.verifiedBy ?? 'Head of Department (HOD)';
+  const storedReportStatus = programmeATR?.status ?? vRecord.programmeAtrStatus ?? 'DRAFT';
+  const storedVerificationRemarks = programmeATR?.verificationComments ?? vRecord.programmeAtrRemarks ?? '';
+  const storedVerifierName = programmeATR?.verifiedBy ?? vRecord.verifiedBy ?? 'Head of Department (HOD)';
 
   const isFaculty     = role === 'FACULTY';
   const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' || role === 'HOD';
 
   const batchList = batches || [];
-  const [selectedBatchId, setSelectedBatchId] = useState(() => propBatchId || selectedBatch?.id || batches?.[0]?.id || '');
-  const currentBatchObj = batchList.find((b) => b.id === selectedBatchId) || batchList[0] || null;
+  const programmeBatches = useMemo(() => batchList.filter((batch) => (
+    String(batch.masterProgrammeId ?? batch.programmeId ?? '') === String(activeProgId ?? '')
+  )), [activeProgId, batchList]);
+  const [selectedBatchId, setSelectedBatchId] = useState(() => propBatchId || batchId || selectedBatch?.id || '');
+  const currentBatchObj = programmeBatches.find((b) => String(b.id) === String(selectedBatchId)) || null;
   const currentProgramme = masterProgrammes.find(
     (programme) => String(programme.id) === String(activeProgId)
   ) ?? programmeATR?.programme ?? { id: activeProgId };
+  const atrApproval = programmeCoordinatorApprovals
+    .filter((approval) => approval.type === 'PROGRAMME_ATR' && String(approval.programmeBatchId) === String(selectedBatchId))
+    .sort((left, right) => new Date(right.submittedAt ?? right.approvedAt ?? 0) - new Date(left.submittedAt ?? left.approvedAt ?? 0))[0] ?? null;
+  const reportStatus = atrApproval?.status ?? storedReportStatus;
+  const verificationRemarks = atrApproval?.remarks ?? storedVerificationRemarks;
+  const verifierName = atrApproval?.approvedBy ?? storedVerifierName;
   const isPreviousBatch = currentBatchObj?.name?.includes('Archived') || currentBatchObj?.name?.includes('Graduated');
-  const isSubmittedForReview = reportStatus === 'SUBMITTED_FOR_VERIFICATION' || reportStatus === 'SUBMITTED';
+  const isSubmittedForReview = ['PENDING', 'SUBMITTED_FOR_VERIFICATION', 'SUBMITTED', 'PENDING_APPROVAL'].includes(reportStatus);
   const locked = readOnly || isPreviousBatch || isSubmittedForReview || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
   const [atrSaveState, setAtrSaveState] = useState('idle');
+
+  useEffect(() => {
+    // Match the Programme Coordinator workflow: fetch batches using the
+    // selected Master Programme and the signed-in coordinator's email.
+    if (role !== 'PROGRAMME_COORDINATOR' || !activeProgId || !user?.email) return;
+    loadCoordinatorProgrammeBatches(user.email, activeProgId).catch(() => {});
+  }, [activeProgId, loadCoordinatorProgrammeBatches, role, user?.email]);
+
+  useEffect(() => {
+    if (role !== 'PROGRAMME_COORDINATOR' || !activeProgId) return;
+    loadProgrammeCoordinatorApprovals(activeProgId).catch(() => {});
+  }, [activeProgId, loadProgrammeCoordinatorApprovals, role]);
 
   // ── Build PO/PSO ATR list ──────────────────────────────────────────
   const progTargets = poPsoTargets ?? { poTargets: {}, psoTargets: {} };
@@ -115,6 +141,22 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   useEffect(() => {
     if (propBatchId || selectedBatch?.id) setSelectedBatchId(propBatchId || selectedBatch.id);
   }, [propBatchId, selectedBatch?.id]);
+
+  useEffect(() => {
+    // A standalone Programme ATR must only expose batches belonging to the
+    // Master Programme currently selected in the application sidebar.
+    if (propBatchId) return;
+    const nextBatchId = programmeBatches.some((batch) => String(batch.id) === String(selectedBatchId))
+      ? selectedBatchId
+      : programmeBatches[0]?.id ?? '';
+    if (String(nextBatchId) !== String(selectedBatchId)) setSelectedBatchId(nextBatchId);
+    if (nextBatchId && String(nextBatchId) !== String(batchId)) setBatchId(nextBatchId);
+  }, [batchId, programmeBatches, propBatchId, selectedBatchId, setBatchId]);
+
+  const handleBatchChange = (nextBatchId) => {
+    setSelectedBatchId(nextBatchId);
+    setBatchId(nextBatchId);
+  };
 
   useEffect(() => {
     if (!showHistory || !selectedBatchId) return;
@@ -242,9 +284,12 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const handleSubmitAtrForReview = async () => {
     if (!selectedBatchId || locked) return;
     try {
+      setAtrSaveState('submitting');
       await submitProgrammeATR(selectedBatchId);
+      setAtrSaveState('submitted');
     } catch (error) {
       console.error('Failed to submit Programme ATR:', error);
+      setAtrSaveState('error');
     }
   };
 
@@ -361,6 +406,22 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
+              {showBatchSelector && (
+                <label style={{ display: 'grid', gap: 4, minWidth: 250, fontSize: '10.5px', fontWeight: '800', color: muted, letterSpacing: '.05em', textTransform: 'uppercase' }}>
+                  Programme Batch
+                  <select
+                    aria-label="Programme batch"
+                    value={selectedBatchId}
+                    onChange={(event) => handleBatchChange(event.target.value)}
+                    disabled={programmeBatches.length === 0}
+                    style={{ height: 38, border: '1px solid #cbd5e1', borderRadius: 8, padding: '0 10px', background: '#fff', color: ink, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 650, cursor: programmeBatches.length ? 'pointer' : 'not-allowed', textTransform: 'none', letterSpacing: 'normal' }}
+                  >
+                    {programmeBatches.length === 0 ? <option value="">No batches in selected programme</option> : programmeBatches.map((batch) => (
+                      <option key={batch.id} value={batch.id}>{batch.name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
               {!showHistory && (!locked ? (
                 <>
                   <button onClick={handleSaveAtr}
@@ -479,10 +540,10 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
           <Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} />
           <div>
             <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#92400e' }}>
-              Submitted — Pending Verification
+              Submitted — Pending HOD Review
             </span>
             <span style={{ fontSize: '12px', color: '#b45309', display: 'block', marginTop: '2px' }}>
-              Submitted for Programme Coordinator verification.
+              Submitted for Head of Department verification.
             </span>
           </div>
         </div>

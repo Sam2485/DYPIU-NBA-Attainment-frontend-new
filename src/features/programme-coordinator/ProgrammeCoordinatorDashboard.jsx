@@ -61,7 +61,7 @@ export default function ProgrammeCoordinatorDashboard() {
     setScreenError(null);
     try {
       if (!activeProgId) return;
-      const dashboard = await loadProgrammeCoordinatorDashboard(activeProgId, user?.email);
+      const dashboard = await loadProgrammeCoordinatorDashboard(activeProgId);
       const activeBatch =
         dashboard?.batches?.find((batch) => (
           (batch.programmeBatchId ?? batch.id) === dashboard?.setupProgress?.programmeBatchId
@@ -72,7 +72,7 @@ export default function ProgrammeCoordinatorDashboard() {
       if (activeBatchId && !batchId) {
         setBatchId(activeBatchId);
       }
-      await loadPcSetupProgress(activeProgId, activeBatchId, user?.email);
+      await loadPcSetupProgress(activeProgId, activeBatchId ?? batchId, user?.email);
     } catch (err) {
       console.warn('ProgrammeCoordinatorDashboard fetch failed:', err);
       setScreenError(err?.customMessage || err?.message || 'Failed to load Programme Coordinator dashboard.');

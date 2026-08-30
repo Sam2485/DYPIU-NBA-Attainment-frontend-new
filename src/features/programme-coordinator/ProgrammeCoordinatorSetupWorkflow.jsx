@@ -11,6 +11,7 @@ import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
 import ProgrammeATR from '../atr/ProgrammeATR';
 import { useAttainment } from '../../context/attainment';
+import { approvalsApi } from '../../api/approvals';
 
 // ── Style tokens (identical to HodSetupWorkflow) ─────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -51,10 +52,12 @@ const STEPS = [
 export default function ProgrammeCoordinatorSetupWorkflow({
   standaloneTargetSettings = false,
   standaloneCourseManagement = false,
+  approvalViewStep = null,
+  approvalReadOnly = false,
 }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { uploadProgrammeExitSurvey = () => Promise.resolve(null), programmeSurveyData = null } = useAttainment();
   const {
     masterProgrammes = [],
@@ -76,6 +79,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     addProgrammeBatchCourse = () => Promise.resolve(null),
     updateProgrammeBatchCourse = () => Promise.resolve(null),
     courseVerificationStore = {},
+    programmeCoordinatorApprovals = [],
+    loadProgrammeCoordinatorApprovals = () => Promise.resolve([]),
     updateCourseVerificationStatus = () => {},
     setupProgress = null,
     loadSetupProgress = () => Promise.resolve(null),
@@ -97,7 +102,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   // The selected batch is restored from session storage and retained whenever
   // it is still part of this returned coordinator-scoped list.
   useEffect(() => {
-    if (!programmeId || !user?.email) return;
+    if (role !== 'PROGRAMME_COORDINATOR' || !programmeId || !user?.email) return;
     const requestScope = `${programmeId}:${user.email}`;
     if (loadedBatchScopeRef.current === requestScope) return;
     loadedBatchScopeRef.current = requestScope;
@@ -114,6 +119,11 @@ export default function ProgrammeCoordinatorSetupWorkflow({
 
     return () => { isCurrent = false; };
   }, [batchId, loadCoordinatorProgrammeBatches, programmeId, setBatchId, user?.email]);
+
+  useEffect(() => {
+    if (!programmeId) return;
+    loadProgrammeCoordinatorApprovals(programmeId).catch(() => {});
+  }, [loadProgrammeCoordinatorApprovals, programmeId]);
 
   // Setup progress is scoped by the master programme selected in the sidebar.
   useEffect(() => {
@@ -147,32 +157,71 @@ export default function ProgrammeCoordinatorSetupWorkflow({
 
   const allocationKey = `allocation-${programmeId}-${batchId}`;
   const allocationRecord = safeCourseVerificationStore[allocationKey] || {};
-  const allocationStatus = allocationRecord.allocationStatus || 'DRAFT';
-  const allocationRemarks = allocationRecord.allocationRemarks || '';
+  const approvalForBatch = (type) => programmeCoordinatorApprovals
+    .filter((approval) => approval.type === type && String(approval.programmeBatchId) === String(batchId))
+    .sort((left, right) => new Date(right.submittedAt ?? right.approvedAt ?? 0) - new Date(left.submittedAt ?? left.approvedAt ?? 0))[0] ?? null;
+  const allocationApproval = approvalForBatch('COURSE_ALLOCATION');
+  const allocationStatus = allocationApproval?.status ?? allocationRecord.allocationStatus ?? 'DRAFT';
+  const allocationRemarks = allocationApproval?.remarks ?? allocationRecord.allocationRemarks ?? '';
+  const allocationApprovedBy = allocationApproval?.approvedBy ?? 'Head of Department (HOD)';
 
   const isAllocationApproved = allocationStatus === 'APPROVED' || allocationStatus === 'VERIFIED';
-  const isAllocationSubmitted = allocationStatus === 'SUBMITTED' || allocationStatus === 'PENDING_APPROVAL';
+  const isAllocationSubmitted = ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(allocationStatus);
   const isAllocationRevision = allocationStatus === 'REVISION_REQUESTED' || allocationStatus === 'NEEDS_REVISION';
 
-  const handleSubmitAllocations = () => {
-    updateCourseVerificationStatus(allocationKey, 'allocationStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
-    alert(`Course Coordinator allocations for ${selectedProgramme?.name} submitted for HOD approval!`);
+  const handleSubmitAllocations = async () => {
+    if (!programmeId || !batchId) {
+      alert('Select a Master Programme and Programme Batch before submitting allocations.');
+      return;
+    }
+    try {
+      await approvalsApi.submitApproval({
+        type: 'COURSE_ALLOCATION',
+        title: `Course Allocations for ${selectedBatch?.name || batchId}`,
+        masterProgrammeId: programmeId,
+        programmeBatchId: batchId,
+        resourceId: batchId,
+      });
+      updateCourseVerificationStatus(allocationKey, 'allocationStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
+      alert(`Course Coordinator allocations for ${selectedProgramme?.name} submitted for HOD approval!`);
+    } catch (error) {
+      console.error('Failed to submit course allocations for review:', error);
+      alert(error?.response?.data?.message || 'Unable to submit allocations for HOD review. Please try again.');
+    }
   };
 
   const targetsKey = `targets-${programmeId}-${batchId}`;
   const targetsRecord = safeCourseVerificationStore[targetsKey] || safeCourseVerificationStore[allocationKey] || {};
-  const targetsStatus = targetsRecord.poPsoTargetsStatus || targetsRecord.targetsStatus || 'DRAFT';
-  const targetsRemarks = targetsRecord.poPsoTargetsRemarks || targetsRecord.targetsRemarks || '';
+  const targetsApproval = approvalForBatch('PO_PSO_TARGETS') ?? approvalForBatch('PO_TARGETS');
+  const targetsStatus = targetsApproval?.status ?? targetsRecord.poPsoTargetsStatus ?? targetsRecord.targetsStatus ?? 'DRAFT';
+  const targetsRemarks = targetsApproval?.remarks ?? targetsRecord.poPsoTargetsRemarks ?? targetsRecord.targetsRemarks ?? '';
+  const targetsApprovedBy = targetsApproval?.approvedBy ?? 'Head of Department (HOD)';
 
   const isTargetsApproved = targetsStatus === 'APPROVED' || targetsStatus === 'VERIFIED';
-  const isTargetsSubmitted = targetsStatus === 'SUBMITTED' || targetsStatus === 'PENDING_APPROVAL';
+  const isTargetsSubmitted = ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(targetsStatus);
   const isTargetsRevision = targetsStatus === 'REVISION_REQUESTED' || targetsStatus === 'NEEDS_REVISION';
 
   const handleSubmitTargets = async () => {
-    await handleSaveTargets();
-    updateCourseVerificationStatus(targetsKey, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
-    updateCourseVerificationStatus(allocationKey, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
-    alert(`PO & PSO target benchmarks for ${selectedProgramme?.name} submitted for HOD approval!`);
+    if (!programmeId || !batchId) {
+      alert('Select a Master Programme and Programme Batch before submitting targets.');
+      return;
+    }
+    try {
+      await handleSaveTargets();
+      await approvalsApi.submitApproval({
+        type: 'PO_PSO_TARGETS',
+        title: `PO / PSO Targets for ${selectedBatch?.name || batchId}`,
+        masterProgrammeId: programmeId,
+        programmeBatchId: batchId,
+        resourceId: batchId,
+      });
+      updateCourseVerificationStatus(targetsKey, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
+      updateCourseVerificationStatus(allocationKey, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
+      alert(`PO & PSO target benchmarks for ${selectedProgramme?.name} submitted for HOD approval!`);
+    } catch (error) {
+      console.error('Failed to submit PO/PSO targets for review:', error);
+      alert(error?.response?.data?.message || 'Unable to submit PO/PSO targets for HOD review. Please try again.');
+    }
   };
 
   const durationYears = selectedProgramme?.durationYears || 4;
@@ -211,12 +260,16 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const hasValidParam = parsedStep >= 1 && parsedStep <= STEPS.length;
 
   const [currentStep, setCurrentStep] = useState(
-    standaloneCourseManagement ? 1 : (standaloneTargetSettings ? 2 : (hasValidParam ? parsedStep : firstIncompleteStep))
+    approvalViewStep ?? (standaloneCourseManagement ? 1 : (standaloneTargetSettings ? 2 : (hasValidParam ? parsedStep : firstIncompleteStep)))
   );
 
-  const isStandaloneView = standaloneTargetSettings || standaloneCourseManagement;
+  const isStandaloneView = standaloneTargetSettings || standaloneCourseManagement || Boolean(approvalViewStep);
 
   useEffect(() => {
+    if (approvalViewStep) {
+      if (currentStep !== approvalViewStep) setCurrentStep(approvalViewStep);
+      return;
+    }
     if (standaloneCourseManagement) {
       if (currentStep !== 1) setCurrentStep(1);
       return;
@@ -233,7 +286,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     } else if (s !== currentStep) {
       setCurrentStep(s);
     }
-  }, [currentStep, firstIncompleteStep, searchParams, setSearchParams, standaloneCourseManagement, standaloneTargetSettings]);
+  }, [approvalViewStep, currentStep, firstIncompleteStep, searchParams, setSearchParams, standaloneCourseManagement, standaloneTargetSettings]);
 
   const goToStep = (n) => {
     setCurrentStep(n);
@@ -434,7 +487,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     <div className="animated-page" style={{ paddingBottom: '60px' }}>
 
       {/* ── HEADER ────────────────────────────────────────────────────────── */}
-      <div style={{
+      {!approvalViewStep && <div style={{
         ...surface,
         padding: '20px 24px',
         marginBottom: '0',
@@ -537,13 +590,13 @@ export default function ProgrammeCoordinatorSetupWorkflow({
             <X size={14} /> Exit
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* ── HOD REVISION ALERT BANNER ────────────────────────────────────────── */}
       {allocationStatus === 'REVISION_REQUESTED' && (
         <RequestRevisionCard
           title="HOD Revision Requested"
-          requestedBy="Head of Department (HOD)"
+          requestedBy={allocationApprovedBy}
           remarks={allocationRemarks || 'Please review and re-assign Course Coordinators as per HOD notes.'}
           actionText="Please update the Course Coordinator allocations below and resubmit for HOD approval."
         />
@@ -608,7 +661,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
       </div>}
 
       {/* ── STEP CONTENT ──────────────────────────────────────────────────── */}
-      <div style={{ ...surface, padding: '24px', marginBottom: '20px' }}>
+      <div style={{ ...surface, padding: '24px', marginBottom: '20px', pointerEvents: approvalReadOnly ? 'none' : 'auto' }}>
         <ErrorBoundary
           fallbackTitle={`Step ${currentStep} Error (${STEPS[currentStep - 1]?.title || 'Setup Step'})`}
           fallbackMessage={`An error occurred while loading this setup step. You can retry or switch to another step.`}
@@ -626,7 +679,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   Create programme-batch courses from the HOD master-course catalogue and assign their Course Coordinators.
                 </p>
               </div>
-              {!isAllocationApproved ? (
+              {!isAllocationApproved && !approvalReadOnly ? (
                 <button
                   type="button"
                   onClick={handleSubmitAllocations}
@@ -650,7 +703,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
             {isAllocationRevision && (
               <RequestRevisionCard
                 title={`Course & Coordinator Allocation Revision Requested (${selectedProgramme?.code || 'Programme'})`}
-                requestedBy="Head of Department (HOD)"
+                requestedBy={allocationApprovedBy}
                 remarks={allocationRemarks || 'Please review and adjust course allocations as per HOD notes.'}
                 actionText="Please adjust the course list or coordinator assignments below and resubmit for HOD approval."
               />
@@ -662,7 +715,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 <CheckCircle2 size={20} style={{ color: '#10b981', flexShrink: 0 }} />
                 <div>
                   <strong style={{ fontSize: '13.5px', color: '#15803d', fontWeight: '800' }}>
-                    ✓ ALL COURSE &amp; COORDINATOR ALLOCATIONS VERIFIED &amp; APPROVED BY HOD
+                    ✓ ALL COURSE &amp; COORDINATOR ALLOCATIONS VERIFIED &amp; APPROVED BY {allocationApprovedBy}
                   </strong>
                   <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#166534' }}>
                     Course list and coordinator assignments for {selectedProgramme.name} are verified and locked.
@@ -687,7 +740,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
             )}
 
             {/* Inline add form */}
-            {!isAllocationApproved && (
+            {!isAllocationApproved && !approvalReadOnly && (
               <form onSubmit={handleAddCourse} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
                 <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '3px' }}>Add Programme-Batch Course</div>
                 <p style={{ margin: '0 0 10px', fontSize: '11.5px', color: muted }}>
@@ -845,7 +898,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {!isTargetsApproved ? (
+                {!isTargetsApproved && !approvalReadOnly ? (
                   <>
                     <button
                       type="button"
@@ -894,7 +947,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
             {isTargetsRevision && (
               <RequestRevisionCard
                 title="HOD Targets Revision Requested"
-                requestedBy="Head of Department (HOD)"
+                requestedBy={targetsApprovedBy}
                 remarks={targetsRemarks || 'Please review and adjust PO/PSO target levels as per HOD notes.'}
                 actionText="Please adjust the target levels below and resubmit for HOD approval."
               />
@@ -906,7 +959,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 <CheckCircle2 size={20} style={{ color: '#10b981', flexShrink: 0 }} />
                 <div>
                   <strong style={{ fontSize: '13.5px', color: '#15803d', fontWeight: '800' }}>
-                    ✓ ALL PO &amp; PSO TARGET LEVELS VERIFIED &amp; APPROVED BY HOD
+                    ✓ ALL PO &amp; PSO TARGET LEVELS VERIFIED &amp; APPROVED BY {targetsApprovedBy}
                   </strong>
                   <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#166534' }}>
                     Benchmark target levels for {selectedProgramme.name} have been approved and are now locked.
@@ -1064,6 +1117,9 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 programmeId={programmeId}
                 batchId={batchId}
                 hideFooter={true}
+                hideHeader={approvalReadOnly}
+                showBatchSelector={false}
+                readOnly={approvalReadOnly}
               />
             </div>
           </div>

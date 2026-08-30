@@ -68,7 +68,7 @@ export default function ProgrammeCoordinatorApprovals() {
     setSearchParams({ queue: queueTab });
   };
 
-  const loadQueue = useCallback(async ({ reloadCourses = false, programmeBatchId: requestedBatchId = null } = {}) => {
+  const loadQueue = useCallback(async ({ reloadCourses = false, programmeBatchId: requestedBatchId = null, queue = queueTab } = {}) => {
     if (!user?.email) return;
     setLoading(true);
     setError('');
@@ -98,12 +98,11 @@ export default function ProgrammeCoordinatorApprovals() {
         return;
       }
 
-      // The selected Programme Batch is the approval scope. The backend
-      // returns already grouped Programme-Batch-Course cards.
-      const [pendingResponse, allResponse] = await Promise.all([
-        apiClient.get('/approvals/pending', { params: { programmeBatchId: activeBatchId } }),
-        apiClient.get('/approvals/reviewed', { params: { programmeBatchId: activeBatchId } }),
-      ]);
+      // Each tab uses its dedicated programme-batch approval API. The
+      // reviewed endpoint returns the course cards and reviewed item metadata.
+      const approvalResponse = queue === 'REVIEWED'
+        ? await apiClient.get('/approvals/reviewed', { params: { programmeBatchId: activeBatchId } })
+        : await apiClient.get('/approvals/pending', { params: { programmeBatchId: activeBatchId } });
       const flattenInbox = (response) => {
         const inbox = unwrap(response) ?? {};
         return (inbox.courses ?? []).flatMap((course) => (course.approvalItems ?? []).map((item) => ({
@@ -119,7 +118,7 @@ export default function ProgrammeCoordinatorApprovals() {
           submittedAt: course.latestSubmittedAt,
         })));
       };
-      const requests = [...flattenInbox(pendingResponse), ...flattenInbox(allResponse)];
+      const requests = flattenInbox(approvalResponse);
       setProgrammeBatchCourses((current) => {
         const fromInbox = requests.map((item) => ({ ...item, id: item.programmeBatchCourseId }));
         return [...new Map([...current, ...fromInbox].map((item) => [item.programmeBatchCourseId ?? item.id, item])).values()];
@@ -130,7 +129,7 @@ export default function ProgrammeCoordinatorApprovals() {
     } finally {
       setLoading(false);
     }
-  }, [loadCoordinatorProgrammeBatches, programmeBatchCourses, programmeBatches, selectedBatchId, user?.email]);
+  }, [loadCoordinatorProgrammeBatches, programmeBatchCourses, programmeBatches, queueTab, selectedBatchId, user?.email]);
 
   useEffect(() => {
     const scope = user?.email ?? '';
@@ -206,6 +205,8 @@ export default function ProgrammeCoordinatorApprovals() {
 
   const selected = details?.id === selectedId ? details : approvals.find((item) => item.id === selectedId);
   const isPending = (item) => item.status === 'PENDING' || item.status === 'SUBMITTED' || item.status === 'PENDING_APPROVAL';
+  const isApproved = (item) => item?.status === 'APPROVED' || item?.status === 'VERIFIED';
+  const isRevisionRequested = (item) => item?.status === 'REVISION_REQUESTED' || item?.status === 'REJECTED';
   const scopedApprovals = approvals.filter((item) => {
     if (!selectedBatchId) return false;
     const course = programmeBatchCourses.find((candidate) => String(candidate.programmeBatchCourseId ?? candidate.id) === String(item.programmeBatchCourseId));
@@ -235,7 +236,7 @@ export default function ProgrammeCoordinatorApprovals() {
   const workspaceSource = details?.workspaceApprovalItems ?? [selected].filter(Boolean);
   const workspaceTabs = workspaceSource.filter((item) => queueTab === 'PENDING'
     ? isPending(item)
-    : ['REVISION_REQUESTED', 'REJECTED'].includes(item.status));
+    : ['APPROVED', 'VERIFIED', 'REVISION_REQUESTED', 'REJECTED'].includes(item.status));
   const visibleWorkspaceTabs = workspaceTabs.length > 0 ? workspaceTabs : [selected].filter(Boolean);
 
   if (selectedId) {
@@ -249,13 +250,14 @@ export default function ProgrammeCoordinatorApprovals() {
         <div style={{ ...surface, padding: '8px 12px', marginBottom: 16, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
           {visibleWorkspaceTabs.map((item) => <button key={item.approvalRequestId ?? item.id} type="button" onClick={() => openApproval(item.approvalRequestId ?? item.id)} style={{ height: 34, padding: '0 12px', borderRadius: 7, border: `1px solid ${(item.approvalRequestId ?? item.id) === selectedId ? '#4f46e5' : '#e2e8f0'}`, background: (item.approvalRequestId ?? item.id) === selectedId ? '#eef2ff' : '#ffffff', color: (item.approvalRequestId ?? item.id) === selectedId ? '#4338ca' : '#475569', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}>{approvalLabels[item.type] ?? item.type}</button>)}
         </div>
-        {['REVISION_REQUESTED', 'REJECTED'].includes(selected.status) && <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: 10, padding: '14px 18px', marginBottom: 16, color: '#92400e' }}><strong style={{ fontSize: 13.5 }}>⚠ Revision Requested by {selected.reviewedBy?.name ?? selected.reviewedBy ?? 'Programme Coordinator'}</strong><div style={{ marginTop: 4, fontSize: 12.5 }}>{selected.revisionReason || 'Please revise the submitted content as per the coordinator feedback.'}</div></div>}
+        {['COURSE_ATR'].includes(selected.type) && ['APPROVED', 'VERIFIED'].includes(selected.status) && <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 10, padding: '14px 18px', marginBottom: 16, color: '#15803d' }}><strong style={{ fontSize: 13.5 }}>✓ Course ATR Approved by {selected.reviewedBy?.name ?? selected.reviewedBy ?? 'Programme Coordinator'}</strong><div style={{ marginTop: 4, fontSize: 12.5 }}>The Programme-Batch-Course ATR has been reviewed and approved.</div></div>}
+        {['COURSE_ATR'].includes(selected.type) && ['REVISION_REQUESTED', 'REJECTED'].includes(selected.status) && <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: 10, padding: '14px 18px', marginBottom: 16, color: '#92400e' }}><strong style={{ fontSize: 13.5 }}>⚠ Revision Requested by {selected.reviewedBy?.name ?? selected.reviewedBy ?? 'Programme Coordinator'}</strong><div style={{ marginTop: 4, fontSize: 12.5 }}>{selected.revisionReason || 'Please revise the submitted content as per the coordinator feedback.'}</div></div>}
         <div style={{ marginBottom: 16 }}>
           {['COURSE_OUTCOMES_TARGETS', 'CO_DEFINITION'].includes(selected.type) ? <OutcomesManagement hideHeader hideFooter readOnly suppressPendingMessage reviewCourseId={selected.programmeBatchCourseId} />
             : ['ATTAINMENT_SETTINGS', 'ATTAINMENT_CONFIGURATION'].includes(selected.type) ? <AttainmentConfig hideHeader readOnly suppressPendingMessage reviewCourseId={selected.programmeBatchCourseId} />
               : <CourseATR hideHeader hideFooter readOnly suppressPendingMessage courseId={selected.programmeBatchCourseId} />}
         </div>
-        <div style={{ ...surface, padding: '16px 18px', marginBottom: 16 }}><div style={{ fontSize: 12, color: '#64748b' }}>Submitted by: <strong>{selected.submittedBy || 'Course Coordinator'}</strong><br />Submitted on: {selected.submittedAt || selected.createdAt || '—'}</div>{isPending(selected) && <><textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Reason required when requesting a revision" style={{ width: '100%', minHeight: 78, padding: 10, marginTop: 14, border: '1px solid #cbd5e1', borderRadius: 8, boxSizing: 'border-box', fontFamily: 'inherit', fontSize: 13 }} /><div style={{ display: 'flex', gap: 8, marginTop: 10 }}><button type="button" disabled={actionLoading} onClick={() => applyAction('APPROVE')} style={{ padding: '8px 12px', background: '#16a34a', color: '#fff', border: 0, borderRadius: 6, fontWeight: 700, cursor: 'pointer' }}><Check size={14} /> Approve</button><button type="button" disabled={actionLoading} onClick={() => applyAction('REQUEST_REVISION')} style={{ padding: '8px 12px', background: '#fff', color: '#b45309', border: '1px solid #f59e0b', borderRadius: 6, fontWeight: 700, cursor: 'pointer' }}><Send size={14} /> Request Revision</button></div></>}</div>
+        <div style={{ ...surface, padding: '16px 18px', marginBottom: 16 }}><div style={{ fontSize: 12, color: '#64748b' }}>Submitted by: <strong>{selected.submittedBy || 'Course Coordinator'}</strong><br />Submitted on: {selected.submittedAt || selected.createdAt || '—'}</div>{(isPending(selected) || isApproved(selected) || isRevisionRequested(selected)) && <>{(isPending(selected) || isApproved(selected)) && <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Reason required when requesting a revision" style={{ width: '100%', minHeight: 78, padding: 10, marginTop: 14, border: '1px solid #cbd5e1', borderRadius: 8, boxSizing: 'border-box', fontFamily: 'inherit', fontSize: 13 }} />}<div style={{ display: 'flex', gap: 8, marginTop: 10 }}>{(isPending(selected) || isRevisionRequested(selected)) && <button type="button" disabled={actionLoading} onClick={() => applyAction('APPROVE')} style={{ padding: '8px 12px', background: '#16a34a', color: '#fff', border: 0, borderRadius: 6, fontWeight: 700, cursor: 'pointer' }}><Check size={14} /> {isRevisionRequested(selected) ? 'Approve Revision' : 'Approve'}</button>}{(isPending(selected) || isApproved(selected)) && <button type="button" disabled={actionLoading} onClick={() => applyAction('REQUEST_REVISION')} style={{ padding: '8px 12px', background: '#fff', color: '#b45309', border: '1px solid #f59e0b', borderRadius: 6, fontWeight: 700, cursor: 'pointer' }}><Send size={14} /> Request Revision</button>}</div></>}</div>
       </>}
     </div>;
   }
@@ -272,11 +274,11 @@ export default function ProgrammeCoordinatorApprovals() {
     {error && <div style={{ marginBottom: '14px', padding: '10px 14px', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '13px' }}>{error}</div>}
     <div style={{ ...surface, padding: '14px 18px', marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
       <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569' }}>Programme Batch</label>
-      <select value={selectedBatchId} onChange={(event) => { const nextBatchId = event.target.value; setSelectedBatchId(nextBatchId); setSelectedId(null); setDetails(null); loadQueue({ programmeBatchId: nextBatchId }); }} style={{ height: '38px', minWidth: '230px', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0 10px', color: '#0f172a', background: '#fff', fontWeight: 600 }}>
+      <select value={selectedBatchId} onChange={(event) => { const nextBatchId = event.target.value; setSelectedBatchId(nextBatchId); setSelectedId(null); setDetails(null); loadQueue({ programmeBatchId: nextBatchId, queue: queueTab }); }} style={{ height: '38px', minWidth: '230px', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0 10px', color: '#0f172a', background: '#fff', fontWeight: 600 }}>
         {programmeBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.name}</option>)}
       </select>
       <div style={{ display: 'flex', marginLeft: 'auto', gap: '6px' }}>
-        {['PENDING', 'REVIEWED'].map((tab) => <button key={tab} type="button" onClick={() => { setQueueTab(tab); setSelectedId(null); setDetails(null); setSearchParams({ queue: tab }); }} style={{ height: '34px', padding: '0 12px', borderRadius: '7px', border: `1px solid ${queueTab === tab ? '#4f46e5' : '#e2e8f0'}`, background: queueTab === tab ? '#eef2ff' : '#fff', color: queueTab === tab ? '#4338ca' : '#64748b', fontWeight: 800, fontSize: '12px', cursor: 'pointer' }}>{tab === 'PENDING' ? `Pending (${pendingCount})` : 'Reviewed'}</button>)}
+        {['PENDING', 'REVIEWED'].map((tab) => <button key={tab} type="button" onClick={() => { setQueueTab(tab); setSelectedId(null); setDetails(null); setSearchParams({ queue: tab }); loadQueue({ programmeBatchId: selectedBatchId, queue: tab }); }} style={{ height: '34px', padding: '0 12px', borderRadius: '7px', border: `1px solid ${queueTab === tab ? '#4f46e5' : '#e2e8f0'}`, background: queueTab === tab ? '#eef2ff' : '#fff', color: queueTab === tab ? '#4338ca' : '#64748b', fontWeight: 800, fontSize: '12px', cursor: 'pointer' }}>{tab === 'PENDING' ? `Pending (${pendingCount})` : 'Reviewed'}</button>)}
       </div>
     </div>
     <div style={{ ...surface, overflow: 'hidden' }}>

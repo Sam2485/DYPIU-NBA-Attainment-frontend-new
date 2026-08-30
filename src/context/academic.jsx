@@ -799,7 +799,8 @@ export function AcademicProvider({ children }) {
   /* --- Programme Coordinator Directory & HOD Assignments --- */
   const loadProgrammeCoordinators = useCallback(async () => {
     try {
-      // The user directory is the documented source for role-based users.
+      // Fetch the complete role directory. Programme coordinators can be
+      // assigned across department scopes, so this request is role-only.
       const response = await apiClient.get('/academic/users', {
         params: { role: 'PROGRAMME_COORDINATOR' },
       });
@@ -826,25 +827,47 @@ export function AcademicProvider({ children }) {
   }, []);
 
   const assignHodCoordinator = useCallback(async (payload) => {
-    const response = await apiClient.put('/academic/hod/coordinators', payload);
+    if (!payload?.programmeId) throw new Error('masterProgrammeId is required.');
+    const response = await apiClient.put(`/academic/master-programmes/${payload.programmeId}/coordinator`, {
+      coordinatorId: payload.coordinatorId ?? null,
+      coordinatorName: payload.coordinator,
+      coordinatorEmail: payload.coordinatorEmail,
+    });
     const data = unwrap(response);
+    const assignedProgrammeId = data?.masterProgrammeId ?? data?.programmeId ?? payload.programmeId;
+    const coordinatorName = data?.coordinatorName ?? data?.coordinator ?? payload.coordinator;
+    const coordinatorEmail = data?.coordinatorEmail ?? payload.coordinatorEmail;
 
     setHodCoordinatorAssignments((previous) => [
-      ...previous.filter((item) => item.programmeId !== data?.programmeId),
-      data,
+      ...previous.filter((item) => String(item.programmeId) !== String(assignedProgrammeId)),
+      { ...data, programmeId: assignedProgrammeId, coordinator: coordinatorName, coordinatorEmail },
     ]);
 
     setProgrammes((previous) => previous.map((programme) => (
-      programme.id === data?.programmeId
+      String(programme.id) === String(assignedProgrammeId)
         ? {
             ...programme,
-            coordinator: data.coordinator,
-            coordinatorEmail: data.coordinatorEmail,
+            coordinator: coordinatorName,
+            coordinatorEmail,
           }
         : programme
     )));
 
     return data;
+  }, []);
+
+  const assignProgrammeBatchCoordinator = useCallback(async (programmeBatchId, coordinator) => {
+    if (!programmeBatchId || !coordinator?.email) {
+      throw new Error('programmeBatchId and coordinator email are required.');
+    }
+    const response = await apiClient.put(`/academic/programme-batches/${programmeBatchId}/coordinator`, {
+      coordinatorId: coordinator.id ?? null,
+      coordinatorName: coordinator.name ?? coordinator.username ?? coordinator.email,
+      coordinatorEmail: coordinator.email,
+    });
+    const item = normalizeBatch(unwrap(response));
+    setBatches((previous) => previous.map((batch) => batch.id === programmeBatchId ? { ...batch, ...item } : batch));
+    return item;
   }, []);
 
   /* --- Students --- */
@@ -860,6 +883,29 @@ export function AcademicProvider({ children }) {
       return [];
     }
   }, [batchId]);
+
+  const getStudentsByBatch = useCallback((targetBatchId) => (
+    students.filter((student) => !student?.programmeBatchId || String(student.programmeBatchId) === String(targetBatchId))
+  ), [students]);
+
+  const addStudentToBatch = useCallback(async (targetBatchId, payload) => {
+    const response = await apiClient.post(`/academic/programme-batches/${targetBatchId}/students`, payload);
+    const item = unwrap(response);
+    setStudents((previous) => [...previous.filter((student) => String(student.id) !== String(item?.id)), { ...item, programmeBatchId: item?.programmeBatchId ?? targetBatchId }]);
+    return item;
+  }, []);
+
+  const updateStudentInBatch = useCallback(async (targetBatchId, studentId, payload) => {
+    const response = await apiClient.put(`/academic/programme-batches/${targetBatchId}/students/${studentId}`, payload);
+    const item = unwrap(response);
+    setStudents((previous) => previous.map((student) => String(student.id) === String(studentId) ? { ...student, ...item, programmeBatchId: item?.programmeBatchId ?? targetBatchId } : student));
+    return item;
+  }, []);
+
+  const deleteStudentFromBatch = useCallback(async (targetBatchId, studentId) => {
+    await apiClient.delete(`/academic/programme-batches/${targetBatchId}/students/${studentId}`);
+    setStudents((previous) => previous.filter((student) => String(student.id) !== String(studentId)));
+  }, []);
 
   /* --- Programme Outcomes --- */
   const loadProgrammeOutcomes = useCallback(
@@ -922,22 +968,26 @@ export function AcademicProvider({ children }) {
     }
 
     try {
-      const response = await apiClient.get('/academic/outcomes', {
-        params: { masterProgrammeId: targetProgrammeId, programmeBatchId: targetBatchId },
-      });
-      const data = unwrap(response) ?? {};
+      const [poResponse, psoResponse, peoResponse, targetResponse] = await Promise.all([
+        apiClient.get(`/outcomes/programme-batches/${targetBatchId}/pos`),
+        apiClient.get(`/outcomes/programme-batches/${targetBatchId}/psos`),
+        apiClient.get(`/outcomes/programme-batches/${targetBatchId}/peos`),
+        apiClient.get(`/outcomes/programme-batches/${targetBatchId}/targets`),
+      ]);
       const withStatement = (outcomes = []) => outcomes.map((outcome) => ({
         ...outcome,
         statement: outcome?.statement ?? outcome?.description ?? outcome?.name ?? '',
       }));
-      const pos = withStatement(data.pos ?? []);
-      const psos = withStatement(data.psos ?? []);
-      const peos = withStatement(data.peos ?? []);
+      const pos = withStatement(unwrapList(poResponse));
+      const psos = withStatement(unwrapList(psoResponse));
+      const peos = withStatement(unwrapList(peoResponse));
+      const targets = unwrap(targetResponse) ?? {};
 
       setActivePOs(pos);
       setActivePSOs(psos);
       setActivePEOs(peos);
-      return { pos, psos, peos };
+      setPoPsoTargets(targets);
+      return { pos, psos, peos, targets };
     } catch (err) {
       console.warn(`loadProgrammeBatchOutcomes(${targetProgrammeId}, ${targetBatchId}) failed:`, err);
       return { pos: [], psos: [], peos: [] };
@@ -1789,26 +1839,27 @@ export function AcademicProvider({ children }) {
           statement: competency.statement?.trim() ?? '',
         })),
       }));
-      const payload = {
-        masterProgrammeId: targetProgrammeId,
-        programmeBatchId: targetBatchId,
-        pos: outcomePayload(pos, true),
-        psos: outcomePayload(psos, true),
-        peos: outcomePayload(peos),
-      };
-      const invalid = [...payload.pos, ...payload.psos, ...payload.peos].some((item) => !item.code || !item.statement);
+      const poPayload = outcomePayload(pos, true);
+      const psoPayload = outcomePayload(psos, true);
+      const peoPayload = outcomePayload(peos);
+      const invalid = [...poPayload, ...psoPayload, ...peoPayload].some((item) => !item.code || !item.statement);
       if (invalid) throw new Error('Enter a code and statement for every PO, PSO, and PEO.');
-
-      const hasExistingOutcomes = [...pos, ...psos, ...peos].some((item) => item.id);
-      const response = await apiClient[hasExistingOutcomes ? 'put' : 'post'](
-        '/academic/outcomes',
-        payload,
-        { params: { masterProgrammeId: targetProgrammeId, programmeBatchId: targetBatchId } }
-      );
-      const data = unwrap(response) ?? {};
-      setActivePOs((data.pos ?? payload.pos).map((item) => ({ ...item, statement: item.statement ?? item.description ?? '' })));
-      setActivePSOs((data.psos ?? payload.psos).map((item) => ({ ...item, statement: item.statement ?? item.description ?? '' })));
-      setActivePEOs((data.peos ?? payload.peos).map((item) => ({ ...item, statement: item.statement ?? item.description ?? '' })));
+      const targetPayload = {
+        poTargets: Object.fromEntries(poPayload.map((item) => [item.code, item.target])),
+        psoTargets: Object.fromEntries(psoPayload.map((item) => [item.code, item.target])),
+      };
+      const [poResponse, psoResponse, peoResponse, targetResponse] = await Promise.all([
+        apiClient.post(`/outcomes/programme-batches/${targetBatchId}/pos`, poPayload),
+        apiClient.post(`/outcomes/programme-batches/${targetBatchId}/psos`, psoPayload),
+        apiClient.post(`/outcomes/programme-batches/${targetBatchId}/peos`, peoPayload),
+        apiClient.post(`/outcomes/programme-batches/${targetBatchId}/targets`, targetPayload),
+      ]);
+      const normalize = (item) => ({ ...item, statement: item.statement ?? item.description ?? '' });
+      const data = { pos: unwrapList(poResponse), psos: unwrapList(psoResponse), peos: unwrapList(peoResponse), targets: unwrap(targetResponse) ?? targetPayload };
+      setActivePOs(data.pos.map(normalize));
+      setActivePSOs(data.psos.map(normalize));
+      setActivePEOs(data.peos.map(normalize));
+      setPoPsoTargets(data.targets);
       return data;
     },
     [activePEOs, activePOs, activePSOs]
@@ -1942,6 +1993,7 @@ export function AcademicProvider({ children }) {
     updateProgrammeBatch,
     deleteProgrammeBatch,
     updateProgrammeBatchStatus,
+    assignProgrammeBatchCoordinator,
 
     /* Academic year */
     academicYear,
@@ -1991,6 +2043,14 @@ export function AcademicProvider({ children }) {
     hodCoordinatorAssignments,
     loadHodCoordinators,
     assignHodCoordinator,
+
+    /* Students */
+    students,
+    loadStudents,
+    getStudentsByBatch,
+    addStudentToBatch,
+    updateStudentInBatch,
+    deleteStudentFromBatch,
 
     /* Programme Outcomes */
     activePOs,

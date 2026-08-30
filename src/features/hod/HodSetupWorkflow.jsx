@@ -53,6 +53,7 @@ export default function HodSetupWorkflow() {
     updateProgrammeBatch = () => Promise.resolve(null),
     deleteProgrammeBatch = () => Promise.resolve(),
     updateProgrammeBatchStatus = () => Promise.resolve(null),
+    assignProgrammeBatchCoordinator = () => Promise.resolve(null),
     activePOs = [],
     activePSOs = [],
     activePEOs = [],
@@ -63,7 +64,6 @@ export default function HodSetupWorkflow() {
     saveProgrammeBatchOutcomeDefinitions = () => Promise.resolve(),
     hodWorkflowProgress = null,
     markHodWorkflowStepComplete = () => {},
-    completeHodSetupProgress = () => Promise.resolve(),
     hodDashboard = null,
     selectedDepartmentId,
   } = useAcademic();
@@ -151,6 +151,7 @@ export default function HodSetupWorkflow() {
       await updateProgrammeBatchStatus(batch.id, editStatus, 'Reactivating batch for update');
     }
     await updateProgrammeBatch(batch.id, { ...payload, status: batch.status === editStatus ? batch.status : 'ACTIVE' });
+    if (coordinator) await assignProgrammeBatchCoordinator(batch.id, coordinator);
     if (batch.status !== editStatus) {
       await updateProgrammeBatchStatus(batch.id, editStatus, 'Updated from HOD batch setup');
     }
@@ -174,8 +175,11 @@ export default function HodSetupWorkflow() {
       b.programmeName === selectedProgramme.name
   );
 
-  const coordinatorValue = (coordinator) =>
-    String(coordinator?.email || coordinator?.id || coordinator?.username || '');
+  // Usernames are for display; email is the stable key required by the
+  // programme-batch coordinator assignment endpoint.
+  const coordinatorValue = (coordinator) => String(coordinator?.email || '');
+  const coordinatorLabel = (coordinator) =>
+    coordinator?.username || coordinator?.name || coordinator?.email || 'Unknown coordinator';
   const coordinatorOptions = programmeCoordinators.reduce((unique, coordinator) => {
     const value = coordinatorValue(coordinator);
     if (value && !unique.some((item) => coordinatorValue(item) === value)) unique.push(coordinator);
@@ -318,6 +322,7 @@ export default function HodSetupWorkflow() {
     loadProgrammeBatches,
     loadMasterCourses,
     loadProgrammeCoordinators,
+    assignProgrammeBatchCoordinator,
     loadProgrammeBatchOutcomes,
     loadProgrammeOutcomes,
     loadMasterProgrammes,
@@ -402,9 +407,10 @@ export default function HodSetupWorkflow() {
     const s = parseInt(startYearInput, 10), en = parseInt(endYearInput, 10);
     if (!s || s <= 2020 || !en || en <= s || !selectedProgramme?.id) return;
 
+    const programmeLabel = selectedProgramme.code?.trim() || selectedProgramme.id;
     const batch = await createProgrammeBatch({
       masterProgrammeId: selectedProgramme.id,
-      name: `${s}-${en} Batch`,
+      name: `${programmeLabel} ${s}-${en}`,
       startYear: s,
       endYear: en,
       durationYears,
@@ -431,17 +437,9 @@ export default function HodSetupWorkflow() {
 
     setAssignmentSaveState('saving');
     try {
-      await Promise.all(assignments.map(({ batch, coordinator }) => updateProgrammeBatch(batch.id, {
-        name: batch.name,
-        masterProgrammeId: selectedProgramme.id,
-        startYear: batch.startYear,
-        endYear: batch.endYear,
-        durationYears: batch.durationYears ?? durationYears,
-        yearLevel: batch.yearLevel ?? null,
-        status: batch.status,
-        coordinatorName: coordinator.name,
-        coordinatorEmail: coordinator.email,
-      })));
+      await Promise.all(assignments.map(({ batch, coordinator }) => (
+        assignProgrammeBatchCoordinator(batch.id, coordinator)
+      )));
       await loadProgrammeBatches(selectedProgramme.id, user?.email);
       setAssignmentSaveState('saved');
     } catch (error) {
@@ -694,7 +692,7 @@ export default function HodSetupWorkflow() {
   };
 
   const handleFinish = async () => {
-    await completeHodSetupProgress();
+    await markHodWorkflowStepComplete(selectedProgramme.id, STEPS.length);
     navigate('/hod/dashboard');
   };
 
@@ -1037,7 +1035,7 @@ export default function HodSetupWorkflow() {
                           <option value="">Unassigned</option>
                           {coordinatorOptions.map((coordinator) => (
                             <option key={coordinatorValue(coordinator)} value={coordinatorValue(coordinator)}>
-                              {coordinator.name || coordinator.username || coordinator.email}
+                              {coordinatorLabel(coordinator)}
                             </option>
                           ))}
                         </select>
@@ -1141,8 +1139,8 @@ export default function HodSetupWorkflow() {
               <thead>
                 <tr>
                   <th style={{ width: '150px' }}>Master Programme Code</th>
-                  <th>Master Programme Name</th>
-                  <th style={{ width: '170px' }}>Programme Batch</th>
+                  <th style={{ width: '220px' }}>Master Programme Name</th>
+                  <th style={{ width: '300px' }}>Programme Batch</th>
                   <th style={{ width: '270px' }}>Programme Coordinator</th>
                 </tr>
               </thead>
@@ -1182,7 +1180,7 @@ export default function HodSetupWorkflow() {
                         )}
                         {coordinatorOptions.map((coordinator) => (
                           <option key={coordinatorValue(coordinator)} value={coordinatorValue(coordinator)}>
-                            {coordinator.name || coordinator.username || coordinator.email}
+                            {coordinatorLabel(coordinator)}
                           </option>
                         ))}
                       </select>

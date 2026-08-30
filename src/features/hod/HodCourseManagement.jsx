@@ -69,7 +69,7 @@ export default function HodCourseManagement() {
   }, [loadCourseCoordinators, loadProgrammes, loadProgrammeCoordinators, programmeId, selectedDepartmentId, setProgrammeId]);
 
   useEffect(() => {
-    if (programmeId) loadCourses(programmeId).catch(() => {});
+    if (programmeId) loadCourses({ targetProgrammeId: programmeId }).catch(() => {});
   }, [loadCourses, programmeId]);
 
   useEffect(() => {
@@ -160,6 +160,7 @@ export default function HodCourseManagement() {
     if (!coordinator) return;
     await assignHodCoordinator({
       programmeId: selectedProgramme.id,
+      coordinatorId: coordinator.id,
       coordinator: coordinator.name || coordinator.username || coordinator.email,
       coordinatorEmail: coordinator.email || '',
     });

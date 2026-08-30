@@ -266,15 +266,12 @@ export function DashboardProvider({ children }) {
   );
 
   const loadHodDashboard = useCallback(
-    async (targetDepartmentId = selectedDepartmentId ?? user?.departmentId, hodEmail = user?.email) => {
+    async (targetDepartmentId = selectedDepartmentId ?? user?.departmentId) => {
       try {
         setHodDashboardError(null);
         setError(null);
 
-        const response = await dashboardApi.getHodDashboard(
-          targetDepartmentId,
-          hodEmail
-        );
+        const response = await dashboardApi.getHodDashboard(targetDepartmentId);
         const data = unwrap(response);
         setHodDashboard(data);
         return data;
@@ -285,11 +282,11 @@ export function DashboardProvider({ children }) {
         return null;
       }
     },
-    [selectedDepartmentId, user?.departmentId, user?.email]
+    [selectedDepartmentId, user?.departmentId]
   );
 
   const loadProgrammeCoordinatorDashboard = useCallback(
-    async (targetMasterProgrammeId = programmeId, coordinatorEmail = user?.email) => {
+    async (targetMasterProgrammeId = programmeId) => {
       if (!targetMasterProgrammeId) {
         setProgrammeCoordinatorDashboard(null);
         return null;
@@ -299,10 +296,7 @@ export function DashboardProvider({ children }) {
         setProgrammeCoordinatorDashboardError(null);
         setError(null);
 
-        const response = await dashboardApi.getProgrammeCoordinatorDashboard(
-          targetMasterProgrammeId,
-          coordinatorEmail
-        );
+        const response = await dashboardApi.getProgrammeCoordinatorDashboard(targetMasterProgrammeId);
         const data = unwrap(response);
         setProgrammeCoordinatorDashboard(data);
         return data;
@@ -313,7 +307,7 @@ export function DashboardProvider({ children }) {
         return null;
       }
     },
-    [programmeId, user?.email]
+    [programmeId]
   );
 
   const loadCourseCoordinatorDashboard = useCallback(
@@ -366,6 +360,7 @@ export function DashboardProvider({ children }) {
       try {
         const params = {};
         if (targetDepartmentId) params.departmentId = targetDepartmentId;
+        if (user?.email) params.hodEmail = user.email;
 
         const response = await apiClient.get('/academic/hod/setup-progress', { params });
         const normalized = normalizeProgress(unwrap(response), HOD_WORKFLOW_STEPS.length, HOD_STEP_ALIASES);
@@ -376,7 +371,7 @@ export function DashboardProvider({ children }) {
         return null;
       }
     },
-    [selectedDepartmentId, user?.departmentId]
+    [selectedDepartmentId, user?.departmentId, user?.email]
   );
 
   const loadPcSetupProgress = useCallback(
@@ -490,19 +485,15 @@ export function DashboardProvider({ children }) {
   const saveHodSetupProgress = useCallback(
     async (nextStep, completedStep) => {
       try {
-        const canonicalStep = HOD_WORKFLOW_STEPS.find(
-          (item) => item.step === Number(completedStep)
-        )?.key;
         const completedSteps = [
           ...(hodWorkflowProgress?.completedSteps || []),
-          canonicalStep,
+          String(completedStep),
         ].filter((v, i, arr) => arr.indexOf(v) === i);
 
         const payload = {
           departmentId: selectedDepartmentId ?? user?.departmentId,
           hodEmail: user?.email,
           currentStep: nextStep,
-          completedStep: canonicalStep,
           completedSteps,
         };
 

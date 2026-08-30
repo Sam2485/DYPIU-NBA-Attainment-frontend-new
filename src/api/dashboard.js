@@ -14,16 +14,12 @@ export const dashboardApi = {
     );
   },
 
-  getHodDashboard: (departmentId, hodEmail) => {
+  getHodDashboard: (departmentId) => {
     const params = {};
 
     if (departmentId) {
       params.departmentId =
         departmentId;
-    }
-
-    if (hodEmail) {
-      params.hodEmail = hodEmail;
     }
 
     return apiClient.get(
@@ -32,16 +28,12 @@ export const dashboardApi = {
     );
   },
 
-  getProgrammeCoordinatorDashboard: (masterProgrammeId, coordinatorEmail) => {
+  getProgrammeCoordinatorDashboard: (masterProgrammeId) => {
     const params = {};
 
     if (masterProgrammeId) {
       params.masterProgrammeId =
         masterProgrammeId;
-    }
-
-    if (coordinatorEmail) {
-      params.coordinatorEmail = coordinatorEmail;
     }
 
     return apiClient.get(

@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   CheckCircle2,
@@ -51,7 +49,6 @@ const labelStyle = {
 };
 
 export default function HodBatchManagement() {
-  const navigate = useNavigate();
   const {
     masterProgrammes = [],
     programmeId,
@@ -60,8 +57,10 @@ export default function HodBatchManagement() {
     selectedDepartmentId,
     loadProgrammes = () => Promise.resolve([]),
     loadBatches = () => Promise.resolve([]),
+    loadStudents = () => Promise.resolve([]),
     createBatch = () => Promise.resolve(null),
     updateBatch = () => Promise.resolve(null),
+    updateProgrammeBatchStatus = () => Promise.resolve(null),
     deleteBatch             = () => {},
     getStudentsByBatch      = () => [],
     addStudentToBatch       = () => {},
@@ -70,6 +69,14 @@ export default function HodBatchManagement() {
   } = useAcademic();
 
   const [selectedProgrammeId, setSelectedProgrammeId] = useState('');
+
+  const handleProgrammeChange = (nextProgrammeId) => {
+    // This screen's selector mirrors the application-wide HOD programme
+    // scope. Updating only local state makes the sync effect below restore
+    // the previous global value immediately.
+    setSelectedProgrammeId(nextProgrammeId);
+    setProgrammeId(nextProgrammeId);
+  };
 
   const selectedProgramme =
     masterProgrammes.find((p) => p.id === selectedProgrammeId) ?? null;
@@ -104,6 +111,13 @@ export default function HodBatchManagement() {
   const [startYearInput, setStartYearInput] = useState('2025');
   const [endYearInput,   setEndYearInput]   = useState(String(2025 + durationYears));
   const [batchError,     setBatchError]     = useState('');
+  const [editingBatch, setEditingBatch] = useState(null);
+  const [editBatchName, setEditBatchName] = useState('');
+  const [editStartYear, setEditStartYear] = useState('');
+  const [editEndYear, setEditEndYear] = useState('');
+  const [editStatus, setEditStatus] = useState('ACTIVE');
+  const [editBatchError, setEditBatchError] = useState('');
+  const [isSavingBatch, setIsSavingBatch] = useState(false);
 
   // ── Delete confirm modal state for batches ──────────────────────────────
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -181,9 +195,10 @@ export default function HodBatchManagement() {
     const programmeKey = (selectedProgramme.code || selectedProgramme.id)
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-');
+    const programmeLabel = selectedProgramme.code?.trim() || selectedProgramme.id;
     const batch = await createBatch({
       id: `batch-${programmeKey}-${startYear}-${endYear}`,
-      name: `${startYear}-${endYear} Batch`,
+      name: `${programmeLabel} ${startYear}-${endYear}`,
       programmeId: selectedProgramme.id,
       startYear,
       endYear,
@@ -198,8 +213,64 @@ export default function HodBatchManagement() {
     }
   };
 
+  const handleStartEditBatch = (batch) => {
+    setEditingBatch(batch);
+    setEditBatchName(batch.name ?? '');
+    setEditStartYear(String(batch.startYear ?? ''));
+    setEditEndYear(String(batch.endYear ?? ''));
+    setEditStatus(batch.status ?? 'ACTIVE');
+    setEditBatchError('');
+  };
+
+  const handleCancelEditBatch = () => {
+    setEditingBatch(null);
+    setEditBatchError('');
+  };
+
+  const handleSaveEditBatch = async (event) => {
+    event.preventDefault();
+    if (!editingBatch || !selectedProgramme) return;
+
+    const startYear = Number.parseInt(editStartYear, 10);
+    const endYear = Number.parseInt(editEndYear, 10);
+    if (!editBatchName.trim() || !Number.isInteger(startYear) || !Number.isInteger(endYear)) {
+      setEditBatchError('Enter a batch name and valid start and end years.');
+      return;
+    }
+    if (endYear !== startYear + durationYears) {
+      setEditBatchError(`End year must be ${startYear + durationYears} for this ${durationYears}-year programme.`);
+      return;
+    }
+
+    setIsSavingBatch(true);
+    setEditBatchError('');
+    try {
+      await updateBatch(editingBatch.id, {
+        masterProgrammeId: selectedProgramme.id,
+        name: editBatchName.trim(),
+        startYear,
+        endYear,
+        durationYears,
+      });
+      if (editStatus !== editingBatch.status) {
+        await updateProgrammeBatchStatus(editingBatch.id, editStatus, 'Updated from HOD batch management');
+      }
+      setEditingBatch(null);
+      setToastMessage('Batch updated successfully.');
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (error) {
+      setEditBatchError(error?.response?.data?.message || error?.message || 'Unable to update the batch. Please try again.');
+    } finally {
+      setIsSavingBatch(false);
+    }
+  };
+
   // ── Student Roster Handlers ─────────────────────────────────────────────
   const currentBatchStudents = selectedBatchForRoster ? getStudentsByBatch(selectedBatchForRoster.id) : [];
+
+  useEffect(() => {
+    if (selectedBatchForRoster?.id) loadStudents(selectedBatchForRoster.id).catch(() => {});
+  }, [loadStudents, selectedBatchForRoster?.id]);
 
   const filteredStudents = currentBatchStudents.filter(
     (s) =>
@@ -224,7 +295,7 @@ export default function HodBatchManagement() {
     setShowStudentModal(true);
   };
 
-  const handleSaveStudent = (e) => {
+  const handleSaveStudent = async (e) => {
     e.preventDefault();
     if (!studentPrn.trim() || !studentName.trim()) {
       alert('Please enter a valid PRN number and Student Name.');
@@ -232,14 +303,14 @@ export default function HodBatchManagement() {
     }
 
     if (editingStudent) {
-      updateStudentInBatch(selectedBatchForRoster.id, editingStudent.id, {
+      await updateStudentInBatch(selectedBatchForRoster.id, editingStudent.id, {
         prn: studentPrn.trim(),
         name: studentName.trim(),
         email: studentEmail.trim() || `${studentName.trim().toLowerCase().replace(/\s+/g, '.')}@dypiu.edu.in`,
       });
       setToastMessage(`🎉 Updated student record for ${studentName.trim()} (${studentPrn.trim()})`);
     } else {
-      addStudentToBatch(selectedBatchForRoster.id, {
+      await addStudentToBatch(selectedBatchForRoster.id, {
         prn: studentPrn.trim(),
         name: studentName.trim(),
         email: studentEmail.trim() || `${studentName.trim().toLowerCase().replace(/\s+/g, '.')}@dypiu.edu.in`,
@@ -256,9 +327,9 @@ export default function HodBatchManagement() {
     setShowDeleteStudentModal(true);
   };
 
-  const handleConfirmDeleteStudent = () => {
+  const handleConfirmDeleteStudent = async () => {
     if (deletingStudent && selectedBatchForRoster) {
-      deleteStudentFromBatch(selectedBatchForRoster.id, deletingStudent.id);
+      await deleteStudentFromBatch(selectedBatchForRoster.id, deletingStudent.id);
       setShowDeleteStudentModal(false);
       setDeletingStudent(null);
       setToastMessage('🗑️ Student record removed from batch roster.');
@@ -674,7 +745,7 @@ export default function HodBatchManagement() {
             <div style={{ position: 'relative' }}>
               <select
                 value={selectedProgrammeId}
-                onChange={(e) => setSelectedProgrammeId(e.target.value)}
+                onChange={(e) => handleProgrammeChange(e.target.value)}
                 style={{
                   width: '100%', height: '40px', fontSize: '13px',
                   fontWeight: '700', color: '#1e293b',
@@ -750,8 +821,8 @@ export default function HodBatchManagement() {
             const studentsCount = getStudentsByBatch(batch.id).length;
 
             return (
+              <div key={batch.id} style={{ display: 'grid', gap: '10px' }}>
               <div
-                key={batch.id}
                 style={{
                   ...surface,
                   padding: '16px 20px',
@@ -793,14 +864,14 @@ export default function HodBatchManagement() {
 
                     <button
                       type="button"
-                      onClick={() => navigate('/hod/setup-workflow?step=2')}
+                      onClick={() => handleStartEditBatch(batch)}
                       style={{
                         height: '32px', padding: '0 12px', fontSize: '12px', fontWeight: '600',
                         border: '1px solid #c7d2fe', background: '#eef2ff', color: accent,
                         borderRadius: '7px', cursor: 'pointer',
                         display: 'inline-flex', alignItems: 'center', gap: '5px', fontFamily: 'inherit',
                       }}
-                      title="Edit batch status and coordinator"
+                      title="Edit this batch"
                     >
                       <Edit2 size={14} /> Edit
                     </button>
@@ -839,6 +910,53 @@ export default function HodBatchManagement() {
                     </button>
                   </div>
                 </div>
+              </div>
+              {editingBatch?.id === batch.id && (
+                <form
+                  onSubmit={handleSaveEditBatch}
+                  style={{
+                    background: '#f8fafc', border: '1px solid #c7d2fe', borderRadius: '10px',
+                    padding: '18px', display: 'grid', gap: '14px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: '800', color: ink }}>Edit Batch</div>
+                      <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>Update this batch without leaving Batch Management.</div>
+                    </div>
+                    <button type="button" onClick={handleCancelEditBatch} disabled={isSavingBatch} style={{ border: 0, background: 'transparent', color: muted, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit', fontWeight: '700', fontSize: '12px' }}>
+                      <X size={15} /> Cancel
+                    </button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1.5fr) repeat(2, minmax(120px, 1fr)) minmax(130px, 1fr)', gap: '12px' }}>
+                    <div>
+                      <label style={labelStyle}>Batch Name *</label>
+                      <input value={editBatchName} onChange={(event) => setEditBatchName(event.target.value)} style={inputStyle} required />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Start Year *</label>
+                      <input inputMode="numeric" value={editStartYear} onChange={(event) => setEditStartYear(event.target.value.replace(/\D/g, '').slice(0, 4))} style={inputStyle} required />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>End Year *</label>
+                      <input inputMode="numeric" value={editEndYear} onChange={(event) => setEditEndYear(event.target.value.replace(/\D/g, '').slice(0, 4))} style={inputStyle} required />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Status</label>
+                      <select value={editStatus} onChange={(event) => setEditStatus(event.target.value)} style={inputStyle}>
+                        <option value="ACTIVE">Active</option>
+                        <option value="INACTIVE">Inactive</option>
+                        <option value="GRADUATED">Graduated</option>
+                      </select>
+                    </div>
+                  </div>
+                  {editBatchError && <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#b91c1c', fontSize: '12px', fontWeight: '600' }}><AlertCircle size={14} />{editBatchError}</div>}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                    <button type="button" onClick={handleCancelEditBatch} disabled={isSavingBatch} style={{ height: '36px', padding: '0 13px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', borderRadius: '7px', cursor: 'pointer', fontWeight: '700', fontFamily: 'inherit' }}>Cancel</button>
+                    <button type="submit" disabled={isSavingBatch} style={{ height: '36px', padding: '0 14px', border: 0, background: accent, color: '#fff', borderRadius: '7px', cursor: isSavingBatch ? 'wait' : 'pointer', fontWeight: '700', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: isSavingBatch ? 0.7 : 1 }}><Save size={14} />{isSavingBatch ? 'Saving…' : 'Save Changes'}</button>
+                  </div>
+                </form>
+              )}
               </div>
             );
           })}

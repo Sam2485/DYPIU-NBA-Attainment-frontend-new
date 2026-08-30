@@ -408,13 +408,8 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
                       <td style={{ textAlign: 'center', fontWeight: '800', color: co.met ? '#16a34a' : '#dc2626', verticalAlign: 'top', paddingTop: '12px' }}>{formatLevel(co.actual)}</td>
                       <td style={{ textAlign: 'center', verticalAlign: 'top', paddingTop: '12px' }}>
                         <span style={{ display: 'inline-block', fontSize: '11px', fontWeight: '700', background: co.met ? '#dcfce7' : '#fee2e2', color: co.met ? '#15803d' : '#991b1b', borderRadius: '5px', padding: '3px 8px' }}>
-                          {co.pct.toFixed(1)}% {co.met ? 'Achieved' : 'Gap'}
+                          {co.pct.toFixed(1)}% Target Achieved
                         </span>
-                        {co.remark && (
-                          <div style={{ marginTop: '7px', fontSize: '11.5px', lineHeight: 1.4, color: muted, textAlign: 'left' }}>
-                            {co.remark}
-                          </div>
-                        )}
                       </td>
                       <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
                         {co.met ? (

@@ -42,12 +42,14 @@ const normalizeApproval = (approval) => {
 
   return {
     ...approval,
-    id: approval.id ?? approval.approvalId ?? null,
+    id: approval.id ?? approval.approvalId ?? approval.approvalRequestId ?? null,
     status: approval.status ?? null,
     courseOfferingId: approval.courseOfferingId ?? null,
     programmeId: approval.programmeId ?? null,
     batchId: approval.batchId ?? null,
     courseId: approval.courseId ?? null,
+    masterProgrammeId: approval.masterProgrammeId ?? approval.programmeId ?? null,
+    programmeBatchId: approval.programmeBatchId ?? approval.batchId ?? null,
     type: approval.type ?? null,
     resourceId: approval.resourceId ?? null,
     submittedBy: approval.submittedBy ?? null,
@@ -77,6 +79,7 @@ export function ApprovalProvider({ children }) {
 
   const [directorApprovals, setDirectorApprovals] = useState([]);
   const [hodApprovals, setHodApprovals] = useState([]);
+  const [programmeCoordinatorApprovals, setProgrammeCoordinatorApprovals] = useState([]);
 
   /*
    * Component verification state indexed by CourseOffering ID / key.
@@ -150,6 +153,34 @@ export function ApprovalProvider({ children }) {
       } catch (err) {
         console.warn('loadHodApprovals failed:', err);
         setError(err?.response?.data?.message || err?.message || 'Failed to load HOD approvals.');
+        return [];
+      }
+    },
+    []
+  );
+
+  /* ======================================================================== */
+  /* 3. Programme Coordinator Approval Statuses                              */
+  /* ======================================================================== */
+
+  const loadProgrammeCoordinatorApprovals = useCallback(
+    async (masterProgrammeId = null) => {
+      if (!masterProgrammeId) {
+        setProgrammeCoordinatorApprovals([]);
+        return [];
+      }
+      try {
+        setError(null);
+        const response = await apiClient.get('/approvals', {
+          params: { masterProgrammeId },
+        });
+        const normalized = unwrapList(response).map(normalizeApproval).filter(Boolean);
+        setProgrammeCoordinatorApprovals(normalized);
+        return normalized;
+      } catch (err) {
+        console.warn('loadProgrammeCoordinatorApprovals failed:', err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to load programme coordinator approvals.');
+        setProgrammeCoordinatorApprovals([]);
         return [];
       }
     },
@@ -677,6 +708,7 @@ export function ApprovalProvider({ children }) {
     /* State */
     directorApprovals,
     hodApprovals,
+    programmeCoordinatorApprovals,
     courseVerificationStore,
     loading,
     error,
@@ -690,6 +722,7 @@ export function ApprovalProvider({ children }) {
     /* Scoped approval queues */
     loadDirectorApprovals,
     loadHodApprovals,
+    loadProgrammeCoordinatorApprovals,
 
     /* Formal approval actions */
     approveDirectorSubmission,

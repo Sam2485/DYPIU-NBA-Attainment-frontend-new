@@ -16,10 +16,8 @@ export default function HodProgrammeCoordinators() {
   const {
     masterProgrammes = [],
     programmeCoordinators = [],
-    hodCoordinatorAssignments = [],
     loadProgrammes = () => Promise.resolve([]),
     loadProgrammeCoordinators = () => Promise.resolve([]),
-    loadHodCoordinators = () => Promise.resolve([]),
     assignHodCoordinator = () => Promise.resolve(null),
     selectedDepartmentId,
   } = useAcademic();
@@ -33,13 +31,12 @@ export default function HodProgrammeCoordinators() {
     Promise.allSettled([
       loadProgrammes(selectedDepartmentId),
       loadProgrammeCoordinators(),
-      loadHodCoordinators(selectedDepartmentId),
     ]);
-  }, [loadHodCoordinators, loadProgrammeCoordinators, loadProgrammes, selectedDepartmentId]);
+  }, [loadProgrammeCoordinators, loadProgrammes, selectedDepartmentId]);
 
   const assignmentsByProgrammeId = useMemo(
-    () => new Map(hodCoordinatorAssignments.map((assignment) => [assignment.programmeId, assignment])),
-    [hodCoordinatorAssignments]
+    () => new Map(masterProgrammes.map((programme) => [programme.id, programme])),
+    [masterProgrammes]
   );
 
   const departmentProgrammes = masterProgrammes.filter(
@@ -83,6 +80,7 @@ export default function HodProgrammeCoordinators() {
     try {
       await assignHodCoordinator({
         programmeId: editingProg.id,
+        coordinatorId: coordinator.id,
         coordinator: coordinator.name,
         coordinatorEmail: coordinator.email,
       });
