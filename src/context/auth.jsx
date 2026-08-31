@@ -8,6 +8,7 @@ import {
 import apiClient, {
   clearApiAuthToken,
   setApiAuthToken,
+  setApiTokenRefreshHandler,
 } from '../api/client';
 
 export const AuthContext = createContext(null);
@@ -102,10 +103,10 @@ const readStoredSession = () => {
   }
 };
 
-const persistSession = (accessToken, user) => {
+const persistSession = (accessToken, refreshToken, user) => {
   sessionStorage.setItem(
     AUTH_SESSION_KEY,
-    JSON.stringify({ accessToken, user })
+    JSON.stringify({ accessToken, refreshToken, user })
   );
 };
 
@@ -158,6 +159,40 @@ export function AuthProvider({ children }) {
     return () => {
       active = false;
     };
+  }, []);
+
+  /* -------------------------------------------------------------------- */
+  /* Refresh an expired access token without interrupting the session     */
+  /* -------------------------------------------------------------------- */
+
+  useEffect(() => {
+    const refreshAccessToken = async () => {
+      const storedSession = readStoredSession();
+      const refreshToken = storedSession?.refreshToken;
+      const storedUser = toAuthenticatedUser(storedSession?.user);
+
+      if (!refreshToken || !storedUser) return null;
+
+      // Mark this request so the response interceptor does not recursively
+      // attempt to refresh if the refresh token itself is invalid or expired.
+      const response = await apiClient.post('/auth/refresh', { refreshToken }, { __skipAuthRefresh: true });
+      const authData = response?.data ?? response;
+      const nextAccessToken = authData?.accessToken ?? authData?.token ?? null;
+      const nextRefreshToken = authData?.refreshToken ?? refreshToken;
+      const refreshedUser = toAuthenticatedUser(authData?.user) ?? storedUser;
+
+      if (!nextAccessToken) return null;
+
+      setApiAuthToken(nextAccessToken);
+      persistSession(nextAccessToken, nextRefreshToken, refreshedUser);
+      setToken(nextAccessToken);
+      setUser(refreshedUser);
+      setRole(refreshedUser.role);
+      return nextAccessToken;
+    };
+
+    setApiTokenRefreshHandler(refreshAccessToken);
+    return () => setApiTokenRefreshHandler(null);
   }, []);
 
   useEffect(() => {
@@ -283,7 +318,7 @@ export function AuthProvider({ children }) {
        * authenticated backend user for this browser tab across refreshes.
        */
       setApiAuthToken(accessToken);
-      persistSession(accessToken, userPayload);
+      persistSession(accessToken, refreshToken, userPayload);
       setToken(accessToken);
 
       setUser(userPayload);

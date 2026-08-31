@@ -37,6 +37,8 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
     selectedCourse,
     selectedCourseOffering,
     courseOfferingId,
+    selectCourseOffering = () => {},
+    loadAssignedCourseOfferings = () => Promise.resolve([]),
     activeCOs = [],
     setCourseId = () => {},
     academicYear    = '2025-26',
@@ -55,6 +57,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   } = useAttainment();
 
   const isFaculty      = role === 'FACULTY';
+  const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
   const isCoordinator  = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
   const [showHistory, setShowHistory] = useState(showHistoryProp ?? false);
@@ -63,6 +66,17 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   useEffect(() => {
     if (showHistoryProp !== undefined) setShowHistory(showHistoryProp);
   }, [showHistoryProp]);
+
+  useEffect(() => {
+    const targetBatchId = batchId ?? selectedBatch?.id;
+    if (!isCourseCoordinator || !user?.email || !targetBatchId) return;
+    loadAssignedCourseOfferings(user, targetBatchId).then((offerings) => {
+      const selectedStillAssigned = (offerings ?? []).some(
+        (offering) => String(offering.id) === String(courseOfferingId)
+      );
+      if (!selectedStillAssigned && offerings?.[0]) selectCourseOffering(offerings[0]);
+    }).catch(() => {});
+  }, [batchId, courseOfferingId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, selectedBatch?.id, user]);
 
   useEffect(() => {
     // Saving applies to one programme-batch course only.
@@ -275,7 +289,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
                 </>
               ) : (
                 <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Lock size={13} /> Report Locked
+                  <Lock size={13} /> {isApproved ? 'Report Locked' : 'Submitted — Pending Review'}
                 </span>
               )}
             </div>
@@ -485,7 +499,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
             </>
           ) : (
             <span style={{ height: '40px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <Lock size={14} /> Report Locked
+              <Lock size={14} /> {isApproved ? 'Report Locked' : 'Submitted — Pending Review'}
             </span>
           )}
         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 
@@ -10,7 +10,6 @@ import iqacLogo from '../assets/iqac.png';
 export default function LoginPage() {
   const { login, isAuthenticated, role } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,22 +20,21 @@ export default function LoginPage() {
   // If already authenticated, redirect to appropriate role dashboard
   useEffect(() => {
     if (isAuthenticated) {
-      const from = location.state?.from?.pathname;
       if (role === 'ADMIN') {
         navigate('/admin/dashboard', { replace: true });
-      } else if (from && from !== '/login') {
-        navigate(from, { replace: true });
       } else if (role === 'DIRECTOR') {
         navigate('/director/dashboard', { replace: true });
       } else if (role === 'HOD') {
         navigate('/hod/dashboard', { replace: true });
       } else if (role === 'PROGRAMME_COORDINATOR') {
         navigate('/programme-coordinator/dashboard', { replace: true });
+      } else if (role === 'FACULTY' || role === 'COURSE_COORDINATOR') {
+        navigate('/course-coordinator/dashboard', { replace: true });
       } else {
         navigate('/dashboard', { replace: true });
       }
     }
-  }, [isAuthenticated, role, navigate, location]);
+  }, [isAuthenticated, role, navigate]);
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();

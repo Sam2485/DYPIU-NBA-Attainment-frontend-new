@@ -71,11 +71,23 @@ export const attainmentApi = {
   getProgrammeAttainmentDataset: (masterProgrammeId, programmeBatchId) =>
     apiClient.get(`/attainment/master-programmes/${masterProgrammeId}/programme-batches/${programmeBatchId}/dataset`),
 
+  // ---------------------------------------------------------------------------
+  // Programme Batch Indirect Attainment (Programme Exit Survey)
+  // ---------------------------------------------------------------------------
+  getProgrammeIndirectAttainment: (programmeBatchId) =>
+    apiClient.get(`/academic/programme-batches/${programmeBatchId}/survey`),
+
+  saveProgrammeIndirectAttainment: (programmeBatchId, payload) =>
+    apiClient.post(`/academic/programme-batches/${programmeBatchId}/survey`, payload),
+
   uploadProgrammeExitSurvey: (programmeBatchId, formData) =>
     apiClient.post(
       `/academic/programme-batches/${programmeBatchId}/survey/upload`,
       formData
     ),
+
+  deleteProgrammeIndirectAttainment: (programmeBatchId) =>
+    apiClient.delete(`/academic/programme-batches/${programmeBatchId}/survey`),
 };
 
 export default attainmentApi;

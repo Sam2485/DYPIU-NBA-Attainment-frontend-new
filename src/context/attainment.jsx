@@ -3,6 +3,7 @@ import {
   useContext,
   useState,
   useCallback,
+  useRef,
 } from 'react';
 
 import { useAcademic } from './academic';
@@ -64,6 +65,7 @@ export function AttainmentProvider({ children }) {
   const [programmeAtrStore, setProgrammeAtrStore] = useState(null);
   const [programmeAttainmentStore, setProgrammeAttainmentStore] = useState(null);
   const [programmeSurveyData, setProgrammeSurveyData] = useState(null);
+  const programmeAtrRequestsRef = useRef(new Map());
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -74,9 +76,15 @@ export function AttainmentProvider({ children }) {
 
   const loadAttainmentConfig = useCallback(
     async (targetOfferingId = courseOfferingId, submittedBy) => {
-      if (!targetOfferingId) return null;
+      if (!targetOfferingId) {
+        setAttainmentConfigs(null);
+        return null;
+      }
       try {
         setError(null);
+        // Do not show the previous course's settings while the selected
+        // offering's configuration is being fetched.
+        setAttainmentConfigs(null);
         const response = await attainmentApi.getConfig(targetOfferingId);
         const data = unwrapResponse(response);
         setAttainmentConfigs(data);
@@ -415,16 +423,30 @@ export function AttainmentProvider({ children }) {
         setProgrammeAtrStore(null);
         return null;
       }
+      const requestKey = String(targetBatchId);
+      const inFlightRequest = programmeAtrRequestsRef.current.get(requestKey);
+      if (inFlightRequest) return inFlightRequest;
+
+      const request = (async () => {
+        try {
+          setError(null);
+          const response = await apiClient.get(`/academic/programme-batches/${targetBatchId}/atr`);
+          const data = unwrapResponse(response);
+          setProgrammeAtrStore(data);
+          return data;
+        } catch (err) {
+          console.warn(`loadProgrammeAtr(${targetBatchId}) failed:`, err);
+          setError(err?.customMessage || err?.message || 'Failed to load programme ATR');
+          return null;
+        }
+      })();
+      programmeAtrRequestsRef.current.set(requestKey, request);
       try {
-        setError(null);
-        const response = await apiClient.get(`/academic/programme-batches/${targetBatchId}/atr`);
-        const data = unwrapResponse(response);
-        setProgrammeAtrStore(data);
-        return data;
-      } catch (err) {
-        console.warn(`loadProgrammeAtr(${targetBatchId}) failed:`, err);
-        setError(err?.customMessage || err?.message || 'Failed to load programme ATR');
-        return null;
+        return await request;
+      } finally {
+        if (programmeAtrRequestsRef.current.get(requestKey) === request) {
+          programmeAtrRequestsRef.current.delete(requestKey);
+        }
       }
     },
     [batchId]
@@ -455,7 +477,7 @@ export function AttainmentProvider({ children }) {
 
       try {
         setError(null);
-        const response = await apiClient.post(
+        const response = await apiClient.put(
           `/academic/programme-batches/${targetBatchId}/atr`,
           programmeAtrData
         );
@@ -520,14 +542,49 @@ export function AttainmentProvider({ children }) {
     [programmeId, batchId]
   );
 
+  const loadProgrammeIndirectAttainment = useCallback(async (targetBatchId = batchId) => {
+    if (!targetBatchId) {
+      setProgrammeSurveyData(null);
+      return null;
+    }
+    try {
+      setError(null);
+      setProgrammeSurveyData(null);
+      const response = await attainmentApi.getProgrammeIndirectAttainment(targetBatchId);
+      const data = unwrapResponse(response);
+      setProgrammeSurveyData(data);
+      return data;
+    } catch (err) {
+      console.warn(`loadProgrammeIndirectAttainment(${targetBatchId}) failed:`, err);
+      setError(err?.customMessage || err?.message || 'Failed to load programme indirect attainment');
+      return null;
+    }
+  }, [batchId]);
+
+  const saveProgrammeIndirectAttainment = useCallback(async (targetBatchId = batchId, payload = {}) => {
+    if (!targetBatchId) throw new Error('programmeBatchId is required');
+    try {
+      setError(null);
+      const response = await attainmentApi.saveProgrammeIndirectAttainment(targetBatchId, payload);
+      const data = unwrapResponse(response);
+      setProgrammeSurveyData(data);
+      return data;
+    } catch (err) {
+      setError(err?.customMessage || err?.message || 'Failed to save programme indirect attainment');
+      throw err;
+    }
+  }, [batchId]);
+
   const uploadProgrammeExitSurvey = useCallback(async ({
     targetBatchId = batchId,
     file,
+    uploadedBy,
   }) => {
     if (!targetBatchId) throw new Error('programmeBatchId is required');
     if (!file) throw new Error('Excel file is required');
     const formData = new FormData();
     formData.append('file', file);
+    if (uploadedBy) formData.append('uploadedBy', uploadedBy);
     try {
       setError(null);
       const response = await apiClient.post(
@@ -544,6 +601,18 @@ export function AttainmentProvider({ children }) {
       return data;
     } catch (err) {
       setError(err?.customMessage || err?.message || 'Failed to upload programme exit survey');
+      throw err;
+    }
+  }, [batchId]);
+
+  const deleteProgrammeIndirectAttainment = useCallback(async (targetBatchId = batchId) => {
+    if (!targetBatchId) throw new Error('programmeBatchId is required');
+    try {
+      setError(null);
+      await attainmentApi.deleteProgrammeIndirectAttainment(targetBatchId);
+      setProgrammeSurveyData(null);
+    } catch (err) {
+      setError(err?.customMessage || err?.message || 'Failed to remove programme indirect attainment');
       throw err;
     }
   }, [batchId]);
@@ -637,7 +706,10 @@ export function AttainmentProvider({ children }) {
     programmeAttainmentStore,
     loadProgrammeAttainment,
     programmeSurveyData,
+    loadProgrammeIndirectAttainment,
+    saveProgrammeIndirectAttainment,
     uploadProgrammeExitSurvey,
+    deleteProgrammeIndirectAttainment,
   };
 
   return (

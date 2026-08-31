@@ -12,6 +12,8 @@ const currentActiveUrl = import.meta.env.VITE_API_BASE_URL || LOCAL_BACKEND_URL;
 /* ========================================================================== */
 
 let authToken = null;
+let tokenRefreshHandler = null;
+let refreshInFlight = null;
 
 export const setApiAuthToken = (token) => {
   authToken = token || null;
@@ -23,6 +25,12 @@ export const clearApiAuthToken = () => {
 
 export const getApiAuthToken = () => {
   return authToken;
+};
+
+// AuthContext owns storage and user state. The API client only asks it for a
+// fresh token when an authenticated request receives a 401.
+export const setApiTokenRefreshHandler = (handler) => {
+  tokenRefreshHandler = typeof handler === 'function' ? handler : null;
 };
 
 /* ========================================================================== */
@@ -140,16 +148,37 @@ apiClient.interceptors.response.use(
     /* ---------------------------------------------------------------------- */
 
     if (error.response?.status === 401) {
+      const request = error.config || {};
+      const requestUrl = String(request.url || '');
+      const isAuthRequest = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/logout') || requestUrl.includes('/auth/refresh');
+
+      if (!request.__skipAuthRefresh && !request.__retriedWithFreshToken && !isAuthRequest && tokenRefreshHandler) {
+        try {
+          refreshInFlight ??= Promise.resolve(tokenRefreshHandler()).finally(() => {
+            refreshInFlight = null;
+          });
+          const refreshedToken = await refreshInFlight;
+          if (refreshedToken) {
+            request.__retriedWithFreshToken = true;
+            return apiClient(request);
+          }
+        } catch {
+          // Fall through to a clean signed-out state below.
+        }
+      }
+
       clearApiAuthToken();
 
-      sessionStorage.removeItem('authToken');
-      sessionStorage.removeItem('refreshToken');
-      sessionStorage.removeItem('nba_auth_session');
-      sessionStorage.removeItem('nba_user');
-      sessionStorage.removeItem('role');
-      sessionStorage.removeItem('user');
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('authToken');
+        sessionStorage.removeItem('refreshToken');
+        sessionStorage.removeItem('nba_auth_session');
+        sessionStorage.removeItem('nba_user');
+        sessionStorage.removeItem('role');
+        sessionStorage.removeItem('user');
+      }
 
-      localStorage.removeItem('authToken');
+      if (typeof localStorage !== 'undefined') localStorage.removeItem('authToken');
 
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('nba-auth-expired'));

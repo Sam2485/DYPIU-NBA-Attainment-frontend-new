@@ -1,5 +1,5 @@
 import { Component } from 'react';
-import { AlertTriangle, RefreshCw, ArrowLeft } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 
 export class ErrorBoundary extends Component {
   constructor(props) {
@@ -51,12 +51,8 @@ export class ErrorBoundary extends Component {
         return this.props.fallback;
       }
 
-      const title = this.props.fallbackTitle || 'Something went wrong';
-      const message =
-        this.props.fallbackMessage ||
-        this.state.error?.customMessage ||
-        this.state.error?.message ||
-        'This screen could not be loaded due to an unexpected error.';
+      const title = 'No data available';
+      const message = 'There is no information to display right now.';
 
       return (
         <div
@@ -117,56 +113,6 @@ export class ErrorBoundary extends Component {
               {message}
             </p>
 
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '12px',
-              }}
-            >
-              <button
-                type="button"
-                onClick={this.handleRetry}
-                style={{
-                  height: '36px',
-                  padding: '0 16px',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  background: '#4f46e5',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '7px',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                <RefreshCw size={14} /> Retry
-              </button>
-
-              <button
-                type="button"
-                onClick={this.handleBack}
-                style={{
-                  height: '36px',
-                  padding: '0 16px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  background: '#f8fafc',
-                  color: '#334155',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '7px',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                <ArrowLeft size={14} /> Go Back
-              </button>
-            </div>
           </div>
         </div>
       );

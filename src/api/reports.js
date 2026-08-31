@@ -58,7 +58,7 @@ export const reportsApi = {
     ),
 
   saveProgrammeAtr: (programmeBatchId, data) =>
-    apiClient.post(
+    apiClient.put(
       `/academic/programme-batches/${programmeBatchId}/atr`,
       data
     ),

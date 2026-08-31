@@ -58,7 +58,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, role } = useAuth();
-  const { uploadProgrammeExitSurvey = () => Promise.resolve(null), programmeSurveyData = null } = useAttainment();
+  const {
+    programmeSurveyData = null,
+    loadProgrammeIndirectAttainment = () => Promise.resolve(null),
+    uploadProgrammeExitSurvey = () => Promise.resolve(null),
+    deleteProgrammeIndirectAttainment = () => Promise.resolve(null),
+  } = useAttainment();
   const {
     masterProgrammes = [],
     programmeId,
@@ -121,18 +126,18 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   }, [batchId, loadCoordinatorProgrammeBatches, programmeId, setBatchId, user?.email]);
 
   useEffect(() => {
-    if (!programmeId) return;
+    if (approvalReadOnly || !programmeId) return;
     loadProgrammeCoordinatorApprovals(programmeId).catch(() => {});
-  }, [loadProgrammeCoordinatorApprovals, programmeId]);
+  }, [approvalReadOnly, loadProgrammeCoordinatorApprovals, programmeId]);
 
   // Setup progress is scoped by the master programme selected in the sidebar.
   useEffect(() => {
-    if (!programmeId || !user?.email) return;
+    if (approvalReadOnly || !programmeId || !user?.email) return;
     const scope = `${programmeId}:${user.email}`;
     if (loadedProgressScopeRef.current === scope) return;
     loadedProgressScopeRef.current = scope;
     loadSetupProgress().catch(() => {});
-  }, [loadSetupProgress, programmeId, user?.email]);
+  }, [approvalReadOnly, loadSetupProgress, programmeId, user?.email]);
 
   // The server should enforce this scope. When assignment metadata is returned
   // with a batch, also keep unrelated batches out of this coordinator's UI.
@@ -168,6 +173,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const isAllocationApproved = allocationStatus === 'APPROVED' || allocationStatus === 'VERIFIED';
   const isAllocationSubmitted = ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(allocationStatus);
   const isAllocationRevision = allocationStatus === 'REVISION_REQUESTED' || allocationStatus === 'NEEDS_REVISION';
+  const isAllocationReviewLocked = isAllocationSubmitted || isAllocationApproved;
 
   const handleSubmitAllocations = async () => {
     if (!programmeId || !batchId) {
@@ -200,6 +206,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const isTargetsApproved = targetsStatus === 'APPROVED' || targetsStatus === 'VERIFIED';
   const isTargetsSubmitted = ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(targetsStatus);
   const isTargetsRevision = targetsStatus === 'REVISION_REQUESTED' || targetsStatus === 'NEEDS_REVISION';
+  const isTargetsReviewLocked = isTargetsSubmitted || isTargetsApproved;
 
   const handleSubmitTargets = async () => {
     if (!programmeId || !batchId) {
@@ -443,6 +450,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
       const result = await uploadProgrammeExitSurvey({
         targetBatchId: batchId,
         file,
+        uploadedBy: user?.name ?? user?.email,
       });
       setProgrammeSurveyResult(result);
     } catch (error) {
@@ -453,6 +461,30 @@ export default function ProgrammeCoordinatorSetupWorkflow({
       event.target.value = '';
     }
   };
+
+  const handleDeleteProgrammeSurvey = async () => {
+    if (!batchId || programmeSurveyUploading) return;
+    setProgrammeSurveyUploading(true);
+    setProgrammeSurveyError(null);
+    try {
+      await deleteProgrammeIndirectAttainment(batchId);
+      setProgrammeSurveyResult(null);
+    } catch (error) {
+      console.error('Failed to remove programme end survey:', error);
+      setProgrammeSurveyError(error?.customMessage || error?.message || 'Failed to remove the programme end survey.');
+    } finally {
+      setProgrammeSurveyUploading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentStep !== 3 || !batchId) return;
+    setProgrammeSurveyError(null);
+    setProgrammeSurveyResult(null);
+    loadProgrammeIndirectAttainment(batchId).then((data) => {
+      if (data) setProgrammeSurveyResult(data);
+    });
+  }, [batchId, currentStep, loadProgrammeIndirectAttainment]);
 
   const handleSaveAndNext = async () => {
     try {
@@ -593,12 +625,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({
       </div>}
 
       {/* ── HOD REVISION ALERT BANNER ────────────────────────────────────────── */}
-      {allocationStatus === 'REVISION_REQUESTED' && (
+      {currentStep === 1 && isAllocationRevision && (
         <RequestRevisionCard
-          title="HOD Revision Requested"
+          title={`Course & Coordinator Allocation Revision Requested (${selectedProgramme?.code || 'Programme'})`}
           requestedBy={allocationApprovedBy}
           remarks={allocationRemarks || 'Please review and re-assign Course Coordinators as per HOD notes.'}
-          actionText="Please update the Course Coordinator allocations below and resubmit for HOD approval."
+          actionText="Please adjust the course list or coordinator assignments below and resubmit for HOD approval."
         />
       )}
 
@@ -679,7 +711,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   Create programme-batch courses from the HOD master-course catalogue and assign their Course Coordinators.
                 </p>
               </div>
-              {!isAllocationApproved && !approvalReadOnly ? (
+              {!isAllocationReviewLocked && !approvalReadOnly ? (
                 <button
                   type="button"
                   onClick={handleSubmitAllocations}
@@ -694,20 +726,10 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 </button>
               ) : (
                 <span style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Lock size={13} /> Course &amp; Coordinator Locked
+                  <Lock size={13} /> {isAllocationApproved ? 'Course & Coordinator Locked' : 'Submitted — Pending HOD Review'}
                 </span>
               )}
             </div>
-
-            {/* HOD Allocation Revision Banner */}
-            {isAllocationRevision && (
-              <RequestRevisionCard
-                title={`Course & Coordinator Allocation Revision Requested (${selectedProgramme?.code || 'Programme'})`}
-                requestedBy={allocationApprovedBy}
-                remarks={allocationRemarks || 'Please review and adjust course allocations as per HOD notes.'}
-                actionText="Please adjust the course list or coordinator assignments below and resubmit for HOD approval."
-              />
-            )}
 
             {/* Approved Banner */}
             {isAllocationApproved && (
@@ -740,7 +762,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
             )}
 
             {/* Inline add form */}
-            {!isAllocationApproved && !approvalReadOnly && (
+            {!isAllocationReviewLocked && !approvalReadOnly && (
               <form onSubmit={handleAddCourse} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
                 <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '3px' }}>Add Programme-Batch Course</div>
                 <p style={{ margin: '0 0 10px', fontSize: '11.5px', color: muted }}>
@@ -842,16 +864,16 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                         <td>
                           <select
                             value={coordinatorId}
-                            disabled={isAllocationApproved}
+                            disabled={isAllocationReviewLocked}
                             onChange={(e) => handleCoordinatorChange(offering, e.target.value)}
                             style={{
                               ...inputStyle,
                               height: '34px',
                               fontSize: '12px',
-                              cursor: isAllocationApproved ? 'not-allowed' : 'pointer',
+                              cursor: isAllocationReviewLocked ? 'not-allowed' : 'pointer',
                               color: accent,
                               fontWeight: '600',
-                              background: isAllocationApproved ? '#f8fafc' : '#ffffff',
+                              background: isAllocationReviewLocked ? '#f8fafc' : '#ffffff',
                             }}
                           >
                             <option value="">Select FACULTY</option>
@@ -865,6 +887,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                             <span style={{ fontSize: '11.5px', color: '#16a34a', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                               <CheckCircle2 size={12} /> Locked
                             </span>
+                          ) : isAllocationSubmitted ? (
+                            <span style={{ fontSize: '11.5px', color: '#b45309', fontWeight: '700' }}>Submitted</span>
                           ) : (
                             <span style={{ fontSize: '11.5px', color: isAllocationSubmitted ? '#b45309' : muted, fontWeight: '700' }}>
                               {isAllocationSubmitted ? 'Pending HOD' : 'Draft'}
@@ -878,7 +902,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
               </table>
             </div>
 
-            {programmeBatchCourses.length > 0 && (
+            {!standaloneCourseManagement && !approvalReadOnly && programmeBatchCourses.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', marginTop: '16px' }}>
                 <CheckCircle2 size={16} style={{ color: '#16a34a', flexShrink: 0 }} />
                 <span style={{ fontSize: '13px', fontWeight: '600', color: '#15803d' }}>{programmeBatchCourses.length} programme-batch course(s) added — click Next to set PO &amp; PSO targets.</span>
@@ -898,7 +922,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {!isTargetsApproved && !approvalReadOnly ? (
+                {!isTargetsReviewLocked && !approvalReadOnly ? (
                   <>
                     <button
                       type="button"
@@ -937,7 +961,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   </>
                 ) : (
                   <span style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <Lock size={13} /> Targets Locked
+                    <Lock size={13} /> {isTargetsApproved ? 'Targets Locked' : 'Submitted — Pending HOD Review'}
                   </span>
                 )}
               </div>
@@ -991,11 +1015,11 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                           <td style={{ textAlign: 'center' }}>
                             <input
                               type="number" min={1} max={3} step={0.1}
-                              disabled={isTargetsApproved}
+                              disabled={isTargetsReviewLocked}
                               value={poTargetDraft[po.code] ?? 2.0}
                               onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) setPoTargetDraft((prev) => ({ ...prev, [po.code]: v })); }}
                               onBlur={(e) => { const v = Math.min(3, Math.max(1, parseFloat(e.target.value) || 1)); setPoTargetDraft((prev) => ({ ...prev, [po.code]: Math.round(v * 10) / 10 })); }}
-                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: accent, background: isTargetsApproved ? '#f8fafc' : '#ffffff', cursor: isTargetsApproved ? 'not-allowed' : 'text' }}
+                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: accent, background: isTargetsReviewLocked ? '#f8fafc' : '#ffffff', cursor: isTargetsReviewLocked ? 'not-allowed' : 'text' }}
                             />
                           </td>
                         </tr>
@@ -1029,11 +1053,11 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                           <td style={{ textAlign: 'center' }}>
                             <input
                               type="number" min={1} max={3} step={0.1}
-                              disabled={isTargetsApproved}
+                              disabled={isTargetsReviewLocked}
                               value={psoTargetDraft[pso.code] ?? 2.0}
                               onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) setPsoTargetDraft((prev) => ({ ...prev, [pso.code]: v })); }}
                               onBlur={(e) => { const v = Math.min(3, Math.max(1, parseFloat(e.target.value) || 1)); setPsoTargetDraft((prev) => ({ ...prev, [pso.code]: Math.round(v * 10) / 10 })); }}
-                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: '#059669', background: isTargetsApproved ? '#f8fafc' : '#ffffff', cursor: isTargetsApproved ? 'not-allowed' : 'text' }}
+                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: '#059669', background: isTargetsReviewLocked ? '#f8fafc' : '#ffffff', cursor: isTargetsReviewLocked ? 'not-allowed' : 'text' }}
                             />
                           </td>
                         </tr>
@@ -1058,11 +1082,19 @@ export default function ProgrammeCoordinatorSetupWorkflow({
         {/* ── STEP 3: PROGRAMME-BATCH INDIRECT ATTAINMENT ────────────────── */}
         {currentStep === 3 && (() => {
           const surveyResult = programmeSurveyResult ?? programmeSurveyData;
-          const poScores = surveyResult?.poIndirectAttainment ?? {};
-          const psoScores = surveyResult?.psoIndirectAttainment ?? {};
+          const toScoreRows = (scores, type) => {
+            if (Array.isArray(scores)) {
+              return scores.map((item) => ({
+                code: type === 'PO' ? item.poCode : item.psoCode,
+                type,
+                score: item.indirectAttainment,
+              })).filter((item) => item.code);
+            }
+            return Object.entries(scores ?? {}).map(([code, score]) => ({ code, type, score }));
+          };
           const resultRows = [
-            ...Object.entries(poScores).map(([code, score]) => ({ code, type: 'PO', score })),
-            ...Object.entries(psoScores).map(([code, score]) => ({ code, type: 'PSO', score })),
+            ...toScoreRows(surveyResult?.poIndirectAttainment, 'PO'),
+            ...toScoreRows(surveyResult?.psoIndirectAttainment, 'PSO'),
           ];
           return (
           <div>
@@ -1071,9 +1103,16 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>Indirect Programme Attainment</h3>
                 <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>Upload the programme end survey for <strong>{selectedProgramme.code} · {selectedBatch?.name ?? 'selected batch'}</strong>.</p>
               </div>
-              <a href="/ProgrammeEnd-Survey.xlsx" download="ProgrammeEnd-Survey.xlsx" style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
-                <Download size={14} /> Download Template
-              </a>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <a href="/ProgrammeEnd-Survey.xlsx" download="ProgrammeEnd-Survey.xlsx" style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
+                  <Download size={14} /> Download Template
+                </a>
+                {surveyResult && (
+                  <button type="button" onClick={handleDeleteProgrammeSurvey} disabled={programmeSurveyUploading} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', cursor: programmeSurveyUploading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                    Remove Survey Data
+                  </button>
+                )}
+              </div>
             </div>
 
             {programmeSurveyError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#991b1b', fontSize: '13px' }}><AlertCircle size={18} />{programmeSurveyError}</div>}

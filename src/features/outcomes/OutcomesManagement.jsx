@@ -68,13 +68,16 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
   );
 
   useEffect(() => {
-    if (!isStandalone || !isCourseCoordinator || !user?.email || !batchId) return;
+    // The canonical programme-batch-course API is the source of truth for a
+    // Course Coordinator's assigned courses on both workflow and standalone
+    // outcome screens.
+    if (!isCourseCoordinator || !user?.email || !batchId) return;
     loadAssignedCourseOfferings(user, batchId).then((offerings) => {
       const selectedId = selectedCourseOffering?.id;
       const selectedStillAssigned = (offerings ?? []).some((offering) => offering.id === selectedId);
       if (!selectedStillAssigned && offerings?.[0]) selectCourseOffering(offerings[0]);
     }).catch(() => {});
-  }, [batchId, isCourseCoordinator, isStandalone, loadAssignedCourseOfferings, selectCourseOffering, selectedCourseOffering?.id, user]);
+  }, [batchId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, selectedCourseOffering?.id, user]);
 
   // The workflow loads this data from its Step 1 container. The sidebar's
   // standalone Add COs screen renders this component directly, so it must
@@ -595,6 +598,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
     || currentCoVerificationStatus === 'PENDING_APPROVAL'
     || targetData.status === 'SUBMITTED_FOR_VERIFICATION'
     || targetData.status === 'PENDING';
+  const isCoReviewLocked = isCoApproved || (isCourseCoordinator && outcomesPendingReview);
 
   return (
     <div className="animated-page">
@@ -619,7 +623,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
             >
               {assignedOfferings.length === 0 ? <option value="">No assigned courses for this programme batch</option> : assignedOfferings.map((offering) => <option key={offering.id} value={offering.id}>{offering.courseCode ?? offering.code ?? 'Course'} — {offering.courseName ?? offering.name ?? 'Programme-Batch Course'} · Sem {offering.semester ?? '—'}</option>)}
             </select>}
-            {!isCoApproved ? (
+            {!isCoReviewLocked ? (
               <>
                 <button
                   className="btn btn-primary"
@@ -640,7 +644,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
               </>
             ) : (
               <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <Lock size={13} /> Outcomes Locked
+                <Lock size={13} /> {isCoApproved ? 'Outcomes Locked' : 'Submitted — Pending Review'}
               </span>
             )}
           </div>
@@ -1202,7 +1206,8 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
 
                       const isApproved = co.status === 'APPROVED' || co.status === 'VERIFIED' || globalStatus === 'APPROVED' || globalStatus === 'VERIFIED';
                       const isRejected = co.status === 'REJECTED' || co.status === 'REVISION_REQUESTED' || globalStatus === 'REJECTED' || globalStatus === 'REVISION_REQUESTED';
-                      const isSubmitted = co.status === 'SUBMITTED' || co.status === 'PENDING_APPROVAL' || co.status === 'WAITING_FOR_APPROVAL' || globalStatus === 'SUBMITTED' || globalStatus === 'PENDING_APPROVAL' || globalStatus === 'WAITING_FOR_APPROVAL';
+                      const isSubmitted = ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'WAITING_FOR_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(co.status)
+                        || ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'WAITING_FOR_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(globalStatus);
                       const isDraft = !isApproved && !isRejected && !isSubmitted;
 
                       const targetVal = co.targetLevel !== undefined ? co.targetLevel : (co.target !== undefined ? co.target : 2.5);
@@ -1214,14 +1219,14 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                             <input
                               type="text"
                               className="form-control"
-                              disabled={isApproved}
+                              disabled={isApproved || isSubmitted || outcomesPendingReview}
                               style={{
                                 fontWeight: '800',
                                 textAlign: 'center',
                                 width: '80px',
                                 color: isApproved ? '#10b981' : '#d97706',
-                                background: isApproved ? '#f8fafc' : '#ffffff',
-                                cursor: isApproved ? 'not-allowed' : 'text',
+                                background: isApproved || isSubmitted || outcomesPendingReview ? '#f8fafc' : '#ffffff',
+                                cursor: isApproved || isSubmitted || outcomesPendingReview ? 'not-allowed' : 'text',
                               }}
                               value={co.code}
                               onChange={(e) => handleUpdateCOCode(index, e.target.value)}
@@ -1231,7 +1236,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                             <input
                               type="text"
                               className="form-control"
-                              disabled={isApproved}
+                              disabled={isApproved || isSubmitted || outcomesPendingReview}
                               value={co.statement}
                               onChange={(e) => handleUpdateCOStatement(index, e.target.value)}
                               style={{
@@ -1240,9 +1245,9 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                                 minWidth: '500px',
                                 boxSizing: 'border-box',
                                 padding: '8px 12px',
-                                background: isApproved ? '#f8fafc' : '#ffffff',
-                                cursor: isApproved ? 'not-allowed' : 'text',
-                                color: isApproved ? '#334155' : '#0f172a',
+                                background: isApproved || isSubmitted || outcomesPendingReview ? '#f8fafc' : '#ffffff',
+                                cursor: isApproved || isSubmitted || outcomesPendingReview ? 'not-allowed' : 'text',
+                                color: isApproved || isSubmitted || outcomesPendingReview ? '#334155' : '#0f172a',
                               }}
                             />
                           </td>
@@ -1252,7 +1257,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                               step="0.1"
                               min="1.0"
                               max="3.0"
-                              disabled={isApproved}
+                              disabled={isApproved || isSubmitted || outcomesPendingReview}
                               className="form-control"
                               style={{
                                 width: '70px',
@@ -1262,8 +1267,8 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                                 color: '#0f172a',
                                 padding: '6px 8px',
                                 margin: '0 auto',
-                                background: isApproved ? '#f8fafc' : '#ffffff',
-                                cursor: isApproved ? 'not-allowed' : 'text',
+                                background: isApproved || isSubmitted || outcomesPendingReview ? '#f8fafc' : '#ffffff',
+                                cursor: isApproved || isSubmitted || outcomesPendingReview ? 'not-allowed' : 'text',
                               }}
                               value={targetVal}
                               onChange={(e) => handleUpdateCOTarget(index, e.target.value)}
@@ -1320,14 +1325,14 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                                     )}
                                   </>
                                 )}
-                                <button
+                                {!isSubmitted && !outcomesPendingReview && <button
                                   type="button"
                                   style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
                                   onClick={() => handleOpenDeleteCO(index)}
                                   title="Delete Course Outcome"
                                 >
                                   <Trash2 size={13} />
-                                </button>
+                                </button>}
                               </div>
                             )}
                           </td>
@@ -1337,7 +1342,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                   )}
                 </tbody>
               </table>
-              {!isCoApproved && (
+              {!isCoReviewLocked && (
                 <RowButtons
                   onAdd={handleAddCO}
                   canDel={false}
@@ -1357,6 +1362,9 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
           nextPath="/co-mapping"
           nextLabel="Save COs & Proceed to Step 2: CO–PO/PSO Mapping →"
           onSave={handleSaveOutcomes}
+          saving={isSavingOutcomes}
+          saved={!outcomesDirty}
+          locked={isCoReviewLocked}
         />
       )}
       {/* Delete Confirmation Modal for Course Outcomes */}

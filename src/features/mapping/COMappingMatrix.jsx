@@ -62,6 +62,8 @@ export default function COMappingMatrix({ hideFooter = false }) {
   const [poKeywordsStore, setPoKeywordsStore] = useState({});
   const [psoKeywordsStore, setPsoKeywordsStore] = useState({});
   const [savedMatrix, setSavedMatrix] = useState({});
+  const [savedMappingSignature, setSavedMappingSignature] = useState(null);
+  const [isSavingMapping, setIsSavingMapping] = useState(false);
 
   useEffect(() => {
     setSavedMatrix(coMapping?.matrix ?? {});
@@ -221,6 +223,12 @@ export default function COMappingMatrix({ hideFooter = false }) {
   };
 
   const derivedMatrix = getDerivedCombinedMatrix();
+  const currentMappingSignature = JSON.stringify({
+    matrix: derivedMatrix,
+    poKeywords: poKeywordsStore[programmeBatchCourseId] ?? {},
+    psoKeywords: psoKeywordsStore[programmeBatchCourseId] ?? {},
+  });
+  const isMappingSaved = savedMappingSignature !== null && savedMappingSignature === currentMappingSignature;
 
   // Combined Average Helper
   const calculateCombinedAverage = (key) => {
@@ -239,8 +247,8 @@ export default function COMappingMatrix({ hideFooter = false }) {
   };
 
   const handleSave = async () => {
-    if (!programmeBatchCourseId) {
-      alert('Select an assigned programme-batch course before saving the mapping.');
+    if (!programmeBatchCourseId || isSavingMapping || isMappingSaved) {
+      if (!programmeBatchCourseId) alert('Select an assigned programme-batch course before saving the mapping.');
       return;
     }
     const toMappings = (outcomes, outcomeKey) => courseOutcomes.flatMap((co) => outcomes
@@ -266,6 +274,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
       }).filter(([coCode]) => Boolean(coCode))
     );
     try {
+      setIsSavingMapping(true);
       const saved = await updateCourseMapping({
         poMappings: toMappings(mappingPOs, 'poCode'),
         psoMappings: toMappings(mappingPSOs, 'psoCode'),
@@ -273,10 +282,13 @@ export default function COMappingMatrix({ hideFooter = false }) {
         psoKeywordsStore: toKeywordStore(psoKeywordsStore, mappingPSOs),
       }, programmeBatchCourseId);
       setSavedMatrix(saved?.matrix ?? derivedMatrix);
+      setSavedMappingSignature(currentMappingSignature);
       alert(`CO to PO & PSO mapping saved for ${selectedCourseOffering?.courseCode || selectedCourse?.code || 'the selected offering'}.`);
     } catch (error) {
       console.error('Failed to save CO mapping:', error);
       alert('Unable to save the CO mapping. Please try again.');
+    } finally {
+      setIsSavingMapping(false);
     }
   };
 
@@ -291,8 +303,8 @@ export default function COMappingMatrix({ hideFooter = false }) {
             </h2>
           </div>
 
-          <button className="btn btn-primary" onClick={handleSave}>
-            <Save size={15} /> Save Mapping Matrix
+          <button className="btn btn-primary" onClick={handleSave} disabled={isSavingMapping || isMappingSaved} style={{ opacity: isSavingMapping || isMappingSaved ? 0.6 : 1, cursor: isSavingMapping || isMappingSaved ? 'not-allowed' : 'pointer' }}>
+            <Save size={15} /> {isSavingMapping ? 'Saving…' : isMappingSaved ? 'Saved' : 'Save Mapping Matrix'}
           </button>
         </div>
       </div>
@@ -756,6 +768,8 @@ export default function COMappingMatrix({ hideFooter = false }) {
         nextPath="/marks-upload"
         nextLabel="Save & Proceed to Direct Assessment →"
         onSave={handleSave}
+        saving={isSavingMapping}
+        saved={isMappingSaved}
         hidden={hideFooter}
       />
     </div>

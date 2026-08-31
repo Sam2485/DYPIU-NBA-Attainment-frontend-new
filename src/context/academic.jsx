@@ -241,10 +241,6 @@ const toProgrammeBatchCoursePayload = (data = {}) => ({
 export function AcademicProvider({ children }) {
   const { role, user } = useAuth();
 
-  const getHodDepartmentStorageKey = useCallback(
-    () => `nba_hod_selected_department:${user?.email ?? user?.id ?? 'current-user'}`,
-    [user?.email, user?.id]
-  );
   const getHodProgrammeStorageKey = useCallback(
     () => `nba_hod_selected_master_programme:${user?.email ?? user?.id ?? 'current-user'}`,
     [user?.email, user?.id]
@@ -307,22 +303,6 @@ export function AcademicProvider({ children }) {
   const [hodCoordinatorAssignments, setHodCoordinatorAssignments] = useState([]);
   const [students, setStudents] = useState([]);
   const masterProgrammeRequestsRef = useRef(new Map());
-
-  useEffect(() => {
-    if (role !== 'HOD') return;
-    const persistedDepartmentId = typeof window === 'undefined'
-      ? null
-      : sessionStorage.getItem(getHodDepartmentStorageKey());
-    
-    // HOD department selection must be fixed to user.departmentId
-    if (persistedDepartmentId && persistedDepartmentId !== user?.departmentId) {
-      sessionStorage.removeItem(getHodDepartmentStorageKey());
-    }
-    
-    if (user?.departmentId && selectedDepartmentId !== user?.departmentId) {
-       setSelectedDepartmentIdState(user?.departmentId);
-    }
-  }, [getHodDepartmentStorageKey, role, selectedDepartmentId, user?.departmentId]);
 
   useEffect(() => {
     if (role !== 'HOD' || programmeId) return;
@@ -512,21 +492,19 @@ export function AcademicProvider({ children }) {
   /* --- Departments --- */
   const loadDepartments = useCallback(async (targetSchoolId = null) => {
     try {
-      const params = targetSchoolId ? { schoolId: targetSchoolId } : {};
+      // HOD department scope is derived by the backend from the authenticated
+      // user's JWT. Passing a schoolId can conflict with that server-side
+      // scope, especially after a user changes schools or sessions.
+      const params = role === 'HOD' ? {} : (targetSchoolId ? { schoolId: targetSchoolId } : {});
       const response = await apiClient.get('/academic/departments', { params });
-      let data = unwrapList(response).map(normalizeDepartment);
-      
-      if (role === 'HOD') {
-         data = data.filter(d => d.id === user?.departmentId);
-      }
-      
+      const data = unwrapList(response).map(normalizeDepartment);
       setDepartments(data);
       return data;
     } catch (err) {
       console.warn('loadDepartments failed:', err);
       return [];
     }
-  }, [role, user?.departmentId]);
+  }, [role]);
 
   /* --- Programmes --- */
   const loadProgrammes = useCallback(async (targetDepartmentId = null, coordinatorEmail = null) => {
@@ -1152,7 +1130,7 @@ export function AcademicProvider({ children }) {
         throw new Error('programmeBatchId is required to save Programme ATR.');
       }
 
-      const response = await apiClient.post(
+      const response = await apiClient.put(
         `/academic/programme-batches/${targetProgrammeBatchId}/atr`,
         payload
       );

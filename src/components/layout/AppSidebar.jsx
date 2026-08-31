@@ -197,10 +197,15 @@ export default function AppSidebar() {
   }, [loadDepartments, role]);
 
   useEffect(() => {
-    // Set an initial scope once only. A persisted user choice is never
-    // replaced just because the screen reloads or a department list refreshes.
-    if (role !== 'HOD' || selectedDepartmentId || departments.length === 0) return;
-    setSelectedDepartmentId(user?.departmentId ?? departments[0]?.id ?? null);
+    if (role !== 'HOD' || departments.length === 0) return;
+    // Preserve a saved choice when it is within the department list returned
+    // for the authenticated HOD; otherwise recover to the profile department
+    // or the first department that the JWT permits.
+    if (departments.some((department) => String(department.id) === String(selectedDepartmentId))) return;
+    const profileDepartment = departments.find(
+      (department) => String(department.id) === String(user?.departmentId)
+    );
+    setSelectedDepartmentId(profileDepartment?.id ?? departments[0]?.id ?? null);
   }, [departments, role, selectedDepartmentId, setSelectedDepartmentId, user?.departmentId]);
 
   useEffect(() => {
@@ -1158,9 +1163,10 @@ export default function AppSidebar() {
             color: '#fff',
             fontWeight: 800,
             fontSize: 13,
-            display: 'flex',
-            alignItems: 'center',
-            justify: 'center',
+            display: 'grid',
+            placeItems: 'center',
+            textAlign: 'center',
+            lineHeight: 1,
             flexShrink: 0,
           }}
         >

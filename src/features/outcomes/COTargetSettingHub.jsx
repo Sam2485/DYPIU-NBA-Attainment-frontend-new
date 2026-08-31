@@ -52,6 +52,8 @@ export default function COTargetSettingHub({ hideFooter = false }) {
   const targetData = courseVerificationStore[targetCourseId] || {};
   const isApproved = targetData.coStatus === 'APPROVED' || targetData.coStatus === 'VERIFIED';
   const isNeedsRevision = targetData.coStatus === 'REJECTED' || targetData.coStatus === 'REVISION_REQUESTED' || targetData.coStatus === 'NEEDS_REVISION';
+  const isPendingReview = ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(targetData.coStatus);
+  const isLocked = isApproved || isPendingReview;
 
   return (
     <div className="animated-page">
@@ -65,13 +67,13 @@ export default function COTargetSettingHub({ hideFooter = false }) {
           </div>
 
           <div style={{ marginLeft: 'auto' }}>
-            {!isApproved ? (
+            {!isLocked ? (
               <button className="btn btn-primary" onClick={handleSaveCoTargets} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                 <Send size={15} /> Submit CO for Review
               </button>
             ) : (
               <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <Lock size={13} /> Outcomes Locked
+                <Lock size={13} /> {isApproved ? 'Outcomes Locked' : 'Submitted — Pending Review'}
               </span>
             )}
           </div>
@@ -143,7 +145,7 @@ export default function COTargetSettingHub({ hideFooter = false }) {
                             step="0.1"
                             min="1.0"
                             max="3.0"
-                            disabled={isApproved}
+                            disabled={isLocked}
                             className="form-control"
                             style={{
                               width: '90px',
@@ -151,8 +153,8 @@ export default function COTargetSettingHub({ hideFooter = false }) {
                               fontWeight: '800',
                               fontSize: '14px',
                               color: '#0f172a',
-                              background: isApproved ? '#f8fafc' : '#ffffff',
-                              cursor: isApproved ? 'not-allowed' : 'text',
+                              background: isLocked ? '#f8fafc' : '#ffffff',
+                              cursor: isLocked ? 'not-allowed' : 'text',
                             }}
                             value={currentVal}
                             onChange={(e) => handleTargetChange(co.code, e.target.value)}
@@ -195,6 +197,7 @@ export default function COTargetSettingHub({ hideFooter = false }) {
           prevPath="/outcomes"
           nextPath="/co-mapping"
           onSave={handleSaveCoTargets}
+          locked={isLocked}
         />
       )}
     </div>

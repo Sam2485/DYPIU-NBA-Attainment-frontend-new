@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Save, CheckCircle2, Clock, ShieldCheck, Printer,
-  AlertCircle, Plus, Lock, Send, History,
+  Plus, Lock, Send, History,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -21,6 +22,11 @@ const parseObservations = (observationsJson) => {
     return [];
   }
 };
+const atrSignature = (items = []) => JSON.stringify(items.map((item) => ({
+  code: item.code,
+  remark: item.remark ?? '',
+  actions: (item.actions ?? []).filter(Boolean),
+})));
 
 export default function ProgrammeATR({ courseId = null, programmeId: propProgrammeId = null, batchId: propBatchId = null, hideFooter = false, hideHeader = false, readOnly = false, showBatchSelector = true }) {
   const { user, role } = useAuth();
@@ -82,6 +88,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const isSubmittedForReview = ['PENDING', 'SUBMITTED_FOR_VERIFICATION', 'SUBMITTED', 'PENDING_APPROVAL'].includes(reportStatus);
   const locked = readOnly || isPreviousBatch || isSubmittedForReview || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
   const [atrSaveState, setAtrSaveState] = useState('idle');
+  const [savedAtrSignature, setSavedAtrSignature] = useState(null);
 
   useEffect(() => {
     // Match the Programme Coordinator workflow: fetch batches using the
@@ -136,7 +143,11 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
 
   const [atrList, setAtrList] = useState(buildList);
 
-  useEffect(() => { setAtrList(buildList()); }, [programmeId, targetCourseId, activePOs.length, activePSOs.length]);
+  useEffect(() => {
+    setAtrList(buildList());
+    setSavedAtrSignature(null);
+    setAtrSaveState('idle');
+  }, [programmeId, targetCourseId, activePOs.length, activePSOs.length]);
 
   useEffect(() => {
     if (propBatchId || selectedBatch?.id) setSelectedBatchId(propBatchId || selectedBatch.id);
@@ -156,6 +167,8 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const handleBatchChange = (nextBatchId) => {
     setSelectedBatchId(nextBatchId);
     setBatchId(nextBatchId);
+    setSavedAtrSignature(null);
+    setAtrSaveState('idle');
   };
 
   useEffect(() => {
@@ -243,37 +256,22 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
       .filter((item) => item.type === type)
       .map((item) => ({
         outcomeCode: item.code,
-        outcomeStatement: item.statement,
-        targetLevel: Number(item.target) || 0,
-        attainmentLevel: Number(item.actual) || 0,
-        achievementPercentage: Number(item.pct) || 0,
         observation: item.remark || '',
         actions: item.actions.filter(Boolean),
       }));
     return {
-      reportType: 'PROGRAMME_ATR',
       status: 'DRAFT',
-      programme: {
-        id: currentProgramme.id,
-        code: currentProgramme.code ?? '',
-        name: currentProgramme.name ?? '',
-      },
-      batch: {
-        id: selectedBatchId,
-        name: currentBatchObj?.name ?? '',
-        startYear: currentBatchObj?.startYear ?? '',
-        endYear: currentBatchObj?.endYear ?? '',
-      },
       poOutcomes: outcomesPayload('PO'),
       psoOutcomes: outcomesPayload('PSO'),
     };
   };
 
   const handleSaveAtr = async () => {
-    if (!selectedBatchId || locked) return;
+    if (!selectedBatchId || locked || atrSaveState === 'saving' || savedAtrSignature === atrSignature(atrList)) return;
     try {
       setAtrSaveState('saving');
       await saveProgrammeATR(selectedBatchId, buildAtrPayload());
+      setSavedAtrSignature(atrSignature(atrList));
       setAtrSaveState('saved');
     } catch (error) {
       console.error('Failed to save Programme ATR:', error);
@@ -298,6 +296,8 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const handleUpdateAction = (idx, j, v) => setAtrList((p) => p.map((c, i) => { if (i !== idx) return c; const a = [...c.actions]; a[j] = v; return { ...c, actions: a }; }));
   const handleDeleteAction = (idx, j)    => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, actions: c.actions.filter((_, k) => k !== j) } : c));
 
+  const isAtrSaved = savedAtrSignature !== null && savedAtrSignature === atrSignature(atrList);
+
   const poList  = atrList.filter((i) => i.type === 'PO');
   const psoList = atrList.filter((i) => i.type === 'PSO');
   const metCount = atrList.filter((c) => c.met).length;
@@ -305,12 +305,14 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
 
   // ── ATR Card renderer ────────────────────────────────────────────
   const renderCard = (item, accentColor, isReadOnly = locked) => {
-    const idx       = atrList.findIndex((i) => i.code === item.code);
+    // PO and PSO codes can overlap. Resolve the row by both its outcome type
+    // and code so actions added from a PSO card never modify a PO card.
+    const idx       = atrList.findIndex((i) => i.type === item.type && i.code === item.code);
     const borderCol = item.met ? '#bbf7d0' : '#fecaca';
     const bgCol     = item.met ? '#f0fdf4'  : '#fef2f2';
 
     return (
-      <div key={item.code} style={{ border: `1px solid ${borderCol}`, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+      <div key={`${item.type}-${item.code}`} style={{ border: `1px solid ${borderCol}`, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
         {/* Card banner */}
         <div style={{ background: bgCol, borderBottom: `1px solid ${borderCol}`, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
           <span style={{ fontSize: '13px', fontWeight: '700', color: ink }}>
@@ -424,9 +426,9 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
               )}
               {!showHistory && (!locked ? (
                 <>
-                  <button onClick={handleSaveAtr}
-                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
-                    <Save size={14} /> {atrSaveState === 'saving' ? 'Saving…' : atrSaveState === 'saved' ? 'Saved' : 'Save ATR'}
+                  <button onClick={handleSaveAtr} disabled={atrSaveState === 'saving' || isAtrSaved}
+                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: isAtrSaved ? '#f1f5f9' : accent, color: isAtrSaved ? '#64748b' : '#fff', border: isAtrSaved ? '1px solid #cbd5e1' : 'none', borderRadius: '8px', cursor: atrSaveState === 'saving' || isAtrSaved ? 'not-allowed' : 'pointer', opacity: atrSaveState === 'saving' ? 0.7 : 1, display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                    <Save size={14} /> {atrSaveState === 'saving' ? 'Saving…' : isAtrSaved ? 'Saved' : 'Save ATR'}
                   </button>
                   <button onClick={handleSubmitAtrForReview}
                     style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: '#ffffff', color: accent, border: `1px solid ${accent}`, borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
@@ -519,19 +521,12 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
 
       {/* ── REVISION REQUESTED BANNER ─────────────────────────────────────── */}
       {!showHistory && reportStatus === 'REVISION_REQUESTED' && (
-        <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-          <AlertCircle size={20} style={{ color: '#dc2626', flexShrink: 0 }} />
-          <div>
-            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#991b1b' }}>
-              ⚠ Revision Requested by {verifierName}
-            </span>
-            {verificationRemarks && (
-              <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#7f1d1d', fontStyle: 'italic' }}>
-                "{verificationRemarks}"
-              </p>
-            )}
-          </div>
-        </div>
+        <RequestRevisionCard
+          title={`Programme ATR Revision Requested (${currentProgramme.code || 'Programme'})`}
+          requestedBy={verifierName}
+          remarks={verificationRemarks || 'Please review the PO/PSO observations and corrective actions as per HOD feedback.'}
+          actionText="Please update the programme ATR details below and resubmit for HOD approval."
+        />
       )}
 
       {/* ── PENDING REVIEW BANNER ─────────────────────────────────────────── */}
@@ -596,7 +591,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
               </button>
             ) : (
               <span style={{ height: '40px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <Lock size={14} /> Report Locked
+                <Lock size={14} /> {reportStatus === 'APPROVED' || reportStatus === 'VERIFIED' ? 'Report Locked' : 'Submitted — Pending HOD Review'}
               </span>
             )}
           </div>

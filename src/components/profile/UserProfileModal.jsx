@@ -48,8 +48,8 @@ export default function UserProfileModal({ open, onClose, user, roleLabel, cours
   if (!open) return null;
 
   const content = (
-    <div role="presentation" onMouseDown={onClose} style={{ position: 'fixed', inset: 0, zIndex: 200, padding: 20, display: 'grid', placeItems: 'center', background: 'rgba(15,23,42,.62)', backdropFilter: 'blur(7px)' }}>
-      <section role="dialog" aria-modal="true" aria-label="Account profile" onMouseDown={(event) => event.stopPropagation()} style={{ width: 'min(100%, 1020px)', height: 'min(760px, calc(100vh - 40px))', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#fff', borderRadius: 20, boxShadow: '0 28px 90px rgba(2,6,23,.42)' }}>
+    <div role="presentation" onMouseDown={onClose} style={{ position: 'fixed', inset: 0, zIndex: 200, padding: '20px 148px 20px min(304px, 22vw)', display: 'grid', placeItems: 'center end', background: 'rgba(15,23,42,.62)', backdropFilter: 'blur(7px)' }}>
+      <section role="dialog" aria-modal="true" aria-label="Account profile" onMouseDown={(event) => event.stopPropagation()} style={{ width: 'min(85%, 867px)', height: 'min(646px, calc(100vh - 40px))', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#fff', borderRadius: 20, boxShadow: '0 28px 90px rgba(2,6,23,.42)' }}>
         <header style={{ minHeight: 68, padding: '14px 20px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid #e7edf5' }}>
           <div><h2 style={{ margin: 2, color: '#172033', fontSize: 19 }}>Account</h2><p style={{ margin: '4px 0 13px', color: '#64748b', fontSize: 12.5 }}>Your account, security and application preferences</p></div>
           <button type="button" onClick={onClose} aria-label="Close account panel" style={{ width: 34, height: 34, display: 'grid', placeItems: 'center', border: '1px solid #e2e8f0', borderRadius: '50%', color: '#64748b', background: '#fff', cursor: 'pointer' }}><X size={18} /></button>

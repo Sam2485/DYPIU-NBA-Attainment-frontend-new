@@ -28,7 +28,7 @@ const WORKFLOW_STEPS = [
 
 export default function DashboardOverview() {
   const navigate = useNavigate();
-  const { user }  = useAuth();
+  const { user, role }  = useAuth();
   const {
     selectedCourseOffering = null,
     selectedProgramme = null,
@@ -43,6 +43,8 @@ export default function DashboardOverview() {
     loadCourseCoordinatorDashboard,
     batchId = null,
     courseOfferingId = null,
+    selectCourseOffering = () => {},
+    loadAssignedCourseOfferings = () => Promise.resolve([]),
   } = useAcademic();
 
   const [screenLoading, setScreenLoading] = useState(false);
@@ -62,11 +64,11 @@ export default function DashboardOverview() {
   const psoCount = dashboardData.psoCount ?? 0;
   const assignedCourseCount = dashboardData.assignedCourseCount ?? 0;
 
-  const fetchCCData = async () => {
+  const fetchCCData = async (targetOfferingId = courseOfferingId) => {
     setScreenLoading(true);
     setScreenError(null);
     try {
-      await loadCourseCoordinatorDashboard?.();
+      await loadCourseCoordinatorDashboard?.(targetOfferingId, user?.email);
     } catch (err) {
       console.warn('DashboardOverview fetch failed:', err);
       setScreenError(err?.customMessage || err?.message || 'Failed to load Course Coordinator dashboard.');
@@ -76,8 +78,25 @@ export default function DashboardOverview() {
   };
 
   useEffect(() => {
-    fetchCCData();
-  }, [loadCourseCoordinatorDashboard]);
+    const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
+    if (!isCourseCoordinator || !user?.email || !batchId) return;
+    let isCurrent = true;
+    loadAssignedCourseOfferings(user, batchId).then((offerings) => {
+      if (!isCurrent) return;
+      const selected = (offerings ?? []).find(
+        (offering) => String(offering.id) === String(courseOfferingId)
+      ) ?? offerings?.[0];
+      if (selected && String(selected.id) !== String(courseOfferingId)) {
+        selectCourseOffering(selected);
+        return;
+      }
+      fetchCCData(selected?.id ?? courseOfferingId);
+    }).catch((err) => {
+      if (!isCurrent) return;
+      setScreenError(err?.customMessage || err?.message || 'Failed to load assigned courses.');
+    });
+    return () => { isCurrent = false; };
+  }, [batchId, courseOfferingId, loadAssignedCourseOfferings, loadCourseCoordinatorDashboard, role, selectCourseOffering, user]);
 
   // ── Verification status & revision requests ──────────────────────────────
   const verificationRecord = (courseOfferingId && courseVerificationStore[courseOfferingId]) || (courseId && courseVerificationStore[courseId]) || {};

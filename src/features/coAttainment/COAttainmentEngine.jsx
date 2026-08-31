@@ -2,15 +2,20 @@ import { useEffect } from 'react';
 import { Calculator, Save, CheckCircle2 } from 'lucide-react';
 import { useAcademic } from '../../context/academic';
 import { useAttainment } from '../../context/attainment';
+import { useAuth } from '../../context/AuthContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
 export default function COAttainmentEngine({ hideFooter = false }) {
+  const { user, role } = useAuth();
   const {
     academicYear,
     selectedProgramme,
     selectedCourse,
     selectedCourseOffering,
     courseOfferingId,
+    batchId,
+    selectCourseOffering = () => {},
+    loadAssignedCourseOfferings = () => Promise.resolve([]),
     activeCOs = [],
     activePOs = [],
     activePSOs = [],
@@ -20,14 +25,30 @@ export default function COAttainmentEngine({ hideFooter = false }) {
   const {
     attainmentConfigs,
     courseAttainmentStore,
+    loadAttainmentConfig,
     loadCourseCoAttainment,
   } = useAttainment();
 
   useEffect(() => {
+    const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
+    if (!isCourseCoordinator || !user?.email || !batchId) return;
+    loadAssignedCourseOfferings(user, batchId).then((offerings) => {
+      const selectedStillAssigned = (offerings ?? []).some(
+        (offering) => String(offering.id) === String(courseOfferingId)
+      );
+      if (!selectedStillAssigned && offerings?.[0]) selectCourseOffering(offerings[0]);
+    }).catch(() => {});
+  }, [batchId, courseOfferingId, loadAssignedCourseOfferings, role, selectCourseOffering, user]);
+
+  useEffect(() => {
     if (courseOfferingId) {
+      // Configuration is scoped to the programme-batch-course offering, not
+      // the master course. Load it together with the attainment calculation
+      // so the parameters always match the course currently being viewed.
+      loadAttainmentConfig(courseOfferingId).catch(() => {});
       loadCourseCoAttainment(courseOfferingId).catch(() => {});
     }
-  }, [courseOfferingId, loadCourseCoAttainment]);
+  }, [courseOfferingId, loadAttainmentConfig, loadCourseCoAttainment]);
 
   // Parameters from Attainment Configuration
   const directWeight = attainmentConfigs?.directWeight ?? 80;

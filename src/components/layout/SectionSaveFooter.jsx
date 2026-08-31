@@ -34,7 +34,7 @@ export default function SectionSaveFooter({
       onFinish();
       return;
     }
-    if (onSave) onSave(true);
+    if (onSave && !saved) onSave(true);
     if (nextPath) navigate(nextPath);
   };
 
@@ -125,15 +125,15 @@ export default function SectionSaveFooter({
         <button
           type="button"
           onClick={handleSaveDraft}
-          disabled={saving || locked}
+          disabled={saving || locked || saved}
           style={{
             minHeight: 40,
             padding: '10px 20px',
             background: '#fff',
-            color: locked ? '#9ca3af' : '#2563eb',
-            border: `1.5px solid ${locked ? '#d1d5db' : '#2563eb'}`,
+            color: locked || saved ? '#9ca3af' : '#2563eb',
+            border: `1.5px solid ${locked || saved ? '#d1d5db' : '#2563eb'}`,
             borderRadius: 10,
-            cursor: saving || locked ? 'not-allowed' : 'pointer',
+            cursor: saving || locked || saved ? 'not-allowed' : 'pointer',
             fontWeight: 700,
             fontSize: 14,
             fontFamily: 'inherit',
@@ -144,7 +144,7 @@ export default function SectionSaveFooter({
             transition: 'background 0.15s ease, box-shadow 0.15s ease',
           }}
           onMouseEnter={(e) => {
-            if (!saving && !locked) e.currentTarget.style.background = '#eff6ff';
+            if (!saving && !locked && !saved) e.currentTarget.style.background = '#eff6ff';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = '#fff';
@@ -156,7 +156,7 @@ export default function SectionSaveFooter({
             <path d="M17 21v-8H7v8" />
             <path d="M7 3v5h8" />
           </svg>
-          {saving ? 'Saving...' : 'Save as Draft'}
+          {saving ? 'Saving...' : saved ? 'Saved' : 'Save as Draft'}
         </button>
 
         {/* Save & Next / Finish Attainment — solid blue/green gradient button with shadow */}

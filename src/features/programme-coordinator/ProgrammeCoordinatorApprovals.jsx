@@ -42,7 +42,6 @@ export default function ProgrammeCoordinatorApprovals() {
   const [approvals, setApprovals] = useState([]);
   const [selectedId, setSelectedId] = useState(() => searchParams.get('approvalId'));
   const [details, setDetails] = useState(null);
-  const [reviewContent, setReviewContent] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -56,7 +55,6 @@ export default function ProgrammeCoordinatorApprovals() {
 
   const openApproval = (approvalId) => {
     setDetails(null);
-    setReviewContent(null);
     setSelectedId(approvalId);
     setSearchParams({ approvalId, queue: queueTab });
   };
@@ -164,18 +162,6 @@ export default function ProgrammeCoordinatorApprovals() {
     return () => { active = false; };
   }, [approvals, selectedId]);
 
-  useEffect(() => {
-    if (!details?.programmeBatchCourseId || !details?.type) return;
-    setReviewContent(null);
-    const courseId = details.programmeBatchCourseId;
-    const request = ['ATTAINMENT_SETTINGS', 'ATTAINMENT_CONFIGURATION'].includes(details.type)
-      ? apiClient.get(`/programme-batch-courses/${courseId}/config`)
-      : ['COURSE_OUTCOMES_TARGETS', 'CO_DEFINITION'].includes(details.type)
-        ? apiClient.get(`/programme-batch-courses/${courseId}/course-outcomes`)
-        : apiClient.get(`/programme-batch-courses/${courseId}/atr`);
-    request.then((response) => setReviewContent(unwrap(response))).catch((err) => setError(err?.response?.data?.message || 'Unable to load submitted approval content.'));
-  }, [details?.programmeBatchCourseId, details?.type]);
-
   const applyAction = async (action) => {
     if (!details?.id) return;
     if (action === 'REQUEST_REVISION' && !remarks.trim()) {
@@ -239,10 +225,20 @@ export default function ProgrammeCoordinatorApprovals() {
     : ['APPROVED', 'VERIFIED', 'REVISION_REQUESTED', 'REJECTED'].includes(item.status));
   const visibleWorkspaceTabs = workspaceTabs.length > 0 ? workspaceTabs : [selected].filter(Boolean);
 
-  if (selectedId) {
+  // A URL can retain an approvalId while its pending/reviewed list is being
+  // refreshed. Stay on the selected tab until the item is available instead
+  // of replacing the list with a blocking workspace-loading screen.
+  useEffect(() => {
+    if (!selectedId || loading || selected) return;
+    setSelectedId(null);
+    setDetails(null);
+    setSearchParams({ queue: queueTab }, { replace: true });
+  }, [loading, queueTab, selected, selectedId, setSearchParams]);
+
+  if (selectedId && selected) {
     return <div className="animated-page" style={{ paddingBottom: '48px' }}>
       <button type="button" onClick={closeApproval} style={{ marginBottom: 16, height: 36, padding: '0 12px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#fff', color: '#475569', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}><ArrowLeft size={15} /> Back to approvals</button>
-      {!selected ? <div style={{ ...surface, padding: 28, color: '#64748b' }}>Loading approval workspace…</div> : <>
+      <>
         <div style={{ ...surface, padding: '20px 24px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
           <div><div style={{ fontSize: 11, fontWeight: 800, color: '#64748b', letterSpacing: '.08em', textTransform: 'uppercase' }}>Programme Coordinator · Read-only Review</div><h2 style={{ margin: '5px 0 0', fontSize: 20, color: '#0f172a' }}>{approvalLabels[selected.type] ?? selected.title ?? 'Course Submission'}</h2><p style={{ margin: '5px 0 0', fontSize: 12.5, color: '#64748b' }}>{selected.courseCode ?? selectedGroup?.course?.courseCode ?? '—'} · {selected.courseName ?? selectedGroup?.course?.courseName ?? 'Programme-Batch Course'} · Semester {selected.semester ?? selectedGroup?.course?.semester ?? '—'}</p></div>
           {!isPending(selected) && (() => { const [bg, color] = statusColor(selected.status); return <span style={{ color, background: bg, padding: '6px 10px', borderRadius: 6, fontWeight: 800, fontSize: 12 }}>{selected.status}</span>; })()}
@@ -258,7 +254,7 @@ export default function ProgrammeCoordinatorApprovals() {
               : <CourseATR hideHeader hideFooter readOnly suppressPendingMessage courseId={selected.programmeBatchCourseId} />}
         </div>
         <div style={{ ...surface, padding: '16px 18px', marginBottom: 16 }}><div style={{ fontSize: 12, color: '#64748b' }}>Submitted by: <strong>{selected.submittedBy || 'Course Coordinator'}</strong><br />Submitted on: {selected.submittedAt || selected.createdAt || '—'}</div>{(isPending(selected) || isApproved(selected) || isRevisionRequested(selected)) && <>{(isPending(selected) || isApproved(selected)) && <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Reason required when requesting a revision" style={{ width: '100%', minHeight: 78, padding: 10, marginTop: 14, border: '1px solid #cbd5e1', borderRadius: 8, boxSizing: 'border-box', fontFamily: 'inherit', fontSize: 13 }} />}<div style={{ display: 'flex', gap: 8, marginTop: 10 }}>{(isPending(selected) || isRevisionRequested(selected)) && <button type="button" disabled={actionLoading} onClick={() => applyAction('APPROVE')} style={{ padding: '8px 12px', background: '#16a34a', color: '#fff', border: 0, borderRadius: 6, fontWeight: 700, cursor: 'pointer' }}><Check size={14} /> {isRevisionRequested(selected) ? 'Approve Revision' : 'Approve'}</button>}{(isPending(selected) || isApproved(selected)) && <button type="button" disabled={actionLoading} onClick={() => applyAction('REQUEST_REVISION')} style={{ padding: '8px 12px', background: '#fff', color: '#b45309', border: '1px solid #f59e0b', borderRadius: 6, fontWeight: 700, cursor: 'pointer' }}><Send size={14} /> Request Revision</button>}</div></>}</div>
-      </>}
+      </>
     </div>;
   }
 

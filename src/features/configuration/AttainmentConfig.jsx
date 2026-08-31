@@ -11,6 +11,13 @@ const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadi
 const ink = '#0f172a';
 const muted = '#64748b';
 const accent = '#4f46e5';
+const configSignature = (config = {}) => JSON.stringify({
+  directWeight: config.directWeight,
+  indirectWeight: config.indirectWeight,
+  directThreshold: config.directThreshold,
+  directLevels: config.directLevels ?? [],
+  indirectLevels: config.indirectLevels ?? [],
+});
 
 export default function AttainmentConfig({ hideHeader = false, readOnly = false, reviewCourseId = null, suppressPendingMessage = false }) {
   const { role, user } = useAuth();
@@ -62,11 +69,13 @@ export default function AttainmentConfig({ hideHeader = false, readOnly = false,
   const [activeCourseId, setActiveCourseId] = useState(programmeBatchCourseId || selectedCourse?.id || 'crs-1');
 
   useEffect(() => {
-    const targetId = isCourseCoordinator ? programmeBatchCourseId : selectedCourse?.id;
+    const targetId = (isCourseCoordinator || reviewCourseId)
+      ? programmeBatchCourseId
+      : selectedCourse?.id;
     if (targetId) {
       setActiveCourseId(targetId);
     }
-  }, [isCourseCoordinator, programmeBatchCourseId, selectedCourse]);
+  }, [isCourseCoordinator, programmeBatchCourseId, reviewCourseId, selectedCourse]);
 
   useEffect(() => {
     if (!isCourseCoordinator || !user?.email || !batchId) return;
@@ -119,6 +128,8 @@ export default function AttainmentConfig({ hideHeader = false, readOnly = false,
   };
   const [localCourseConfig, setLocalCourseConfig] = useState(defaultConfig);
   const [isSubmittingForReview, setIsSubmittingForReview] = useState(false);
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [savedConfigSignature, setSavedConfigSignature] = useState(null);
 
   useEffect(() => {
     if ((isCourseCoordinator || reviewCourseId) && programmeBatchCourseId) {
@@ -128,8 +139,14 @@ export default function AttainmentConfig({ hideHeader = false, readOnly = false,
   }, [isCourseCoordinator, loadAttainmentConfig, loadProgrammeBatchCourseApprovalStatus, programmeBatchCourseId, reviewCourseId]);
 
   useEffect(() => {
-    if (isCourseCoordinator) setLocalCourseConfig(apiConfig || defaultConfig);
-  }, [apiConfig, isCourseCoordinator, programmeBatchCourseId]);
+    // Approval reviews use the same API response as the Course Coordinator
+    // screen, but are rendered read-only. They must still populate the local
+    // display state instead of falling back to default values.
+    if (!isCourseCoordinator && !reviewCourseId) return;
+    const config = apiConfig || defaultConfig;
+    setLocalCourseConfig(config);
+    setSavedConfigSignature(apiConfig ? configSignature(config) : null);
+  }, [apiConfig, isCourseCoordinator, programmeBatchCourseId, reviewCourseId]);
 
   const currentConfig = (isCourseCoordinator || reviewCourseId)
     ? localCourseConfig
@@ -218,22 +235,28 @@ export default function AttainmentConfig({ hideHeader = false, readOnly = false,
     ? workspaceConfigStatus
     : (currentConfig.status || 'DRAFT');
   const isApproved = currentVerificationStatus === 'VERIFIED' || currentVerificationStatus === 'APPROVED';
-  const isLocked = readOnly || isApproved;
   const isPendingReview = ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(currentVerificationStatus);
+  const isLocked = readOnly || isApproved || isPendingReview;
+  const isConfigSaved = savedConfigSignature !== null && savedConfigSignature === configSignature(currentConfig);
 
   const handleSaveConfig = async () => {
     if (isCourseCoordinator) {
-      if (!programmeBatchCourseId) {
-        alert('Select an assigned programme-batch course in the sidebar first.');
+      if (!programmeBatchCourseId || isSavingConfig || isConfigSaved) {
+        if (!programmeBatchCourseId) alert('Select an assigned programme-batch course in the sidebar first.');
         return;
       }
       try {
+        setIsSavingConfig(true);
         const saved = await saveApiConfig({ ...currentConfig, programmeBatchCourseId }, programmeBatchCourseId);
-        setLocalCourseConfig(saved || currentConfig);
+        const savedConfig = saved || currentConfig;
+        setLocalCourseConfig(savedConfig);
+        setSavedConfigSignature(configSignature(savedConfig));
         alert('Attainment settings saved successfully.');
       } catch (error) {
         console.error('Failed to save attainment settings:', error);
         alert('Unable to save attainment settings. Please try again.');
+      } finally {
+        setIsSavingConfig(false);
       }
       return;
     }
@@ -264,6 +287,7 @@ export default function AttainmentConfig({ hideHeader = false, readOnly = false,
         programmeBatchCourseId,
       );
       const config = saved || currentConfig;
+      setSavedConfigSignature(configSignature(config));
 
       await submitApproval({
         courseOfferingId: programmeBatchCourseId,
@@ -347,17 +371,17 @@ export default function AttainmentConfig({ hideHeader = false, readOnly = false,
               />
             </div>}
 
-            {!isApproved ? (
+            {!isLocked ? (
               isCourseCoordinator ? (
                 <>
-                  <button className="btn btn-primary" onClick={handleSaveConfig} style={{ height: '38px' }}>
-                    <Save size={15} /> Save Attainment Settings
+                  <button className="btn btn-primary" onClick={handleSaveConfig} disabled={isSavingConfig || isConfigSaved} style={{ height: '38px', opacity: isSavingConfig || isConfigSaved ? 0.6 : 1, cursor: isSavingConfig || isConfigSaved ? 'not-allowed' : 'pointer' }}>
+                    <Save size={15} /> {isSavingConfig ? 'Saving…' : isConfigSaved ? 'Saved' : 'Save Attainment Settings'}
                   </button>
                   <button
                     className="btn btn-primary"
                     onClick={handleSubmitForReview}
-                    disabled={isSubmittingForReview || isPendingReview}
-                    style={{ height: '38px', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', opacity: isSubmittingForReview || isPendingReview ? 0.5 : 1, cursor: isSubmittingForReview || isPendingReview ? 'not-allowed' : 'pointer' }}
+                    disabled={isSubmittingForReview || isSavingConfig || isPendingReview}
+                    style={{ height: '38px', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', opacity: isSubmittingForReview || isSavingConfig || isPendingReview ? 0.5 : 1, cursor: isSubmittingForReview || isSavingConfig || isPendingReview ? 'not-allowed' : 'pointer' }}
                   >
                     <Send size={15} /> {isSubmittingForReview ? 'Submitting…' : isPendingReview ? 'Submitted' : 'Submit for Review'}
                   </button>
@@ -369,7 +393,7 @@ export default function AttainmentConfig({ hideHeader = false, readOnly = false,
               )
             ) : (
               <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <Lock size={13} /> Settings Locked
+                <Lock size={13} /> {isApproved ? 'Settings Locked' : 'Submitted — Pending Review'}
               </span>
             )}
           </div>

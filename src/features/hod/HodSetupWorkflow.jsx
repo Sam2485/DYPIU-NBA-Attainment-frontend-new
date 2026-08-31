@@ -86,6 +86,7 @@ export default function HodSetupWorkflow() {
   const [newCourseType, setNewCourseType] = useState('THEORY');
   const [batchCoordinatorSelections, setBatchCoordinatorSelections] = useState({});
   const [assignmentSaveState, setAssignmentSaveState] = useState('idle');
+  const [savedAssignmentSignature, setSavedAssignmentSignature] = useState(null);
 
   const triggerDeleteConfirm = ({ title, itemName, description, onConfirm }) => {
     setDeleteModalConfig({
@@ -110,6 +111,7 @@ export default function HodSetupWorkflow() {
   const [startYearInput, setStartYearInput] = useState('2025');
   const [endYearInput, setEndYearInput] = useState('2029');
   const [batchValidationError, setBatchValidationError] = useState('');
+  const [newBatchCoordinatorValue, setNewBatchCoordinatorValue] = useState('');
 
   // Step 2: Batch Edit State
   const [editingBatchId, setEditingBatchId] = useState(null);
@@ -126,6 +128,7 @@ export default function HodSetupWorkflow() {
     setEditEndYear(b.endYear || '');
     setEditStatus(b.status || 'ACTIVE');
     const coordinator = coordinatorOptions.find((item) =>
+      (b.coordinatorId != null && String(item.id) === String(b.coordinatorId)) ||
       (b.coordinatorEmail && item.email === b.coordinatorEmail) ||
       (b.coordinatorName && (item.name === b.coordinatorName || item.username === b.coordinatorName))
     );
@@ -142,8 +145,6 @@ export default function HodSetupWorkflow() {
       startYear: editStartYear,
       endYear: editEndYear,
       status: editStatus,
-      coordinatorName: coordinator?.name ?? batch.coordinatorName ?? null,
-      coordinatorEmail: coordinator?.email ?? batch.coordinatorEmail ?? null,
     };
     // Use the lifecycle endpoint whenever status changes; normal details are
     // still saved through the programme-batch update endpoint.
@@ -185,6 +186,8 @@ export default function HodSetupWorkflow() {
     if (value && !unique.some((item) => coordinatorValue(item) === value)) unique.push(coordinator);
     return unique;
   }, []);
+  const assignmentSignature = JSON.stringify(programmeBatches.map((batch) => [batch.id, batchCoordinatorSelections[batch.id] ?? '']));
+  const assignmentsAreSaved = savedAssignmentSignature !== null && savedAssignmentSignature === assignmentSignature;
 
   useEffect(() => {
     setBatchCoordinatorSelections((current) => {
@@ -304,8 +307,7 @@ export default function HodSetupWorkflow() {
 
       if (currentStep === 1) {
         await loadMasterCourses({ masterProgrammeId: targetProgrammeId });
-      } else if (currentStep === 2) {
-      } else if (currentStep === 3) {
+      } else if (currentStep === 2 || currentStep === 3) {
         await loadProgrammeCoordinators();
       } else if (currentStep === 4) {
       } else if (currentStep === 5) {
@@ -408,19 +410,31 @@ export default function HodSetupWorkflow() {
     if (!s || s <= 2020 || !en || en <= s || !selectedProgramme?.id) return;
 
     const programmeLabel = selectedProgramme.code?.trim() || selectedProgramme.id;
-    const batch = await createProgrammeBatch({
-      masterProgrammeId: selectedProgramme.id,
-      name: `${programmeLabel} ${s}-${en}`,
-      startYear: s,
-      endYear: en,
-      durationYears,
-      yearLevel: 'First Year',
-      status: 'ACTIVE',
-    });
-    if (batch?.id) setBatchId(batch.id);
+    const coordinator = coordinatorOptions.find(
+      (item) => coordinatorValue(item) === newBatchCoordinatorValue
+    );
+    try {
+      const batch = await createProgrammeBatch({
+        masterProgrammeId: selectedProgramme.id,
+        name: `${programmeLabel} ${s}-${en}`,
+        startYear: s,
+        endYear: en,
+        durationYears,
+        yearLevel: 'First Year',
+        status: 'ACTIVE',
+      });
+      if (!batch?.id) throw new Error('The programme batch was not created.');
+      if (coordinator) await assignProgrammeBatchCoordinator(batch.id, coordinator);
+      setBatchId(batch.id);
+      setNewBatchCoordinatorValue('');
+    } catch (error) {
+      console.error('Failed to create programme batch or assign its coordinator:', error);
+      setBatchValidationError(error?.response?.data?.message || error?.message || 'Unable to create the programme batch. Please try again.');
+    }
   };
 
   const handleBulkSaveCoordinatorAssignments = async () => {
+    if (assignmentSaveState === 'saving' || assignmentsAreSaved) return;
     const assignments = programmeBatches
       .map((batch) => {
         const coordinator = coordinatorOptions.find(
@@ -440,8 +454,11 @@ export default function HodSetupWorkflow() {
       await Promise.all(assignments.map(({ batch, coordinator }) => (
         assignProgrammeBatchCoordinator(batch.id, coordinator)
       )));
-      await loadProgrammeBatches(selectedProgramme.id, user?.email);
+      setSavedAssignmentSignature(assignmentSignature);
       setAssignmentSaveState('saved');
+      // A successful assignment request is still a successful save even if
+      // the optional refresh has a transient failure.
+      loadProgrammeBatches(selectedProgramme.id, user?.email).catch(() => {});
     } catch (error) {
       console.error('Failed to save programme coordinator assignments:', error);
       setAssignmentSaveState('error');
@@ -950,7 +967,7 @@ export default function HodSetupWorkflow() {
 
           <form onSubmit={handleCreateBatch} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', marginBottom: '20px' }}>
             <div style={{ fontSize: '13px', fontWeight: '800', color: ink, marginBottom: '12px' }}>Create New Student Batch</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', alignItems: 'flex-end' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr minmax(210px, 1.2fr) auto', gap: '12px', alignItems: 'flex-end' }}>
               <div>
                 <label style={labelStyle}>Start Academic Year *</label>
                 <input type="text" placeholder="2025" value={startYearInput} onChange={(e) => handleStartYearChange(e.target.value)} style={inputStyle} />
@@ -958,6 +975,17 @@ export default function HodSetupWorkflow() {
               <div>
                 <label style={labelStyle}>Graduation Year *</label>
                 <input type="text" placeholder="2029" value={endYearInput} onChange={(e) => handleEndYearChange(e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Programme Coordinator</label>
+                <select value={newBatchCoordinatorValue} onChange={(event) => setNewBatchCoordinatorValue(event.target.value)} style={{ ...inputStyle, cursor: 'pointer', fontSize: '12px' }}>
+                  <option value="">Assign later in Step 3</option>
+                  {coordinatorOptions.map((coordinator) => (
+                    <option key={coordinatorValue(coordinator)} value={coordinatorValue(coordinator)}>
+                      {coordinatorLabel(coordinator)} — {coordinator.email}
+                    </option>
+                  ))}
+                </select>
               </div>
               <button type="submit" className="btn btn-primary" style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '800' }}>
                 <Plus size={15} /> Add Batch
@@ -1126,11 +1154,11 @@ export default function HodSetupWorkflow() {
             <button
               type="button"
               onClick={handleBulkSaveCoordinatorAssignments}
-              disabled={assignmentSaveState === 'saving' || programmeBatches.length === 0}
+              disabled={assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0}
               className="btn btn-primary"
-              style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '800', opacity: assignmentSaveState === 'saving' || programmeBatches.length === 0 ? 0.6 : 1, cursor: assignmentSaveState === 'saving' || programmeBatches.length === 0 ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+              style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '800', opacity: assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0 ? 0.6 : 1, cursor: assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0 ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
             >
-              <Save size={14} /> {assignmentSaveState === 'saving' ? 'Saving Assignments…' : 'Save Assignments'}
+              <Save size={14} /> {assignmentSaveState === 'saving' ? 'Saving Assignments…' : assignmentsAreSaved ? 'Saved' : 'Save Assignments'}
             </button>
           </div>
 

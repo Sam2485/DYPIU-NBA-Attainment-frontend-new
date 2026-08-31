@@ -137,13 +137,7 @@ export default function ReportsHub() {
   const roleProgrammes = (() => {
     if (isDirector) {
       // Director sees all programmes across the school
-      return masterProgrammes.length > 0 ? masterProgrammes : [
-        { id: 'prog-1', code: 'BE-COMP', name: 'B.Tech Computer Science & Engineering', departmentId: 'dept-1' },
-        { id: 'prog-2', code: 'BE-AI', name: 'B.Tech AI & Data Science', departmentId: 'dept-1' },
-        { id: 'prog-3', code: 'MBA', name: 'Master of Business Administration', departmentId: 'dept-4' },
-        { id: 'prog-4', code: 'BE-ENTC', name: 'B.Tech Electronics & Telecommunication', departmentId: 'dept-2' },
-        { id: 'prog-5', code: 'ME-COMP', name: 'M.Tech Computer Science & Engineering', departmentId: 'dept-1' },
-      ];
+      return masterProgrammes;
     }
     if (isHod) {
       // HOD sees all programmes under their department (dept-1 / CSE by default)
@@ -170,14 +164,14 @@ export default function ReportsHub() {
   // Current Programme
   const currentProgId = roleProgrammes.some((p) => p.id === programmeId)
     ? programmeId
-    : roleProgrammes[0]?.id || 'prog-1';
+    : roleProgrammes[0]?.id || '';
 
   const currentProgramme =
     roleProgrammes.find((p) => p.id === currentProgId) ||
     masterProgrammes.find((p) => p.id === currentProgId) ||
     roleProgrammes[0] ||
     selectedProgramme ||
-    { id: 'prog-1', code: 'BE-COMP', name: 'B.Tech Computer Science & Engineering' };
+    { id: '', code: '—', name: 'No master programme selected' };
 
   // All courses under currently selected programme
   const programmeCourses = courses.filter(
@@ -202,7 +196,7 @@ export default function ReportsHub() {
     (isCourseCoordinator ? selectedProgrammeBatchCourse : null) ||
     allProgrammeCourses.find((c) => c.id === courseId) ||
     allProgrammeCourses[0] ||
-    { code: '310244', name: 'Computer Network and Security', id: 'crs-1' };
+    { code: '—', name: 'No course selected', id: '' };
 
   // ── 1. MAIN TAB STATE: 'attainment-reports' | 'atr-reports' ────────────────
   const [activeMainTab, setActiveMainTab] = useState('attainment-reports');
@@ -215,7 +209,7 @@ export default function ReportsHub() {
   const [atrSubTab, setAtrSubTab] = useState('course-atr');
 
   // ── 4. FILTERS STATE ────────────────────────────────────────────────────────
-  const [selectedBatchId, setSelectedBatchId] = useState('batch-2023-27');
+  const [selectedBatchId, setSelectedBatchId] = useState('');
   const [batchReportType, setBatchReportType] = useState('average-mapping'); // 'average-mapping' | 'average-attainment-direct' | 'average-attainment-indirect' | 'overall-attainment'
 
   // Dynamic Lists
@@ -226,7 +220,8 @@ export default function ReportsHub() {
   // Batches
   const batchList = batches || [];
   const effectiveBatchId = isCourseCoordinator ? batchId : selectedBatchId;
-  const currentBatchObj = batchList.find((b) => b.id === effectiveBatchId) || batchList[0] || {};
+  const currentBatchObj = batchList.find((b) => b.id === effectiveBatchId) || null;
+  const currentBatchName = currentBatchObj?.name || 'No programme batch selected';
   const isFinalSemCompleted = currentBatchObj?.isCompleted || currentBatchObj?.name?.includes('Completed') || currentBatchObj?.name?.includes('Graduated');
 
   // Effective Attainment View Mode (Force Course Coordinator to 'course-attainment')
@@ -269,10 +264,10 @@ export default function ReportsHub() {
           ['Combined CO Attainment', 'Overall CO Attainment', ...coList.map((co) => co.attainment ?? '-')],
         ];
       } else {
-        filename = `Programme_Attainment_${currentProgramme.code}_${currentBatchObj.name}.xlsx`;
+        filename = `Programme_Attainment_${currentProgramme.code}_${currentBatchName}.xlsx`;
         sheetData = [
           [`D. Y. PATIL INTERNATIONAL UNIVERSITY, AKURDI PUNE`],
-          [`PROGRAMME ATTAINMENT BATCH REPORT — ${currentBatchObj.name}`],
+          [`PROGRAMME ATTAINMENT BATCH REPORT — ${currentBatchName}`],
           [`Programme: ${currentProgramme.code} - ${currentProgramme.name}`],
           [`Report Type: ${batchReportType.toUpperCase().replace(/-/g, ' ')}`],
           [],
@@ -293,10 +288,10 @@ export default function ReportsHub() {
       }
     } else {
       const typeLabel = atrSubTab === 'course-atr' ? 'Course_ATR' : 'Programme_ATR';
-      filename = `${typeLabel}_${currentCourseObj.code}_${currentBatchObj.id}.xlsx`;
+      filename = `${typeLabel}_${currentCourseObj.code}_${currentBatchObj?.id || 'unselected-batch'}.xlsx`;
       sheetData = [
         [`D. Y. PATIL INTERNATIONAL UNIVERSITY, AKURDI PUNE`],
-        [`ACTION TAKEN REPORT (ATR) — ${currentBatchObj.name}`],
+        [`ACTION TAKEN REPORT (ATR) — ${currentBatchName}`],
         [`Programme: ${currentProgramme.code}`],
         [`Course: ${currentCourseObj.code} - ${currentCourseObj.name}`],
         [],
@@ -445,6 +440,7 @@ export default function ReportsHub() {
                     fontFamily: 'inherit',
                   }}
                 >
+                  {roleProgrammes.length === 0 && <option value="">No master programmes available</option>}
                   {roleProgrammes.map((p) => (
                     <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
                   ))}
@@ -479,6 +475,7 @@ export default function ReportsHub() {
                   fontFamily: 'inherit',
                 }}
               >
+                {allProgrammeCourses.length === 0 && <option value="">No courses available</option>}
                 {allProgrammeCourses.map((c) => (
                   <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
                 ))}
@@ -512,6 +509,7 @@ export default function ReportsHub() {
                   fontFamily: 'inherit',
                 }}
               >
+                {batchList.length === 0 && <option value="">No programme batches available</option>}
                 {batchList.map((b) => (
                   <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
@@ -657,14 +655,14 @@ export default function ReportsHub() {
               <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a', fontWeight: '800' }}>
-                    Course Attainment Report — {currentBatchObj.name}
+                    Course Attainment Report — {currentBatchName}
                   </h3>
                   <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#64748b' }}>
                     {currentCourseObj.code} &nbsp;—&nbsp; {currentCourseObj.name} ({currentProgramme.code})
                   </p>
                 </div>
                 <span style={{ fontSize: '11.5px', fontWeight: '700', background: '#e0e7ff', color: '#3730a3', padding: '4px 10px', borderRadius: '6px' }}>
-                  {currentBatchObj.name.split('—')[0] || currentBatchObj.name}
+                  {currentBatchName.split('—')[0] || currentBatchName}
                 </span>
               </div>
 
@@ -833,7 +831,7 @@ export default function ReportsHub() {
               {/* Batch Report Type Selector Pills */}
               <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                 <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '10px' }}>
-                  Select Type of Batch Report ({currentBatchObj.name})
+                  Select Type of Batch Report ({currentBatchName})
                 </label>
 
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -871,7 +869,7 @@ export default function ReportsHub() {
                 <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                   <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
                     <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                      Average CO to PO/PSO Mapping — {currentBatchObj.name} (All Completed Semesters)
+                      Average CO to PO/PSO Mapping — {currentBatchName} (All Completed Semesters)
                     </h4>
                   </div>
                   <div style={{ overflowX: 'auto' }}>
@@ -940,7 +938,7 @@ export default function ReportsHub() {
                 <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                   <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
                     <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                      Average Direct PO Attainment — {currentBatchObj.name} (Completed Semesters)
+                      Average Direct PO Attainment — {currentBatchName} (Completed Semesters)
                     </h4>
                   </div>
                   <div style={{ overflowX: 'auto' }}>
@@ -1020,14 +1018,14 @@ export default function ReportsHub() {
                         Not Available Yet
                       </h4>
                       <p style={{ margin: '8px auto 0', fontSize: '13px', color: '#b45309', maxWidth: '520px', lineHeight: '1.5' }}>
-                        Indirect attainment survey data is compiled at the conclusion of the final semester (Semester 8) of the batch. This batch (<strong>{currentBatchObj.name}</strong>) is currently in progress.
+                        Indirect attainment survey data is compiled at the conclusion of the final semester (Semester 8) of the batch. This batch (<strong>{currentBatchName}</strong>) is currently in progress.
                       </p>
                     </div>
                   ) : (
                     <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                       <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
                         <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                          Average Indirect PO Attainment — {currentBatchObj.name} (Final Exit Surveys)
+                          Average Indirect PO Attainment — {currentBatchName} (Final Exit Surveys)
                         </h4>
                       </div>
                       <div style={{ overflowX: 'auto' }}>
@@ -1075,7 +1073,7 @@ export default function ReportsHub() {
                     <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                       <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
                         <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                          Overall Batch PO & PSO Attainment (80% Direct + 20% Indirect) — {currentBatchObj.name}
+                          Overall Batch PO & PSO Attainment (80% Direct + 20% Indirect) — {currentBatchName}
                         </h4>
                       </div>
                       <div style={{ overflowX: 'auto' }}>
@@ -1182,12 +1180,12 @@ export default function ReportsHub() {
 
           {/* ATR SUB-TAB 1: COURSE ATR (For Course Coordinator, or when course-atr selected) */}
           {(isCourseCoordinator || atrSubTab === 'course-atr') && (
-            <CourseATR hideFooter={true} hideHeader={false} courseId={currentCourseObj.id} batchId={currentBatchObj.id} />
+            <CourseATR hideFooter={true} hideHeader={false} courseId={currentCourseObj.id} batchId={currentBatchObj?.id} />
           )}
 
           {/* ATR SUB-TAB 2: PROGRAMME ATR (Only for Programme Coordinator, HOD, Director) */}
           {!isCourseCoordinator && atrSubTab === 'programme-atr' && (
-            <ProgrammeATR hideFooter={true} hideHeader={false} programmeId={currentProgramme.id} courseId={currentCourseObj.id} batchId={currentBatchObj.id} />
+            <ProgrammeATR hideFooter={true} hideHeader={false} programmeId={currentProgramme.id} courseId={currentCourseObj.id} batchId={currentBatchObj?.id} />
           )}
 
         </div>

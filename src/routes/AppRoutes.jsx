@@ -59,6 +59,23 @@ import CourseCoordinatorWorkflowPage from '../pages/CourseCoordinatorWorkflowPag
 
 import ErrorBoundary from '../components/common/ErrorBoundary';
 
+const dashboardPathForRole = (role) => {
+  switch (role) {
+    case 'ADMIN': return '/admin/dashboard';
+    case 'DIRECTOR': return '/director/dashboard';
+    case 'HOD': return '/hod/dashboard';
+    case 'PROGRAMME_COORDINATOR': return '/programme-coordinator/dashboard';
+    case 'FACULTY':
+    case 'COURSE_COORDINATOR': return '/course-coordinator/dashboard';
+    default: return '/dashboard';
+  }
+};
+
+function RoleHomeRedirect() {
+  const { isAuthenticated, isRestoringSession, role } = useAuth();
+  if (isRestoringSession) return null;
+  return <Navigate to={isAuthenticated ? dashboardPathForRole(role) : '/login'} replace />;
+}
 
 function RoleProtectedRoute({ children, allowedRoles }) {
   const { isAuthenticated, isRestoringSession, role } = useAuth();
@@ -73,7 +90,7 @@ function RoleProtectedRoute({ children, allowedRoles }) {
   }
 
   if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(role)) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={dashboardPathForRole(role)} replace />;
   }
 
   return (
@@ -96,7 +113,15 @@ export default function AppRoutes() {
       <Route
         path="/dashboard"
         element={
-          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+            <DashboardPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/course-coordinator/dashboard"
+        element={
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'FACULTY', 'COURSE_COORDINATOR']}>
             <DashboardPage />
           </RoleProtectedRoute>
         }
@@ -104,7 +129,7 @@ export default function AppRoutes() {
       <Route
         path="/course-coordinator/workflow"
         element={
-          <RoleProtectedRoute allowedRoles={['ADMIN', 'FACULTY']}>
+          <RoleProtectedRoute allowedRoles={['ADMIN', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CourseCoordinatorWorkflowPage />
           </RoleProtectedRoute>
         }
@@ -409,8 +434,8 @@ export default function AppRoutes() {
       />
 
       {/* Default Fallback Routes */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<RoleHomeRedirect />} />
+      <Route path="*" element={<RoleHomeRedirect />} />
     </Routes>
   );
 }
