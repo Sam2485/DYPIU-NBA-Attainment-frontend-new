@@ -11,16 +11,16 @@ This guide provides complete, production-ready, step-by-step instructions for de
 ```
                       REMOTE USER BROWSER
                                │
-                       http://<VM-IP>:3010
+               https://pbas.dypiu.ac.in/nba/
                                │
-            ┌──────────────────┴──────────────────┐
-            ▼                                     ▼
-   ┌─────────────────┐                   ┌─────────────────┐
-   │    FRONTEND     │                   │     BACKEND     │
-   │  Nginx Server   │  API Requests     │   Spring Boot   │
-   │    Port 3010    ├──────────────────►│    Java 21      │
-   │   (React SPA)   │                   │    Port 8010    │
-   └─────────────────┘                   └────────┬────────┘
+            ┌─────────────────┐
+            ▼                 │ /nba/api/v1/*
+   ┌─────────────────┐         │
+   │    FRONTEND     │         ▼           ┌─────────────────┐
+   │  Nginx Server   ├────────────────────►│     BACKEND     │
+   │    Port 80      │  reverse proxy      │   Spring Boot   │
+   │   (React SPA)   │                     │    Port 8010    │
+   └─────────────────┘                     └────────┬────────┘
                                                   │
                                                   ▼ (Port 5432 Internal)
                                          ┌─────────────────┐
@@ -29,10 +29,11 @@ This guide provides complete, production-ready, step-by-step instructions for de
                                          └─────────────────┘
 ```
 
-* **Frontend Port:** `3010` (React SPA served via Nginx with HTML5 pushState fallback)
-* **Backend Port:** `8010` (Spring Boot Java 21 REST API under `/api/v1` context path)
+* **Frontend Port:** `80` (Nginx; the public HTTPS endpoint is normally terminated on port `443`)
+* **Backend Port:** `8010` (internal Spring Boot Java 21 REST API under `/api/v1` context path)
 * **Database Port:** `5432` (PostgreSQL - private/internal network access only)
-* **Base API URL:** `http://<VM-IP>:8010/api/v1`
+* **Frontend URL:** `https://pbas.dypiu.ac.in/nba/` (or `http://10.100.0.23/nba/` on the internal network)
+* **Base API URL:** `/nba/api/v1` (same-origin; Nginx proxies this route to `http://127.0.0.1:8010/api/v1`)
 
 ---
 
@@ -40,20 +41,21 @@ This guide provides complete, production-ready, step-by-step instructions for de
 
 | Service | Port | Protocol | Scope | Exposure |
 | :--- | :--- | :--- | :--- | :--- |
-| **Frontend** | `3010` | TCP | HTTP | **Public / VM Network** (Accessible to users) |
-| **Backend API** | `8010` | TCP | HTTP | **Public / VM Network** (Direct browser API access) |
+| **Frontend** | `80`, `443` | TCP | HTTP, HTTPS | **Public / VM Network** (Accessible to users) |
+| **Backend API** | `8010` | TCP | HTTP | **Private / Localhost only** (accessed through Nginx) |
 | **PostgreSQL** | `5432` | TCP | PostgreSQL | **Private / Localhost only** (`127.0.0.1`) |
 | **SSH** | `22` | TCP | SSH | Restricted / Admin only |
 
 ### Firewall Commands (UFW on Ubuntu/Debian)
 
 ```bash
-# Allow SSH, Frontend, and Backend ports
+# Allow SSH and the public web ports
 sudo ufw allow 22/tcp comment 'SSH'
-sudo ufw allow 3010/tcp comment 'DYPIU NBA Frontend'
-sudo ufw allow 8010/tcp comment 'DYPIU NBA Backend'
+sudo ufw allow 80/tcp comment 'DYPIU NBA HTTP'
+sudo ufw allow 443/tcp comment 'DYPIU NBA HTTPS'
 
-# Explicitly ensure PostgreSQL is NOT publicly open
+# Explicitly ensure the backend and PostgreSQL are NOT publicly open
+sudo ufw deny 8010/tcp comment 'Block public DYPIU NBA Backend'
 sudo ufw deny 5432/tcp comment 'Block public PostgreSQL'
 
 # Enable firewall
@@ -172,7 +174,7 @@ Add the following environment variables (replace placeholder values):
 # ==============================================================================
 
 SERVER_PORT=8010
-SERVER_ADDRESS=0.0.0.0
+SERVER_ADDRESS=127.0.0.1
 
 # Database
 DATABASE_URL=jdbc:postgresql://localhost:5432/dypiu_obe_db
@@ -194,8 +196,8 @@ JWT_REFRESH_EXPIRATION_MS=604800000
 LOCAL_STORAGE_PATH=/opt/dypiu-nba/backend/storage
 UPLOAD_STORAGE_PATH=/opt/dypiu-nba/backend/uploads
 
-# Allowed CORS Origins (Include VM IP and/or Domain on Port 3010)
-CORS_ALLOWED_ORIGINS=http://<VM-IP>:3010,http://localhost:3010
+# Requests are proxied through the same public origin; include the deployed origins if CORS is enabled.
+CORS_ALLOWED_ORIGINS=https://pbas.dypiu.ac.in,http://10.100.0.23
 ```
 
 Secure the permissions:
@@ -257,9 +259,9 @@ cd /opt/dypiu-nba
 sudo git clone <FRONTEND_REPO_URL> frontend-repo
 cd frontend-repo
 
-# Create production environment file with your VM IP or Domain
+# The production frontend uses the same-origin Nginx proxy.
 sudo tee .env.production << 'EOF'
-VITE_API_BASE_URL=http://<VM-IP>:8010/api/v1
+VITE_API_BASE_URL=/nba/api/v1
 EOF
 
 # Install dependencies and build
@@ -274,13 +276,13 @@ sudo chmod -R 755 /var/www/dypiu-nba-frontend
 
 ---
 
-### STEP 9: Configure Nginx to Serve Frontend on Port 3010
+### STEP 9: Configure Nginx to Serve the Frontend and API Proxy
 
 Create `/etc/nginx/sites-available/dypiu-nba`:
 
 ```nginx
 server {
-    listen 3010;
+    listen 80;
     server_name _;
 
     root /var/www/dypiu-nba-frontend;
@@ -296,19 +298,8 @@ server {
     gzip_proxied expired no-cache no-store private auth;
     gzip_types text/plain text/css application/json application/javascript application/x-javascript text/xml application/xml application/xml+rss text/javascript image/svg+xml;
 
-    # Single Page Application (SPA) Routing for React Router (Prevents 404 on page refresh)
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # Cache static assets
-    location ~* \.(?:css|js|png|jpg|jpeg|gif|ico|svg|woff2?|ttf|eot)$ {
-        expires 1y;
-        add_header Cache-Control "public, no-transform";
-    }
-
-    # Optional proxy to backend API
-    location /api/v1/ {
+    # Proxy the frontend's configured same-origin API path to the local backend.
+    location /nba/api/v1/ {
         proxy_pass http://127.0.0.1:8010/api/v1/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -319,6 +310,17 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
         client_max_body_size 25M;
+    }
+
+    # Serve the SPA below its production /nba/ path.
+    location /nba/ {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Cache static assets
+    location ~* \.(?:css|js|png|jpg|jpeg|gif|ico|svg|woff2?|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, no-transform";
     }
 
     error_page 500 502 503 504 /5x.html;
@@ -378,7 +380,7 @@ sudo tail -f /var/log/nginx/error.log
 
 Run from terminal or browser:
 ```bash
-curl -i http://<VM-IP>:8010/api/v1/health
+curl -i http://127.0.0.1:8010/api/v1/health
 ```
 
 Expected Response (`200 OK`):
@@ -398,20 +400,20 @@ Expected Response (`200 OK`):
 ```
 
 ### 2. Verify Frontend Delivery
-Open `http://<VM-IP>:3010` in a browser from a separate remote machine:
+Open `https://pbas.dypiu.ac.in/nba/` in a browser from a separate remote machine (or `http://10.100.0.23/nba/` on the internal network):
 * Login page renders cleanly.
 * Static CSS/JS bundles load without 404s.
 
-### 3. Verify Authentication & CORS
+### 3. Verify Authentication
 1. Log in with admin / faculty credentials.
 2. Open Browser DevTools -> **Network Tab**:
-   * Request goes to `http://<VM-IP>:8010/api/v1/auth/login`.
+   * Request goes to `/nba/api/v1/auth/login` on the same frontend origin.
    * Response returns JWT token (`accessToken`).
    * Subsequent API calls include `Authorization: Bearer <token>`.
-   * CORS headers are present (`Access-Control-Allow-Origin: http://<VM-IP>:3010`).
+   * No cross-origin request or CORS error occurs.
 
 ### 4. Verify React SPA Direct Route & Refresh
-1. Navigate to `/director/dashboard` or `/hod/dashboard`.
+1. Navigate to `/nba/director/dashboard` or `/nba/hod/dashboard`.
 2. Press `F5` / Refresh in browser.
 3. Verify the page reloads the React application without a 404 Not Found error.
 
@@ -420,4 +422,3 @@ Open `http://<VM-IP>:3010` in a browser from a separate remote machine:
 2. Verify multipart request processes without size restriction errors.
 3. Download an Attainment or Action Taken Report (ATR) Excel sheet.
 4. Verify binary file downloads with valid headers and data.
-                
