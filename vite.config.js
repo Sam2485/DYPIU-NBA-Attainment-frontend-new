@@ -2,7 +2,10 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  base: './',
+  // The production app is mounted below https://pbas.dypiu.ac.in/nba/.
+  // Absolute subpath asset URLs prevent deep-link refreshes from requesting
+  // JavaScript and CSS relative to the active route.
+  base: '/nba/',
   plugins: [react()],
   server: {
     port: 5173,
