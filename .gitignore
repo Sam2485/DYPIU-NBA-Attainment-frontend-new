@@ -12,11 +12,31 @@ dist
 dist-ssr
 *.local
 
+# Environment configuration — may contain deployment-specific values.
+# Keep the committed example templates as the safe reference.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Test, build, and tool caches
+coverage
+.nyc_output
+.vite
+.cache
+*.tsbuildinfo
+
+# Package-manager files generated for local development
+.pnp
+.pnp.js
+.eslintcache
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
