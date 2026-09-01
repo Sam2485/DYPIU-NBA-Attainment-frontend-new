@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
+import HodSetupWorkflow from './HodSetupWorkflow';
 
 export default function HodProgrammeCoordinators() {
   const {
@@ -95,6 +96,10 @@ export default function HodProgrammeCoordinators() {
       console.error('Failed to assign Programme Coordinator:', error);
     }
   };
+
+  // Reuse the canonical Step 3 assignment table so this screen and the HOD
+  // workflow always assign Programme Coordinators in the same way.
+  return <HodSetupWorkflow standaloneCoordinatorAllocation />;
 
   return (
     <div style={{ display: 'grid', gap: '20px' }}>

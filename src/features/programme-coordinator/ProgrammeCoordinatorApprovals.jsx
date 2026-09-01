@@ -41,6 +41,7 @@ export default function ProgrammeCoordinatorApprovals() {
   const [queueTab, setQueueTab] = useState(() => searchParams.get('queue') === 'REVIEWED' ? 'REVIEWED' : 'PENDING');
   const [approvals, setApprovals] = useState([]);
   const [selectedId, setSelectedId] = useState(() => searchParams.get('approvalId'));
+  const [selectedCourseId, setSelectedCourseId] = useState(null);
   const [details, setDetails] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,14 +54,16 @@ export default function ProgrammeCoordinatorApprovals() {
     if (selectedBatchId) sessionStorage.setItem(`nba_pc_approvals_batch:${user?.email ?? 'current-user'}`, selectedBatchId);
   }, [selectedBatchId, user?.email]);
 
-  const openApproval = (approvalId) => {
+  const openApproval = (approvalId, courseId = null) => {
     setDetails(null);
+    if (courseId) setSelectedCourseId(courseId);
     setSelectedId(approvalId);
     setSearchParams({ approvalId, queue: queueTab });
   };
 
   const closeApproval = () => {
     setSelectedId(null);
+    setSelectedCourseId(null);
     setDetails(null);
     setHistory([]);
     setSearchParams({ queue: queueTab });
@@ -151,16 +154,17 @@ export default function ProgrammeCoordinatorApprovals() {
     if (!selectedId) return;
     let active = true;
     const selectedRequest = approvals.find((item) => item.id === selectedId);
-    if (!selectedRequest?.programmeBatchCourseId) return undefined;
-    apiClient.get(`/approvals/programme-batch-courses/${selectedRequest.programmeBatchCourseId}`).then((response) => {
+    const courseId = selectedRequest?.programmeBatchCourseId ?? selectedCourseId;
+    if (!courseId) return undefined;
+    apiClient.get(`/approvals/programme-batch-courses/${courseId}`).then((response) => {
       if (!active) return;
       const workspace = unwrap(response) ?? {};
       const approval = (workspace.approvalItems ?? []).find((item) => item.approvalRequestId === selectedId) ?? {};
-      setDetails({ ...selectedRequest, ...approval, id: approval.approvalRequestId ?? selectedId, programmeBatchCourse: workspace.programmeBatchCourse, workspaceApprovalItems: workspace.approvalItems ?? [] });
+      setDetails({ ...selectedRequest, ...approval, id: approval.approvalRequestId ?? selectedId, programmeBatchCourseId: courseId, programmeBatchCourse: workspace.programmeBatchCourse, workspaceApprovalItems: workspace.approvalItems ?? [] });
       setRemarks('');
     }).catch((err) => active && setError(err?.response?.data?.message || 'Unable to load approval details.'));
     return () => { active = false; };
-  }, [approvals, selectedId]);
+  }, [approvals, selectedCourseId, selectedId]);
 
   const applyAction = async (action) => {
     if (!details?.id) return;
@@ -180,8 +184,18 @@ export default function ProgrammeCoordinatorApprovals() {
       } else {
         await apiClient.post(`/approvals/${details.id}/request-revision`, { reason: remarks, ...reviewer });
       }
+      const nextStatus = action === 'APPROVE' ? 'APPROVED' : 'REVISION_REQUESTED';
+      // Keep the coordinator in this course workspace so its other approval
+      // tabs remain available after reviewing the current submission.
+      setDetails((current) => current ? {
+        ...current,
+        status: nextStatus,
+        workspaceApprovalItems: (current.workspaceApprovalItems ?? []).map((item) => (
+          (item.approvalRequestId ?? item.id) === current.id ? { ...item, status: nextStatus } : item
+        )),
+      } : current);
+      setRemarks('');
       await loadQueue();
-      closeApproval();
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Unable to update this approval.');
     } finally {
@@ -220,20 +234,20 @@ export default function ProgrammeCoordinatorApprovals() {
   };
   const pendingCount = scopedApprovals.filter(isPending).length;
   const workspaceSource = details?.workspaceApprovalItems ?? [selected].filter(Boolean);
-  const workspaceTabs = workspaceSource.filter((item) => queueTab === 'PENDING'
-    ? isPending(item)
-    : ['APPROVED', 'VERIFIED', 'REVISION_REQUESTED', 'REJECTED'].includes(item.status));
+  // Queue tabs only control the inbox; the course workspace exposes every
+  // approval type for the selected course.
+  const workspaceTabs = workspaceSource;
   const visibleWorkspaceTabs = workspaceTabs.length > 0 ? workspaceTabs : [selected].filter(Boolean);
 
   // A URL can retain an approvalId while its pending/reviewed list is being
   // refreshed. Stay on the selected tab until the item is available instead
   // of replacing the list with a blocking workspace-loading screen.
   useEffect(() => {
-    if (!selectedId || loading || selected) return;
+    if (!selectedId || loading || selected || selectedCourseId) return;
     setSelectedId(null);
     setDetails(null);
     setSearchParams({ queue: queueTab }, { replace: true });
-  }, [loading, queueTab, selected, selectedId, setSearchParams]);
+  }, [loading, queueTab, selected, selectedCourseId, selectedId, setSearchParams]);
 
   if (selectedId && selected) {
     return <div className="animated-page" style={{ paddingBottom: '48px' }}>
@@ -244,7 +258,7 @@ export default function ProgrammeCoordinatorApprovals() {
           {!isPending(selected) && (() => { const [bg, color] = statusColor(selected.status); return <span style={{ color, background: bg, padding: '6px 10px', borderRadius: 6, fontWeight: 800, fontSize: 12 }}>{selected.status}</span>; })()}
         </div>
         <div style={{ ...surface, padding: '8px 12px', marginBottom: 16, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-          {visibleWorkspaceTabs.map((item) => <button key={item.approvalRequestId ?? item.id} type="button" onClick={() => openApproval(item.approvalRequestId ?? item.id)} style={{ height: 34, padding: '0 12px', borderRadius: 7, border: `1px solid ${(item.approvalRequestId ?? item.id) === selectedId ? '#4f46e5' : '#e2e8f0'}`, background: (item.approvalRequestId ?? item.id) === selectedId ? '#eef2ff' : '#ffffff', color: (item.approvalRequestId ?? item.id) === selectedId ? '#4338ca' : '#475569', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}>{approvalLabels[item.type] ?? item.type}</button>)}
+          {visibleWorkspaceTabs.map((item) => <button key={item.approvalRequestId ?? item.id} type="button" onClick={() => openApproval(item.approvalRequestId ?? item.id, selected.programmeBatchCourseId)} style={{ height: 34, padding: '0 12px', borderRadius: 7, border: `1px solid ${(item.approvalRequestId ?? item.id) === selectedId ? '#4f46e5' : '#e2e8f0'}`, background: (item.approvalRequestId ?? item.id) === selectedId ? '#eef2ff' : '#ffffff', color: (item.approvalRequestId ?? item.id) === selectedId ? '#4338ca' : '#475569', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}>{approvalLabels[item.type] ?? item.type}</button>)}
         </div>
         {['COURSE_ATR'].includes(selected.type) && ['APPROVED', 'VERIFIED'].includes(selected.status) && <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 10, padding: '14px 18px', marginBottom: 16, color: '#15803d' }}><strong style={{ fontSize: 13.5 }}>✓ Course ATR Approved by {selected.reviewedBy?.name ?? selected.reviewedBy ?? 'Programme Coordinator'}</strong><div style={{ marginTop: 4, fontSize: 12.5 }}>The Programme-Batch-Course ATR has been reviewed and approved.</div></div>}
         {['COURSE_ATR'].includes(selected.type) && ['REVISION_REQUESTED', 'REJECTED'].includes(selected.status) && <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: 10, padding: '14px 18px', marginBottom: 16, color: '#92400e' }}><strong style={{ fontSize: 13.5 }}>⚠ Revision Requested by {selected.reviewedBy?.name ?? selected.reviewedBy ?? 'Programme Coordinator'}</strong><div style={{ marginTop: 4, fontSize: 12.5 }}>{selected.revisionReason || 'Please revise the submitted content as per the coordinator feedback.'}</div></div>}
@@ -279,7 +293,7 @@ export default function ProgrammeCoordinatorApprovals() {
     </div>
     <div style={{ ...surface, overflow: 'hidden' }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid #e2e8f0', fontWeight: 800, color: '#0f172a', fontSize: '14px' }}><Clock size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />{queueTab === 'PENDING' ? `${pendingCount} pending request(s)` : 'Reviewed submissions'}</div>
-        {loading ? <div style={{ padding: 28, color: '#64748b' }}>Loading programme-batch courses and approval requests…</div> : courseGroups.length === 0 ? <div style={{ padding: 28, color: '#64748b' }}>No {queueTab.toLowerCase()} approval requests for this programme batch.</div> : courseGroups.map((group) => <button key={group.id} type="button" onClick={() => openApproval(group.requests[0].id)} style={{ width: '100%', textAlign: 'left', padding: '16px 18px', border: 'none', borderBottom: '1px solid #f1f5f9', background: '#fff', cursor: 'pointer' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><div><strong style={{ fontSize: '13.5px', color: '#0f172a' }}>{group.course.courseName ?? group.course.name ?? 'Programme-Batch Course'}</strong><div style={{ marginTop: 3, fontSize: '12px', color: '#64748b' }}>{group.course.courseCode ?? '—'} · Semester {group.course.semester ?? '—'}</div></div><ChevronRight size={17} color="#4f46e5" /></div><div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>{group.requests.map((item) => <span key={item.id} style={{ fontSize: '10.5px', fontWeight: 800, padding: '3px 7px', borderRadius: 5, color: '#4338ca', background: '#eef2ff' }}>{approvalLabels[item.type] ?? item.title ?? item.type}</span>)}</div></button>)}
+        {loading ? <div style={{ padding: 28, color: '#64748b' }}>Loading programme-batch courses and approval requests…</div> : courseGroups.length === 0 ? <div style={{ padding: 28, color: '#64748b' }}>No {queueTab.toLowerCase()} approval requests for this programme batch.</div> : courseGroups.map((group) => <button key={group.id} type="button" onClick={() => openApproval(group.requests[0].id, group.id)} style={{ width: '100%', textAlign: 'left', padding: '16px 18px', border: 'none', borderBottom: '1px solid #f1f5f9', background: '#fff', cursor: 'pointer' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><div><strong style={{ fontSize: '13.5px', color: '#0f172a' }}>{group.course.courseName ?? group.course.name ?? 'Programme-Batch Course'}</strong><div style={{ marginTop: 3, fontSize: '12px', color: '#64748b' }}>{group.course.courseCode ?? '—'} · Semester {group.course.semester ?? '—'}</div></div><ChevronRight size={17} color="#4f46e5" /></div><div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>{group.requests.map((item) => <span key={item.id} style={{ fontSize: '10.5px', fontWeight: 800, padding: '3px 7px', borderRadius: 5, color: '#4338ca', background: '#eef2ff' }}>{approvalLabels[item.type] ?? item.title ?? item.type}</span>)}</div></button>)}
     </div>
   </div>;
 }

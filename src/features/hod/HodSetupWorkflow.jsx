@@ -26,7 +26,7 @@ const outcomeSignature = (pos = [], psos = [], peos = []) => JSON.stringify({
   peos: peos.map((item) => ({ code: item.code ?? '', statement: item.statement ?? item.description ?? item.name ?? '' })),
 });
 
-export default function HodSetupWorkflow() {
+export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = false }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
@@ -249,10 +249,14 @@ export default function HodSetupWorkflow() {
   const hasValidParam = parsedStep >= 1 && parsedStep <= STEPS.length;
 
   const [currentStep, setCurrentStep] = useState(
-    hasValidParam ? parsedStep : 1
+    standaloneCoordinatorAllocation ? 3 : (hasValidParam ? parsedStep : 1)
   );
 
   useEffect(() => {
+    if (standaloneCoordinatorAllocation) {
+      if (currentStep !== 3) setCurrentStep(3);
+      return;
+    }
     const s = parseInt(searchParams.get('step'), 10);
     if (!s || isNaN(s) || s < 1 || s > STEPS.length) {
       // Progress is display-only. A refresh must never redirect the HOD to
@@ -262,7 +266,7 @@ export default function HodSetupWorkflow() {
     } else if (s !== currentStep) {
       setCurrentStep(s);
     }
-  }, [searchParams, currentStep, setSearchParams]);
+  }, [searchParams, currentStep, setSearchParams, standaloneCoordinatorAllocation]);
 
   // A workflow refresh has no preloaded screen data. Load the progress record
   // once so the correct initial step can be determined, then load only the
@@ -388,7 +392,7 @@ export default function HodSetupWorkflow() {
     triggerDeleteConfirm({
       title: 'Delete Master Course?',
       itemName: `${course.code} — ${course.name}`,
-      description: 'Remove this course from the selected master programme catalogue.',
+      description: 'Remove this course from the selected programme catalogue.',
       onConfirm: () => deleteMasterCourse(course.id),
     });
   };
@@ -725,7 +729,7 @@ export default function HodSetupWorkflow() {
   return (
     <div className="animated-page" style={{ paddingBottom: '60px' }}>
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <div
+      {!standaloneCoordinatorAllocation && <div
         style={{
           ...surface,
           padding: '20px 24px',
@@ -792,10 +796,10 @@ export default function HodSetupWorkflow() {
             <X size={14} /> Exit
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* ── STEP STEPPER (icon circles) ───────────────────────────────────────── */}
-      <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px' }}>
+      {!standaloneCoordinatorAllocation && <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px' }}>
         <div style={{ position: 'relative' }}>
           {/* connector line */}
           <div style={{
@@ -850,7 +854,7 @@ export default function HodSetupWorkflow() {
             })}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* ── STEP CONTENT WITH ISOLATED ERROR BOUNDARY ────────────────────────── */}
       <ErrorBoundary
@@ -865,7 +869,7 @@ export default function HodSetupWorkflow() {
               Step 1: Master Course Catalogue
             </h3>
             <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-              Create the reusable course catalogue for the selected master programme. Course Coordinator allocation happens later at the Programme Batch Course stage.
+              Create the reusable course catalogue for the selected programme. Course Coordinator allocation happens later at the Programme Batch Course stage.
             </p>
           </div>
 
@@ -1142,7 +1146,7 @@ export default function HodSetupWorkflow() {
       {/* ── STEP 3: PROGRAMME COORDINATOR ALLOCATION ───────────────────────── */}
       {currentStep === 3 && (
         <div style={{ ...surface, padding: '24px' }}>
-          <div style={{ marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          {!standaloneCoordinatorAllocation && <div style={{ marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
             <div>
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: ink }}>
                 Step 3: Programme Coordinator Allocation
@@ -1160,14 +1164,14 @@ export default function HodSetupWorkflow() {
             >
               <Save size={14} /> {assignmentSaveState === 'saving' ? 'Saving Assignments…' : assignmentsAreSaved ? 'Saved' : 'Save Assignments'}
             </button>
-          </div>
+          </div>}
 
           <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
             <table className="audit-data-table">
               <thead>
                 <tr>
-                  <th style={{ width: '150px' }}>Master Programme Code</th>
-                  <th style={{ width: '220px' }}>Master Programme Name</th>
+                  <th style={{ width: '150px' }}>Programme Code</th>
+                  <th style={{ width: '220px' }}>Programme Name</th>
                   <th style={{ width: '300px' }}>Programme Batch</th>
                   <th style={{ width: '270px' }}>Programme Coordinator</th>
                 </tr>
@@ -1221,16 +1225,30 @@ export default function HodSetupWorkflow() {
             </table>
           </div>
 
-          {assignmentSaveState === 'saved' && (
+          {standaloneCoordinatorAllocation && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button
+                type="button"
+                onClick={handleBulkSaveCoordinatorAssignments}
+                disabled={assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0}
+                className="btn btn-primary"
+                style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '800', opacity: assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0 ? 0.6 : 1, cursor: assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0 ? 'not-allowed' : 'pointer' }}
+              >
+                <Save size={14} /> {assignmentSaveState === 'saving' ? 'Saving Assignment…' : assignmentsAreSaved ? 'Saved' : 'Save Assignment'}
+              </button>
+            </div>
+          )}
+
+          {!standaloneCoordinatorAllocation && assignmentSaveState === 'saved' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', marginTop: '16px' }}>
               <CheckCircle2 size={16} style={{ color: '#16a34a', flexShrink: 0 }} />
               <span style={{ fontSize: '13px', fontWeight: '600', color: '#15803d' }}>Programme Coordinator assignments saved successfully.</span>
             </div>
           )}
-          {assignmentSaveState === 'empty' && (
+          {!standaloneCoordinatorAllocation && assignmentSaveState === 'empty' && (
             <div style={{ fontSize: '12px', color: '#b45309', marginTop: '12px', fontWeight: '600' }}>Select at least one Programme Coordinator before saving.</div>
           )}
-          {assignmentSaveState === 'error' && (
+          {!standaloneCoordinatorAllocation && assignmentSaveState === 'error' && (
             <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '12px', fontWeight: '600' }}>Unable to save the assignments. Please try again.</div>
           )}
         </div>
@@ -1595,7 +1613,7 @@ export default function HodSetupWorkflow() {
       </ErrorBoundary>
 
       {/* ── STEPPER BOTTOM FOOTER NAV ─────────────────────────────────────── */}
-      <div style={{
+      {!standaloneCoordinatorAllocation && <div style={{
         ...surface,
         padding: '14px 20px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -1688,7 +1706,7 @@ export default function HodSetupWorkflow() {
             </button>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* ── DELETE CONFIRM MODAL ──────────────────────────────────────────────── */}
       <DeleteConfirmModal

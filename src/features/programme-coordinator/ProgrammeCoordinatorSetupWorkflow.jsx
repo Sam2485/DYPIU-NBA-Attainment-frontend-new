@@ -177,7 +177,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
 
   const handleSubmitAllocations = async () => {
     if (!programmeId || !batchId) {
-      alert('Select a Master Programme and Programme Batch before submitting allocations.');
+      alert('Select a Programme and Programme Batch before submitting allocations.');
       return;
     }
     try {
@@ -210,7 +210,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
 
   const handleSubmitTargets = async () => {
     if (!programmeId || !batchId) {
-      alert('Select a Master Programme and Programme Batch before submitting targets.');
+      alert('Select a Programme and Programme Batch before submitting targets.');
       return;
     }
     try {
@@ -604,7 +604,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
             >
               <option value="">{assignedBatches.length === 0 ? 'No assigned programme batches' : 'Select assigned programme batch'}</option>
               {assignedBatches.map((batch) => (
-                <option key={batch.id} value={batch.id}>{selectedProgramme.code} · {batch.name}</option>
+                <option key={batch.id} value={batch.id}>{batch.name}</option>
               ))}
             </select>
             <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
@@ -784,7 +784,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                     </select>
                   </div>
                   <div>
-                    <label style={labelStyle}>Batch Code</label>
+                    <label style={labelStyle}>Course Code</label>
                     <input
                       type="text"
                       placeholder="Optional"
@@ -794,7 +794,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                     />
                   </div>
                   <div>
-                    <label style={labelStyle}>Batch Course Name</label>
+                    <label style={labelStyle}>Course Name</label>
                     <input
                       type="text"
                       placeholder="Optional"
@@ -830,9 +830,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({
               <table className="audit-data-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '190px' }}>Master Course</th>
-                    <th style={{ width: '100px' }}>Batch Code</th>
-                    <th>Batch Course Name</th>
+                    <th style={{ width: '100px' }}>Course Code</th>
+                    <th>Course Name</th>
                     <th style={{ width: '110px', textAlign: 'center' }}>Semester</th>
                     <th style={{ width: '230px' }}>Course Coordinator</th>
                     <th style={{ width: '115px', textAlign: 'center' }}>Status</th>
@@ -840,7 +839,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 </thead>
                 <tbody>
                   {programmeBatchCourses.length === 0 && (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>No programme-batch courses yet — add one above.</td></tr>
+                    <tr><td colSpan={5} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>No programme-batch courses yet — add one above.</td></tr>
                   )}
                   {programmeBatchCourses.map((offering) => {
                     const masterCourse = masterCourses.find(
@@ -854,10 +853,6 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                     const coordinatorId = assignedCoordinator?.id ?? offering.courseCoordinatorId ?? '';
                     return (
                       <tr key={offering.id}>
-                        <td>
-                          <div style={{ fontWeight: '700', color: accent, fontSize: '12px' }}>{masterCourse?.code ?? '—'}</div>
-                          <div style={{ color: muted, fontSize: '11.5px', marginTop: '2px' }}>{masterCourse?.name ?? 'Master course unavailable'}</div>
-                        </td>
                         <td style={{ fontWeight: '700', color: accent }}>{offering.courseCodeOverride ?? offering.courseCode ?? masterCourse?.code ?? '—'}</td>
                         <td style={{ fontWeight: '600', color: ink }}>{offering.courseNameOverride ?? offering.courseName ?? masterCourse?.name ?? '—'}</td>
                         <td style={{ textAlign: 'center', color: muted, fontSize: '12px' }}>{offering.semester ? `Sem ${offering.semester}` : '—'}</td>

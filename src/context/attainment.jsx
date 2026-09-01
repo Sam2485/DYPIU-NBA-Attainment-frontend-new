@@ -369,6 +369,22 @@ export function AttainmentProvider({ children }) {
     [courseOfferingId]
   );
 
+  const loadPreviousYearCourseAtr = useCallback(
+    async (targetOfferingId = courseOfferingId) => {
+      if (!targetOfferingId) return null;
+      try {
+        setError(null);
+        const response = await reportsApi.getPreviousYearCourseAtr(targetOfferingId);
+        return unwrapResponse(response);
+      } catch (err) {
+        console.warn(`loadPreviousYearCourseAtr(${targetOfferingId}) failed:`, err);
+        setError(err?.customMessage || err?.message || 'Failed to load the previous-year course ATR');
+        return null;
+      }
+    },
+    [courseOfferingId]
+  );
+
   const updateCourseAtrData = useCallback(
     async (targetProgrammeBatchCourseId = courseOfferingId, newAtrData = {}) => {
       if (!targetProgrammeBatchCourseId) {
@@ -685,6 +701,8 @@ export function AttainmentProvider({ children }) {
     courseATR: courseAtrStore,
     loadCourseAtr,
     loadCourseATR: loadCourseAtr,
+    loadPreviousYearCourseAtr,
+    loadPreviousYearCourseATR: loadPreviousYearCourseAtr,
     updateCourseAtrData,
     saveCourseATR: updateCourseAtrData,
     submitCourseAtr,

@@ -37,6 +37,11 @@ export const reportsApi = {
       `/programme-batch-courses/${programmeBatchCourseId}/atr/submit`
     ),
 
+  getPreviousYearCourseAtr: (programmeBatchCourseId) =>
+    apiClient.get(
+      `/academic/programme-batch-courses/${programmeBatchCourseId}/previous-year-atr`
+    ),
+
   getCourseAtrs: (params = {}) =>
     apiClient.get(
       '/reports/course-atrs',

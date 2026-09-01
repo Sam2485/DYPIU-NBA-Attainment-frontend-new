@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
+import { useAttainment } from '../../context/attainment';
+import { useApproval } from '../../context/approval';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
@@ -37,8 +39,6 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     setBatchId = () => {},
     batches         = [],
     loadCoordinatorProgrammeBatches = () => Promise.resolve([]),
-    programmeCoordinatorApprovals = [],
-    loadProgrammeCoordinatorApprovals = () => Promise.resolve([]),
     masterProgrammes = [],
     activePOs       = [],
     activePSOs      = [],
@@ -46,12 +46,16 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     programmeId     = 'prog-1',
     programmeATR = null,
     loadProgrammeATR = () => Promise.resolve(null),
-    loadPreviousYearProgrammeATR = () => Promise.resolve(null),
     saveProgrammeATR = () => Promise.resolve(null),
     submitProgrammeATR = () => Promise.resolve(null),
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
+  const { loadPreviousYearProgrammeATR = () => Promise.resolve(null) } = useAttainment();
+  const {
+    programmeCoordinatorApprovals = [],
+    loadProgrammeCoordinatorApprovals = () => Promise.resolve([]),
+  } = useApproval();
 
   const [showHistory, setShowHistory] = useState(false);
   const [previousYearAtr, setPreviousYearAtr] = useState(null);
@@ -89,6 +93,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const locked = readOnly || isPreviousBatch || isSubmittedForReview || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
   const [atrSaveState, setAtrSaveState] = useState('idle');
   const [savedAtrSignature, setSavedAtrSignature] = useState(null);
+  const [currentAtrLoadState, setCurrentAtrLoadState] = useState(() => selectedBatchId ? 'loading' : 'idle');
 
   useEffect(() => {
     // Match the Programme Coordinator workflow: fetch batches using the
@@ -117,8 +122,8 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
       return {
         code: po.code, type: 'PO', statement: po.statement,
         target, actual, pct, met,
-        remark:  met ? 'Target achieved. Maintain current teaching methodology and continuous assessment structure.' : '',
-        actions: met ? [] : [
+        remark: '',
+        actions: met ? ['Maintain current teaching methodology and continuous assessment structure.'] : [
           `Conduct expert technical sessions and industry workshops for ${po.code}.`,
           'Increase hands-on practical problem sets and continuous evaluation frequency.',
         ],
@@ -132,8 +137,8 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
       return {
         code: pso.code, type: 'PSO', statement: pso.statement,
         target, actual, pct, met,
-        remark:  met ? 'Target achieved. Maintain current project evaluation and hands-on lab sessions.' : '',
-        actions: met ? [] : [
+        remark: '',
+        actions: met ? ['Maintain current project evaluation and hands-on lab sessions.'] : [
           `Organize real-time project workshops and industry visits for ${pso.code}.`,
           'Encourage student certifications in latest IT domain software principles.',
         ],
@@ -215,11 +220,22 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   useEffect(() => {
     // The Programme Batch ATR API is scoped solely by programmeBatchId.
     // Do not wait for the master-programme store to resolve before fetching.
-    if (!selectedBatchId) return;
+    if (!selectedBatchId) {
+      setCurrentAtrLoadState('idle');
+      return;
+    }
     let isCurrent = true;
+    setCurrentAtrLoadState('loading');
 
     loadProgrammeATR(selectedBatchId).then((atr) => {
-      if (!isCurrent || !atr) return;
+      if (!isCurrent) return;
+      if (!atr) {
+        // No saved ATR exists for this batch, so expose the derived draft only
+        // after the request has completed.
+        setAtrList(buildList());
+        setCurrentAtrLoadState('loaded');
+        return;
+      }
       const outcomeDefinitions = [...normPOs, ...normPSOs];
       const reportOutcomes = [
         ...(atr.poOutcomes ?? []).map((outcome) => ({ ...outcome, type: 'PO' })),
@@ -242,11 +258,14 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
           pct: Number(observation.achievementPercentage)
             || (target ? Number(((actual / target) * 100).toFixed(1)) : 0),
           met: attained,
-          remark: attained ? (observation.observation ?? observation.actionPlan ?? '') : '',
-          actions: observation.actions ?? (observation.actionPlan ? [observation.actionPlan] : []),
+          remark: attained ? '' : (observation.observation ?? ''),
+          actions: observation.actions?.length ? observation.actions : (observation.actionPlan ? [observation.actionPlan] : attained && observation.observation ? [observation.observation] : []),
         };
       }));
-    }).catch(() => {});
+      setCurrentAtrLoadState('loaded');
+    }).catch(() => {
+      if (isCurrent) setCurrentAtrLoadState('error');
+    });
 
     return () => { isCurrent = false; };
   }, [loadProgrammeATR, selectedBatchId, activePOs, activePSOs]);
@@ -256,7 +275,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
       .filter((item) => item.type === type)
       .map((item) => ({
         outcomeCode: item.code,
-        observation: item.remark || '',
+        observation: item.met ? '' : (item.remark || ''),
         actions: item.actions.filter(Boolean),
       }));
     return {
@@ -284,6 +303,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     try {
       setAtrSaveState('submitting');
       await submitProgrammeATR(selectedBatchId);
+      if (activeProgId) await loadProgrammeCoordinatorApprovals(activeProgId);
       setAtrSaveState('submitted');
     } catch (error) {
       console.error('Failed to submit Programme ATR:', error);
@@ -291,12 +311,12 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     }
   };
 
-  const handleUpdateRemark = (idx, v)    => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, remark: v } : c));
   const handleAddAction    = (idx)       => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, actions: [...c.actions, 'New corrective action...'] } : c));
   const handleUpdateAction = (idx, j, v) => setAtrList((p) => p.map((c, i) => { if (i !== idx) return c; const a = [...c.actions]; a[j] = v; return { ...c, actions: a }; }));
   const handleDeleteAction = (idx, j)    => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, actions: c.actions.filter((_, k) => k !== j) } : c));
 
   const isAtrSaved = savedAtrSignature !== null && savedAtrSignature === atrSignature(atrList);
+  const currentAtrLoading = currentAtrLoadState === 'loading';
 
   const poList  = atrList.filter((i) => i.type === 'PO');
   const psoList = atrList.filter((i) => i.type === 'PSO');
@@ -329,7 +349,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
               <th style={{ width: '100px', textAlign: 'center' }}>Target</th>
               <th style={{ width: '110px', textAlign: 'center' }}>Attainment</th>
               <th style={{ width: '130px', textAlign: 'center' }}>Observation</th>
-              <th>{item.met ? 'Remark (Target Met)' : 'Corrective Actions for Improvement'}</th>
+              <th>{item.met ? 'Action Taken' : 'Corrective Actions for Improvement'}</th>
             </tr>
           </thead>
           <tbody>
@@ -343,20 +363,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
                 </span>
               </td>
               <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
-                {item.met ? (
-                  isReadOnly ? (
-                    <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#475569', fontSize: '12.5px' }}>
-                      {item.remark || 'Target achieved. Maintain current teaching strategy.'}
-                    </div>
-                  ) : (
-                    <textarea rows={3} value={item.remark}
-                      onChange={(e) => handleUpdateRemark(idx, e.target.value)}
-                      placeholder={`Enter remark for this ${item.type}...`}
-                      style={{ width: '100%', fontSize: '12.5px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '8px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: '#ffffff' }}
-                    />
-                  )
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {item.actions.map((act, aIdx) => (
                       <div key={aIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                         <span style={{ fontWeight: '800', color: '#3b82f6', minWidth: '68px', fontSize: '12px', paddingTop: '9px' }}>Action {aIdx + 1}:</span>
@@ -385,7 +392,6 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
                       </button>
                     )}
                   </div>
-                )}
               </td>
             </tr>
           </tbody>
@@ -426,12 +432,12 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
               )}
               {!showHistory && (!locked ? (
                 <>
-                  <button onClick={handleSaveAtr} disabled={atrSaveState === 'saving' || isAtrSaved}
-                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: isAtrSaved ? '#f1f5f9' : accent, color: isAtrSaved ? '#64748b' : '#fff', border: isAtrSaved ? '1px solid #cbd5e1' : 'none', borderRadius: '8px', cursor: atrSaveState === 'saving' || isAtrSaved ? 'not-allowed' : 'pointer', opacity: atrSaveState === 'saving' ? 0.7 : 1, display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                  <button onClick={handleSaveAtr} disabled={currentAtrLoading || atrSaveState === 'saving' || isAtrSaved}
+                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: isAtrSaved ? '#f1f5f9' : accent, color: isAtrSaved ? '#64748b' : '#fff', border: isAtrSaved ? '1px solid #cbd5e1' : 'none', borderRadius: '8px', cursor: currentAtrLoading || atrSaveState === 'saving' || isAtrSaved ? 'not-allowed' : 'pointer', opacity: currentAtrLoading || atrSaveState === 'saving' ? 0.7 : 1, display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
                     <Save size={14} /> {atrSaveState === 'saving' ? 'Saving…' : isAtrSaved ? 'Saved' : 'Save ATR'}
                   </button>
-                  <button onClick={handleSubmitAtrForReview}
-                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: '#ffffff', color: accent, border: `1px solid ${accent}`, borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                  <button onClick={handleSubmitAtrForReview} disabled={currentAtrLoading}
+                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: '#ffffff', color: accent, border: `1px solid ${accent}`, borderRadius: '8px', cursor: currentAtrLoading ? 'not-allowed' : 'pointer', opacity: currentAtrLoading ? 0.7 : 1, display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
                     <Send size={14} /> Submit ATR for Review
                   </button>
                 </>
@@ -546,7 +552,11 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
 
       {/* The carry-forward view is intentionally exclusive: never mix the
           previous-year reference with editable/current-cycle ATR content. */}
-      {!showHistory && <>
+      {!showHistory && (currentAtrLoading ? (
+        <div style={{ ...surface, padding: '36px 20px', textAlign: 'center', color: muted, fontSize: '13px' }}>
+          Loading Programme ATR…
+        </div>
+      ) : <>
         {/* ── PO SECTION HEADING ──────────────────────────────────────────── */}
         <div style={{ background: '#f8fafc', borderLeft: '4px solid #4f46e5', padding: '10px 14px', borderRadius: '0 6px 6px 0', marginBottom: '14px' }}>
           <h4 style={{ margin: 0, fontSize: '14px', color: ink, fontWeight: '800' }}>
@@ -596,7 +606,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
             )}
           </div>
         )}
-      </>}
+      </>)}
     </div>
   );
 }

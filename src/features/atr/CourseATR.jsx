@@ -52,6 +52,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   const {
     courseATR: apiCourseAtr = null,
     loadCourseATR = () => Promise.resolve(null),
+    loadPreviousYearCourseATR = () => Promise.resolve(null),
     saveCourseATR = () => Promise.resolve(null),
     submitCourseATR = () => Promise.resolve(null),
   } = useAttainment();
@@ -60,12 +61,11 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
   const isCoordinator  = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
-  const [showHistory, setShowHistory] = useState(showHistoryProp ?? false);
   const [savedSignature, setSavedSignature] = useState(null);
+  const [showHistory, setShowHistory] = useState(showHistoryProp ?? false);
+  const [previousYearAtr, setPreviousYearAtr] = useState(null);
+  const [previousYearLoadState, setPreviousYearLoadState] = useState('idle');
 
-  useEffect(() => {
-    if (showHistoryProp !== undefined) setShowHistory(showHistoryProp);
-  }, [showHistoryProp]);
 
   useEffect(() => {
     const targetBatchId = batchId ?? selectedBatch?.id;
@@ -96,6 +96,29 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
     ?? currentCourse?.id
     ?? selectedCourse?.id
     ?? null;
+
+  useEffect(() => {
+    if (showHistoryProp !== undefined) setShowHistory(showHistoryProp);
+  }, [showHistoryProp]);
+
+  useEffect(() => {
+    if (!showHistory || !activeCourseId) return;
+    let isCurrent = true;
+    setPreviousYearLoadState('loading');
+    setPreviousYearAtr(null);
+
+    loadPreviousYearCourseATR(activeCourseId)
+      .then((atr) => {
+        if (!isCurrent) return;
+        setPreviousYearAtr(atr);
+        setPreviousYearLoadState(atr ? 'loaded' : 'empty');
+      })
+      .catch(() => {
+        if (isCurrent) setPreviousYearLoadState('error');
+      });
+
+    return () => { isCurrent = false; };
+  }, [activeCourseId, loadPreviousYearCourseATR, showHistory]);
   const apiOutcomes = Array.isArray(apiCourseAtr?.outcomes) ? apiCourseAtr.outcomes : EMPTY_ARRAY;
   const courseOutcomes = apiOutcomes.length > 0
     ? apiOutcomes
@@ -133,11 +156,14 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
       const met    = actual !== null && actual >= target;
       return {
         code, statement: co.outcomeStatement ?? co.statement ?? '', target, actual, pct, met,
-        remark: ex?.remark ?? co.observation ?? (met ? 'Target achieved. Maintain current teaching methodology and continuous assessment structure.' : ''),
-        actions: ex?.actions ?? co.actions ?? (met ? [] : [
+        // An achieved target records the sustaining measure as Action 1, never as a remark.
+        remark: met ? '' : (ex?.remark ?? co.observation ?? ''),
+        actions: ex?.actions?.length ? ex.actions : co.actions?.length ? co.actions : met ? [
+          ex?.remark ?? co.observation ?? 'Maintain current teaching methodology and continuous assessment structure.',
+        ] : [
           `Conduct extra tutorial sessions on ${co.statement ? co.statement.slice(0, 45) : ''}...`,
           'Provide additional practice numericals and interactive assignment problem sets.',
-        ]),
+        ],
       };
     });
   };
@@ -164,8 +190,8 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
         actual,
         pct: Number(outcome.achievementPercentage) || (target ? Number(((actual / target) * 100).toFixed(2)) : 0),
         met: actual >= target,
-        remark: outcome.observation ?? '',
-        actions: outcome.actions ?? [],
+        remark: actual >= target ? '' : (outcome.observation ?? ''),
+        actions: outcome.actions?.length ? outcome.actions : actual >= target && outcome.observation ? [outcome.observation] : [],
       };
     }));
   }, [apiCourseAtr]);
@@ -186,7 +212,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
       targetLevel: Number(item.target),
       attainmentLevel: item.actual == null ? null : Number(item.actual),
       achievementPercentage: Number(item.pct),
-      observation: item.remark,
+      observation: item.met ? '' : item.remark,
       actions: item.actions.filter(Boolean),
     })),
   });
@@ -224,19 +250,12 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   const handleAddAction    = (i)        => setCoList((p) => p.map((c, idx) => idx === i ? { ...c, actions: [...c.actions, 'New corrective action...'] } : c));
   const handleUpdateAction = (i, j, v)  => setCoList((p) => p.map((c, idx) => { if (idx !== i) return c; const a = [...c.actions]; a[j] = v; return { ...c, actions: a }; }));
   const handleDeleteAction = (i, j)     => setCoList((p) => p.map((c, idx) => idx === i ? { ...c, actions: c.actions.filter((_, k) => k !== j) } : c));
-  const handleUpdateRemark = (i, v)     => setCoList((p) => p.map((c, idx) => idx === i ? { ...c, remark: v } : c));
 
   const metCount  = coList.filter((c) => c.met).length;
   const gapCount  = coList.length - metCount;
   const formatLevel = (value) => value == null || !Number.isFinite(Number(value))
     ? '—'
     : Number(value).toFixed(2);
-
-  // Carry-forward reference data
-  const prevBatch = {
-    batch: 'Batch 2024-28 (AY 2024-25)', preparedBy: 'Prof. XYZ',
-    actions: [{ coCode: 'C321.3', actionPlan: 'Conducted 2 extra remedial tutorial classes on IPv4 CIDR subnetting.', impact: 'Attainment improved from 1.95 to 2.10 in current batch.' }],
-  };
 
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
@@ -297,11 +316,10 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
 
           {/* Action buttons below the title */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <button onClick={() => setShowHistory((v) => !v)}
+            <button onClick={() => setShowHistory((value) => !value)}
               style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
               <History size={13} /> {showHistory ? 'Hide Carry-Forward ATR' : 'View Carry-Forward ATR'}
             </button>
-
             <button onClick={() => window.print()}
               style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
               <Printer size={13} /> Print
@@ -362,29 +380,28 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
       )}
 
 
-      {/* ── CARRY-FORWARD REFERENCE ───────────────────────────────────────── */}
-      {showHistory && (
+      {/* ── CURRENT / CARRY-FORWARD COURSE ATR ───────────────────────────── */}
+      {showHistory ? (
         <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px', borderColor: '#a5b4fc', borderWidth: '1.5px' }}>
           <div style={{ fontSize: '11px', fontWeight: '700', color: accent, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-            ATR Carry-Forward — Previous Batch ({prevBatch.batch}) · Prepared by {prevBatch.preparedBy}
+            Previous-Year Course ATR{previousYearAtr?.batch?.name ? ` — ${previousYearAtr.batch.name}` : ''}
           </div>
-          <table className="audit-data-table">
-            <thead><tr><th style={{ width: '80px' }}>CO</th><th>Action Taken (Previous Batch)</th><th>Impact in Current Batch</th></tr></thead>
-            <tbody>
-              {prevBatch.actions.map((a) => (
-                <tr key={a.coCode}>
-                  <td style={{ fontWeight: '700', color: accent }}>{a.coCode}</td>
-                  <td style={{ fontSize: '12.5px' }}>{a.actionPlan}</td>
-                  <td style={{ fontSize: '12.5px', color: '#16a34a', fontWeight: '600' }}>{a.impact}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {previousYearLoadState === 'loading' ? (
+            <div style={{ padding: '14px 0', fontSize: '12.5px', color: muted }}>Loading the previous academic batch Course ATR…</div>
+          ) : previousYearLoadState === 'error' ? (
+            <div style={{ padding: '14px 0', fontSize: '12.5px', color: '#b91c1c' }}>Unable to load the previous academic batch Course ATR.</div>
+          ) : !(previousYearAtr?.outcomes ?? []).length ? (
+            <div style={{ padding: '14px 0', fontSize: '12.5px', color: muted }}>No previous-year Course ATR is available for this course.</div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="audit-data-table" style={{ margin: 0 }}>
+                <thead><tr><th>CO</th><th>Outcome Statement</th><th>Target</th><th>Attainment</th><th>Achievement</th><th>Observation</th><th>Actions Taken</th></tr></thead>
+                <tbody>{previousYearAtr.outcomes.map((outcome, index) => <tr key={outcome.outcomeCode ?? index} style={{ verticalAlign: 'top' }}><td style={{ fontWeight: 800, color: accent }}>{outcome.outcomeCode ?? `CO${index + 1}`}</td><td>{outcome.outcomeStatement ?? '—'}</td><td>{formatLevel(outcome.targetLevel)}</td><td>{formatLevel(outcome.attainmentLevel)}</td><td>{outcome.achievementPercentage != null ? `${Number(outcome.achievementPercentage).toFixed(1)}%` : '—'}</td><td>{outcome.observation || '—'}</td><td>{Array.isArray(outcome.actions) && outcome.actions.length ? outcome.actions.map((action, actionIndex) => <div key={actionIndex} style={{ marginBottom: 4 }}><strong>Action {actionIndex + 1}:</strong> {action}</div>) : '—'}</td></tr>)}</tbody>
+              </table>
+            </div>
+          )}
         </div>
-      )}
-
-      {/* ── CO ATR CARDS ──────────────────────────────────────────────────── */}
-      {coList.length === 0 ? (
+      ) : coList.length === 0 ? (
         <div style={{ ...surface, padding: '40px', textAlign: 'center', color: muted, fontSize: '12.5px' }}>
           No Course Outcomes defined yet. Add COs first via Outcome Management.
         </div>
@@ -412,7 +429,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
                       <th style={{ width: '100px', textAlign: 'center' }}>Target</th>
                       <th style={{ width: '110px', textAlign: 'center' }}>Attainment</th>
                       <th style={{ width: '130px', textAlign: 'center' }}>Observation</th>
-                      <th>{co.met ? 'Remark (Target Met)' : 'Corrective Actions for Improvement'}</th>
+                      <th>{co.met ? 'Action Taken' : 'Corrective Actions for Improvement'}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -426,20 +443,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
                         </span>
                       </td>
                       <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
-                        {co.met ? (
-                          locked ? (
-                            <div style={{ fontSize: '12.5px', color: ink, background: '#f8fafc', padding: '10px 14px', borderRadius: '7px', border: '1px solid #e2e8f0', lineHeight: 1.5, fontWeight: '500' }}>
-                              {co.remark || 'Target achieved. Maintain current teaching methodology and assessment structure.'}
-                            </div>
-                          ) : (
-                            <textarea rows={3} value={co.remark} disabled={locked}
-                              onChange={(e) => handleUpdateRemark(idx, e.target.value)}
-                              placeholder="Enter remark for this CO..."
-                              style={{ width: '100%', fontSize: '12.5px', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '8px 10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', color: ink, background: '#ffffff' }}
-                            />
-                          )
-                        ) : (
-                          locked ? (
+                        {locked ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                               {co.actions.map((act, aIdx) => (
                                 <div key={aIdx} style={{ fontSize: '12px', color: ink, background: '#f8fafc', padding: '8px 12px', borderRadius: '7px', border: '1px solid #e2e8f0', lineHeight: 1.45 }}>
@@ -471,8 +475,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
                                 </button>
                               )}
                             </div>
-                          )
-                        )}
+                          )}
                       </td>
                     </tr>
                   </tbody>
@@ -484,7 +487,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
       )}
 
       {/* ── FOOTER ────────────────────────────────────────────────────────── */}
-      {!hideFooter && isFaculty && (
+      {!showHistory && !hideFooter && isFaculty && (
         <div style={{ ...surface, padding: '14px 20px', marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           {!locked ? (
             <>
