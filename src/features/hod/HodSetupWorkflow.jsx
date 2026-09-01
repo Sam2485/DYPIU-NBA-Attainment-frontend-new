@@ -914,6 +914,20 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
           </form>
 
           {/* Master Course Table */}
+          {standaloneCoordinatorAllocation && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+              <button
+                type="button"
+                onClick={handleBulkSaveCoordinatorAssignments}
+                disabled={assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0}
+                className="btn btn-primary"
+                style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '800', opacity: assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0 ? 0.6 : 1, cursor: assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0 ? 'not-allowed' : 'pointer' }}
+              >
+                <Save size={14} /> {assignmentSaveState === 'saving' ? 'Saving Assignment…' : assignmentsAreSaved ? 'Saved' : 'Save Assignment'}
+              </button>
+            </div>
+          )}
+
           <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
             <table className="audit-data-table">
               <thead>
@@ -1224,20 +1238,6 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
               </tbody>
             </table>
           </div>
-
-          {standaloneCoordinatorAllocation && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <button
-                type="button"
-                onClick={handleBulkSaveCoordinatorAssignments}
-                disabled={assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0}
-                className="btn btn-primary"
-                style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '800', opacity: assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0 ? 0.6 : 1, cursor: assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0 ? 'not-allowed' : 'pointer' }}
-              >
-                <Save size={14} /> {assignmentSaveState === 'saving' ? 'Saving Assignment…' : assignmentsAreSaved ? 'Saved' : 'Save Assignment'}
-              </button>
-            </div>
-          )}
 
           {!standaloneCoordinatorAllocation && assignmentSaveState === 'saved' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', marginTop: '16px' }}>
