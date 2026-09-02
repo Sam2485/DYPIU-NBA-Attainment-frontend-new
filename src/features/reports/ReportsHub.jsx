@@ -33,6 +33,13 @@ const DEFAULT_BATCHES = [
 ];
 
 const unwrapReportData = (response) => response?.data?.data ?? response?.data ?? response;
+const normalizeReportProgramme = (programme) => ({
+  ...programme,
+  // Depending on the report-filter endpoint, the primary key may be named
+  // `id` or `masterProgrammeId`. The hierarchy needs one canonical ID.
+  id: programme?.id ?? programme?.masterProgrammeId ?? null,
+  masterProgrammeId: programme?.masterProgrammeId ?? programme?.id ?? null,
+});
 const normalizeReportBatch = (batch) => ({
   ...batch,
   // Report-filter endpoints can return either `id` or
@@ -219,6 +226,12 @@ export default function ReportsHub() {
     : (batches || []);
   const effectiveBatchId = isCourseCoordinator ? batchId : selectedBatchId;
   const currentBatchObj = batchList.find((b) => b.id === effectiveBatchId) || null;
+  // A persisted batch can belong to a previously selected programme or a
+  // different user scope. Do not query programme reports until the current
+  // role's batch API has confirmed that this ID is valid.
+  const hasResolvedReportBatch = isCourseCoordinator || batchList.some(
+    (batch) => String(batch.id) === String(effectiveBatchId)
+  );
   const currentBatchName = currentBatchObj?.name || 'No programme batch selected';
   const isFinalSemCompleted = currentBatchObj?.isCompleted || currentBatchObj?.name?.includes('Completed') || currentBatchObj?.name?.includes('Graduated');
 
@@ -255,7 +268,7 @@ export default function ReportsHub() {
       .then((response) => {
         if (cancelled) return;
         const programmes = unwrapReportData(response) ?? [];
-        const list = Array.isArray(programmes) ? programmes : [];
+        const list = Array.isArray(programmes) ? programmes.map(normalizeReportProgramme) : [];
         // Mark the scope as loaded only after a live request succeeds. This
         // lets React's development effect replay replace a cancelled request.
         hodProgrammeScopeRef.current = scope;
@@ -283,7 +296,7 @@ export default function ReportsHub() {
       .then((response) => {
         if (cancelled) return;
         const programmes = unwrapReportData(response) ?? [];
-        const list = Array.isArray(programmes) ? programmes : [];
+        const list = Array.isArray(programmes) ? programmes.map(normalizeReportProgramme) : [];
         // Do not lock the scope before this request completes; an effect
         // cleanup can cancel the first development-mode invocation.
         directorProgrammeScopeRef.current = scope;
@@ -408,7 +421,7 @@ export default function ReportsHub() {
   );
 
   useEffect(() => {
-    if (isCourseCoordinator || !effectiveBatchId) return;
+    if (isCourseCoordinator || !effectiveBatchId || !hasResolvedReportBatch) return;
     const requestedBatchId = String(effectiveBatchId);
     if (loadedReportOfferingsBatchRef.current === requestedBatchId) return;
     loadedReportOfferingsBatchRef.current = requestedBatchId;
@@ -417,7 +430,7 @@ export default function ReportsHub() {
         loadedReportOfferingsBatchRef.current = '';
       }
     });
-  }, [effectiveBatchId, isCourseCoordinator, loadCourseOfferings]);
+  }, [effectiveBatchId, hasResolvedReportBatch, isCourseCoordinator, loadCourseOfferings]);
 
   useEffect(() => {
     if (isCourseCoordinator || !reportCourseOfferings.length) return;
@@ -436,7 +449,7 @@ export default function ReportsHub() {
   }, [selectedCourseOffering?.id]);
 
   useEffect(() => {
-    if (!currentProgId || !effectiveBatchId || isCourseCoordinator) {
+    if (!currentProgId || !effectiveBatchId || !hasResolvedReportBatch || isCourseCoordinator) {
       setProgrammeBatchReports({ mapping: null, direct: null, indirect: null });
       setProgrammeBatchReportErrors({ mapping: '', direct: '', indirect: '' });
       return;
@@ -483,7 +496,7 @@ export default function ReportsHub() {
       });
 
     return () => { cancelled = true; };
-  }, [currentProgId, effectiveBatchId, isCourseCoordinator]);
+  }, [currentProgId, effectiveBatchId, hasResolvedReportBatch, isCourseCoordinator]);
 
   const buildProgrammeTable = (report, type) => {
     const courses = Array.isArray(report?.courses) ? report.courses : [];
