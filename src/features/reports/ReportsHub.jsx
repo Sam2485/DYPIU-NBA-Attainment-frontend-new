@@ -33,6 +33,14 @@ const DEFAULT_BATCHES = [
 ];
 
 const unwrapReportData = (response) => response?.data?.data ?? response?.data ?? response;
+const normalizeReportBatch = (batch) => ({
+  ...batch,
+  // Report-filter endpoints can return either `id` or
+  // `programmeBatchId`. The selected value must always be the latter's
+  // programme-batch identifier before we request its course offerings.
+  id: batch?.id ?? batch?.programmeBatchId ?? null,
+  programmeBatchId: batch?.programmeBatchId ?? batch?.id ?? null,
+});
 const codeOrder = (left, right) => String(left).localeCompare(String(right), undefined, { numeric: true });
 const valueOrDash = (value) => value === null || value === undefined || value === '' ? '—' : Number.isFinite(Number(value)) ? Number(value).toFixed(2) : value;
 const responseValue = (response, outcomeCode) => {
@@ -242,19 +250,24 @@ export default function ReportsHub() {
     if (!isHod) return;
     const scope = user?.departmentId ?? '__authenticated-hod__';
     if (hodProgrammeScopeRef.current === scope) return;
-    hodProgrammeScopeRef.current = scope;
     let cancelled = false;
     reportsApi.getMasterProgrammesByDepartment(user?.departmentId)
       .then((response) => {
         if (cancelled) return;
         const programmes = unwrapReportData(response) ?? [];
         const list = Array.isArray(programmes) ? programmes : [];
+        // Mark the scope as loaded only after a live request succeeds. This
+        // lets React's development effect replay replace a cancelled request.
+        hodProgrammeScopeRef.current = scope;
         setHodProgrammes(list);
         const selectedStillAvailable = list.some((programme) => String(programme.id) === String(programmeId));
         if (!selectedStillAvailable) setProgrammeId(list[0]?.id ?? null);
       })
       .catch(() => {
-        if (!cancelled) setHodProgrammes([]);
+        if (!cancelled) {
+          hodProgrammeScopeRef.current = null;
+          setHodProgrammes([]);
+        }
       });
     return () => { cancelled = true; };
   }, [isHod, setProgrammeId, user?.departmentId]);
@@ -265,19 +278,24 @@ export default function ReportsHub() {
     if (!isDirector) return;
     const scope = user?.schoolId ?? '__authenticated-director__';
     if (directorProgrammeScopeRef.current === scope) return;
-    directorProgrammeScopeRef.current = scope;
     let cancelled = false;
     reportsApi.getMasterProgrammesBySchool(user?.schoolId)
       .then((response) => {
         if (cancelled) return;
         const programmes = unwrapReportData(response) ?? [];
         const list = Array.isArray(programmes) ? programmes : [];
+        // Do not lock the scope before this request completes; an effect
+        // cleanup can cancel the first development-mode invocation.
+        directorProgrammeScopeRef.current = scope;
         setDirectorProgrammes(list);
         const selectedStillAvailable = list.some((programme) => String(programme.id) === String(programmeId));
         if (!selectedStillAvailable) setProgrammeId(list[0]?.id ?? null);
       })
       .catch(() => {
-        if (!cancelled) setDirectorProgrammes([]);
+        if (!cancelled) {
+          directorProgrammeScopeRef.current = null;
+          setDirectorProgrammes([]);
+        }
       });
     return () => { cancelled = true; };
   }, [isDirector, setProgrammeId, user?.schoolId]);
@@ -292,7 +310,7 @@ export default function ReportsHub() {
       .then((response) => {
         if (cancelled) return;
         const programmeBatches = unwrapReportData(response) ?? [];
-        const list = Array.isArray(programmeBatches) ? programmeBatches : [];
+        const list = Array.isArray(programmeBatches) ? programmeBatches.map(normalizeReportBatch) : [];
         setHodBatches(list);
         const nextBatchId = list.some((batch) => String(batch.id) === String(selectedBatchId))
           ? selectedBatchId
@@ -325,7 +343,7 @@ export default function ReportsHub() {
       .then((response) => {
         if (cancelled) return;
         const programmeBatches = unwrapReportData(response) ?? [];
-        const list = Array.isArray(programmeBatches) ? programmeBatches : [];
+        const list = Array.isArray(programmeBatches) ? programmeBatches.map(normalizeReportBatch) : [];
         setDirectorBatches(list);
         const nextBatchId = list.some((batch) => String(batch.id) === String(selectedBatchId))
           ? selectedBatchId
@@ -358,7 +376,7 @@ export default function ReportsHub() {
       .then((response) => {
         if (cancelled) return;
         const programmeBatches = unwrapReportData(response) ?? [];
-        const list = Array.isArray(programmeBatches) ? programmeBatches : [];
+        const list = Array.isArray(programmeBatches) ? programmeBatches.map(normalizeReportBatch) : [];
         setCoordinatorBatches(list);
         const nextBatchId = list.some((batch) => String(batch.id) === String(selectedBatchId))
           ? selectedBatchId
