@@ -346,10 +346,12 @@ export default function ReportsHub() {
 
   const reportCourseOfferings = useMemo(
     () => courseOfferings.filter((offering) =>
+      // The API is requested with the selected programme-batch ID, and the
+      // backend enforces the user's scope. Do not discard valid offerings
+      // merely because this response does not include a masterProgrammeId.
       String(offering.batchId ?? offering.programmeBatchId) === String(effectiveBatchId)
-      && (!currentProgId || String(offering.masterProgrammeId ?? offering.programmeId) === String(currentProgId))
     ),
-    [courseOfferings, currentProgId, effectiveBatchId],
+    [courseOfferings, effectiveBatchId],
   );
 
   useEffect(() => {
@@ -1472,7 +1474,16 @@ export default function ReportsHub() {
 
           {/* ATR SUB-TAB 2: PROGRAMME ATR (Only for Programme Coordinator, HOD, Director) */}
           {!isCourseCoordinator && atrSubTab === 'programme-atr' && (
-            <ProgrammeATR readOnly hideFooter={true} hideHeader={false} programmeId={currentProgramme.id} courseId={currentCourseObj.id} batchId={currentBatchObj?.id} />
+            <ProgrammeATR
+              readOnly
+              hideFooter={true}
+              hideHeader={false}
+              showBatchSelector={false}
+              showHeaderActions={false}
+              programmeId={currentProgramme.id}
+              courseId={currentCourseObj.id}
+              batchId={currentBatchObj?.id}
+            />
           )}
 
         </div>

@@ -30,7 +30,7 @@ const atrSignature = (items = []) => JSON.stringify(items.map((item) => ({
   actions: (item.actions ?? []).filter(Boolean),
 })));
 
-export default function ProgrammeATR({ courseId = null, programmeId: propProgrammeId = null, batchId: propBatchId = null, hideFooter = false, hideHeader = false, readOnly = false, showBatchSelector = true }) {
+export default function ProgrammeATR({ courseId = null, programmeId: propProgrammeId = null, batchId: propBatchId = null, hideFooter = false, hideHeader = false, readOnly = false, showBatchSelector = true, showHeaderActions = true }) {
   const { user, role } = useAuth();
   const {
     selectedCourse,
@@ -458,17 +458,19 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
           </div>
 
           {/* Action buttons below the title */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <button onClick={() => setShowHistory((v) => !v)}
-              style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-              <History size={13} /> {showHistory ? 'Hide Carry Forwarded ATR' : 'View Carry Forwarded ATR'}
-            </button>
+          {showHeaderActions && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <button onClick={() => setShowHistory((v) => !v)}
+                style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                <History size={13} /> {showHistory ? 'Hide Carry Forwarded ATR' : 'View Carry Forwarded ATR'}
+              </button>
 
-            <button onClick={() => window.print()}
-              style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-              <Printer size={13} /> Print
-            </button>
-          </div>
+              <button onClick={() => window.print()}
+                style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                <Printer size={13} /> Print
+              </button>
+            </div>
+          )}
         </div>
       )}
 
