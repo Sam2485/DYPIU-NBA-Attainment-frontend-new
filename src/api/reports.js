@@ -8,6 +8,23 @@ export const reportsApi = {
   getFilters: () =>
     apiClient.get('/reports/filters'),
 
+  // HOD report filter hierarchy
+  getMasterProgrammesByDepartment: (departmentId) =>
+    apiClient.get('/master-programmes', {
+      params: departmentId ? { departmentId } : {},
+    }),
+
+  // Director report filter hierarchy
+  getMasterProgrammesBySchool: (schoolId) =>
+    apiClient.get('/master-programmes', {
+      // The Director token also scopes this endpoint to their school when no
+      // school ID is present in the current user payload.
+      params: schoolId ? { schoolId } : {},
+    }),
+
+  getProgrammeBatchesByMasterProgramme: (masterProgrammeId) =>
+    apiClient.get(`/master-programmes/${masterProgrammeId}/programme-batches`),
+
   // -----------------------------------------------------------------------
   // General Reports Summary
   // -----------------------------------------------------------------------

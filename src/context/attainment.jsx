@@ -28,6 +28,17 @@ const unwrapResponse = (response) => {
     return null;
   }
 
+  // Axios returns the API body directly. A few validation endpoints can
+  // still report success:false in a 2xx response; turn that into a rejected
+  // operation so upload screens show the backend's precise validation text.
+  const envelope = response?.data?.success !== undefined ? response.data : response;
+  if (envelope?.success === false) {
+    const message = envelope.message || envelope.error || 'The uploaded file could not be processed.';
+    const error = new Error(typeof message === 'string' ? message : JSON.stringify(message));
+    error.customMessage = error.message;
+    throw error;
+  }
+
   if (response?.data?.data !== undefined) {
     return response.data.data;
   }

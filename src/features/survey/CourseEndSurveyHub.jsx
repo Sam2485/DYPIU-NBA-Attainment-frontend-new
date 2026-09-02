@@ -26,6 +26,8 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
   const [uploadedFileName, setUploadedFileName] = useState(null);
 
   useEffect(() => {
+    setErrorMessage(null);
+    setStatusMessage(null);
     if (courseOfferingId) {
       setUploadedFileName(sessionStorage.getItem(`survey-upload:${courseOfferingId}`));
       loadSurveyData(courseOfferingId).catch(() => {});
@@ -185,7 +187,7 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
       {errorMessage && (
         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#991b1b' }}>
           <AlertCircle size={18} />
-          <span>{errorMessage}</span>
+          <span style={{ lineHeight: '1.45' }}>{errorMessage}</span>
         </div>
       )}
 

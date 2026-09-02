@@ -81,35 +81,48 @@ export default function ReportsHub() {
   const isHod = role === 'HOD';
   const isDirector = role === 'DIRECTOR' || role === 'SCHOOL_DIRECTOR' || role === 'IQAC';
   const isHodOrDirector = isHod || isDirector;
+  const reportSelectionStorageKey = (selection) =>
+    `nba_reports_selected_${selection}:${role}:${user?.email ?? user?.id ?? 'current-user'}`;
+  const readReportSelection = (selection) => (
+    typeof window === 'undefined' ? '' : sessionStorage.getItem(reportSelectionStorageKey(selection)) ?? ''
+  );
+  const [hodProgrammes, setHodProgrammes] = useState([]);
+  const [hodBatches, setHodBatches] = useState([]);
+  const [coordinatorBatches, setCoordinatorBatches] = useState([]);
+  const [directorProgrammes, setDirectorProgrammes] = useState([]);
+  const [directorBatches, setDirectorBatches] = useState([]);
+
+  useEffect(() => {
+    if (programmeId || typeof window === 'undefined') return;
+    const persistedProgrammeId = sessionStorage.getItem(reportSelectionStorageKey('master_programme'));
+    if (persistedProgrammeId) setProgrammeId(persistedProgrammeId);
+  }, [programmeId, role, setProgrammeId, user?.email, user?.id]);
   const assignedOfferings = useMemo(
     () => courseOfferings.filter((offering) => String(offering.batchId ?? offering.programmeBatchId) === String(batchId)),
     [batchId, courseOfferings],
   );
 
   useEffect(() => {
-    if (!isCourseCoordinator || !user?.email || !batchId) return;
-    loadAssignedCourseOfferings(user, batchId).then((offerings) => {
+    if (!isCourseCoordinator || !batchId) return;
+    // The coordinator-scoped programme-batch-courses endpoint returns only
+    // courses assigned to the signed-in Course Coordinator. The offering ID
+    // (`id`) is kept as the report scope for every course-level request.
+    loadCourseOfferings(batchId).then((offerings) => {
       const selectedStillAssigned = (offerings ?? []).some(
         (offering) => String(offering.id) === String(courseOfferingId)
       );
       if (!selectedStillAssigned && offerings?.[0]) selectCourseOffering(offerings[0]);
     }).catch(() => {});
-  }, [batchId, courseOfferingId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, user]);
+  }, [batchId, courseOfferingId, isCourseCoordinator, loadCourseOfferings, selectCourseOffering]);
 
   // Role-based Programmes List
   const roleProgrammes = (() => {
     if (isDirector) {
-      // Director sees all programmes across the school
-      return masterProgrammes;
+      // Director sees every programme in their school through the explicit
+      // report-filter hierarchy, rather than data left over from another view.
+      return directorProgrammes;
     }
-    if (isHod) {
-      // HOD sees all programmes under their department (dept-1 / CSE by default)
-      const userDeptId = user?.departmentId || 'dept-1';
-      const filtered = masterProgrammes.filter(
-        (p) => !p.departmentId || p.departmentId === userDeptId || p.department?.toLowerCase().includes('computer')
-      );
-      return filtered.length > 0 ? filtered : masterProgrammes.slice(0, 3);
-    }
+    if (isHod) return hodProgrammes;
     if (isProgrammeCoordinator) {
       // Programme Coordinator sees only assigned programmes
       const userProgId = user?.programmeId || 'prog-1';
@@ -172,11 +185,16 @@ export default function ReportsHub() {
   const [atrSubTab, setAtrSubTab] = useState('course-atr');
 
   // ── 4. FILTERS STATE ────────────────────────────────────────────────────────
-  const [selectedBatchId, setSelectedBatchId] = useState('');
+  const [selectedBatchId, setSelectedBatchId] = useState(
+    () => readReportSelection('programme_batch')
+  );
+  const [selectedReportCourseOfferingId, setSelectedReportCourseOfferingId] = useState(
+    () => readReportSelection('programme_batch_course')
+  );
   const [batchReportType, setBatchReportType] = useState('average-mapping'); // 'average-mapping' | 'average-attainment-direct' | 'average-attainment-indirect' | 'overall-attainment'
   const [programmeBatchReports, setProgrammeBatchReports] = useState({ mapping: null, direct: null, indirect: null });
   const [programmeBatchReportsLoading, setProgrammeBatchReportsLoading] = useState(false);
-  const [programmeBatchReportsError, setProgrammeBatchReportsError] = useState('');
+  const [programmeBatchReportErrors, setProgrammeBatchReportErrors] = useState({ mapping: '', direct: '', indirect: '' });
 
   // Dynamic Lists
   const poList = (activePOs || []).map((p) => p?.code || p).filter(Boolean);
@@ -184,11 +202,147 @@ export default function ReportsHub() {
   const coList = activeCOs || [];
 
   // Batches
-  const batchList = batches || [];
+  const batchList = isHod
+    ? hodBatches
+    : isProgrammeCoordinator
+    ? coordinatorBatches
+    : isDirector
+    ? directorBatches
+    : (batches || []);
   const effectiveBatchId = isCourseCoordinator ? batchId : selectedBatchId;
   const currentBatchObj = batchList.find((b) => b.id === effectiveBatchId) || null;
   const currentBatchName = currentBatchObj?.name || 'No programme batch selected';
   const isFinalSemCompleted = currentBatchObj?.isCompleted || currentBatchObj?.name?.includes('Completed') || currentBatchObj?.name?.includes('Graduated');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const key = reportSelectionStorageKey('master_programme');
+    // Persist only an explicit selection. A temporary first-option fallback
+    // while programme data is loading must never overwrite a saved choice.
+    if (programmeId) sessionStorage.setItem(key, programmeId);
+  }, [programmeId, role, user?.email, user?.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const key = reportSelectionStorageKey('programme_batch');
+    if (selectedBatchId) sessionStorage.setItem(key, selectedBatchId);
+    else sessionStorage.removeItem(key);
+  }, [role, selectedBatchId, user?.email, user?.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const key = reportSelectionStorageKey('programme_batch_course');
+    if (selectedReportCourseOfferingId) sessionStorage.setItem(key, selectedReportCourseOfferingId);
+    else sessionStorage.removeItem(key);
+  }, [role, selectedReportCourseOfferingId, user?.email, user?.id]);
+
+  // HOD Reports follows the backend's explicit selection hierarchy rather
+  // than relying on programme/batch lists populated by another screen.
+  useEffect(() => {
+    if (!isHod) return;
+    let cancelled = false;
+    reportsApi.getMasterProgrammesByDepartment(user?.departmentId)
+      .then((response) => {
+        if (cancelled) return;
+        const programmes = unwrapReportData(response) ?? [];
+        const list = Array.isArray(programmes) ? programmes : [];
+        setHodProgrammes(list);
+        const selectedStillAvailable = list.some((programme) => String(programme.id) === String(programmeId));
+        if (!selectedStillAvailable) setProgrammeId(list[0]?.id ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setHodProgrammes([]);
+      });
+    return () => { cancelled = true; };
+  }, [isHod, programmeId, setProgrammeId, user?.departmentId]);
+
+  // Director Reports uses the school-scoped hierarchy: Programme → Batch →
+  // Course. The course offerings themselves are loaded below by batch ID.
+  useEffect(() => {
+    if (!isDirector) return;
+    let cancelled = false;
+    reportsApi.getMasterProgrammesBySchool(user?.schoolId)
+      .then((response) => {
+        if (cancelled) return;
+        const programmes = unwrapReportData(response) ?? [];
+        const list = Array.isArray(programmes) ? programmes : [];
+        setDirectorProgrammes(list);
+        const selectedStillAvailable = list.some((programme) => String(programme.id) === String(programmeId));
+        if (!selectedStillAvailable) setProgrammeId(list[0]?.id ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setDirectorProgrammes([]);
+      });
+    return () => { cancelled = true; };
+  }, [isDirector, programmeId, setProgrammeId, user?.schoolId]);
+
+  useEffect(() => {
+    if (!isHod || !currentProgId) {
+      if (isHod) setHodBatches([]);
+      return;
+    }
+    let cancelled = false;
+    reportsApi.getProgrammeBatchesByMasterProgramme(currentProgId)
+      .then((response) => {
+        if (cancelled) return;
+        const programmeBatches = unwrapReportData(response) ?? [];
+        const list = Array.isArray(programmeBatches) ? programmeBatches : [];
+        setHodBatches(list);
+        setSelectedBatchId((current) => list.some((batch) => String(batch.id) === String(current))
+          ? current
+          : (list[0]?.id ?? ''));
+      })
+      .catch(() => {
+        if (!cancelled) setHodBatches([]);
+      });
+    return () => { cancelled = true; };
+  }, [currentProgId, isHod]);
+
+  useEffect(() => {
+    if (!isDirector || !currentProgId) {
+      if (isDirector) setDirectorBatches([]);
+      return;
+    }
+    let cancelled = false;
+    reportsApi.getProgrammeBatchesByMasterProgramme(currentProgId)
+      .then((response) => {
+        if (cancelled) return;
+        const programmeBatches = unwrapReportData(response) ?? [];
+        const list = Array.isArray(programmeBatches) ? programmeBatches : [];
+        setDirectorBatches(list);
+        setSelectedBatchId((current) => list.some((batch) => String(batch.id) === String(current))
+          ? current
+          : (list[0]?.id ?? ''));
+      })
+      .catch(() => {
+        if (!cancelled) setDirectorBatches([]);
+      });
+    return () => { cancelled = true; };
+  }, [currentProgId, isDirector]);
+
+  useEffect(() => {
+    if (!isProgrammeCoordinator || !currentProgId) {
+      if (isProgrammeCoordinator) setCoordinatorBatches([]);
+      return;
+    }
+    let cancelled = false;
+    // The coordinator token scopes this endpoint to only the programme
+    // batches assigned to the signed-in Programme Coordinator.
+    reportsApi.getProgrammeBatchesByMasterProgramme(currentProgId)
+      .then((response) => {
+        if (cancelled) return;
+        const programmeBatches = unwrapReportData(response) ?? [];
+        const list = Array.isArray(programmeBatches) ? programmeBatches : [];
+        setCoordinatorBatches(list);
+        setSelectedBatchId((current) => list.some((batch) => String(batch.id) === String(current))
+          ? current
+          : (list[0]?.id ?? ''));
+      })
+      .catch(() => {
+        if (!cancelled) setCoordinatorBatches([]);
+      });
+    return () => { cancelled = true; };
+  }, [currentProgId, isProgrammeCoordinator]);
 
   const reportCourseOfferings = useMemo(
     () => courseOfferings.filter((offering) =>
@@ -206,42 +360,60 @@ export default function ReportsHub() {
   useEffect(() => {
     if (isCourseCoordinator || !reportCourseOfferings.length) return;
     const matchingOffering = reportCourseOfferings.find((offering) =>
+      String(offering.id) === String(selectedReportCourseOfferingId)
+    ) ?? reportCourseOfferings.find((offering) =>
       String(offering.courseId ?? offering.masterCourseId) === String(courseId)
     ) ?? reportCourseOfferings[0];
     if (matchingOffering && String(matchingOffering.id) !== String(selectedCourseOffering?.id)) {
       selectCourseOffering(matchingOffering);
     }
-  }, [courseId, isCourseCoordinator, reportCourseOfferings, selectCourseOffering, selectedCourseOffering?.id]);
+  }, [courseId, isCourseCoordinator, reportCourseOfferings, selectCourseOffering, selectedCourseOffering?.id, selectedReportCourseOfferingId]);
+
+  useEffect(() => {
+    if (selectedCourseOffering?.id) setSelectedReportCourseOfferingId(selectedCourseOffering.id);
+  }, [selectedCourseOffering?.id]);
 
   useEffect(() => {
     if (!currentProgId || !effectiveBatchId || isCourseCoordinator) {
       setProgrammeBatchReports({ mapping: null, direct: null, indirect: null });
-      setProgrammeBatchReportsError('');
+      setProgrammeBatchReportErrors({ mapping: '', direct: '', indirect: '' });
       return;
     }
 
     let cancelled = false;
     setProgrammeBatchReportsLoading(true);
-    setProgrammeBatchReportsError('');
+    setProgrammeBatchReportErrors({ mapping: '', direct: '', indirect: '' });
 
-    Promise.all([
+    Promise.allSettled([
       reportsApi.getAverageMapping(effectiveBatchId),
       reportsApi.getAverageDirectAttainment(effectiveBatchId),
       reportsApi.getAverageIndirectAttainment(effectiveBatchId),
     ])
-      .then(([mappingResponse, directResponse, indirectResponse]) => {
+      .then(([mappingResult, directResult, indirectResult]) => {
         if (!cancelled) {
+          const resultData = (result) => result.status === 'fulfilled' ? unwrapReportData(result.value) : null;
+          const resultError = (result, fallback) => {
+            if (result.status === 'fulfilled') {
+              const data = unwrapReportData(result.value);
+              // Some backend validation failures return HTTP 200 with
+              // success:false. Treat those responses as real report errors.
+              return data?.success === false ? (data.message || fallback) : '';
+            }
+            return result.reason?.response?.data?.message
+              || result.reason?.customMessage
+              || result.reason?.message
+              || fallback;
+          };
           setProgrammeBatchReports({
-            mapping: unwrapReportData(mappingResponse),
-            direct: unwrapReportData(directResponse),
-            indirect: unwrapReportData(indirectResponse),
+            mapping: resultData(mappingResult),
+            direct: resultData(directResult),
+            indirect: resultData(indirectResult),
           });
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setProgrammeBatchReports({ mapping: null, direct: null, indirect: null });
-          setProgrammeBatchReportsError(error?.response?.data?.message || 'Unable to load the programme-batch attainment report.');
+          setProgrammeBatchReportErrors({
+            mapping: resultError(mappingResult, 'Unable to load the average mapping report.'),
+            direct: resultError(directResult, 'Unable to load the average direct attainment report.'),
+            indirect: resultError(indirectResult, 'Unable to load the average indirect attainment report.'),
+          });
         }
       })
       .finally(() => {
@@ -313,13 +485,13 @@ export default function ReportsHub() {
     return ((Number(directValue) * 0.8) + (Number(indirectValue) * 0.2)).toFixed(2);
   };
 
-  const renderProgrammeRows = (table, totalLabel) => {
+  const renderProgrammeRows = (table, totalLabel, reportError = '') => {
     const columnCount = 3 + table.poCodes.length + table.psoCodes.length;
     if (programmeBatchReportsLoading) {
       return <tr><td colSpan={columnCount} style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>Loading programme-batch report…</td></tr>;
     }
-    if (programmeBatchReportsError) {
-      return <tr><td colSpan={columnCount} style={{ padding: '28px', textAlign: 'center', color: '#b91c1c' }}>{programmeBatchReportsError}</td></tr>;
+    if (reportError) {
+      return <tr><td colSpan={columnCount} style={{ padding: '28px', textAlign: 'center', color: '#b91c1c' }}>{reportError}</td></tr>;
     }
     if (!table.groups.length) {
       return <tr><td colSpan={columnCount} style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>No course data is available for this programme batch.</td></tr>;
@@ -536,10 +708,10 @@ export default function ReportsHub() {
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '14px', paddingTop: '14px', borderTop: '1px solid #f1f5f9' }}>
           
           {/* 1. PROGRAMME SELECTOR (For Programme Coordinator, HOD, Director) */}
-          {!isCourseCoordinator && (
-            <div style={{ minWidth: '240px', flex: '1 1 240px' }}>
+          {!isCourseCoordinator && !isProgrammeCoordinator && (
+            <div style={{ minWidth: '240px', flex: '1 1 240px', order: isHod || isDirector ? 1 : undefined }}>
               <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-                {isProgrammeCoordinator ? 'Assigned Programme' : isHod ? 'Department Programme' : 'School Programme'}
+                {isHod || isDirector ? 'Programme' : 'School Programme'}
               </label>
               <div style={{ position: 'relative' }}>
                 <select
@@ -547,6 +719,8 @@ export default function ReportsHub() {
                   onChange={(e) => {
                     const newProgId = e.target.value;
                     setProgrammeId(newProgId);
+                    if (isHod || isDirector) setSelectedBatchId('');
+                    setSelectedReportCourseOfferingId('');
                     const matchingCourses = courses.filter((c) => !c.programmeId || c.programmeId === newProgId);
                     if (matchingCourses.length > 0) {
                       setCourseId(matchingCourses[0].id);
@@ -579,20 +753,23 @@ export default function ReportsHub() {
           )}
 
           {/* 2. COURSE SELECTOR (For All Roles) */}
-          {!isCourseCoordinator && <div style={{ minWidth: '260px', flex: '1 1 260px' }}>
+          {!isCourseCoordinator && <div style={{ minWidth: '260px', flex: '1 1 260px', order: isProgrammeCoordinator ? 2 : isHod || isDirector ? 3 : undefined }}>
             <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-              Select Course (under {currentProgramme.code})
+              {isProgrammeCoordinator || isHod || isDirector ? 'Course' : `Select Course (under ${currentProgramme.code})`}
             </label>
             <div style={{ position: 'relative' }}>
               <select
-                value={currentCourseObj.id || courseId || ''}
+                value={isProgrammeCoordinator || isHod || isDirector ? (selectedCourseOffering?.id ?? selectedReportCourseOfferingId) : (currentCourseObj.id || courseId || '')}
                 onChange={(e) => {
-                  const nextCourseId = e.target.value;
-                  setCourseId(nextCourseId);
+                  const selectionId = e.target.value;
                   const matchingOffering = reportCourseOfferings.find((offering) =>
-                    String(offering.courseId ?? offering.masterCourseId) === String(nextCourseId)
+                    String(isProgrammeCoordinator || isHod || isDirector ? offering.id : (offering.courseId ?? offering.masterCourseId)) === String(selectionId)
                   );
-                  if (matchingOffering) selectCourseOffering(matchingOffering);
+                  if (matchingOffering) {
+                    setCourseId(matchingOffering.courseId ?? matchingOffering.masterCourseId);
+                    setSelectedReportCourseOfferingId(matchingOffering.id);
+                    selectCourseOffering(matchingOffering);
+                  }
                 }}
                 style={{
                   height: '38px',
@@ -610,24 +787,40 @@ export default function ReportsHub() {
                   fontFamily: 'inherit',
                 }}
               >
-                {allProgrammeCourses.length === 0 && <option value="">No courses available</option>}
-                {allProgrammeCourses.map((c) => (
-                  <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
-                ))}
+                {isProgrammeCoordinator || isHod || isDirector ? (
+                  <>
+                    {reportCourseOfferings.length === 0 && <option value="">No courses available for this programme batch</option>}
+                    {reportCourseOfferings.map((offering) => (
+                      <option key={offering.id} value={offering.id}>
+                        {offering.courseCode ?? offering.code ?? 'Course'} — {offering.courseName ?? offering.name ?? 'Programme-Batch Course'}
+                      </option>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    {allProgrammeCourses.length === 0 && <option value="">No courses available</option>}
+                    {allProgrammeCourses.map((c) => (
+                      <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+                    ))}
+                  </>
+                )}
               </select>
               <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
             </div>
           </div>}
 
           {/* 3. ACADEMIC BATCH SELECTOR (For All Roles) */}
-          {!isCourseCoordinator && <div style={{ minWidth: '240px', flex: '1 1 240px' }}>
+          {!isCourseCoordinator && <div style={{ minWidth: '240px', flex: '1 1 240px', order: isProgrammeCoordinator ? 1 : isHod || isDirector ? 2 : undefined }}>
             <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-              Academic Batch
+              {isProgrammeCoordinator || isHod || isDirector ? 'Batch' : 'Academic Batch'}
             </label>
             <div style={{ position: 'relative' }}>
               <select
                 value={selectedBatchId}
-                onChange={(e) => setSelectedBatchId(e.target.value)}
+                onChange={(e) => {
+                  setSelectedBatchId(e.target.value);
+                  setSelectedReportCourseOfferingId('');
+                }}
                 style={{
                   height: '38px',
                   width: '100%',
@@ -1024,7 +1217,7 @@ export default function ReportsHub() {
                         </tr>
                       </thead>
                       <tbody>
-                        {renderProgrammeRows(mappingTable, 'Average Mapping Strength')}
+                        {renderProgrammeRows(mappingTable, 'Average Mapping Strength', programmeBatchReportErrors.mapping)}
                       </tbody>
                     </table>
                   </div>
@@ -1051,7 +1244,7 @@ export default function ReportsHub() {
                         </tr>
                       </thead>
                       <tbody>
-                        {renderProgrammeRows(directTable, 'Average Attainment (Direct)')}
+                        {renderProgrammeRows(directTable, 'Average Attainment (Direct)', programmeBatchReportErrors.direct)}
                       </tbody>
                     </table>
                   </div>
@@ -1061,7 +1254,13 @@ export default function ReportsHub() {
               {/* 3. AVERAGE ATTAINMENT INDIRECT */}
               {batchReportType === 'average-attainment-indirect' && (
                 <div>
-                  {!showIndirectReport ? (
+                  {programmeBatchReportErrors.indirect ? (
+                    <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '12px', padding: '32px 24px', textAlign: 'center' }}>
+                      <AlertCircle size={36} style={{ color: '#dc2626', marginBottom: '12px' }} />
+                      <h4 style={{ margin: 0, fontSize: '18px', color: '#991b1b', fontWeight: '800' }}>Unable to load indirect attainment</h4>
+                      <p style={{ margin: '8px auto 0', fontSize: '13px', color: '#7f1d1d', maxWidth: '620px', lineHeight: '1.5' }}>{programmeBatchReportErrors.indirect}</p>
+                    </div>
+                  ) : !showIndirectReport ? (
                     <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '12px', padding: '32px 24px', textAlign: 'center' }}>
                       <Clock size={36} style={{ color: '#d97706', marginBottom: '12px' }} />
                       <h4 style={{ margin: 0, fontSize: '18px', color: '#92400e', fontWeight: '800' }}>
@@ -1121,7 +1320,13 @@ export default function ReportsHub() {
               {/* 4. OVERALL ATTAINMENT */}
               {batchReportType === 'overall-attainment' && (
                 <div>
-                  {!showIndirectReport ? (
+                  {programmeBatchReportErrors.indirect ? (
+                    <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '12px', padding: '32px 24px', textAlign: 'center' }}>
+                      <AlertCircle size={36} style={{ color: '#dc2626', marginBottom: '12px' }} />
+                      <h4 style={{ margin: 0, fontSize: '18px', color: '#991b1b', fontWeight: '800' }}>Unable to calculate overall attainment</h4>
+                      <p style={{ margin: '8px auto 0', fontSize: '13px', color: '#7f1d1d', maxWidth: '620px', lineHeight: '1.5' }}>{programmeBatchReportErrors.indirect}</p>
+                    </div>
+                  ) : !showIndirectReport ? (
                     <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '12px', padding: '32px 24px', textAlign: 'center' }}>
                       <AlertCircle size={36} style={{ color: '#dc2626', marginBottom: '12px' }} />
                       <h4 style={{ margin: 0, fontSize: '18px', color: '#991b1b', fontWeight: '800' }}>
