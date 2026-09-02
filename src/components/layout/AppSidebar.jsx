@@ -104,6 +104,10 @@ export default function AppSidebar({
   const [internalActiveTab, setInternalActiveTab] = useState('profile');
 
   const isControlled = Boolean(externalOnProfileOpen);
+  const isInternalProfileOpen =
+    internalProfileState === 'open' ||
+    internalProfileState === 'opening' ||
+    internalProfileState === 'closing';
 
   const handleProfileOpen = () => {
     if (externalOnProfileOpen) {
@@ -1301,7 +1305,7 @@ export default function AppSidebar({
       {!isControlled && (
         <>
           <UserProfileModal
-            open={isProfileOpen}
+            open={isInternalProfileOpen}
             profileState={internalProfileState}
             activeTab={internalActiveTab}
             onTabChange={setInternalActiveTab}

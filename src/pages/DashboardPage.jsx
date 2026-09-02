@@ -122,7 +122,9 @@ export default function DashboardPage() {
           flex: 1,
           minWidth: 0,
           minHeight: '100vh',
-          overflow: 'hidden',
+          // Keep horizontal content contained without disabling the shared
+          // page scroll container defined by .nba-layout-main.
+          overflowX: 'hidden',
         }}
       >
         <AppHeader
