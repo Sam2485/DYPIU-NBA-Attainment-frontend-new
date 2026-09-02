@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FileSpreadsheet,
   Download,
@@ -91,6 +91,9 @@ export default function ReportsHub() {
   const [coordinatorBatches, setCoordinatorBatches] = useState([]);
   const [directorProgrammes, setDirectorProgrammes] = useState([]);
   const [directorBatches, setDirectorBatches] = useState([]);
+  const hodProgrammeScopeRef = useRef(null);
+  const directorProgrammeScopeRef = useRef(null);
+  const loadedReportOfferingsBatchRef = useRef('');
 
   useEffect(() => {
     if (programmeId || typeof window === 'undefined') return;
@@ -237,6 +240,9 @@ export default function ReportsHub() {
   // than relying on programme/batch lists populated by another screen.
   useEffect(() => {
     if (!isHod) return;
+    const scope = user?.departmentId ?? '__authenticated-hod__';
+    if (hodProgrammeScopeRef.current === scope) return;
+    hodProgrammeScopeRef.current = scope;
     let cancelled = false;
     reportsApi.getMasterProgrammesByDepartment(user?.departmentId)
       .then((response) => {
@@ -251,12 +257,15 @@ export default function ReportsHub() {
         if (!cancelled) setHodProgrammes([]);
       });
     return () => { cancelled = true; };
-  }, [isHod, programmeId, setProgrammeId, user?.departmentId]);
+  }, [isHod, setProgrammeId, user?.departmentId]);
 
   // Director Reports uses the school-scoped hierarchy: Programme → Batch →
   // Course. The course offerings themselves are loaded below by batch ID.
   useEffect(() => {
     if (!isDirector) return;
+    const scope = user?.schoolId ?? '__authenticated-director__';
+    if (directorProgrammeScopeRef.current === scope) return;
+    directorProgrammeScopeRef.current = scope;
     let cancelled = false;
     reportsApi.getMasterProgrammesBySchool(user?.schoolId)
       .then((response) => {
@@ -271,7 +280,7 @@ export default function ReportsHub() {
         if (!cancelled) setDirectorProgrammes([]);
       });
     return () => { cancelled = true; };
-  }, [isDirector, programmeId, setProgrammeId, user?.schoolId]);
+  }, [isDirector, setProgrammeId, user?.schoolId]);
 
   useEffect(() => {
     if (!isHod || !currentProgId) {
@@ -285,15 +294,26 @@ export default function ReportsHub() {
         const programmeBatches = unwrapReportData(response) ?? [];
         const list = Array.isArray(programmeBatches) ? programmeBatches : [];
         setHodBatches(list);
-        setSelectedBatchId((current) => list.some((batch) => String(batch.id) === String(current))
-          ? current
-          : (list[0]?.id ?? ''));
+        const nextBatchId = list.some((batch) => String(batch.id) === String(selectedBatchId))
+          ? selectedBatchId
+          : (list[0]?.id ?? '');
+        setSelectedBatchId(nextBatchId);
+        // Fetch offerings immediately after a batch has been resolved. This
+        // guarantees the Course selector has data on the first report render.
+        if (nextBatchId) {
+          loadedReportOfferingsBatchRef.current = String(nextBatchId);
+          loadCourseOfferings(nextBatchId).catch(() => {
+            if (loadedReportOfferingsBatchRef.current === String(nextBatchId)) {
+              loadedReportOfferingsBatchRef.current = '';
+            }
+          });
+        }
       })
       .catch(() => {
         if (!cancelled) setHodBatches([]);
       });
     return () => { cancelled = true; };
-  }, [currentProgId, isHod]);
+  }, [currentProgId, isHod, loadCourseOfferings]);
 
   useEffect(() => {
     if (!isDirector || !currentProgId) {
@@ -307,15 +327,24 @@ export default function ReportsHub() {
         const programmeBatches = unwrapReportData(response) ?? [];
         const list = Array.isArray(programmeBatches) ? programmeBatches : [];
         setDirectorBatches(list);
-        setSelectedBatchId((current) => list.some((batch) => String(batch.id) === String(current))
-          ? current
-          : (list[0]?.id ?? ''));
+        const nextBatchId = list.some((batch) => String(batch.id) === String(selectedBatchId))
+          ? selectedBatchId
+          : (list[0]?.id ?? '');
+        setSelectedBatchId(nextBatchId);
+        if (nextBatchId) {
+          loadedReportOfferingsBatchRef.current = String(nextBatchId);
+          loadCourseOfferings(nextBatchId).catch(() => {
+            if (loadedReportOfferingsBatchRef.current === String(nextBatchId)) {
+              loadedReportOfferingsBatchRef.current = '';
+            }
+          });
+        }
       })
       .catch(() => {
         if (!cancelled) setDirectorBatches([]);
       });
     return () => { cancelled = true; };
-  }, [currentProgId, isDirector]);
+  }, [currentProgId, isDirector, loadCourseOfferings]);
 
   useEffect(() => {
     if (!isProgrammeCoordinator || !currentProgId) {
@@ -331,15 +360,24 @@ export default function ReportsHub() {
         const programmeBatches = unwrapReportData(response) ?? [];
         const list = Array.isArray(programmeBatches) ? programmeBatches : [];
         setCoordinatorBatches(list);
-        setSelectedBatchId((current) => list.some((batch) => String(batch.id) === String(current))
-          ? current
-          : (list[0]?.id ?? ''));
+        const nextBatchId = list.some((batch) => String(batch.id) === String(selectedBatchId))
+          ? selectedBatchId
+          : (list[0]?.id ?? '');
+        setSelectedBatchId(nextBatchId);
+        if (nextBatchId) {
+          loadedReportOfferingsBatchRef.current = String(nextBatchId);
+          loadCourseOfferings(nextBatchId).catch(() => {
+            if (loadedReportOfferingsBatchRef.current === String(nextBatchId)) {
+              loadedReportOfferingsBatchRef.current = '';
+            }
+          });
+        }
       })
       .catch(() => {
         if (!cancelled) setCoordinatorBatches([]);
       });
     return () => { cancelled = true; };
-  }, [currentProgId, isProgrammeCoordinator]);
+  }, [currentProgId, isProgrammeCoordinator, loadCourseOfferings]);
 
   const reportCourseOfferings = useMemo(
     () => courseOfferings.filter((offering) =>
@@ -353,7 +391,14 @@ export default function ReportsHub() {
 
   useEffect(() => {
     if (isCourseCoordinator || !effectiveBatchId) return;
-    loadCourseOfferings(effectiveBatchId).catch(() => {});
+    const requestedBatchId = String(effectiveBatchId);
+    if (loadedReportOfferingsBatchRef.current === requestedBatchId) return;
+    loadedReportOfferingsBatchRef.current = requestedBatchId;
+    loadCourseOfferings(effectiveBatchId).catch(() => {
+      if (loadedReportOfferingsBatchRef.current === requestedBatchId) {
+        loadedReportOfferingsBatchRef.current = '';
+      }
+    });
   }, [effectiveBatchId, isCourseCoordinator, loadCourseOfferings]);
 
   useEffect(() => {
