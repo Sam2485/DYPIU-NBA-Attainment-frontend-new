@@ -97,6 +97,16 @@ export const reportsApi = {
       }
     ),
 
+  getAverageMapping: (masterProgrammeId, programmeBatchId) =>
+    apiClient.get(
+      `/attainment/programme/${masterProgrammeId}/batch/${programmeBatchId}/average-mapping`
+    ),
+
+  getAverageDirectAttainment: (masterProgrammeId, programmeBatchId) =>
+    apiClient.get(
+      `/attainment/programme/${masterProgrammeId}/batch/${programmeBatchId}/average-direct`
+    ),
+
   getCourseAttainment: (
     programmeBatchCourseId
   ) =>

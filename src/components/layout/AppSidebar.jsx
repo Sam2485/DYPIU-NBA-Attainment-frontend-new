@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAcademic } from '../../context/AcademicContext';
 import UserProfileModal from '../profile/UserProfileModal';
+import GenieAnimation from '../profile/GenieAnimation';
+import OffscreenAccountPanel from '../profile/OffscreenAccountPanel';
 
 // ── SVG icon map with centered SVG display ─────────────────────────────────────
 function Icon({ name, active = false, size = 16 }) {
@@ -89,7 +91,42 @@ const FACULTY_NAV = [
   { id: 'reports',             path: '/reports',                  icon: 'reports',   label: 'Reports' },
 ];
 
-export default function AppSidebar() {
+export default function AppSidebar({
+  profileCardRef: externalProfileCardRef,
+  isProfileOpen: externalIsProfileOpen,
+  onProfileOpen: externalOnProfileOpen,
+}) {
+  const internalProfileCardRef = useRef(null);
+  const internalAccountPanelRef = useRef(null);
+  const profileCardRef = externalProfileCardRef || internalProfileCardRef;
+
+  const [internalProfileState, setInternalProfileState] = useState('closed');
+  const [internalActiveTab, setInternalActiveTab] = useState('profile');
+
+  const isControlled = Boolean(externalOnProfileOpen);
+
+  const handleProfileOpen = () => {
+    if (externalOnProfileOpen) {
+      externalOnProfileOpen();
+    } else if (internalProfileState === 'closed') {
+      setInternalProfileState('opening');
+    }
+  };
+
+  const handleProfileClose = () => {
+    if (internalProfileState === 'open') {
+      setInternalProfileState('closing');
+    }
+  };
+
+  const handleGenieComplete = (completedState) => {
+    if (completedState === 'opening') {
+      setInternalProfileState('open');
+    } else if (completedState === 'closing') {
+      setInternalProfileState('closed');
+    }
+  };
+
   const { user, role, logout } = useAuth();
   const courseCoordinatorBatchScopeRef = useRef(null);
   const coordinatorMasterProgrammeScopeRef = useRef(null);
@@ -287,7 +324,6 @@ export default function AppSidebar() {
   const [navOpenSetup, setNavOpenSetup] = useState(false);
   const [navOpenReview, setNavOpenReview] = useState(false);
   const [navOpenFaculty, setNavOpenFaculty] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const isCoordinatorRole = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
@@ -1134,8 +1170,9 @@ export default function AppSidebar() {
 
       {/* ── Profile card ───────────────────────────────────────────── */}
       <button
+        ref={profileCardRef}
         type="button"
-        onClick={() => setIsProfileOpen(true)}
+        onClick={handleProfileOpen}
         aria-label="Open account profile"
         style={{
           width: '100%',
@@ -1238,7 +1275,7 @@ export default function AppSidebar() {
           minHeight: 44,
           display: 'flex',
           alignItems: 'center',
-          justify: 'center',
+          justifyContent: 'center',
           gap: 8,
           background: 'rgba(127,29,29,0.02)',
           border: '1px solid rgba(248,113,113,0.42)',
@@ -1259,14 +1296,37 @@ export default function AppSidebar() {
         <Icon name="logout" size={17} />
         <span style={{ color: '#f87171', fontWeight: 900, fontSize: 12 }}>Logout</span>
       </button>
-      <UserProfileModal
-        open={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-        user={user}
-        roleLabel={roleText}
-        courseCount={courseOfferings.length}
-        batchName={selectedBatch?.name}
-      />
+
+      {/* If not controlled externally by DashboardPage, provide self-contained Genie & Modal */}
+      {!isControlled && (
+        <>
+          <UserProfileModal
+            open={isProfileOpen}
+            profileState={internalProfileState}
+            activeTab={internalActiveTab}
+            onTabChange={setInternalActiveTab}
+            onClose={handleProfileClose}
+            user={user}
+            roleLabel={roleText}
+            courseCount={courseOfferings.length}
+            batchName={selectedBatch?.name}
+            accountPanelRef={internalAccountPanelRef}
+          />
+          <GenieAnimation
+            sourceRef={profileCardRef}
+            destinationRef={internalAccountPanelRef}
+            profileState={internalProfileState}
+            activeTab={internalActiveTab}
+            onAnimationComplete={handleGenieComplete}
+          />
+          <OffscreenAccountPanel
+            user={user}
+            roleLabel={roleText}
+            courseCount={courseOfferings.length}
+            batchName={selectedBatch?.name}
+          />
+        </>
+      )}
     </aside>
   );
 }

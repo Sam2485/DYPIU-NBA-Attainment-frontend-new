@@ -21,6 +21,7 @@ import CourseATR from '../atr/CourseATR';
 import ProgrammeATR from '../atr/ProgrammeATR';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
 import * as XLSX from 'xlsx';
+import { reportsApi } from '../../api/reports';
 
 // ── Default Batches Option List ──────────────────────────────────────────────
 const DEFAULT_BATCHES = [
@@ -30,65 +31,9 @@ const DEFAULT_BATCHES = [
   { id: 'batch-2025-29', name: 'Batch 2025–29 (2nd Year / Sem 3 & 4)', isCompleted: false, endYear: 2029 },
 ];
 
-// ── Semester Groups for Programme Attainment (Average Mapping & Direct) ─────
-const SEMESTER_GROUPS = [
-  {
-    semLabel: 'FE Sem - I',
-    courses: [
-      { code: '310241', name: 'Engineering Mathematics - I' },
-      { code: '310242', name: 'Physics for Computing' },
-    ],
-  },
-  {
-    semLabel: 'FE Sem - II',
-    courses: [
-      { code: '310243', name: 'Engineering Mathematics - II' },
-      { code: '310244', name: 'Programming & Problem Solving' },
-    ],
-  },
-  {
-    semLabel: 'SE Sem - III',
-    courses: [
-      { code: '310245', name: 'Data Structures & Algorithms' },
-      { code: '310246', name: 'Object Oriented Programming' },
-    ],
-  },
-  {
-    semLabel: 'SE Sem - IV',
-    courses: [
-      { code: '310247', name: 'Computer Graphics' },
-      { code: '310248', name: 'Microprocessor Architecture' },
-    ],
-  },
-  {
-    semLabel: 'TE Sem - V',
-    courses: [
-      { code: '310249', name: 'Database Management Systems' },
-      { code: '310250', name: 'Computer Networks & Security' },
-    ],
-  },
-  {
-    semLabel: 'TE Sem - VI',
-    courses: [
-      { code: '310251', name: 'Theory of Computation' },
-      { code: '310252', name: 'Software Engineering & Project' },
-    ],
-  },
-  {
-    semLabel: 'BE Sem - VII',
-    courses: [
-      { code: '310253', name: 'Design & Analysis of Algorithms' },
-      { code: '310254', name: 'Cloud Computing & DevOps' },
-    ],
-  },
-  {
-    semLabel: 'BE Sem - VIII',
-    courses: [
-      { code: '310255', name: 'Machine Learning & AI' },
-      { code: '310256', name: 'Capstone Project Phase II' },
-    ],
-  },
-];
+const unwrapReportData = (response) => response?.data?.data ?? response?.data ?? response;
+const codeOrder = (left, right) => String(left).localeCompare(String(right), undefined, { numeric: true });
+const valueOrDash = (value) => value === null || value === undefined || value === '' ? '—' : Number.isFinite(Number(value)) ? Number(value).toFixed(2) : value;
 
 export default function ReportsHub() {
   const { user, role } = useAuth();
@@ -211,6 +156,9 @@ export default function ReportsHub() {
   // ── 4. FILTERS STATE ────────────────────────────────────────────────────────
   const [selectedBatchId, setSelectedBatchId] = useState('');
   const [batchReportType, setBatchReportType] = useState('average-mapping'); // 'average-mapping' | 'average-attainment-direct' | 'average-attainment-indirect' | 'overall-attainment'
+  const [programmeBatchReports, setProgrammeBatchReports] = useState({ mapping: null, direct: null });
+  const [programmeBatchReportsLoading, setProgrammeBatchReportsLoading] = useState(false);
+  const [programmeBatchReportsError, setProgrammeBatchReportsError] = useState('');
 
   // Dynamic Lists
   const poList = (activePOs || []).map((p) => p?.code || p).filter(Boolean);
@@ -223,6 +171,113 @@ export default function ReportsHub() {
   const currentBatchObj = batchList.find((b) => b.id === effectiveBatchId) || null;
   const currentBatchName = currentBatchObj?.name || 'No programme batch selected';
   const isFinalSemCompleted = currentBatchObj?.isCompleted || currentBatchObj?.name?.includes('Completed') || currentBatchObj?.name?.includes('Graduated');
+
+  useEffect(() => {
+    if (!currentProgId || !effectiveBatchId || isCourseCoordinator) {
+      setProgrammeBatchReports({ mapping: null, direct: null });
+      setProgrammeBatchReportsError('');
+      return;
+    }
+
+    let cancelled = false;
+    setProgrammeBatchReportsLoading(true);
+    setProgrammeBatchReportsError('');
+
+    Promise.all([
+      reportsApi.getAverageMapping(currentProgId, effectiveBatchId),
+      reportsApi.getAverageDirectAttainment(currentProgId, effectiveBatchId),
+    ])
+      .then(([mappingResponse, directResponse]) => {
+        if (!cancelled) {
+          setProgrammeBatchReports({
+            mapping: unwrapReportData(mappingResponse),
+            direct: unwrapReportData(directResponse),
+          });
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setProgrammeBatchReports({ mapping: null, direct: null });
+          setProgrammeBatchReportsError(error?.response?.data?.message || 'Unable to load the programme-batch attainment report.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setProgrammeBatchReportsLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [currentProgId, effectiveBatchId, isCourseCoordinator]);
+
+  const buildProgrammeTable = (report, type) => {
+    const courses = Array.isArray(report?.courses) ? report.courses : [];
+    const poSummary = Array.isArray(report?.[type === 'mapping' ? 'poMappings' : 'poDirectAttainment'])
+      ? report[type === 'mapping' ? 'poMappings' : 'poDirectAttainment']
+      : [];
+    const psoSummary = Array.isArray(report?.[type === 'mapping' ? 'psoMappings' : 'psoDirectAttainment'])
+      ? report[type === 'mapping' ? 'psoMappings' : 'psoDirectAttainment']
+      : [];
+    const poCodes = [...new Set([...poSummary.map((item) => item.poCode), ...courses.flatMap((course) => Object.keys(course.poValues || {}))].filter(Boolean))].sort(codeOrder);
+    const psoCodes = [...new Set([...psoSummary.map((item) => item.psoCode), ...courses.flatMap((course) => Object.keys(course.psoValues || {}))].filter(Boolean))].sort(codeOrder);
+    const summaryValues = Object.fromEntries([...poSummary, ...psoSummary].map((item) => [item.poCode || item.psoCode, item.overallAverage]));
+    const groups = new Map();
+
+    courses.forEach((course) => {
+      const semester = course.semester ?? course.semesterNumber ?? course.sem ?? 'Unassigned';
+      if (!groups.has(semester)) groups.set(semester, []);
+      groups.get(semester).push(course);
+    });
+
+    const semesterValue = (semester) => {
+      const number = Number(String(semester).match(/\d+/)?.[0]);
+      return Number.isFinite(number) ? number : Number.MAX_SAFE_INTEGER;
+    };
+
+    return {
+      poCodes,
+      psoCodes,
+      summaryValues,
+      groups: [...groups.entries()]
+        .sort(([left], [right]) => semesterValue(left) - semesterValue(right) || codeOrder(left, right))
+        .map(([semester, rows]) => ({
+          semester,
+          label: /^\d+$/.test(String(semester)) ? `Sem ${semester}` : String(semester),
+          courses: [...rows].sort((left, right) => codeOrder(left.courseCode, right.courseCode)),
+        })),
+    };
+  };
+
+  const mappingTable = useMemo(() => buildProgrammeTable(programmeBatchReports.mapping, 'mapping'), [programmeBatchReports.mapping]);
+  const directTable = useMemo(() => buildProgrammeTable(programmeBatchReports.direct, 'direct'), [programmeBatchReports.direct]);
+
+  const renderProgrammeRows = (table, totalLabel) => {
+    const columnCount = 3 + table.poCodes.length + table.psoCodes.length;
+    if (programmeBatchReportsLoading) {
+      return <tr><td colSpan={columnCount} style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>Loading programme-batch report…</td></tr>;
+    }
+    if (programmeBatchReportsError) {
+      return <tr><td colSpan={columnCount} style={{ padding: '28px', textAlign: 'center', color: '#b91c1c' }}>{programmeBatchReportsError}</td></tr>;
+    }
+    if (!table.groups.length) {
+      return <tr><td colSpan={columnCount} style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>No course data is available for this programme batch.</td></tr>;
+    }
+
+    return <>
+      {table.groups.map((group) => group.courses.map((course, courseIndex) => (
+        <tr key={course.programmeBatchCourseId || `${group.semester}-${course.courseCode}`} style={{ borderTop: courseIndex === 0 ? '2px solid #cbd5e1' : 'none' }}>
+          {courseIndex === 0 && <td rowSpan={group.courses.length} style={{ textAlign: 'center', verticalAlign: 'middle', fontWeight: '800', fontSize: '12.5px', color: '#334155', background: '#f8fafc', borderRight: '1.5px solid #e2e8f0', padding: '12px 14px' }}>{group.label}</td>}
+          <td style={{ fontWeight: '800', color: '#4f46e5' }}>{course.courseCode || '—'}</td>
+          <td style={{ fontSize: '12.5px', color: '#0f172a' }}>{course.courseName || '—'}</td>
+          {table.poCodes.map((code) => <td key={code} style={{ textAlign: 'center', fontWeight: '700' }}>{valueOrDash(course.poValues?.[code])}</td>)}
+          {table.psoCodes.map((code) => <td key={code} style={{ textAlign: 'center', fontWeight: '700', color: '#047857', background: '#f0fdf4' }}>{valueOrDash(course.psoValues?.[code])}</td>)}
+        </tr>
+      )))}
+      <tr style={{ background: '#f1f5f9', fontWeight: '800' }}>
+        <td colSpan={3} style={{ textAlign: 'right', paddingRight: '16px', color: '#0f172a' }}>{totalLabel}</td>
+        {table.poCodes.map((code) => <td key={code} style={{ textAlign: 'center', color: '#4f46e5' }}>{valueOrDash(table.summaryValues[code])}</td>)}
+        {table.psoCodes.map((code) => <td key={code} style={{ textAlign: 'center', color: '#047857', background: '#e6f4ea' }}>{valueOrDash(table.summaryValues[code])}</td>)}
+      </tr>
+    </>;
+  };
 
   // Effective Attainment View Mode (Force Course Coordinator to 'course-attainment')
   const effectiveAttainmentViewMode = isCourseCoordinator ? 'course-attainment' : attainmentViewMode;
@@ -265,26 +320,35 @@ export default function ReportsHub() {
         ];
       } else {
         filename = `Programme_Attainment_${currentProgramme.code}_${currentBatchName}.xlsx`;
+        const isMappingReport = batchReportType === 'average-mapping';
+        const table = isMappingReport ? mappingTable : directTable;
         sheetData = [
           [`D. Y. PATIL INTERNATIONAL UNIVERSITY, AKURDI PUNE`],
           [`PROGRAMME ATTAINMENT BATCH REPORT — ${currentBatchName}`],
           [`Programme: ${currentProgramme.code} - ${currentProgramme.name}`],
           [`Report Type: ${batchReportType.toUpperCase().replace(/-/g, ' ')}`],
           [],
-          ['Sem', 'Course Code', 'Course Name', ...poList, ...psoList],
+          ['Sem', 'Course Code', 'Course Name', ...table.poCodes, ...table.psoCodes],
         ];
 
-        SEMESTER_GROUPS.forEach((group, gIdx) => {
-          group.courses.forEach((c, cIdx) => {
+        table.groups.forEach((group) => {
+          group.courses.forEach((course, cIdx) => {
             sheetData.push([
-              cIdx === 0 ? group.semLabel : '',
-              c.code,
-              c.name,
-              ...poList.map((_, pIdx) => (batchReportType === 'average-mapping' ? (2.0 + ((pIdx + cIdx + gIdx) % 3) * 0.33).toFixed(2) : (1.75 + ((pIdx + cIdx + gIdx) % 4) * 0.15).toFixed(2))),
-              ...psoList.map((_, pIdx) => (batchReportType === 'average-mapping' ? (2.0 + ((pIdx + cIdx + gIdx) % 2) * 0.50).toFixed(2) : (1.80 + ((pIdx + cIdx + gIdx) % 2) * 0.20).toFixed(2))),
+              cIdx === 0 ? group.label : '',
+              course.courseCode || '',
+              course.courseName || '',
+              ...table.poCodes.map((code) => course.poValues?.[code] ?? ''),
+              ...table.psoCodes.map((code) => course.psoValues?.[code] ?? ''),
             ]);
           });
         });
+        sheetData.push([
+          isMappingReport ? 'Average Mapping Strength' : 'Average Attainment (Direct)',
+          '',
+          '',
+          ...table.poCodes.map((code) => table.summaryValues[code] ?? ''),
+          ...table.psoCodes.map((code) => table.summaryValues[code] ?? ''),
+        ]);
       }
     } else {
       const typeLabel = atrSubTab === 'course-atr' ? 'Course_ATR' : 'Programme_ATR';
@@ -869,7 +933,7 @@ export default function ReportsHub() {
                 <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                   <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
                     <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                      Average CO to PO/PSO Mapping — {currentBatchName} (All Completed Semesters)
+                      Average Mapping Strength — {currentBatchName} (All Semesters)
                     </h4>
                   </div>
                   <div style={{ overflowX: 'auto' }}>
@@ -879,54 +943,12 @@ export default function ReportsHub() {
                           <th style={{ width: '160px', minWidth: '160px' }}>Sem</th>
                           <th style={{ width: '120px', minWidth: '120px' }}>Course Code</th>
                           <th style={{ minWidth: '280px', width: '320px' }}>Course Name</th>
-                          {poList.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
-                          {psoList.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5', color: '#065f46' }}>{pso}</th>)}
+                          {mappingTable.poCodes.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
+                          {mappingTable.psoCodes.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5', color: '#065f46' }}>{pso}</th>)}
                         </tr>
                       </thead>
                       <tbody>
-                        {SEMESTER_GROUPS.map((group, gIdx) => (
-                          <React.Fragment key={group.semLabel}>
-                            {group.courses.map((c, cIdx) => (
-                              <tr
-                                key={c.code}
-                                style={{
-                                  borderTop: cIdx === 0 && gIdx > 0 ? '2px solid #cbd5e1' : 'none',
-                                }}
-                              >
-                                {cIdx === 0 && (
-                                  <td
-                                    rowSpan={group.courses.length}
-                                    style={{
-                                      textAlign: 'center',
-                                      verticalAlign: 'middle',
-                                      fontWeight: '800',
-                                      fontSize: '12.5px',
-                                      color: '#334155',
-                                      background: '#f8fafc',
-                                      borderRight: '1.5px solid #e2e8f0',
-                                      borderTop: gIdx > 0 ? '2px solid #cbd5e1' : 'none',
-                                      padding: '12px 14px',
-                                    }}
-                                  >
-                                    {group.semLabel}
-                                  </td>
-                                )}
-                                <td style={{ fontWeight: '800', color: '#4f46e5' }}>{c.code}</td>
-                                <td style={{ fontSize: '12.5px', color: '#0f172a' }}>{c.name}</td>
-                                {poList.map((po, pIdx) => (
-                                  <td key={po} style={{ textAlign: 'center', fontWeight: '700' }}>
-                                    {(2.0 + ((pIdx + cIdx + gIdx) % 3) * 0.33).toFixed(2)}
-                                  </td>
-                                ))}
-                                {psoList.map((pso, pIdx) => (
-                                  <td key={pso} style={{ textAlign: 'center', fontWeight: '700', color: '#047857', background: '#f0fdf4' }}>
-                                    {(2.0 + ((pIdx + cIdx + gIdx) % 2) * 0.50).toFixed(2)}
-                                  </td>
-                                ))}
-                              </tr>
-                            ))}
-                          </React.Fragment>
-                        ))}
+                        {renderProgrammeRows(mappingTable, 'Average Mapping Strength')}
                       </tbody>
                     </table>
                   </div>
@@ -938,7 +960,7 @@ export default function ReportsHub() {
                 <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                   <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
                     <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                      Average Direct PO Attainment — {currentBatchName} (Completed Semesters)
+                      Average Attainment (Direct) — {currentBatchName} (All Semesters)
                     </h4>
                   </div>
                   <div style={{ overflowX: 'auto' }}>
@@ -948,60 +970,12 @@ export default function ReportsHub() {
                           <th style={{ width: '160px', minWidth: '160px' }}>Sem</th>
                           <th style={{ width: '120px', minWidth: '120px' }}>Course Code</th>
                           <th style={{ minWidth: '280px', width: '320px' }}>Course Name</th>
-                          {poList.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
-                          {psoList.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5', color: '#065f46' }}>{pso}</th>)}
+                          {directTable.poCodes.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
+                          {directTable.psoCodes.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5', color: '#065f46' }}>{pso}</th>)}
                         </tr>
                       </thead>
                       <tbody>
-                        {SEMESTER_GROUPS.map((group, gIdx) => (
-                          <React.Fragment key={group.semLabel}>
-                            {group.courses.map((c, cIdx) => (
-                              <tr
-                                key={c.code}
-                                style={{
-                                  borderTop: cIdx === 0 && gIdx > 0 ? '2px solid #cbd5e1' : 'none',
-                                }}
-                              >
-                                {cIdx === 0 && (
-                                  <td
-                                    rowSpan={group.courses.length}
-                                    style={{
-                                      textAlign: 'center',
-                                      verticalAlign: 'middle',
-                                      fontWeight: '800',
-                                      fontSize: '12.5px',
-                                      color: '#334155',
-                                      background: '#f8fafc',
-                                      borderRight: '1.5px solid #e2e8f0',
-                                      borderTop: gIdx > 0 ? '2px solid #cbd5e1' : 'none',
-                                      padding: '12px 14px',
-                                    }}
-                                  >
-                                    {group.semLabel}
-                                  </td>
-                                )}
-                                <td style={{ fontWeight: '800', color: '#4f46e5' }}>{c.code}</td>
-                                <td style={{ fontSize: '12.5px', color: '#0f172a' }}>{c.name}</td>
-                                {poList.map((po, pIdx) => {
-                                  const val = Number((1.75 + ((pIdx + cIdx + gIdx) % 4) * 0.15).toFixed(2));
-                                  return (
-                                    <td key={po} style={{ textAlign: 'center', fontWeight: '800', color: val >= 2.0 ? '#16a34a' : '#d97706' }}>
-                                      {val}
-                                    </td>
-                                  );
-                                })}
-                                {psoList.map((pso, pIdx) => {
-                                  const val = Number((1.80 + ((pIdx + cIdx + gIdx) % 2) * 0.20).toFixed(2));
-                                  return (
-                                    <td key={pso} style={{ textAlign: 'center', fontWeight: '800', color: val >= 2.0 ? '#16a34a' : '#d97706', background: '#f0fdf4' }}>
-                                      {val}
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            ))}
-                          </React.Fragment>
-                        ))}
+                        {renderProgrammeRows(directTable, 'Average Attainment (Direct)')}
                       </tbody>
                     </table>
                   </div>
