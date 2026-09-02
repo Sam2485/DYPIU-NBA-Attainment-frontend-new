@@ -124,17 +124,14 @@ export default function ReportsHub() {
     }
     if (isHod) return hodProgrammes;
     if (isProgrammeCoordinator) {
-      // Programme Coordinator sees only assigned programmes
-      const userProgId = user?.programmeId || 'prog-1';
-      const filtered = masterProgrammes.filter(
-        (p) =>
-          p.id === userProgId ||
-          (p.coordinator && user?.name && p.coordinator.toLowerCase().includes(user.name.toLowerCase()))
-      );
-      return filtered.length > 0 ? filtered : masterProgrammes.filter((p) => p.id === 'prog-1');
+      // The backend scopes this list to the signed-in coordinator. Keeping
+      // that response intact avoids hiding a valid assigned programme due to
+      // display-name matching or a legacy hard-coded fallback.
+      return masterProgrammes;
     }
-    // Course Coordinator
-    return masterProgrammes.filter((p) => p.id === programmeId || p.id === 'prog-1');
+    // Course Coordinator does not select a programme in Reports; their
+    // backend-scoped programme-batch-course offering is the report scope.
+    return masterProgrammes;
   })();
 
   // Current Programme
@@ -648,7 +645,7 @@ export default function ReportsHub() {
 
           {/* Actions: Download & Print */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {isCourseCoordinator && <select
+            {isCourseCoordinator && activeMainTab !== 'atr-reports' && <select
               value={selectedCourseOffering?.id ?? ''}
               onChange={(event) => {
                 const offering = assignedOfferings.find((item) => String(item.id) === event.target.value);
@@ -1462,7 +1459,9 @@ export default function ReportsHub() {
               readOnly
               courseId={isCourseCoordinator ? selectedCourseOffering?.id : undefined}
               batchId={effectiveBatchId}
-              showAssignedCourseSelector={isCourseCoordinator}
+              showAssignedCourseSelector={false}
+              showCourseSelector={false}
+              showHeaderActions={false}
               assignedOfferings={assignedOfferings}
               selectorDisabled={!batchId}
               onSelectOffering={(offeringId) => {

@@ -28,7 +28,7 @@ const inputStyle = {
   color: ink, width: '100%', outline: 'none', fontFamily: 'inherit',
 };
 
-export default function CourseATR({ hideHeader = false, showHistoryProp, readOnly = false, courseId, batchId = null, showAssignedCourseSelector = false, assignedOfferings = [], onSelectOffering = () => {}, selectorDisabled = false, suppressPendingMessage = false }) {
+export default function CourseATR({ hideHeader = false, showHistoryProp, readOnly = false, courseId, batchId = null, showAssignedCourseSelector = false, showCourseSelector = true, showHeaderActions = true, assignedOfferings = [], onSelectOffering = () => {}, selectorDisabled = false, suppressPendingMessage = false }) {
   const navigate = useNavigate();
   const { role, user } = useAuth();
   const {
@@ -285,7 +285,7 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
                 {assignedOfferings.length === 0 ? <option value="">No assigned courses for this programme batch</option> : assignedOfferings.map((offering) => <option key={offering.id} value={offering.id}>{offering.courseCode ?? offering.code ?? 'Course'} — {offering.courseName ?? offering.name ?? 'Programme-Batch Course'} · Sem {offering.semester ?? '—'}</option>)}
               </select>}
               {/* Course selector */}
-              {!courseId && (
+              {showCourseSelector && !courseId && (
                 <div style={{ position: 'relative', minWidth: '240px' }}>
                   <select
                     value={activeCourseId}
@@ -320,16 +320,18 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
           </div>
 
           {/* Action buttons below the title */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <button onClick={() => setShowHistory((value) => !value)}
-              style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-              <History size={13} /> {showHistory ? 'Hide Carry-Forward ATR' : 'View Carry-Forward ATR'}
-            </button>
-            <button onClick={() => window.print()}
-              style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-              <Printer size={13} /> Print
-            </button>
-          </div>
+          {showHeaderActions && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <button onClick={() => setShowHistory((value) => !value)}
+                style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                <History size={13} /> {showHistory ? 'Hide Carry-Forward ATR' : 'View Carry-Forward ATR'}
+              </button>
+              <button onClick={() => window.print()}
+                style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                <Printer size={13} /> Print
+              </button>
+            </div>
+          )}
         </div>
       )}
 
