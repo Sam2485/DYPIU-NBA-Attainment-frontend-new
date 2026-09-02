@@ -312,6 +312,7 @@ export default function CourseCoordinatorWorkflow() {
         <div style={{ minWidth: '160px', display: 'flex', justifyContent: 'flex-start' }}>
           {currentStep > 1 && (
             <button
+              className="btn btn-primary"
               type="button"
               onClick={() => goToStep(currentStep - 1)}
               style={{
@@ -371,10 +372,8 @@ export default function CourseCoordinatorWorkflow() {
               onClick={handleSaveAndNext}
               style={{
                 height: '40px', padding: '0 22px', fontSize: '13.5px', fontWeight: '800',
-                background: `linear-gradient(135deg, ${accent} 0%, #6366f1 100%)`,
-                color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                cursor: 'pointer',
                 display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit',
-                boxShadow: '0 4px 14px rgba(79,70,229,0.28)',
               }}
             >
               Save &amp; Next <ArrowRight size={14} />

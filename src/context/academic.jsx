@@ -281,7 +281,9 @@ export function AcademicProvider({ children }) {
   const [batchId, setBatchIdState] = useState(
     () => readPcSelection('programme_batch') ?? readCourseCoordinatorSelection('programme_batch')
   );
-  const [courseId, setCourseId] = useState(null);
+  const [courseId, setCourseIdState] = useState(
+    () => readCourseCoordinatorSelection('master_course')
+  );
   const [courseOfferingId, setCourseOfferingId] = useState(
     () => readCourseCoordinatorSelection('programme_batch_course')
   );
@@ -321,10 +323,11 @@ export function AcademicProvider({ children }) {
   useEffect(() => {
     if (role !== 'FACULTY' && role !== 'COURSE_COORDINATOR') return;
     if (!batchId) setBatchIdState(readCourseCoordinatorSelection('programme_batch'));
+    if (!courseId) setCourseIdState(readCourseCoordinatorSelection('master_course'));
     if (!courseOfferingId) {
       setCourseOfferingId(readCourseCoordinatorSelection('programme_batch_course'));
     }
-  }, [batchId, courseOfferingId, role, user?.email, user?.id]);
+  }, [batchId, courseId, courseOfferingId, role, user?.email, user?.id]);
 
   /* ------------------------------------------------------------------------ */
   /* Outcomes & Mapping state                                                 */
@@ -411,6 +414,30 @@ export function AcademicProvider({ children }) {
       else sessionStorage.removeItem(key);
     }
   }, [role, user?.email, user?.id]);
+
+  const setCourseId = useCallback((newCourseId) => {
+    const nextCourseId = newCourseId || null;
+    setCourseIdState(nextCourseId);
+    if ((role === 'FACULTY' || role === 'COURSE_COORDINATOR') && typeof window !== 'undefined') {
+      const key = getCourseCoordinatorSelectionStorageKey('master_course');
+      if (nextCourseId) sessionStorage.setItem(key, nextCourseId);
+      else sessionStorage.removeItem(key);
+    }
+  }, [role, user?.email, user?.id]);
+
+  // After a refresh, the offering list is fetched asynchronously. Reconnect
+  // the restored offering to its underlying course as soon as that list is
+  // available, so screens that use either selector retain the same course.
+  useEffect(() => {
+    if ((role !== 'FACULTY' && role !== 'COURSE_COORDINATOR') || !courseOfferingId) return;
+    const restoredOffering = courseOfferings.find(
+      (offering) => String(offering.id) === String(courseOfferingId)
+    );
+    const restoredCourseId = restoredOffering?.courseId ?? restoredOffering?.masterCourseId;
+    if (restoredCourseId && String(restoredCourseId) !== String(courseId)) {
+      setCourseId(restoredCourseId);
+    }
+  }, [courseId, courseOfferingId, courseOfferings, role, setCourseId]);
 
   const selectedProgramme = useMemo(
     () => programmes.find((programme) => programme.id === programmeId) ?? null,
@@ -1899,7 +1926,7 @@ export function AcademicProvider({ children }) {
       return;
     }
     setCourseOfferingId(offering.id);
-    setCourseId(offering.courseId);
+    setCourseId(offering.courseId ?? offering.masterCourseId);
     setBatchId(offering.batchId);
     if ((role === 'FACULTY' || role === 'COURSE_COORDINATOR') && typeof window !== 'undefined') {
       sessionStorage.setItem(getCourseCoordinatorSelectionStorageKey('programme_batch_course'), offering.id);

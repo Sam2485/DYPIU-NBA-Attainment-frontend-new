@@ -214,7 +214,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({
       return;
     }
     try {
-      await handleSaveTargets();
+      const saved = await handleSaveTargets();
+      if (!saved) return;
       await approvalsApi.submitApproval({
         type: 'PO_PSO_TARGETS',
         title: `PO / PSO Targets for ${selectedBatch?.name || batchId}`,
@@ -713,12 +714,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({
               </div>
               {!isAllocationReviewLocked && !approvalReadOnly ? (
                 <button
+                  className="btn btn-primary"
                   type="button"
                   onClick={handleSubmitAllocations}
                   style={{
                     height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700',
-                    background: accent, color: '#ffffff', border: 'none',
-                    borderRadius: '8px', cursor: 'pointer',
+                    cursor: 'pointer',
                     display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit'
                   }}
                 >
@@ -920,6 +921,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 {!isTargetsReviewLocked && !approvalReadOnly ? (
                   <>
                     <button
+                      className="btn btn-primary"
                       type="button"
                       onClick={async () => {
                         try {
@@ -942,12 +944,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                       {isSavingTargets ? 'Saving…' : targetsAreSaved ? 'Saved' : 'Save Targets'}
                     </button>
                     <button
+                      className="btn btn-primary"
                       type="button"
                       onClick={handleSubmitTargets}
                       style={{
                         height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700',
-                        background: accent, color: '#ffffff', border: 'none',
-                        borderRadius: '8px', cursor: 'pointer',
+                        cursor: 'pointer',
                         display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit'
                       }}
                     >
@@ -1239,6 +1241,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
         <div style={{ minWidth: '160px', display: 'flex', justifyContent: 'flex-start' }}>
           {currentStep > 1 && (
             <button
+              className="btn btn-primary"
               type="button"
               onClick={handlePrevStep}
               style={{
@@ -1299,10 +1302,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({
               disabled={isSavingStep}
               style={{
                 height: '40px', padding: '0 22px', fontSize: '13.5px', fontWeight: '800',
-                background: `linear-gradient(135deg, ${accent} 0%, #6366f1 100%)`,
-                color: '#fff', border: 'none', borderRadius: '8px', cursor: isSavingStep ? 'wait' : 'pointer',
+                cursor: isSavingStep ? 'wait' : 'pointer',
                 display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit',
-                boxShadow: '0 4px 14px rgba(79,70,229,0.28)',
               }}
             >
               {isSavingStep ? 'Saving…' : 'Save & Continue'} <ArrowRight size={14} />

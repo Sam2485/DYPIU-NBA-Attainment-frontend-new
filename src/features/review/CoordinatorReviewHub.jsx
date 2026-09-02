@@ -23,32 +23,6 @@ const inputStyle = {
   color: ink, width: '100%', outline: 'none', fontFamily: 'inherit',
 };
 
-const STATUS_META = {
-  VERIFIED:             { bg: '#f0fdf4', color: '#15803d', border: '#86efac', label: 'Verified & Approved', icon: '✓' },
-  APPROVED:             { bg: '#f0fdf4', color: '#15803d', border: '#86efac', label: 'Verified & Approved', icon: '✓' },
-  SUBMITTED:            { bg: '#fffbeb', color: '#b45309', border: '#fde68a', label: 'Pending Review',     icon: '⏳' },
-  PENDING:              { bg: '#fffbeb', color: '#b45309', border: '#fde68a', label: 'Pending Review',     icon: '⏳' },
-  PENDING_APPROVAL:     { bg: '#fffbeb', color: '#b45309', border: '#fde68a', label: 'Pending Review',     icon: '⏳' },
-  WAITING_FOR_APPROVAL: { bg: '#fffbeb', color: '#b45309', border: '#fde68a', label: 'Pending Review',     icon: '⏳' },
-  DRAFT:                { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0', label: 'No Submissions Yet', icon: '—'  },
-  NO_SUBMISSION:        { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0', label: 'No Submissions Yet', icon: '—'  },
-  NOT_SUBMITTED:        { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0', label: 'No Submissions Yet', icon: '—'  },
-  REJECTED:             { bg: '#fef2f2', color: '#dc2626', border: '#fecaca', label: 'Needs Revision',     icon: '⚠' },
-  REVISION_REQUESTED:   { bg: '#fef2f2', color: '#dc2626', border: '#fecaca', label: 'Needs Revision',     icon: '⚠' },
-  NEEDS_REVISION:       { bg: '#fef2f2', color: '#dc2626', border: '#fecaca', label: 'Needs Revision',     icon: '⚠' },
-};
-
-function StatusBadge({ status, size = 'md' }) {
-  const s = STATUS_META[status] || STATUS_META.NO_SUBMISSION;
-  const pad = size === 'sm' ? '2px 8px' : '4px 11px';
-  const fs  = size === 'sm' ? '10.5px'  : '11.5px';
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: fs, fontWeight: '700', background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '6px', padding: pad, whiteSpace: 'nowrap' }}>
-      {s.icon} {s.label}
-    </span>
-  );
-}
-
 function NoSubmissionsEmptyState({ itemTitle, courseCode }) {
   return (
     <div
@@ -455,22 +429,12 @@ export default function CoordinatorReviewHub() {
                     <th style={{ width: '80px', textAlign: 'center' }}>Code</th>
                     <th>Statement</th>
                     <th style={{ width: '140px', textAlign: 'center' }}>Target Level</th>
-                    <th style={{ width: '140px', textAlign: 'center' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {courseCOs.map((co) => {
                     const courseCoTargets = (reviewCourseId && coTargets[reviewCourseId]) || {};
                     const targetVal = courseCoTargets?.[co.code] ?? co.targetLevel ?? co.target ?? 2.50;
-                    const rowStatus =
-                      courseReview.coStatus === 'VERIFIED' || courseReview.coStatus === 'APPROVED'
-                        ? 'VERIFIED'
-                        : courseReview.coStatus === 'REJECTED' || courseReview.coStatus === 'REVISION_REQUESTED' || courseReview.coStatus === 'NEEDS_REVISION'
-                        ? 'REJECTED'
-                        : courseReview.coStatus === 'SUBMITTED' || courseReview.coStatus === 'PENDING_APPROVAL' || courseReview.coStatus === 'PENDING'
-                        ? 'PENDING_APPROVAL'
-                        : 'NO_SUBMISSION';
-
                     return (
                       <tr key={co.code}>
                         <td style={{ textAlign: 'center', fontWeight: '700', color: accent }}>{co.code}</td>
@@ -479,9 +443,6 @@ export default function CoordinatorReviewHub() {
                           <span style={{ fontWeight: '800', color: '#0284c7', background: '#f0f9ff', border: '1px solid #bae6fd', padding: '3px 10px', borderRadius: '6px', fontSize: '12px' }}>
                             {Number(targetVal).toFixed(2)} / 3.00
                           </span>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <StatusBadge status={rowStatus} size="sm" />
                         </td>
                       </tr>
                     );

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import * as THREE from 'three';
 import genieTextureCache from './GenieTextureCache';
 
@@ -334,7 +335,7 @@ export default function GenieAnimation({
 
   if (!isAnimating && !DEBUG) return null;
 
-  return (
+  return createPortal(
     <div ref={containerRef}>
       {DEBUG && isAnimating && (
         <div
@@ -359,5 +360,6 @@ export default function GenieAnimation({
         </div>
       )}
     </div>
+    , document.body
   );
 }

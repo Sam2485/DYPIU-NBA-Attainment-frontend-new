@@ -97,14 +97,19 @@ export const reportsApi = {
       }
     ),
 
-  getAverageMapping: (masterProgrammeId, programmeBatchId) =>
+  getAverageMapping: (programmeBatchId) =>
     apiClient.get(
-      `/attainment/programme/${masterProgrammeId}/batch/${programmeBatchId}/average-mapping`
+      `/attainment/programme-batch/${programmeBatchId}/average-mapping`
     ),
 
-  getAverageDirectAttainment: (masterProgrammeId, programmeBatchId) =>
+  getAverageDirectAttainment: (programmeBatchId) =>
     apiClient.get(
-      `/attainment/programme/${masterProgrammeId}/batch/${programmeBatchId}/average-direct`
+      `/attainment/programme-batch/${programmeBatchId}/average-direct`
+    ),
+
+  getAverageIndirectAttainment: (programmeBatchId) =>
+    apiClient.get(
+      `/attainment/programme-batch/${programmeBatchId}/average-indirect`
     ),
 
   getCourseAttainment: (

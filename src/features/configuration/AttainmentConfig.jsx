@@ -80,11 +80,12 @@ export default function AttainmentConfig({ hideHeader = false, readOnly = false,
   useEffect(() => {
     if (!isCourseCoordinator || !user?.email || !batchId) return;
     loadAssignedCourseOfferings(user, batchId).then((offerings) => {
-      const selectedId = selectedCourseOffering?.id;
-      const selectedStillAssigned = (offerings ?? []).some((offering) => offering.id === selectedId);
+      const selectedStillAssigned = (offerings ?? []).some(
+        (offering) => String(offering.id) === String(courseOfferingId)
+      );
       if (!selectedStillAssigned && offerings?.[0]) selectCourseOffering(offerings[0]);
     }).catch(() => {});
-  }, [batchId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, selectedCourseOffering?.id, user]);
+  }, [batchId, courseOfferingId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, user]);
 
   // Step 5: PO & PSO Target Levels state for active Programme (Scale 1.0 - 3.0)
   const currentProgTargets = (programmeId && safePoPsoTargets[programmeId]) || {

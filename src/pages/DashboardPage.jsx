@@ -16,6 +16,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function DashboardPage() {
   const { role, user } = useAuth();
+  const profileSessionKey = `profile-panel:${user?.id ?? user?.email ?? 'anonymous'}`;
 
   /*
    * ============================================================
@@ -50,8 +51,22 @@ export default function DashboardPage() {
    * because the Genie animation will use them later.
    */
 
-  const [profileState, setProfileState] = useState('closed');
-  const [activeTab, setActiveTab] = useState('profile');
+  const [profileState, setProfileState] = useState(() => (
+    typeof window !== 'undefined' && sessionStorage.getItem(profileSessionKey) === 'open' ? 'open' : 'closed'
+  ));
+  const [activeTab, setActiveTab] = useState(() => (
+    typeof window !== 'undefined' ? sessionStorage.getItem(`${profileSessionKey}:tab`) || 'profile' : 'profile'
+  ));
+
+  useEffect(() => {
+    if (profileState === 'open') {
+      sessionStorage.setItem(profileSessionKey, 'open');
+      sessionStorage.setItem(`${profileSessionKey}:tab`, activeTab);
+    } else if (profileState === 'closed') {
+      sessionStorage.removeItem(profileSessionKey);
+      sessionStorage.removeItem(`${profileSessionKey}:tab`);
+    }
+  }, [activeTab, profileSessionKey, profileState]);
 
   const isProfileOpen =
     profileState === 'open' ||

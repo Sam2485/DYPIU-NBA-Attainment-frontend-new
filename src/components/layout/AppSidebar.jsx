@@ -99,15 +99,32 @@ export default function AppSidebar({
   const internalProfileCardRef = useRef(null);
   const internalAccountPanelRef = useRef(null);
   const profileCardRef = externalProfileCardRef || internalProfileCardRef;
+  const { user, role, logout } = useAuth();
+  const profileSessionKey = `profile-panel:${user?.id ?? user?.email ?? 'anonymous'}`;
 
-  const [internalProfileState, setInternalProfileState] = useState('closed');
-  const [internalActiveTab, setInternalActiveTab] = useState('profile');
+  const [internalProfileState, setInternalProfileState] = useState(() => (
+    typeof window !== 'undefined' && sessionStorage.getItem(profileSessionKey) === 'open' ? 'open' : 'closed'
+  ));
+  const [internalActiveTab, setInternalActiveTab] = useState(() => (
+    typeof window !== 'undefined' ? sessionStorage.getItem(`${profileSessionKey}:tab`) || 'profile' : 'profile'
+  ));
 
   const isControlled = Boolean(externalOnProfileOpen);
   const isInternalProfileOpen =
     internalProfileState === 'open' ||
     internalProfileState === 'opening' ||
     internalProfileState === 'closing';
+
+  useEffect(() => {
+    if (isControlled) return;
+    if (internalProfileState === 'open') {
+      sessionStorage.setItem(profileSessionKey, 'open');
+      sessionStorage.setItem(`${profileSessionKey}:tab`, internalActiveTab);
+    } else if (internalProfileState === 'closed') {
+      sessionStorage.removeItem(profileSessionKey);
+      sessionStorage.removeItem(`${profileSessionKey}:tab`);
+    }
+  }, [internalActiveTab, internalProfileState, isControlled, profileSessionKey]);
 
   const handleProfileOpen = () => {
     if (externalOnProfileOpen) {
@@ -131,7 +148,6 @@ export default function AppSidebar({
     }
   };
 
-  const { user, role, logout } = useAuth();
   const courseCoordinatorBatchScopeRef = useRef(null);
   const coordinatorMasterProgrammeScopeRef = useRef(null);
   const hodDepartmentsLoadedRef = useRef(false);

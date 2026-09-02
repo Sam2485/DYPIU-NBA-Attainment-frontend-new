@@ -19,6 +19,7 @@ import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import CourseATR from '../atr/CourseATR';
 import ProgrammeATR from '../atr/ProgrammeATR';
+import COAttainmentEngine from '../coAttainment/COAttainmentEngine';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
 import * as XLSX from 'xlsx';
 import { reportsApi } from '../../api/reports';
@@ -34,6 +35,19 @@ const DEFAULT_BATCHES = [
 const unwrapReportData = (response) => response?.data?.data ?? response?.data ?? response;
 const codeOrder = (left, right) => String(left).localeCompare(String(right), undefined, { numeric: true });
 const valueOrDash = (value) => value === null || value === undefined || value === '' ? '—' : Number.isFinite(Number(value)) ? Number(value).toFixed(2) : value;
+const responseValue = (response, outcomeCode) => {
+  const sources = [response?.poRatings, response?.psoRatings, response?.outcomeResponses, response?.poPsoResponses, response?.responses, response?.ratings, response?.poValues, response?.psoValues];
+  for (const source of sources) {
+    if (source?.[outcomeCode] !== undefined) return source[outcomeCode];
+  }
+  return '—';
+};
+const scoreMap = (scores, codeKey) => Object.fromEntries(
+  (Array.isArray(scores)
+    ? scores.map((item) => [item?.[codeKey], item?.indirectAttainment ?? item?.averageAttainment ?? item?.score])
+    : Object.entries(scores || {})
+  ).filter(([code]) => Boolean(code))
+);
 
 export default function ReportsHub() {
   const { user, role } = useAuth();
@@ -52,9 +66,12 @@ export default function ReportsHub() {
     courses = [],
     batches = [],
     batchId,
+    academicYear = '',
     courseOfferings = [],
     selectedCourseOffering,
+    courseOfferingId,
     loadAssignedCourseOfferings = () => Promise.resolve([]),
+    loadCourseOfferings = () => Promise.resolve([]),
     selectCourseOffering = () => {},
   } = useAcademic();
 
@@ -72,11 +89,12 @@ export default function ReportsHub() {
   useEffect(() => {
     if (!isCourseCoordinator || !user?.email || !batchId) return;
     loadAssignedCourseOfferings(user, batchId).then((offerings) => {
-      const selectedId = selectedCourseOffering?.id;
-      const selectedStillAssigned = (offerings ?? []).some((offering) => offering.id === selectedId);
+      const selectedStillAssigned = (offerings ?? []).some(
+        (offering) => String(offering.id) === String(courseOfferingId)
+      );
       if (!selectedStillAssigned && offerings?.[0]) selectCourseOffering(offerings[0]);
     }).catch(() => {});
-  }, [batchId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, selectedCourseOffering?.id, user]);
+  }, [batchId, courseOfferingId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, user]);
 
   // Role-based Programmes List
   const roleProgrammes = (() => {
@@ -156,7 +174,7 @@ export default function ReportsHub() {
   // ── 4. FILTERS STATE ────────────────────────────────────────────────────────
   const [selectedBatchId, setSelectedBatchId] = useState('');
   const [batchReportType, setBatchReportType] = useState('average-mapping'); // 'average-mapping' | 'average-attainment-direct' | 'average-attainment-indirect' | 'overall-attainment'
-  const [programmeBatchReports, setProgrammeBatchReports] = useState({ mapping: null, direct: null });
+  const [programmeBatchReports, setProgrammeBatchReports] = useState({ mapping: null, direct: null, indirect: null });
   const [programmeBatchReportsLoading, setProgrammeBatchReportsLoading] = useState(false);
   const [programmeBatchReportsError, setProgrammeBatchReportsError] = useState('');
 
@@ -172,9 +190,32 @@ export default function ReportsHub() {
   const currentBatchName = currentBatchObj?.name || 'No programme batch selected';
   const isFinalSemCompleted = currentBatchObj?.isCompleted || currentBatchObj?.name?.includes('Completed') || currentBatchObj?.name?.includes('Graduated');
 
+  const reportCourseOfferings = useMemo(
+    () => courseOfferings.filter((offering) =>
+      String(offering.batchId ?? offering.programmeBatchId) === String(effectiveBatchId)
+      && (!currentProgId || String(offering.masterProgrammeId ?? offering.programmeId) === String(currentProgId))
+    ),
+    [courseOfferings, currentProgId, effectiveBatchId],
+  );
+
+  useEffect(() => {
+    if (isCourseCoordinator || !effectiveBatchId) return;
+    loadCourseOfferings(effectiveBatchId).catch(() => {});
+  }, [effectiveBatchId, isCourseCoordinator, loadCourseOfferings]);
+
+  useEffect(() => {
+    if (isCourseCoordinator || !reportCourseOfferings.length) return;
+    const matchingOffering = reportCourseOfferings.find((offering) =>
+      String(offering.courseId ?? offering.masterCourseId) === String(courseId)
+    ) ?? reportCourseOfferings[0];
+    if (matchingOffering && String(matchingOffering.id) !== String(selectedCourseOffering?.id)) {
+      selectCourseOffering(matchingOffering);
+    }
+  }, [courseId, isCourseCoordinator, reportCourseOfferings, selectCourseOffering, selectedCourseOffering?.id]);
+
   useEffect(() => {
     if (!currentProgId || !effectiveBatchId || isCourseCoordinator) {
-      setProgrammeBatchReports({ mapping: null, direct: null });
+      setProgrammeBatchReports({ mapping: null, direct: null, indirect: null });
       setProgrammeBatchReportsError('');
       return;
     }
@@ -184,20 +225,22 @@ export default function ReportsHub() {
     setProgrammeBatchReportsError('');
 
     Promise.all([
-      reportsApi.getAverageMapping(currentProgId, effectiveBatchId),
-      reportsApi.getAverageDirectAttainment(currentProgId, effectiveBatchId),
+      reportsApi.getAverageMapping(effectiveBatchId),
+      reportsApi.getAverageDirectAttainment(effectiveBatchId),
+      reportsApi.getAverageIndirectAttainment(effectiveBatchId),
     ])
-      .then(([mappingResponse, directResponse]) => {
+      .then(([mappingResponse, directResponse, indirectResponse]) => {
         if (!cancelled) {
           setProgrammeBatchReports({
             mapping: unwrapReportData(mappingResponse),
             direct: unwrapReportData(directResponse),
+            indirect: unwrapReportData(indirectResponse),
           });
         }
       })
       .catch((error) => {
         if (!cancelled) {
-          setProgrammeBatchReports({ mapping: null, direct: null });
+          setProgrammeBatchReports({ mapping: null, direct: null, indirect: null });
           setProgrammeBatchReportsError(error?.response?.data?.message || 'Unable to load the programme-batch attainment report.');
         }
       })
@@ -218,7 +261,13 @@ export default function ReportsHub() {
       : [];
     const poCodes = [...new Set([...poSummary.map((item) => item.poCode), ...courses.flatMap((course) => Object.keys(course.poValues || {}))].filter(Boolean))].sort(codeOrder);
     const psoCodes = [...new Set([...psoSummary.map((item) => item.psoCode), ...courses.flatMap((course) => Object.keys(course.psoValues || {}))].filter(Boolean))].sort(codeOrder);
-    const summaryValues = Object.fromEntries([...poSummary, ...psoSummary].map((item) => [item.poCode || item.psoCode, item.overallAverage]));
+    const summaryValues = {
+      ...(type === 'mapping' ? report?.averageMappingStrength : report?.averageDirectAttainment),
+      ...Object.fromEntries([...poSummary, ...psoSummary].map((item) => [
+        item.poCode || item.psoCode,
+        item.overallAverage ?? item.programmeAverageMapping ?? item.programmeDirectAttainment,
+      ])),
+    };
     const groups = new Map();
 
     courses.forEach((course) => {
@@ -248,6 +297,21 @@ export default function ReportsHub() {
 
   const mappingTable = useMemo(() => buildProgrammeTable(programmeBatchReports.mapping, 'mapping'), [programmeBatchReports.mapping]);
   const directTable = useMemo(() => buildProgrammeTable(programmeBatchReports.direct, 'direct'), [programmeBatchReports.direct]);
+  const indirectStudents = useMemo(() => {
+    const rows = programmeBatchReports.indirect?.studentResponses ?? programmeBatchReports.indirect?.surveyResponses ?? programmeBatchReports.indirect?.responses ?? [];
+    return Array.isArray(rows) ? rows : [];
+  }, [programmeBatchReports.indirect]);
+  const indirectPoScores = useMemo(() => ({ ...scoreMap(programmeBatchReports.indirect?.averageIndirectAttainment, 'poCode'), ...scoreMap(programmeBatchReports.indirect?.poIndirectAttainment, 'poCode') }), [programmeBatchReports.indirect]);
+  const indirectPsoScores = useMemo(() => ({ ...scoreMap(programmeBatchReports.indirect?.averageIndirectAttainment, 'psoCode'), ...scoreMap(programmeBatchReports.indirect?.psoIndirectAttainment, 'psoCode') }), [programmeBatchReports.indirect]);
+  const indirectPoCodes = useMemo(() => [...new Set([...Object.keys(indirectPoScores), ...indirectStudents.flatMap((student) => Object.keys(student.poRatings || {}))])].filter(Boolean).sort(codeOrder), [indirectPoScores, indirectStudents]);
+  const indirectPsoCodes = useMemo(() => [...new Set([...Object.keys(indirectPsoScores), ...indirectStudents.flatMap((student) => Object.keys(student.psoRatings || {}))])].filter(Boolean).sort(codeOrder), [indirectPsoScores, indirectStudents]);
+  const overallPoCodes = useMemo(() => [...new Set([...mappingTable.poCodes, ...directTable.poCodes, ...indirectPoCodes])].sort(codeOrder), [directTable.poCodes, indirectPoCodes, mappingTable.poCodes]);
+  const overallPsoCodes = useMemo(() => [...new Set([...mappingTable.psoCodes, ...directTable.psoCodes, ...indirectPsoCodes])].sort(codeOrder), [directTable.psoCodes, indirectPsoCodes, mappingTable.psoCodes]);
+  const showIndirectReport = isFinalSemCompleted || Boolean(programmeBatchReports.indirect);
+  const overallAttainmentValue = (directValue, indirectValue) => {
+    if (!Number.isFinite(Number(directValue)) || !Number.isFinite(Number(indirectValue))) return '—';
+    return ((Number(directValue) * 0.8) + (Number(indirectValue) * 0.2)).toFixed(2);
+  };
 
   const renderProgrammeRows = (table, totalLabel) => {
     const columnCount = 3 + table.poCodes.length + table.psoCodes.length;
@@ -522,7 +586,14 @@ export default function ReportsHub() {
             <div style={{ position: 'relative' }}>
               <select
                 value={currentCourseObj.id || courseId || ''}
-                onChange={(e) => setCourseId(e.target.value)}
+                onChange={(e) => {
+                  const nextCourseId = e.target.value;
+                  setCourseId(nextCourseId);
+                  const matchingOffering = reportCourseOfferings.find((offering) =>
+                    String(offering.courseId ?? offering.masterCourseId) === String(nextCourseId)
+                  );
+                  if (matchingOffering) selectCourseOffering(matchingOffering);
+                }}
                 style={{
                   height: '38px',
                   width: '100%',
@@ -713,6 +784,11 @@ export default function ReportsHub() {
           {/* MODE A: COURSE ATTAINMENT                                         */}
           {/* ───────────────────────────────────────────────────────────────── */}
           {effectiveAttainmentViewMode === 'course-attainment' && (
+            <COAttainmentEngine hideFooter />
+          )}
+
+          {/* Legacy report mockup retained temporarily for reference only. */}
+          {false && effectiveAttainmentViewMode === 'course-attainment' && (
             <div style={{ display: 'grid', gap: '20px' }}>
               
               {/* Header Info Bar */}
@@ -985,7 +1061,7 @@ export default function ReportsHub() {
               {/* 3. AVERAGE ATTAINMENT INDIRECT */}
               {batchReportType === 'average-attainment-indirect' && (
                 <div>
-                  {!isFinalSemCompleted ? (
+                  {!showIndirectReport ? (
                     <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '12px', padding: '32px 24px', textAlign: 'center' }}>
                       <Clock size={36} style={{ color: '#d97706', marginBottom: '12px' }} />
                       <h4 style={{ margin: 0, fontSize: '18px', color: '#92400e', fontWeight: '800' }}>
@@ -999,28 +1075,40 @@ export default function ReportsHub() {
                     <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                       <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
                         <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                          Average Indirect PO Attainment — {currentBatchName} (Final Exit Surveys)
+                          Average Attainment (Indirect) — {currentBatchName}
                         </h4>
                       </div>
                       <div style={{ overflowX: 'auto' }}>
                         <table className="audit-data-table" style={{ margin: 0 }}>
                           <thead>
                             <tr>
-                              <th style={{ width: '180px' }}>Survey Metric</th>
-                              {poList.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
-                              {psoList.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5' }}>{pso}</th>)}
+                              <th style={{ width: '80px', textAlign: 'center' }}>Sr No</th>
+                              <th style={{ width: '140px' }}>PRN</th>
+                              <th style={{ minWidth: '260px' }}>Name of the Student</th>
+                              {indirectPoCodes.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
+                              {indirectPsoCodes.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5' }}>{pso}</th>)}
                             </tr>
                           </thead>
                           <tbody>
-                            <tr>
-                              <td style={{ fontWeight: '700', color: '#334155' }}>Graduate Exit Survey (0-3)</td>
-                              {poList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '800', color: '#059669' }}>2.50</td>)}
-                              {psoList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '800', color: '#059669', background: '#f0fdf4' }}>2.40</td>)}
-                            </tr>
-                            <tr>
-                              <td style={{ fontWeight: '700', color: '#334155' }}>Alumni & Employer Rating</td>
-                              {poList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '800', color: '#059669' }}>2.60</td>)}
-                              {psoList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '800', color: '#059669', background: '#f0fdf4' }}>2.55</td>)}
+                            {indirectStudents.length === 0 ? (
+                              <tr>
+                                <td colSpan={3 + indirectPoCodes.length + indirectPsoCodes.length} style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>
+                                  No programme end-survey responses are available for this programme batch.
+                                </td>
+                              </tr>
+                            ) : indirectStudents.map((student, index) => (
+                              <tr key={`${student.prn ?? student.studentPrn ?? 'student'}-${student.srNo ?? index}`}>
+                                <td style={{ textAlign: 'center', fontWeight: '600' }}>{student.srNo ?? index + 1}</td>
+                                <td style={{ fontWeight: '600' }}>{student.prn ?? student.studentPrn ?? '—'}</td>
+                                <td>{student.studentName ?? student.name ?? '—'}</td>
+                                {indirectPoCodes.map((po) => <td key={po} style={{ textAlign: 'center' }}>{responseValue(student, po)}</td>)}
+                                {indirectPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center', background: '#f0fdf4' }}>{responseValue(student, pso)}</td>)}
+                              </tr>
+                            ))}
+                            <tr style={{ background: '#f1f5f9', fontWeight: '800' }}>
+                              <td colSpan={3} style={{ textAlign: 'right', paddingRight: '16px', color: '#0f172a' }}>Average Attainment (Indirect)</td>
+                              {indirectPoCodes.map((po) => <td key={po} style={{ textAlign: 'center', color: '#4f46e5' }}>{valueOrDash(indirectPoScores[po])}</td>)}
+                              {indirectPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center', color: '#047857', background: '#e6f4ea' }}>{valueOrDash(indirectPsoScores[pso])}</td>)}
                             </tr>
                           </tbody>
                         </table>
@@ -1033,7 +1121,7 @@ export default function ReportsHub() {
               {/* 4. OVERALL ATTAINMENT */}
               {batchReportType === 'overall-attainment' && (
                 <div>
-                  {!isFinalSemCompleted ? (
+                  {!showIndirectReport ? (
                     <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '12px', padding: '32px 24px', textAlign: 'center' }}>
                       <AlertCircle size={36} style={{ color: '#dc2626', marginBottom: '12px' }} />
                       <h4 style={{ margin: 0, fontSize: '18px', color: '#991b1b', fontWeight: '800' }}>
@@ -1047,33 +1135,40 @@ export default function ReportsHub() {
                     <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                       <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
                         <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                          Overall Batch PO & PSO Attainment (80% Direct + 20% Indirect) — {currentBatchName}
+                          Overall Attainment — {currentBatchName}
                         </h4>
                       </div>
                       <div style={{ overflowX: 'auto' }}>
                         <table className="audit-data-table" style={{ margin: 0 }}>
                           <thead>
                             <tr>
-                              <th style={{ width: '220px' }}>Attainment Stream</th>
-                              {poList.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
-                              {psoList.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5' }}>{pso}</th>)}
+                              <th style={{ width: '180px', textAlign: 'center' }}>Year</th>
+                              <th style={{ minWidth: '270px' }}>Course Name</th>
+                              {overallPoCodes.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
+                              {overallPsoCodes.map((pso) => <th key={pso} style={{ textAlign: 'center' }}>{pso}</th>)}
                             </tr>
                           </thead>
                           <tbody>
                             <tr>
-                              <td style={{ fontWeight: '700', color: '#334155' }}>Direct Attainment (80%)</td>
-                              {poList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '700' }}>2.10</td>)}
-                              {psoList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '700', background: '#f0fdf4' }}>2.00</td>)}
+                              <td rowSpan={4} style={{ textAlign: 'center', verticalAlign: 'middle', fontWeight: '700', fontSize: '14px' }}>{academicYear || currentBatchObj?.academicYear || 'AY —'}</td>
+                              <td style={{ fontWeight: '700', background: '#dcf0e0' }}>Average Mapping Values</td>
+                              {overallPoCodes.map((po) => <td key={po} style={{ textAlign: 'center' }}>{valueOrDash(mappingTable.summaryValues[po])}</td>)}
+                              {overallPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center' }}>{valueOrDash(mappingTable.summaryValues[pso])}</td>)}
                             </tr>
                             <tr>
-                              <td style={{ fontWeight: '700', color: '#334155' }}>Indirect Attainment (20%)</td>
-                              {poList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '700' }}>2.50</td>)}
-                              {psoList.map(() => <td key={Math.random()} style={{ textAlign: 'center', fontWeight: '700', background: '#f0fdf4' }}>2.40</td>)}
+                              <td style={{ fontWeight: '700' }}>Average Attainment (Direct)</td>
+                              {overallPoCodes.map((po) => <td key={po} style={{ textAlign: 'center' }}>{valueOrDash(directTable.summaryValues[po])}</td>)}
+                              {overallPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center' }}>{valueOrDash(directTable.summaryValues[pso])}</td>)}
                             </tr>
-                            <tr style={{ background: '#eef2ff', fontWeight: '800' }}>
-                              <td style={{ color: '#3730a3', fontSize: '13.5px' }}>Overall Attainment Score</td>
-                              {poList.map(() => <td key={Math.random()} style={{ textAlign: 'center', color: '#4338ca', fontSize: '14px' }}>2.18</td>)}
-                              {psoList.map(() => <td key={Math.random()} style={{ textAlign: 'center', color: '#047857', background: '#dcfce7', fontSize: '14px' }}>2.08</td>)}
+                            <tr>
+                              <td style={{ fontWeight: '700' }}>Average Attainment (Indirect)</td>
+                              {overallPoCodes.map((po) => <td key={po} style={{ textAlign: 'center' }}>{valueOrDash(indirectPoScores[po])}</td>)}
+                              {overallPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center' }}>{valueOrDash(indirectPsoScores[pso])}</td>)}
+                            </tr>
+                            <tr style={{ fontWeight: '800' }}>
+                              <td style={{ color: '#0f172a', fontSize: '13.5px', background: '#a8c4ed', lineHeight: '1.25' }}>Overall Attainment<br />(80% of Direct + 20% of Indirect)</td>
+                              {overallPoCodes.map((po) => <td key={po} style={{ textAlign: 'center', background: '#b4dfe3', fontSize: '14px' }}>{overallAttainmentValue(directTable.summaryValues[po], indirectPoScores[po])}</td>)}
+                              {overallPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center', background: '#b4dfe3', fontSize: '14px' }}>{overallAttainmentValue(directTable.summaryValues[pso], indirectPsoScores[pso])}</td>)}
                             </tr>
                           </tbody>
                         </table>
@@ -1154,12 +1249,25 @@ export default function ReportsHub() {
 
           {/* ATR SUB-TAB 1: COURSE ATR (For Course Coordinator, or when course-atr selected) */}
           {(isCourseCoordinator || atrSubTab === 'course-atr') && (
-            <CourseATR hideFooter={true} hideHeader={false} courseId={currentCourseObj.id} batchId={currentBatchObj?.id} />
+            <CourseATR
+              hideFooter={true}
+              hideHeader={false}
+              readOnly
+              courseId={isCourseCoordinator ? selectedCourseOffering?.id : undefined}
+              batchId={effectiveBatchId}
+              showAssignedCourseSelector={isCourseCoordinator}
+              assignedOfferings={assignedOfferings}
+              selectorDisabled={!batchId}
+              onSelectOffering={(offeringId) => {
+                const offering = assignedOfferings.find((item) => String(item.id) === String(offeringId));
+                if (offering) selectCourseOffering(offering);
+              }}
+            />
           )}
 
           {/* ATR SUB-TAB 2: PROGRAMME ATR (Only for Programme Coordinator, HOD, Director) */}
           {!isCourseCoordinator && atrSubTab === 'programme-atr' && (
-            <ProgrammeATR hideFooter={true} hideHeader={false} programmeId={currentProgramme.id} courseId={currentCourseObj.id} batchId={currentBatchObj?.id} />
+            <ProgrammeATR readOnly hideFooter={true} hideHeader={false} programmeId={currentProgramme.id} courseId={currentCourseObj.id} batchId={currentBatchObj?.id} />
           )}
 
         </div>

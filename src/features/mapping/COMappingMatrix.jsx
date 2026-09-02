@@ -65,6 +65,12 @@ export default function COMappingMatrix({ hideFooter = false }) {
   const [savedMappingSignature, setSavedMappingSignature] = useState(null);
   const [isSavingMapping, setIsSavingMapping] = useState(false);
 
+  // A saved signature belongs to one programme-batch course only. Never let
+  // an identical-looking mapping from a previous course disable Save here.
+  useEffect(() => {
+    setSavedMappingSignature(null);
+  }, [programmeBatchCourseId]);
+
   useEffect(() => {
     setSavedMatrix(coMapping?.matrix ?? {});
   }, [coMapping]);

@@ -11,6 +11,7 @@ export default function CourseATRPage() {
     batchId,
     courseOfferings = [],
     selectedCourseOffering,
+    courseOfferingId,
     loadAssignedCourseOfferings = () => Promise.resolve([]),
     selectCourseOffering = () => {},
   } = useAcademic();
@@ -23,11 +24,12 @@ export default function CourseATRPage() {
   useEffect(() => {
     if (!isCourseCoordinator || !user?.email || !batchId) return;
     loadAssignedCourseOfferings(user, batchId).then((offerings) => {
-      const selectedId = selectedCourseOffering?.id;
-      const selectedStillAssigned = (offerings ?? []).some((offering) => offering.id === selectedId);
+      const selectedStillAssigned = (offerings ?? []).some(
+        (offering) => String(offering.id) === String(courseOfferingId)
+      );
       if (!selectedStillAssigned && offerings?.[0]) selectCourseOffering(offerings[0]);
     }).catch(() => {});
-  }, [batchId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, selectedCourseOffering?.id, user]);
+  }, [batchId, courseOfferingId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, user]);
 
   const selectOffering = (event) => {
     const offering = assignedOfferings.find((item) => String(item.id) === event.target.value);

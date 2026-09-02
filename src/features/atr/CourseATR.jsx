@@ -28,7 +28,7 @@ const inputStyle = {
   color: ink, width: '100%', outline: 'none', fontFamily: 'inherit',
 };
 
-export default function CourseATR({ hideFooter = false, hideHeader = false, showHistoryProp, readOnly = false, courseId, batchId = null, showAssignedCourseSelector = false, assignedOfferings = [], onSelectOffering = () => {}, selectorDisabled = false, suppressPendingMessage = false }) {
+export default function CourseATR({ hideHeader = false, showHistoryProp, readOnly = false, courseId, batchId = null, showAssignedCourseSelector = false, assignedOfferings = [], onSelectOffering = () => {}, selectorDisabled = false, suppressPendingMessage = false }) {
   const navigate = useNavigate();
   const { role, user } = useAuth();
   const {
@@ -57,7 +57,6 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
     submitCourseATR = () => Promise.resolve(null),
   } = useAttainment();
 
-  const isFaculty      = role === 'FACULTY';
   const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
   const isCoordinator  = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
 
@@ -65,6 +64,8 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   const [showHistory, setShowHistory] = useState(showHistoryProp ?? false);
   const [previousYearAtr, setPreviousYearAtr] = useState(null);
   const [previousYearLoadState, setPreviousYearLoadState] = useState('idle');
+  const [isSubmittingForReview, setIsSubmittingForReview] = useState(false);
+  const [submittedForReview, setSubmittedForReview] = useState(false);
 
 
   useEffect(() => {
@@ -81,6 +82,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   useEffect(() => {
     // Saving applies to one programme-batch course only.
     setSavedSignature(null);
+    setSubmittedForReview(false);
   }, [courseOfferingId]);
 
   const allCourses = availableCourses.length > 0 ? availableCourses : courses;
@@ -138,7 +140,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
 
   const isApproved = atrStatus === 'VERIFIED' || atrStatus === 'APPROVED';
   const isRevision = atrStatus === 'REJECTED' || atrStatus === 'REVISION_REQUESTED' || atrStatus === 'NEEDS_REVISION';
-  const isSubmitted = ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(atrStatus);
+  const isSubmitted = submittedForReview || ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(atrStatus);
 
   // Build ATR list from COs
   const buildList = () => {
@@ -234,15 +236,18 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
   const handleSaveSubmit = async () => {
     if (!activeCourseId) return;
     try {
-      if (!isSaved) {
-        const saved = await handleSaveATR({ silent: true });
-        if (!saved) return;
-      }
+      setIsSubmittingForReview(true);
+      // Submit the freshly persisted report even if it was saved earlier.
+      const saved = await handleSaveATR({ silent: true });
+      if (!saved) return;
       await submitCourseATR(activeCourseId);
+      setSubmittedForReview(true);
       alert(`Course ATR for ${currentCourse?.courseCode || currentCourse?.code || 'this course'} has been submitted for review.`);
     } catch (error) {
       console.error('Failed to save Course ATR:', error);
       alert('Unable to save and submit the Course ATR. Please try again.');
+    } finally {
+      setIsSubmittingForReview(false);
     }
   };
   const handleVerify = () => updateCourseVerificationStatus(activeCourseId, 'atrStatus', 'VERIFIED');
@@ -301,9 +306,9 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
                     style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: isSaved ? '#f1f5f9' : '#ffffff', color: isSaved ? '#64748b' : accent, border: `1px solid ${isSaved ? '#cbd5e1' : accent}`, borderRadius: '8px', cursor: isSaved ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
                     <Save size={14} /> {isSaved ? 'Saved' : 'Save ATR'}
                   </button>
-                  <button onClick={handleSaveSubmit}
-                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
-                    <Send size={14} /> Submit ATR for Review
+                  <button className="btn btn-primary" onClick={handleSaveSubmit} disabled={isSubmittingForReview}
+                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', cursor: isSubmittingForReview ? 'not-allowed' : 'pointer', opacity: isSubmittingForReview ? 0.65 : 1, display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                    <Send size={14} /> {isSubmittingForReview ? 'Submitting…' : 'Submit ATR for Review'}
                   </button>
                 </>
               ) : (
@@ -334,9 +339,9 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
             style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: isSaved ? '#f1f5f9' : '#ffffff', color: isSaved ? '#64748b' : accent, border: `1px solid ${isSaved ? '#cbd5e1' : accent}`, borderRadius: '8px', cursor: isSaved ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
             <Save size={14} /> {isSaved ? 'Saved' : 'Save ATR'}
           </button>
-          <button onClick={handleSaveSubmit}
-            style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
-            <Send size={14} /> Submit ATR for Review
+          <button className="btn btn-primary" onClick={handleSaveSubmit} disabled={isSubmittingForReview}
+            style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', cursor: isSubmittingForReview ? 'not-allowed' : 'pointer', opacity: isSubmittingForReview ? 0.65 : 1, display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+            <Send size={14} /> {isSubmittingForReview ? 'Submitting…' : 'Submit ATR for Review'}
           </button>
         </div>
       )}
@@ -365,7 +370,7 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
         </div>
       )}
 
-      {!hideHeader && !showHistory && !suppressPendingMessage && isSubmitted && !isApproved && (
+      {!showHistory && !suppressPendingMessage && isSubmitted && !isApproved && (
         <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '10px', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
           <Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} />
           <div>
@@ -486,27 +491,6 @@ export default function CourseATR({ hideFooter = false, hideHeader = false, show
         </div>
       )}
 
-      {/* ── FOOTER ────────────────────────────────────────────────────────── */}
-      {!showHistory && !hideFooter && isFaculty && (
-        <div style={{ ...surface, padding: '14px 20px', marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-          {!locked ? (
-            <>
-              <button onClick={handleSaveATR} disabled={isSaved || coList.length === 0}
-                style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: isSaved ? '#f1f5f9' : '#ffffff', color: isSaved ? '#64748b' : accent, border: `1px solid ${isSaved ? '#cbd5e1' : accent}`, borderRadius: '8px', cursor: isSaved ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
-                <Save size={14} /> {isSaved ? 'Saved' : 'Save ATR'}
-              </button>
-              <button onClick={handleSaveSubmit}
-                style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
-                <Send size={14} /> Submit ATR for Review
-              </button>
-            </>
-          ) : (
-            <span style={{ height: '40px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <Lock size={14} /> {isApproved ? 'Report Locked' : 'Submitted — Pending Review'}
-            </span>
-          )}
-        </div>
-      )}
     </div>
   );
 }

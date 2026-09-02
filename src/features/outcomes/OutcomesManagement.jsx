@@ -73,11 +73,12 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
     // outcome screens.
     if (!isCourseCoordinator || !user?.email || !batchId) return;
     loadAssignedCourseOfferings(user, batchId).then((offerings) => {
-      const selectedId = selectedCourseOffering?.id;
-      const selectedStillAssigned = (offerings ?? []).some((offering) => offering.id === selectedId);
+      const selectedStillAssigned = (offerings ?? []).some(
+        (offering) => String(offering.id) === String(courseOfferingId)
+      );
       if (!selectedStillAssigned && offerings?.[0]) selectCourseOffering(offerings[0]);
     }).catch(() => {});
-  }, [batchId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, selectedCourseOffering?.id, user]);
+  }, [batchId, courseOfferingId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, user]);
 
   // The workflow loads this data from its Step 1 container. The sidebar's
   // standalone Add COs screen renders this component directly, so it must
@@ -170,7 +171,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
     }));
   });
 
-  // ── COs with Coordinator Approval Status ─────────────────────────────────────
+  // ── Course Outcomes ──────────────────────────────────────────────────────────
   const [coList, setCoList] = useState(() => {
     return activeCOs.map((co) => ({
       ...co,
@@ -526,7 +527,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
     }
   };
 
-  const handleSaveOutcomes = async () => {
+  const handleSaveOutcomes = async ({ silent = false } = {}) => {
     if (!targetCourseId) {
       alert('Select an assigned programme-batch course before saving outcomes.');
       return;
@@ -546,10 +547,12 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
       }
       await updateCourseCOs(payload, targetCourseId);
       setSavedOutcomeSignature(outcomeSignature(coList));
-      alert('Course Outcomes saved successfully.');
+      if (!silent) alert('Course Outcomes saved successfully.');
+      return true;
     } catch (error) {
       console.error('Failed to save Course Outcomes:', error);
-      alert('Unable to save Course Outcomes. Please try again.');
+      if (!silent) alert('Unable to save Course Outcomes. Please try again.');
+      return false;
     } finally {
       setIsSavingOutcomes(false);
     }
@@ -559,6 +562,10 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
     if (!targetCourseId || coList.length === 0) return;
     try {
       setIsSubmittingForReview(true);
+      // The approval must always follow a successful save of the exact
+      // values currently visible in the form.
+      const saved = await handleSaveOutcomes({ silent: true });
+      if (!saved) return;
       await submitCourseVerification({
         courseOfferingId: targetCourseId,
         // POST /approvals/submit accepts CO_DEFINITION for the Course Outcomes
@@ -636,8 +643,8 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                 <button
                   className="btn btn-primary"
                   onClick={handleSubmitForReview}
-                  disabled={outcomesDirty || isSubmittingForReview || outcomesPendingReview || coList.length === 0}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', opacity: outcomesDirty || isSubmittingForReview || outcomesPendingReview || coList.length === 0 ? 0.5 : 1, cursor: outcomesDirty || isSubmittingForReview || outcomesPendingReview || coList.length === 0 ? 'not-allowed' : 'pointer' }}
+                  disabled={isSubmittingForReview || outcomesPendingReview || coList.length === 0}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', opacity: isSubmittingForReview || outcomesPendingReview || coList.length === 0 ? 0.5 : 1, cursor: isSubmittingForReview || outcomesPendingReview || coList.length === 0 ? 'not-allowed' : 'pointer' }}
                 >
                   <Send size={15} /> {isSubmittingForReview ? 'Submitting…' : outcomesPendingReview ? 'Submitted' : 'Submit for Review'}
                 </button>
@@ -1172,7 +1179,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
               );
             }
 
-            if (!suppressPendingMessage && ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(status)) {
+            if (!suppressPendingMessage && (isSubmittedForReview || ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(status))) {
               return <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', padding: '14px 18px', marginBottom: '18px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}><Clock size={20} style={{ color: '#d97706', flexShrink: 0 }} /><div><strong style={{ fontSize: '13.5px', color: '#92400e', fontWeight: '800' }}>Submitted — Pending Programme Coordinator Review</strong><p style={{ margin: '2px 0 0', fontSize: '12px', color: '#b45309' }}>Course Outcomes and Targets are awaiting review by the Programme Coordinator.</p></div></div>;
             }
 
@@ -1188,14 +1195,13 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                     <th style={{ width: '90px', minWidth: '90px', maxWidth: '100px', textAlign: 'center' }}>CO Code</th>
                     <th style={{ width: '100%' }}>Course Outcome Statement</th>
                     <th style={{ width: '110px', textAlign: 'center' }}>Target</th>
-                    <th style={{ width: '180px', textAlign: 'center' }}>Approval Status</th>
                     <th style={{ width: '150px', textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {coList.length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                      <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
                         No Course Outcomes defined for this course yet. Click "+ Submit New CO Proposal".
                       </td>
                     </tr>
@@ -1274,25 +1280,6 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                               onChange={(e) => handleUpdateCOTarget(index, e.target.value)}
                               title="Target attainment benchmark (1.0 to 3.0 scale)"
                             />
-                          </td>
-                          <td style={{ textAlign: 'center' }}>
-                            {isApproved ? (
-                              <span className="badge badge-success" style={{ gap: '4px' }}>
-                                <CheckCircle2 size={12} /> Approved
-                              </span>
-                            ) : isSubmitted ? (
-                              <span className="badge badge-pending" style={{ gap: '4px', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
-                                <Clock size={12} /> Pending Approval
-                              </span>
-                            ) : isRejected ? (
-                              <span className="badge" style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', gap: '4px' }}>
-                                <XCircle size={12} /> Needs Revision
-                              </span>
-                            ) : (
-                              <span className="badge" style={{ background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1', gap: '4px' }}>
-                                Draft
-                              </span>
-                            )}
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             {isApproved ? (

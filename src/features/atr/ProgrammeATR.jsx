@@ -82,6 +82,10 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const currentProgramme = masterProgrammes.find(
     (programme) => String(programme.id) === String(activeProgId)
   ) ?? programmeATR?.programme ?? { id: activeProgId };
+  const [atrSaveState, setAtrSaveState] = useState('idle');
+  const [savedAtrSignature, setSavedAtrSignature] = useState(null);
+  const [submittedForReview, setSubmittedForReview] = useState(false);
+  const [currentAtrLoadState, setCurrentAtrLoadState] = useState(() => selectedBatchId ? 'loading' : 'idle');
   const atrApproval = programmeCoordinatorApprovals
     .filter((approval) => approval.type === 'PROGRAMME_ATR' && String(approval.programmeBatchId) === String(selectedBatchId))
     .sort((left, right) => new Date(right.submittedAt ?? right.approvedAt ?? 0) - new Date(left.submittedAt ?? left.approvedAt ?? 0))[0] ?? null;
@@ -89,11 +93,8 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const verificationRemarks = atrApproval?.remarks ?? storedVerificationRemarks;
   const verifierName = atrApproval?.approvedBy ?? storedVerifierName;
   const isPreviousBatch = currentBatchObj?.name?.includes('Archived') || currentBatchObj?.name?.includes('Graduated');
-  const isSubmittedForReview = ['PENDING', 'SUBMITTED_FOR_VERIFICATION', 'SUBMITTED', 'PENDING_APPROVAL'].includes(reportStatus);
+  const isSubmittedForReview = submittedForReview || ['PENDING', 'SUBMITTED_FOR_VERIFICATION', 'SUBMITTED', 'PENDING_APPROVAL'].includes(reportStatus);
   const locked = readOnly || isPreviousBatch || isSubmittedForReview || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
-  const [atrSaveState, setAtrSaveState] = useState('idle');
-  const [savedAtrSignature, setSavedAtrSignature] = useState(null);
-  const [currentAtrLoadState, setCurrentAtrLoadState] = useState(() => selectedBatchId ? 'loading' : 'idle');
 
   useEffect(() => {
     // Match the Programme Coordinator workflow: fetch batches using the
@@ -152,6 +153,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     setAtrList(buildList());
     setSavedAtrSignature(null);
     setAtrSaveState('idle');
+    setSubmittedForReview(false);
   }, [programmeId, targetCourseId, activePOs.length, activePSOs.length]);
 
   useEffect(() => {
@@ -174,6 +176,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     setBatchId(nextBatchId);
     setSavedAtrSignature(null);
     setAtrSaveState('idle');
+    setSubmittedForReview(false);
   };
 
   useEffect(() => {
@@ -302,8 +305,13 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     if (!selectedBatchId || locked) return;
     try {
       setAtrSaveState('submitting');
+      // Save the current programme ATR immediately before submission so the
+      // HOD review always receives the latest observations and actions.
+      await saveProgrammeATR(selectedBatchId, buildAtrPayload());
+      setSavedAtrSignature(atrSignature(atrList));
       await submitProgrammeATR(selectedBatchId);
       if (activeProgId) await loadProgrammeCoordinatorApprovals(activeProgId);
+      setSubmittedForReview(true);
       setAtrSaveState('submitted');
     } catch (error) {
       console.error('Failed to submit Programme ATR:', error);
@@ -432,18 +440,18 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
               )}
               {!showHistory && (!locked ? (
                 <>
-                  <button onClick={handleSaveAtr} disabled={currentAtrLoading || atrSaveState === 'saving' || isAtrSaved}
-                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: isAtrSaved ? '#f1f5f9' : accent, color: isAtrSaved ? '#64748b' : '#fff', border: isAtrSaved ? '1px solid #cbd5e1' : 'none', borderRadius: '8px', cursor: currentAtrLoading || atrSaveState === 'saving' || isAtrSaved ? 'not-allowed' : 'pointer', opacity: currentAtrLoading || atrSaveState === 'saving' ? 0.7 : 1, display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                  <button className="btn btn-primary" onClick={handleSaveAtr} disabled={currentAtrLoading || atrSaveState === 'saving' || isAtrSaved}
+                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: isAtrSaved ? '#f1f5f9' : undefined, color: isAtrSaved ? '#64748b' : undefined, border: isAtrSaved ? '1px solid #cbd5e1' : undefined, cursor: currentAtrLoading || atrSaveState === 'saving' || isAtrSaved ? 'not-allowed' : 'pointer', opacity: currentAtrLoading || atrSaveState === 'saving' ? 0.7 : 1, display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
                     <Save size={14} /> {atrSaveState === 'saving' ? 'Saving…' : isAtrSaved ? 'Saved' : 'Save ATR'}
                   </button>
-                  <button onClick={handleSubmitAtrForReview} disabled={currentAtrLoading}
-                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: '#ffffff', color: accent, border: `1px solid ${accent}`, borderRadius: '8px', cursor: currentAtrLoading ? 'not-allowed' : 'pointer', opacity: currentAtrLoading ? 0.7 : 1, display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
-                    <Send size={14} /> Submit ATR for Review
+                  <button className="btn btn-primary" onClick={handleSubmitAtrForReview} disabled={currentAtrLoading || atrSaveState === 'submitting'}
+                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: '#ffffff', color: accent, border: `1px solid ${accent}`, borderRadius: '8px', cursor: currentAtrLoading || atrSaveState === 'submitting' ? 'not-allowed' : 'pointer', opacity: currentAtrLoading || atrSaveState === 'submitting' ? 0.7 : 1, display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                    <Send size={14} /> {atrSaveState === 'submitting' ? 'Submitting…' : 'Submit ATR for Review'}
                   </button>
                 </>
               ) : (
                 <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Lock size={13} /> {isPreviousBatch ? `${currentBatchObj.name} (Archived)` : isSubmittedForReview ? 'Submitted for Review' : 'Report Locked'}
+                  <Lock size={13} /> {isPreviousBatch ? `${currentBatchObj.name} (Archived)` : isSubmittedForReview ? 'Submitted — Pending HOD Review' : 'Report Locked'}
                 </span>
               ))}
             </div>
@@ -595,9 +603,9 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
         {!hideFooter && isFaculty && (
           <div style={{ ...surface, padding: '14px 20px', marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
             {!locked ? (
-              <button onClick={handleSubmitAtrForReview}
-                style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
-                <Send size={14} /> Submit Report for Review
+              <button className="btn btn-primary" onClick={handleSubmitAtrForReview} disabled={atrSaveState === 'submitting'}
+                style={{ height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '700', cursor: atrSaveState === 'submitting' ? 'not-allowed' : 'pointer', opacity: atrSaveState === 'submitting' ? 0.65 : 1, display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                <Send size={14} /> {atrSaveState === 'submitting' ? 'Submitting…' : 'Submit Report for Review'}
               </button>
             ) : (
               <span style={{ height: '40px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
