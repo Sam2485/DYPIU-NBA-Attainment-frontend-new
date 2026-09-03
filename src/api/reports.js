@@ -74,6 +74,11 @@ export const reportsApi = {
       `/academic/programme-batches/${programmeBatchId}/atr`
     ),
 
+  getProgrammeBatchApprovalWorkspace: (programmeBatchId) =>
+    apiClient.get(
+      `/approvals/programme-batches/${programmeBatchId}`
+    ),
+
   getPreviousYearProgrammeAtr: (programmeBatchId) =>
     apiClient.get(
       `/atr/master-programmes/previous-year/${programmeBatchId}`

@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAttainment } from '../../context/attainment';
 import { useApproval } from '../../context/approval';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
+import { reportsApi } from '../../api/reports';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -30,7 +31,7 @@ const atrSignature = (items = []) => JSON.stringify(items.map((item) => ({
   actions: (item.actions ?? []).filter(Boolean),
 })));
 
-export default function ProgrammeATR({ courseId = null, programmeId: propProgrammeId = null, batchId: propBatchId = null, hideFooter = false, hideHeader = false, readOnly = false, showBatchSelector = true, showHeaderActions = true }) {
+export default function ProgrammeATR({ courseId = null, programmeId: propProgrammeId = null, batchId: propBatchId = null, hideFooter = false, hideHeader = false, readOnly = false, showBatchSelector = true, showHeaderActions = true, useBatchApprovalWorkspace = false }) {
   const { user, role } = useAuth();
   const {
     selectedCourse,
@@ -60,6 +61,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const [showHistory, setShowHistory] = useState(false);
   const [previousYearAtr, setPreviousYearAtr] = useState(null);
   const [previousYearLoadState, setPreviousYearLoadState] = useState('idle');
+  const [batchApprovalWorkspace, setBatchApprovalWorkspace] = useState(null);
 
   const activeProgId = propProgrammeId || programmeId || null;
   const targetCourseId = courseId || selectedCourse?.id || null;
@@ -86,7 +88,15 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const [savedAtrSignature, setSavedAtrSignature] = useState(null);
   const [submittedForReview, setSubmittedForReview] = useState(false);
   const [currentAtrLoadState, setCurrentAtrLoadState] = useState(() => selectedBatchId ? 'loading' : 'idle');
-  const atrApproval = programmeCoordinatorApprovals
+  const workspaceProgrammeAtrApproval = useMemo(() => {
+    const workspace = batchApprovalWorkspace ?? {};
+    const approvals = [
+      ...(workspace.approvalItems ?? workspace.approvals ?? []),
+      ...(workspace.courses ?? []).flatMap((course) => course.approvalItems ?? course.approvals ?? []),
+    ];
+    return approvals.find((approval) => approval.type === 'PROGRAMME_ATR') ?? null;
+  }, [batchApprovalWorkspace]);
+  const atrApproval = workspaceProgrammeAtrApproval ?? programmeCoordinatorApprovals
     .filter((approval) => approval.type === 'PROGRAMME_ATR' && String(approval.programmeBatchId) === String(selectedBatchId))
     .sort((left, right) => new Date(right.submittedAt ?? right.approvedAt ?? 0) - new Date(left.submittedAt ?? left.approvedAt ?? 0))[0] ?? null;
   const reportStatus = atrApproval?.status ?? storedReportStatus;
@@ -159,6 +169,23 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   useEffect(() => {
     if (propBatchId || selectedBatch?.id) setSelectedBatchId(propBatchId || selectedBatch.id);
   }, [propBatchId, selectedBatch?.id]);
+
+  useEffect(() => {
+    if (!useBatchApprovalWorkspace || !selectedBatchId) {
+      setBatchApprovalWorkspace(null);
+      return undefined;
+    }
+    let isCurrent = true;
+    reportsApi.getProgrammeBatchApprovalWorkspace(selectedBatchId)
+      .then((response) => {
+        if (!isCurrent) return;
+        setBatchApprovalWorkspace(response?.data?.data ?? response?.data ?? response ?? null);
+      })
+      .catch(() => {
+        if (isCurrent) setBatchApprovalWorkspace(null);
+      });
+    return () => { isCurrent = false; };
+  }, [selectedBatchId, useBatchApprovalWorkspace]);
 
   useEffect(() => {
     // A standalone Programme ATR must only expose batches belonging to the
@@ -243,6 +270,22 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
       const reportOutcomes = [
         ...(atr.poOutcomes ?? []).map((outcome) => ({ ...outcome, type: 'PO' })),
         ...(atr.psoOutcomes ?? []).map((outcome) => ({ ...outcome, type: 'PSO' })),
+        ...(atr.poTargetMetRows ?? []).map((outcome) => ({
+          ...outcome,
+          type: 'PO',
+          outcomeCode: outcome.outcomeCode ?? outcome.poCode,
+          attainmentLevel: outcome.attainmentLevel ?? outcome.overallAttainment,
+          status: outcome.status ?? (outcome.targetMet ? 'ATTAINED' : 'NOT_ATTAINED'),
+          actionPlan: outcome.actionPlan ?? outcome.actionProposed,
+        })),
+        ...(atr.psoTargetMetRows ?? []).map((outcome) => ({
+          ...outcome,
+          type: 'PSO',
+          outcomeCode: outcome.outcomeCode ?? outcome.psoCode,
+          attainmentLevel: outcome.attainmentLevel ?? outcome.overallAttainment,
+          status: outcome.status ?? (outcome.targetMet ? 'ATTAINED' : 'NOT_ATTAINED'),
+          actionPlan: outcome.actionPlan ?? outcome.actionProposed,
+        })),
       ];
       const observations = reportOutcomes.length > 0 ? reportOutcomes : parseObservations(atr.observationsJson);
       setAtrList(observations.map((observation) => {

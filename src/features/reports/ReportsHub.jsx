@@ -600,11 +600,26 @@ export default function ReportsHub() {
   const mappingTable = useMemo(() => buildProgrammeTable(programmeBatchReports.mapping, 'mapping'), [programmeBatchReports.mapping]);
   const directTable = useMemo(() => buildProgrammeTable(programmeBatchReports.direct, 'direct'), [programmeBatchReports.direct]);
   const indirectStudents = useMemo(() => {
-    const rows = programmeBatchReports.indirect?.studentResponses ?? programmeBatchReports.indirect?.surveyResponses ?? programmeBatchReports.indirect?.responses ?? [];
+    const rows = programmeBatchReports.indirect?.studentResponses ?? [];
     return Array.isArray(rows) ? rows : [];
   }, [programmeBatchReports.indirect]);
-  const indirectPoScores = useMemo(() => ({ ...scoreMap(programmeBatchReports.indirect?.averageIndirectAttainment, 'poCode'), ...scoreMap(programmeBatchReports.indirect?.poIndirectAttainment, 'poCode') }), [programmeBatchReports.indirect]);
-  const indirectPsoScores = useMemo(() => ({ ...scoreMap(programmeBatchReports.indirect?.averageIndirectAttainment, 'psoCode'), ...scoreMap(programmeBatchReports.indirect?.psoIndirectAttainment, 'psoCode') }), [programmeBatchReports.indirect]);
+  // The programme indirect-attainment report has one source of truth for its
+  // displayed values: `averageIndirectAttainment`. `poIndirectAttainment` and
+  // `psoIndirectAttainment` are reserved for a later statistics view. Split
+  // the one map by code so PO values cannot be rendered again as PSOs (and
+  // vice versa).
+  const indirectAverageScores = useMemo(
+    () => scoreMap(programmeBatchReports.indirect?.averageIndirectAttainment),
+    [programmeBatchReports.indirect]
+  );
+  const indirectPoScores = useMemo(
+    () => Object.fromEntries(Object.entries(indirectAverageScores).filter(([code]) => /^PO\d+$/i.test(code))),
+    [indirectAverageScores]
+  );
+  const indirectPsoScores = useMemo(
+    () => Object.fromEntries(Object.entries(indirectAverageScores).filter(([code]) => /^PSO\d+$/i.test(code))),
+    [indirectAverageScores]
+  );
   const indirectPoCodes = useMemo(() => [...new Set([
     ...Object.keys(indirectPoScores),
     ...indirectStudents.flatMap((student) => Object.keys(student.poRatings || {}).map(normalizeOutcomeCode)),
@@ -1619,6 +1634,7 @@ export default function ReportsHub() {
               programmeId={currentProgramme.id}
               courseId={currentCourseObj.id}
               batchId={currentBatchObj?.id}
+              useBatchApprovalWorkspace
             />
           )}
 
