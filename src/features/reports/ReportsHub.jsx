@@ -797,7 +797,7 @@ export default function ReportsHub() {
 
           {/* Actions: Download & Print */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {isCourseCoordinator && activeMainTab !== 'atr-reports' && <select
+            {isCourseCoordinator && (activeMainTab !== 'atr-reports' || atrSubTab === 'course-atr') && <select
               value={selectedCourseOffering?.id ?? ''}
               onChange={(event) => {
                 const offering = assignedOfferings.find((item) => String(item.id) === event.target.value);
