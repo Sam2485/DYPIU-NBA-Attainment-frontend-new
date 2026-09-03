@@ -5,6 +5,8 @@ import { useAttainment } from '../../context/attainment';
 import { useAuth } from '../../context/AuthContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 
+const normalizeOutcomeCode = (code) => String(code ?? '').trim().toUpperCase().replace(/\s+/g, '');
+
 export default function COAttainmentEngine({ hideFooter = false }) {
   const { user, role } = useAuth();
   const {
@@ -75,15 +77,15 @@ export default function COAttainmentEngine({ hideFooter = false }) {
     ? table3CoAttainments.map((item) => ({ code: item.coCode, statement: item.statement }))
     : activeCOs;
   const poList = [...new Set([
-    ...table1Mapping.flatMap((item) => Object.keys(item.poMappings ?? {})),
-    ...table2DirectPO.map((item) => item.poCode).filter(Boolean),
+    ...table1Mapping.flatMap((item) => Object.keys(item.poMappings ?? {}).map(normalizeOutcomeCode)),
+    ...table2DirectPO.map((item) => normalizeOutcomeCode(item.poCode)).filter(Boolean),
   ])];
   const psoList = [...new Set([
-    ...table1Mapping.flatMap((item) => Object.keys(item.psoMappings ?? {})),
-    ...table2DirectPSO.map((item) => item.psoCode).filter(Boolean),
+    ...table1Mapping.flatMap((item) => Object.keys(item.psoMappings ?? {}).map(normalizeOutcomeCode)),
+    ...table2DirectPSO.map((item) => normalizeOutcomeCode(item.psoCode)).filter(Boolean),
   ])];
-  const displayPOs = poList.length > 0 ? poList : activePOs.map((p) => p.code);
-  const displayPSOs = psoList.length > 0 ? psoList : activePSOs.map((p) => p.code);
+  const displayPOs = poList.length > 0 ? poList : [...new Set(activePOs.map((p) => normalizeOutcomeCode(p.code)).filter(Boolean))];
+  const displayPSOs = psoList.length > 0 ? psoList : [...new Set(activePSOs.map((p) => normalizeOutcomeCode(p.code)).filter(Boolean))];
 
   // Backend returned CO Attainment values
   const directLevel = attainmentReport.directAttainment ?? attainmentReport.averageDirectAttainment ?? null;
@@ -106,13 +108,17 @@ export default function COAttainmentEngine({ hideFooter = false }) {
     if (matrix[coCode] && matrix[coCode][targetCode] != null) {
       return Number(matrix[coCode][targetCode]);
     }
+    const equivalentKey = Object.keys(matrix[coCode] || {}).find(
+      (key) => normalizeOutcomeCode(key) === normalizeOutcomeCode(targetCode)
+    );
+    if (equivalentKey && matrix[coCode][equivalentKey] != null) return Number(matrix[coCode][equivalentKey]);
     return '-';
   };
 
   // Helper: Average mapping strength
   const calculateAverageMapping = (key) => {
-    const serverRow = table2DirectPO.find((item) => item.poCode === key)
-      ?? table2DirectPSO.find((item) => item.psoCode === key);
+    const serverRow = table2DirectPO.find((item) => normalizeOutcomeCode(item.poCode) === normalizeOutcomeCode(key))
+      ?? table2DirectPSO.find((item) => normalizeOutcomeCode(item.psoCode) === normalizeOutcomeCode(key));
     // A Table 2 row is authoritative. Explicit null means the outcome is
     // intentionally unmapped and must remain a dash in the UI.
     if (serverRow) return serverRow.averageMapping != null ? Number(serverRow.averageMapping).toFixed(2) : '-';
@@ -131,8 +137,8 @@ export default function COAttainmentEngine({ hideFooter = false }) {
   // Table 2 contribution is calculated by the backend from the direct
   // attainment and average mapping strength.
   const calculatePoPsoAttainment = (key) => {
-    const serverRow = table2DirectPO.find((item) => item.poCode === key)
-      ?? table2DirectPSO.find((item) => item.psoCode === key);
+    const serverRow = table2DirectPO.find((item) => normalizeOutcomeCode(item.poCode) === normalizeOutcomeCode(key))
+      ?? table2DirectPSO.find((item) => normalizeOutcomeCode(item.psoCode) === normalizeOutcomeCode(key));
     if (serverRow) return serverRow.directContribution != null ? Number(serverRow.directContribution).toFixed(2) : '-';
     const avg = calculateAverageMapping(key);
     if (avg === '-' || overallCOAttainment == null) return '-';

@@ -49,19 +49,48 @@ export default function ProgrammeCoordinatorApprovals() {
   const [error, setError] = useState('');
   const [remarks, setRemarks] = useState('');
   const requestedScope = useRef(null);
+  // `useSearchParams` updates on the following render. Keep a short-lived
+  // guard so the URL-sync effect cannot restore the just-closed workspace
+  // from the previous render's approvalId.
+  const isClosingApprovalRef = useRef(false);
 
   useEffect(() => {
     if (selectedBatchId) sessionStorage.setItem(`nba_pc_approvals_batch:${user?.email ?? 'current-user'}`, selectedBatchId);
   }, [selectedBatchId, user?.email]);
 
   const openApproval = (approvalId, courseId = null) => {
-    setDetails(null);
+    isClosingApprovalRef.current = false;
+    // Clearing the current workspace here makes the page fall back to the
+    // inbox until the next tab's details request returns. Keep it only for a
+    // genuinely different course; in-course tab changes already have the
+    // complete workspace payload.
+    if (courseId && String(courseId) !== String(selectedCourseId)) setDetails(null);
     if (courseId) setSelectedCourseId(courseId);
     setSelectedId(approvalId);
     setSearchParams({ approvalId, queue: queueTab });
   };
 
+  const selectWorkspaceTab = (item) => {
+    const approvalId = item.approvalRequestId ?? item.id;
+    if (!approvalId) return;
+    isClosingApprovalRef.current = false;
+    setSelectedId(approvalId);
+    // Preserve the loaded course workspace while the API refreshes the
+    // selected item's metadata. This prevents the tab bar from unmounting
+    // and avoids the brief return to the Pending inbox on the first click.
+    setDetails((current) => current ? {
+      ...current,
+      ...item,
+      id: approvalId,
+      programmeBatchCourseId: current.programmeBatchCourseId,
+      programmeBatchCourse: current.programmeBatchCourse,
+      workspaceApprovalItems: current.workspaceApprovalItems,
+    } : current);
+    setSearchParams({ approvalId, queue: queueTab }, { replace: true });
+  };
+
   const closeApproval = () => {
+    isClosingApprovalRef.current = true;
     setSelectedId(null);
     setSelectedCourseId(null);
     setDetails(null);
@@ -146,6 +175,12 @@ export default function ProgrammeCoordinatorApprovals() {
   useEffect(() => {
     const approvalId = searchParams.get('approvalId');
     const requestedQueue = searchParams.get('queue');
+    if (isClosingApprovalRef.current) {
+      // Wait until React Router has applied the URL without approvalId. On
+      // the intermediate render the old query string is still visible.
+      if (!approvalId) isClosingApprovalRef.current = false;
+      return;
+    }
     if (requestedQueue === 'PENDING' || requestedQueue === 'REVIEWED') setQueueTab(requestedQueue);
     if (approvalId && approvalId !== selectedId) setSelectedId(approvalId);
   }, [searchParams, selectedId]);
@@ -258,7 +293,7 @@ export default function ProgrammeCoordinatorApprovals() {
           {!isPending(selected) && (() => { const [bg, color] = statusColor(selected.status); return <span style={{ color, background: bg, padding: '6px 10px', borderRadius: 6, fontWeight: 800, fontSize: 12 }}>{selected.status}</span>; })()}
         </div>
         <div style={{ ...surface, padding: '8px 12px', marginBottom: 16, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-          {visibleWorkspaceTabs.map((item) => <button key={item.approvalRequestId ?? item.id} type="button" onClick={() => openApproval(item.approvalRequestId ?? item.id, selected.programmeBatchCourseId)} style={{ height: 34, padding: '0 12px', borderRadius: 7, border: `1px solid ${(item.approvalRequestId ?? item.id) === selectedId ? '#4f46e5' : '#e2e8f0'}`, background: (item.approvalRequestId ?? item.id) === selectedId ? '#eef2ff' : '#ffffff', color: (item.approvalRequestId ?? item.id) === selectedId ? '#4338ca' : '#475569', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}>{approvalLabels[item.type] ?? item.type}</button>)}
+          {visibleWorkspaceTabs.map((item) => <button key={item.approvalRequestId ?? item.id} type="button" onClick={() => selectWorkspaceTab(item)} style={{ height: 34, padding: '0 12px', borderRadius: 7, border: `1px solid ${(item.approvalRequestId ?? item.id) === selectedId ? '#4f46e5' : '#e2e8f0'}`, background: (item.approvalRequestId ?? item.id) === selectedId ? '#eef2ff' : '#ffffff', color: (item.approvalRequestId ?? item.id) === selectedId ? '#4338ca' : '#475569', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}>{approvalLabels[item.type] ?? item.type}</button>)}
         </div>
         {['COURSE_ATR'].includes(selected.type) && ['APPROVED', 'VERIFIED'].includes(selected.status) && <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 10, padding: '14px 18px', marginBottom: 16, color: '#15803d' }}><strong style={{ fontSize: 13.5 }}>✓ Course ATR Approved by {selected.reviewedBy?.name ?? selected.reviewedBy ?? 'Programme Coordinator'}</strong><div style={{ marginTop: 4, fontSize: 12.5 }}>The Programme-Batch-Course ATR has been reviewed and approved.</div></div>}
         {['COURSE_ATR'].includes(selected.type) && ['REVISION_REQUESTED', 'REJECTED'].includes(selected.status) && <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: 10, padding: '14px 18px', marginBottom: 16, color: '#92400e' }}><strong style={{ fontSize: 13.5 }}>⚠ Revision Requested by {selected.reviewedBy?.name ?? selected.reviewedBy ?? 'Programme Coordinator'}</strong><div style={{ marginTop: 4, fontSize: 12.5 }}>{selected.revisionReason || 'Please revise the submitted content as per the coordinator feedback.'}</div></div>}

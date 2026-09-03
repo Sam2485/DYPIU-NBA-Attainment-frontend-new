@@ -48,19 +48,27 @@ const normalizeReportBatch = (batch) => ({
   id: batch?.id ?? batch?.programmeBatchId ?? null,
   programmeBatchId: batch?.programmeBatchId ?? batch?.id ?? null,
 });
+const normalizeOutcomeCode = (code) => String(code ?? '').trim().toUpperCase().replace(/\s+/g, '');
+const normalizeOutcomeValues = (values) => Object.fromEntries(
+  Object.entries(values || {}).map(([code, value]) => [normalizeOutcomeCode(code), value]).filter(([code]) => Boolean(code))
+);
 const codeOrder = (left, right) => String(left).localeCompare(String(right), undefined, { numeric: true });
 const valueOrDash = (value) => value === null || value === undefined || value === '' ? '—' : Number.isFinite(Number(value)) ? Number(value).toFixed(2) : value;
 const responseValue = (response, outcomeCode) => {
   const sources = [response?.poRatings, response?.psoRatings, response?.outcomeResponses, response?.poPsoResponses, response?.responses, response?.ratings, response?.poValues, response?.psoValues];
   for (const source of sources) {
     if (source?.[outcomeCode] !== undefined) return source[outcomeCode];
+    const matchingKey = Object.keys(source || {}).find(
+      (key) => normalizeOutcomeCode(key) === normalizeOutcomeCode(outcomeCode)
+    );
+    if (matchingKey !== undefined) return source[matchingKey];
   }
   return '—';
 };
 const scoreMap = (scores, codeKey) => Object.fromEntries(
   (Array.isArray(scores)
-    ? scores.map((item) => [item?.[codeKey], item?.indirectAttainment ?? item?.averageAttainment ?? item?.score])
-    : Object.entries(scores || {})
+    ? scores.map((item) => [normalizeOutcomeCode(item?.[codeKey]), item?.indirectAttainment ?? item?.averageAttainment ?? item?.score])
+    : Object.entries(scores || {}).map(([code, value]) => [normalizeOutcomeCode(code), value])
   ).filter(([code]) => Boolean(code))
 );
 
@@ -190,14 +198,20 @@ export default function ReportsHub() {
     { code: '—', name: 'No course selected', id: '' };
 
   // ── 1. MAIN TAB STATE: 'attainment-reports' | 'atr-reports' ────────────────
-  const [activeMainTab, setActiveMainTab] = useState('attainment-reports');
+  const [activeMainTab, setActiveMainTab] = useState(() => (
+    readReportSelection('main_tab') === 'atr-reports' ? 'atr-reports' : 'attainment-reports'
+  ));
 
   // ── 2. ATTAINMENT VIEW MODE: 'course-attainment' | 'programme-attainment' ────
   // Course Coordinator sees only 'course-attainment'
-  const [attainmentViewMode, setAttainmentViewMode] = useState('course-attainment');
+  const [attainmentViewMode, setAttainmentViewMode] = useState(() => (
+    readReportSelection('attainment_view') === 'programme-attainment' ? 'programme-attainment' : 'course-attainment'
+  ));
 
   // ── 3. ATR SUB-TAB: 'course-atr' | 'programme-atr' ──────────────────────────
-  const [atrSubTab, setAtrSubTab] = useState('course-atr');
+  const [atrSubTab, setAtrSubTab] = useState(() => (
+    readReportSelection('atr_sub_tab') === 'programme-atr' ? 'programme-atr' : 'course-atr'
+  ));
 
   // ── 4. FILTERS STATE ────────────────────────────────────────────────────────
   const [selectedBatchId, setSelectedBatchId] = useState(
@@ -206,10 +220,18 @@ export default function ReportsHub() {
   const [selectedReportCourseOfferingId, setSelectedReportCourseOfferingId] = useState(
     () => readReportSelection('programme_batch_course')
   );
-  const [batchReportType, setBatchReportType] = useState('average-mapping'); // 'average-mapping' | 'average-attainment-direct' | 'average-attainment-indirect' | 'overall-attainment'
+  const [batchReportType, setBatchReportType] = useState(() => {
+    const savedType = readReportSelection('programme_report_type');
+    return ['average-mapping', 'average-attainment-direct', 'average-attainment-indirect', 'overall-attainment'].includes(savedType)
+      ? savedType
+      : 'average-mapping';
+  });
   const [programmeBatchReports, setProgrammeBatchReports] = useState({ mapping: null, direct: null, indirect: null });
   const [programmeBatchReportsLoading, setProgrammeBatchReportsLoading] = useState(false);
   const [programmeBatchReportErrors, setProgrammeBatchReportErrors] = useState({ mapping: '', direct: '', indirect: '' });
+  const isProgrammeReportOpen = activeMainTab === 'attainment-reports'
+    && !isCourseCoordinator
+    && attainmentViewMode === 'programme-attainment';
 
   // Dynamic Lists
   const poList = (activePOs || []).map((p) => p?.code || p).filter(Boolean);
@@ -256,6 +278,22 @@ export default function ReportsHub() {
     if (selectedReportCourseOfferingId) sessionStorage.setItem(key, selectedReportCourseOfferingId);
     else sessionStorage.removeItem(key);
   }, [role, selectedReportCourseOfferingId, user?.email, user?.id]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') sessionStorage.setItem(reportSelectionStorageKey('main_tab'), activeMainTab);
+  }, [activeMainTab, role, user?.email, user?.id]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') sessionStorage.setItem(reportSelectionStorageKey('attainment_view'), attainmentViewMode);
+  }, [attainmentViewMode, role, user?.email, user?.id]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') sessionStorage.setItem(reportSelectionStorageKey('atr_sub_tab'), atrSubTab);
+  }, [atrSubTab, role, user?.email, user?.id]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') sessionStorage.setItem(reportSelectionStorageKey('programme_report_type'), batchReportType);
+  }, [batchReportType, role, user?.email, user?.id]);
 
   // HOD Reports follows the backend's explicit selection hierarchy rather
   // than relying on programme/batch lists populated by another screen.
@@ -445,26 +483,40 @@ export default function ReportsHub() {
   }, [courseId, isCourseCoordinator, reportCourseOfferings, selectCourseOffering, selectedCourseOffering?.id, selectedReportCourseOfferingId]);
 
   useEffect(() => {
-    if (selectedCourseOffering?.id) setSelectedReportCourseOfferingId(selectedCourseOffering.id);
-  }, [selectedCourseOffering?.id]);
+    if (isCourseCoordinator || !selectedCourseOffering?.id) return;
+    const offeringBatchId = selectedCourseOffering.batchId ?? selectedCourseOffering.programmeBatchId;
+    if (String(offeringBatchId) === String(effectiveBatchId)) {
+      setSelectedReportCourseOfferingId(selectedCourseOffering.id);
+    }
+  }, [effectiveBatchId, isCourseCoordinator, selectedCourseOffering?.batchId, selectedCourseOffering?.id, selectedCourseOffering?.programmeBatchId]);
 
   useEffect(() => {
-    if (!currentProgId || !effectiveBatchId || !hasResolvedReportBatch || isCourseCoordinator) {
+    if (!isProgrammeReportOpen || !currentProgId || !effectiveBatchId || !hasResolvedReportBatch) {
       setProgrammeBatchReports({ mapping: null, direct: null, indirect: null });
       setProgrammeBatchReportErrors({ mapping: '', direct: '', indirect: '' });
+      setProgrammeBatchReportsLoading(false);
       return;
     }
 
     let cancelled = false;
     setProgrammeBatchReportsLoading(true);
+    setProgrammeBatchReports({ mapping: null, direct: null, indirect: null });
     setProgrammeBatchReportErrors({ mapping: '', direct: '', indirect: '' });
 
-    Promise.allSettled([
-      reportsApi.getAverageMapping(effectiveBatchId),
-      reportsApi.getAverageDirectAttainment(effectiveBatchId),
-      reportsApi.getAverageIndirectAttainment(effectiveBatchId),
-    ])
-      .then(([mappingResult, directResult, indirectResult]) => {
+    const reportRequests = batchReportType === 'overall-attainment'
+      ? [
+          ['mapping', reportsApi.getAverageMapping],
+          ['direct', reportsApi.getAverageDirectAttainment],
+          ['indirect', reportsApi.getAverageIndirectAttainment],
+        ]
+      : batchReportType === 'average-attainment-direct'
+      ? [['direct', reportsApi.getAverageDirectAttainment]]
+      : batchReportType === 'average-attainment-indirect'
+      ? [['indirect', reportsApi.getAverageIndirectAttainment]]
+      : [['mapping', reportsApi.getAverageMapping]];
+
+    Promise.allSettled(reportRequests.map(([, request]) => request(effectiveBatchId)))
+      .then((results) => {
         if (!cancelled) {
           const resultData = (result) => result.status === 'fulfilled' ? unwrapReportData(result.value) : null;
           const resultError = (result, fallback) => {
@@ -479,16 +531,15 @@ export default function ReportsHub() {
               || result.reason?.message
               || fallback;
           };
-          setProgrammeBatchReports({
-            mapping: resultData(mappingResult),
-            direct: resultData(directResult),
-            indirect: resultData(indirectResult),
+          const nextReports = { mapping: null, direct: null, indirect: null };
+          const nextErrors = { mapping: '', direct: '', indirect: '' };
+          reportRequests.forEach(([type], index) => {
+            const result = results[index];
+            nextReports[type] = resultData(result);
+            nextErrors[type] = resultError(result, `Unable to load the average ${type === 'mapping' ? 'mapping' : type === 'direct' ? 'direct attainment' : 'indirect attainment'} report.`);
           });
-          setProgrammeBatchReportErrors({
-            mapping: resultError(mappingResult, 'Unable to load the average mapping report.'),
-            direct: resultError(directResult, 'Unable to load the average direct attainment report.'),
-            indirect: resultError(indirectResult, 'Unable to load the average indirect attainment report.'),
-          });
+          setProgrammeBatchReports(nextReports);
+          setProgrammeBatchReportErrors(nextErrors);
         }
       })
       .finally(() => {
@@ -496,22 +547,26 @@ export default function ReportsHub() {
       });
 
     return () => { cancelled = true; };
-  }, [currentProgId, effectiveBatchId, hasResolvedReportBatch, isCourseCoordinator]);
+  }, [batchReportType, currentProgId, effectiveBatchId, hasResolvedReportBatch, isProgrammeReportOpen]);
 
   const buildProgrammeTable = (report, type) => {
-    const courses = Array.isArray(report?.courses) ? report.courses : [];
+    const courses = (Array.isArray(report?.courses) ? report.courses : []).map((course) => ({
+      ...course,
+      poValues: normalizeOutcomeValues(course?.poValues),
+      psoValues: normalizeOutcomeValues(course?.psoValues),
+    }));
     const poSummary = Array.isArray(report?.[type === 'mapping' ? 'poMappings' : 'poDirectAttainment'])
       ? report[type === 'mapping' ? 'poMappings' : 'poDirectAttainment']
       : [];
     const psoSummary = Array.isArray(report?.[type === 'mapping' ? 'psoMappings' : 'psoDirectAttainment'])
       ? report[type === 'mapping' ? 'psoMappings' : 'psoDirectAttainment']
       : [];
-    const poCodes = [...new Set([...poSummary.map((item) => item.poCode), ...courses.flatMap((course) => Object.keys(course.poValues || {}))].filter(Boolean))].sort(codeOrder);
-    const psoCodes = [...new Set([...psoSummary.map((item) => item.psoCode), ...courses.flatMap((course) => Object.keys(course.psoValues || {}))].filter(Boolean))].sort(codeOrder);
+    const poCodes = [...new Set([...poSummary.map((item) => normalizeOutcomeCode(item.poCode)), ...courses.flatMap((course) => Object.keys(course.poValues || {}))].filter(Boolean))].sort(codeOrder);
+    const psoCodes = [...new Set([...psoSummary.map((item) => normalizeOutcomeCode(item.psoCode)), ...courses.flatMap((course) => Object.keys(course.psoValues || {}))].filter(Boolean))].sort(codeOrder);
     const summaryValues = {
       ...(type === 'mapping' ? report?.averageMappingStrength : report?.averageDirectAttainment),
       ...Object.fromEntries([...poSummary, ...psoSummary].map((item) => [
-        item.poCode || item.psoCode,
+        normalizeOutcomeCode(item.poCode || item.psoCode),
         item.overallAverage ?? item.programmeAverageMapping ?? item.programmeDirectAttainment,
       ])),
     };
@@ -550,8 +605,14 @@ export default function ReportsHub() {
   }, [programmeBatchReports.indirect]);
   const indirectPoScores = useMemo(() => ({ ...scoreMap(programmeBatchReports.indirect?.averageIndirectAttainment, 'poCode'), ...scoreMap(programmeBatchReports.indirect?.poIndirectAttainment, 'poCode') }), [programmeBatchReports.indirect]);
   const indirectPsoScores = useMemo(() => ({ ...scoreMap(programmeBatchReports.indirect?.averageIndirectAttainment, 'psoCode'), ...scoreMap(programmeBatchReports.indirect?.psoIndirectAttainment, 'psoCode') }), [programmeBatchReports.indirect]);
-  const indirectPoCodes = useMemo(() => [...new Set([...Object.keys(indirectPoScores), ...indirectStudents.flatMap((student) => Object.keys(student.poRatings || {}))])].filter(Boolean).sort(codeOrder), [indirectPoScores, indirectStudents]);
-  const indirectPsoCodes = useMemo(() => [...new Set([...Object.keys(indirectPsoScores), ...indirectStudents.flatMap((student) => Object.keys(student.psoRatings || {}))])].filter(Boolean).sort(codeOrder), [indirectPsoScores, indirectStudents]);
+  const indirectPoCodes = useMemo(() => [...new Set([
+    ...Object.keys(indirectPoScores),
+    ...indirectStudents.flatMap((student) => Object.keys(student.poRatings || {}).map(normalizeOutcomeCode)),
+  ])].filter(Boolean).sort(codeOrder), [indirectPoScores, indirectStudents]);
+  const indirectPsoCodes = useMemo(() => [...new Set([
+    ...Object.keys(indirectPsoScores),
+    ...indirectStudents.flatMap((student) => Object.keys(student.psoRatings || {}).map(normalizeOutcomeCode)),
+  ])].filter(Boolean).sort(codeOrder), [indirectPsoScores, indirectStudents]);
   const overallPoCodes = useMemo(() => [...new Set([...mappingTable.poCodes, ...directTable.poCodes, ...indirectPoCodes])].sort(codeOrder), [directTable.poCodes, indirectPoCodes, mappingTable.poCodes]);
   const overallPsoCodes = useMemo(() => [...new Set([...mappingTable.psoCodes, ...directTable.psoCodes, ...indirectPsoCodes])].sort(codeOrder), [directTable.psoCodes, indirectPsoCodes, mappingTable.psoCodes]);
   const showIndirectReport = isFinalSemCompleted || Boolean(programmeBatchReports.indirect);
@@ -1280,7 +1341,7 @@ export default function ReportsHub() {
                       Average Mapping Strength — {currentBatchName} (All Semesters)
                     </h4>
                   </div>
-                  <div style={{ overflowX: 'auto' }}>
+                  <div className="report-table-scroll">
                     <table className="audit-data-table" style={{ margin: 0 }}>
                       <thead>
                         <tr>
@@ -1307,7 +1368,7 @@ export default function ReportsHub() {
                       Average Attainment (Direct) — {currentBatchName} (All Semesters)
                     </h4>
                   </div>
-                  <div style={{ overflowX: 'auto' }}>
+                  <div className="report-table-scroll">
                     <table className="audit-data-table" style={{ margin: 0 }}>
                       <thead>
                         <tr>
@@ -1352,7 +1413,7 @@ export default function ReportsHub() {
                           Average Attainment (Indirect) — {currentBatchName}
                         </h4>
                       </div>
-                      <div style={{ overflowX: 'auto' }}>
+                      <div className="report-table-scroll">
                         <table className="audit-data-table" style={{ margin: 0 }}>
                           <thead>
                             <tr>
@@ -1418,12 +1479,12 @@ export default function ReportsHub() {
                           Overall Attainment — {currentBatchName}
                         </h4>
                       </div>
-                      <div style={{ overflowX: 'auto' }}>
+                      <div className="report-table-scroll">
                         <table className="audit-data-table" style={{ margin: 0 }}>
                           <thead>
                             <tr>
-                              <th style={{ width: '180px', textAlign: 'center' }}>Year</th>
-                              <th style={{ minWidth: '270px' }}>Course Name</th>
+                              <th style={{ width: '280px', minWidth: '280px', textAlign: 'center' }}>Year</th>
+                              <th style={{ minWidth: '270px' }}>Attainment Type</th>
                               {overallPoCodes.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
                               {overallPsoCodes.map((pso) => <th key={pso} style={{ textAlign: 'center' }}>{pso}</th>)}
                             </tr>

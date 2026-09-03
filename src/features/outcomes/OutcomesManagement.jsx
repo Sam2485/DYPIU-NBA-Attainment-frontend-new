@@ -1195,13 +1195,13 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                     <th style={{ width: '90px', minWidth: '90px', maxWidth: '100px', textAlign: 'center' }}>CO Code</th>
                     <th style={{ width: '100%' }}>Course Outcome Statement</th>
                     <th style={{ width: '110px', textAlign: 'center' }}>Target</th>
-                    <th style={{ width: '150px', textAlign: 'center' }}>Actions</th>
+                    {!readOnly && <th style={{ width: '150px', textAlign: 'center' }}>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {coList.length === 0 ? (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                      <td colSpan={readOnly ? 4 : 5} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
                         No Course Outcomes defined for this course yet. Click "+ Submit New CO Proposal".
                       </td>
                     </tr>
@@ -1215,6 +1215,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                       const isSubmitted = ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'WAITING_FOR_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(co.status)
                         || ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'WAITING_FOR_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(globalStatus);
                       const isDraft = !isApproved && !isRejected && !isSubmitted;
+                      const isLockedForEditing = readOnly || isApproved || isSubmitted || outcomesPendingReview;
 
                       const targetVal = co.targetLevel !== undefined ? co.targetLevel : (co.target !== undefined ? co.target : 2.5);
 
@@ -1225,14 +1226,14 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                             <input
                               type="text"
                               className="form-control"
-                              disabled={isApproved || isSubmitted || outcomesPendingReview}
+                              disabled={isLockedForEditing}
                               style={{
                                 fontWeight: '800',
                                 textAlign: 'center',
                                 width: '80px',
                                 color: isApproved ? '#10b981' : '#d97706',
-                                background: isApproved || isSubmitted || outcomesPendingReview ? '#f8fafc' : '#ffffff',
-                                cursor: isApproved || isSubmitted || outcomesPendingReview ? 'not-allowed' : 'text',
+                                background: isLockedForEditing ? '#f8fafc' : '#ffffff',
+                                cursor: isLockedForEditing ? 'not-allowed' : 'text',
                               }}
                               value={co.code}
                               onChange={(e) => handleUpdateCOCode(index, e.target.value)}
@@ -1242,7 +1243,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                             <input
                               type="text"
                               className="form-control"
-                              disabled={isApproved || isSubmitted || outcomesPendingReview}
+                              disabled={isLockedForEditing}
                               value={co.statement}
                               onChange={(e) => handleUpdateCOStatement(index, e.target.value)}
                               style={{
@@ -1251,9 +1252,9 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                                 minWidth: '500px',
                                 boxSizing: 'border-box',
                                 padding: '8px 12px',
-                                background: isApproved || isSubmitted || outcomesPendingReview ? '#f8fafc' : '#ffffff',
-                                cursor: isApproved || isSubmitted || outcomesPendingReview ? 'not-allowed' : 'text',
-                                color: isApproved || isSubmitted || outcomesPendingReview ? '#334155' : '#0f172a',
+                                background: isLockedForEditing ? '#f8fafc' : '#ffffff',
+                                cursor: isLockedForEditing ? 'not-allowed' : 'text',
+                                color: isLockedForEditing ? '#334155' : '#0f172a',
                               }}
                             />
                           </td>
@@ -1263,7 +1264,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                               step="0.1"
                               min="1.0"
                               max="3.0"
-                              disabled={isApproved || isSubmitted || outcomesPendingReview}
+                              disabled={isLockedForEditing}
                               className="form-control"
                               style={{
                                 width: '70px',
@@ -1273,15 +1274,15 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                                 color: '#0f172a',
                                 padding: '6px 8px',
                                 margin: '0 auto',
-                                background: isApproved || isSubmitted || outcomesPendingReview ? '#f8fafc' : '#ffffff',
-                                cursor: isApproved || isSubmitted || outcomesPendingReview ? 'not-allowed' : 'text',
+                                background: isLockedForEditing ? '#f8fafc' : '#ffffff',
+                                cursor: isLockedForEditing ? 'not-allowed' : 'text',
                               }}
                               value={targetVal}
                               onChange={(e) => handleUpdateCOTarget(index, e.target.value)}
                               title="Target attainment benchmark (1.0 to 3.0 scale)"
                             />
                           </td>
-                          <td style={{ textAlign: 'center' }}>
+                          {!readOnly && <td style={{ textAlign: 'center' }}>
                             {isApproved ? (
                               <span style={{ fontSize: '11.5px', color: '#16a34a', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                                 <CheckCircle2 size={12} /> Locked
@@ -1322,7 +1323,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                                 </button>}
                               </div>
                             )}
-                          </td>
+                          </td>}
                         </tr>
                       );
                     })

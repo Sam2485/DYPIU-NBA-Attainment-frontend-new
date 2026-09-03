@@ -401,6 +401,29 @@ body {
 .audit-data-table tbody td:last-child { border-right: 0; }
 .audit-data-table tbody tr:last-child td { border-bottom: 0; }
 
+/* Programme attainment sheets contain a dynamic number of PO/PSO columns.
+   Keep the table wider than its card when needed so the card, rather than the
+   whole page, provides a reliable horizontal scroll area. */
+.report-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 transparent;
+}
+.report-table-scroll > .audit-data-table {
+  width: max-content;
+  min-width: 100%;
+}
+.report-table-scroll > .audit-data-table th,
+.report-table-scroll > .audit-data-table td {
+  min-width: 64px;
+}
+
 /* Status Badges & Pills */
 .badge {
   display: inline-flex;
