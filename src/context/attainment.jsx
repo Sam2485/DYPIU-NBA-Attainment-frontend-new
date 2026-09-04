@@ -614,15 +614,7 @@ export function AttainmentProvider({ children }) {
     if (uploadedBy) formData.append('uploadedBy', uploadedBy);
     try {
       setError(null);
-      const response = await apiClient.post(
-        `/academic/programme-batches/${targetBatchId}/survey/upload`,
-        formData,
-        {
-          // Let the browser add multipart/form-data with its generated boundary.
-          // The shared api client supplies the JWT Authorization header.
-          headers: { 'Content-Type': undefined },
-        }
-      );
+      const response = await attainmentApi.uploadProgrammeExitSurvey(targetBatchId, formData);
       const data = unwrapResponse(response);
       setProgrammeSurveyData(data);
       return data;
