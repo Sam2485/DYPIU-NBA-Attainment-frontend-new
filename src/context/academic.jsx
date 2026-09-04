@@ -499,10 +499,10 @@ export function AcademicProvider({ children }) {
         const scopedSchool = data.find((school) => school.id === user?.schoolId);
         if (scopedSchool) {
           setSelectedSchoolId(scopedSchool.id);
-        } else if (role === 'ADMIN') {
-           // Admin can select anything, but we shouldn't fallback to schools[0] automatically
+        } else if (role === 'IQAC') {
+           // IQAC can select anything, but we shouldn't fallback to schools[0] automatically
            // Wait, prompt says: "Never fall back to schools[0]... when the authenticated scope is absent"
-           // So just do nothing if no scope. But for ADMIN, they have no schoolId usually. So they just don't have a selection initially, or we leave it null.
+           // So just do nothing if no scope. IQAC users typically have no schoolId, so leave the selection empty.
            // Actually, let's just not set it to data[0].id
         }
       } else {

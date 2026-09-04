@@ -575,7 +575,7 @@ export function ApprovalProvider({ children }) {
 
         if (role === 'HOD') {
           await loadHodApprovals();
-        } else if (role === 'DIRECTOR' || role === 'ADMIN') {
+        } else if (role === 'DIRECTOR' || role === 'IQAC') {
           await loadDirectorApprovals();
         }
 
@@ -677,7 +677,7 @@ export function ApprovalProvider({ children }) {
       setError(null);
 
       try {
-        if (role === 'DIRECTOR' || role === 'ADMIN') {
+        if (role === 'DIRECTOR' || role === 'IQAC') {
           return await loadDirectorApprovals(schoolId);
         }
 

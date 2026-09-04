@@ -1,36 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FileSpreadsheet,
-  Download,
   FileText,
   Layers,
   Calendar,
   Printer,
   ChevronDown,
-  Sparkles,
-  CheckCircle2,
   AlertCircle,
   Clock,
-  Eye,
-  GraduationCap,
-  BookOpen,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import CourseATR from '../atr/CourseATR';
 import ProgrammeATR from '../atr/ProgrammeATR';
 import COAttainmentEngine from '../coAttainment/COAttainmentEngine';
-import ErrorBoundary from '../../components/common/ErrorBoundary';
-import * as XLSX from 'xlsx';
 import { reportsApi } from '../../api/reports';
-
-// ── Default Batches Option List ──────────────────────────────────────────────
-const DEFAULT_BATCHES = [
-  { id: 'batch-2022-26', name: 'Batch 2022–26 (Graduated / Completed)', isCompleted: true, endYear: 2026 },
-  { id: 'batch-2023-27', name: 'Batch 2023–27 (Final Year / Sem 7 & 8)', isCompleted: true, endYear: 2027 },
-  { id: 'batch-2024-28', name: 'Batch 2024–28 (3rd Year / Sem 5 & 6)', isCompleted: false, endYear: 2028 },
-  { id: 'batch-2025-29', name: 'Batch 2025–29 (2nd Year / Sem 3 & 4)', isCompleted: false, endYear: 2029 },
-];
+import { downloadReportBlob, openReportPdf } from '../../utils/reportDownload';
 
 const unwrapReportData = (response) => response?.data?.data ?? response?.data ?? response;
 const normalizeReportProgramme = (programme) => ({
@@ -229,6 +214,8 @@ export default function ReportsHub() {
   const [programmeBatchReports, setProgrammeBatchReports] = useState({ mapping: null, direct: null, indirect: null });
   const [programmeBatchReportsLoading, setProgrammeBatchReportsLoading] = useState(false);
   const [programmeBatchReportErrors, setProgrammeBatchReportErrors] = useState({ mapping: '', direct: '', indirect: '' });
+  const [officialReportAction, setOfficialReportAction] = useState('');
+  const [officialReportError, setOfficialReportError] = useState('');
   const isProgrammeReportOpen = activeMainTab === 'attainment-reports'
     && !isCourseCoordinator
     && attainmentViewMode === 'programme-attainment';
@@ -669,102 +656,35 @@ export default function ReportsHub() {
   // Effective Attainment View Mode (Force Course Coordinator to 'course-attainment')
   const effectiveAttainmentViewMode = isCourseCoordinator ? 'course-attainment' : attainmentViewMode;
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // DOWNLOAD HANDLER (EXCEL)
-  // ───────────────────────────────────────────────────────────────────────────
-  const handleDownloadExcel = () => {
-    const wb = XLSX.utils.book_new();
-    let filename = 'Report.xlsx';
-    let sheetData = [];
-
-    if (activeMainTab === 'attainment-reports') {
-      if (effectiveAttainmentViewMode === 'course-attainment') {
-        filename = `Course_Attainment_${currentCourseObj?.code || 'Course'}_${currentBatchObj?.id || 'batch'}.xlsx`;
-        sheetData = [
-          [`D. Y. PATIL INTERNATIONAL UNIVERSITY, AKURDI PUNE`],
-          [`COURSE ATTAINMENT REPORT — ${currentBatchObj?.name || 'Batch'}`],
-          [`Programme: ${currentProgramme?.code || ''} - ${currentProgramme?.name || ''}`],
-          [`Course: ${currentCourseObj?.code || ''} - ${currentCourseObj?.name || ''}`],
-          [],
-          [`1. TABLE 1: CO TO PO/PSO MAPPING MATRIX`],
-          ['Sr No', 'CO Code', ...poList, ...psoList],
-          ...coList.map((co, idx) => [
-            idx + 1,
-            co.code,
-            ...poList.map((po) => coMapping?.[currentCourseObj?.id]?.[`${co.code}-${po}`] ?? '-'),
-            ...psoList.map((pso) => coMapping?.[currentCourseObj?.id]?.[`${co.code}-${pso}`] ?? '-'),
-          ]),
-          [],
-          [`2. TABLE 2: PO & PSO ATTAINMENT VALUES`],
-          ['Course Code', ...poList, ...psoList],
-          [currentCourseObj?.code || '', ...poList.map((po) => progTargets?.poTargets?.[po] ?? '-'), ...psoList.map((pso) => progTargets?.psoTargets?.[pso] ?? '-')],
-          [],
-          [`3. TABLE 3: CO ATTAINMENT (DIRECT + INDIRECT)`],
-          ['Assessment Type', 'Metric', ...coList.map((co) => co.code)],
-          ['Direct Examination', 'Direct Attainment Level (0-3)', ...coList.map((co) => co.directAttainment ?? '-')],
-          ['Indirect Survey', 'Indirect Attainment Level (0-3)', ...coList.map((co) => co.indirectAttainment ?? '-')],
-          ['Combined CO Attainment', 'Overall CO Attainment', ...coList.map((co) => co.attainment ?? '-')],
-        ];
-      } else {
-        filename = `Programme_Attainment_${currentProgramme.code}_${currentBatchName}.xlsx`;
-        const isMappingReport = batchReportType === 'average-mapping';
-        const table = isMappingReport ? mappingTable : directTable;
-        sheetData = [
-          [`D. Y. PATIL INTERNATIONAL UNIVERSITY, AKURDI PUNE`],
-          [`PROGRAMME ATTAINMENT BATCH REPORT — ${currentBatchName}`],
-          [`Programme: ${currentProgramme.code} - ${currentProgramme.name}`],
-          [`Report Type: ${batchReportType.toUpperCase().replace(/-/g, ' ')}`],
-          [],
-          ['Sem', 'Course Code', 'Course Name', ...table.poCodes, ...table.psoCodes],
-        ];
-
-        table.groups.forEach((group) => {
-          group.courses.forEach((course, cIdx) => {
-            sheetData.push([
-              cIdx === 0 ? group.label : '',
-              course.courseCode || '',
-              course.courseName || '',
-              ...table.poCodes.map((code) => course.poValues?.[code] ?? ''),
-              ...table.psoCodes.map((code) => course.psoValues?.[code] ?? ''),
-            ]);
-          });
-        });
-        sheetData.push([
-          isMappingReport ? 'Average Mapping Strength' : 'Average Attainment (Direct)',
-          '',
-          '',
-          ...table.poCodes.map((code) => table.summaryValues[code] ?? ''),
-          ...table.psoCodes.map((code) => table.summaryValues[code] ?? ''),
-        ]);
+  const requestOfficialReport = (format) => {
+    const programmeBatchCourseId = selectedReportCourseOfferingId || courseOfferingId || selectedCourseOffering?.id || currentCourseObj?.id;
+    const programmeBatchId = effectiveBatchId;
+    if (activeMainTab === 'atr-reports') {
+      if (atrSubTab === 'programme-atr') {
+        if (!programmeBatchId) throw new Error('Select a programme batch before downloading the Programme ATR.');
+        return format === 'pdf' ? reportsApi.downloadProgrammeAtrPdf(programmeBatchId) : reportsApi.downloadProgrammeAtrExcel(programmeBatchId);
       }
-    } else {
-      const typeLabel = atrSubTab === 'course-atr' ? 'Course_ATR' : 'Programme_ATR';
-      filename = `${typeLabel}_${currentCourseObj.code}_${currentBatchObj?.id || 'unselected-batch'}.xlsx`;
-      sheetData = [
-        [`D. Y. PATIL INTERNATIONAL UNIVERSITY, AKURDI PUNE`],
-        [`ACTION TAKEN REPORT (ATR) — ${currentBatchName}`],
-        [`Programme: ${currentProgramme.code}`],
-        [`Course: ${currentCourseObj.code} - ${currentCourseObj.name}`],
-        [],
-        ['CO/PO Code', 'Target Level', 'Attainment Level', '% Achieved', 'Target Status', 'Observation & Action Taken'],
-        ...coList.map((co, idx) => [
-          co.code,
-          2.50,
-          idx % 2 === 0 ? 2.80 : 2.10,
-          idx % 2 === 0 ? '112.0%' : '84.0%',
-          idx % 2 === 0 ? 'Target Met' : 'Gap',
-          idx % 2 === 0 ? 'Target achieved. Maintain current pedagogy.' : 'Increase practical hands-on problem sets.',
-        ]),
-      ];
+      if (!programmeBatchCourseId) throw new Error('Select a course offering before downloading the Course ATR.');
+      return format === 'pdf' ? reportsApi.downloadCourseAtrPdf(programmeBatchCourseId) : reportsApi.downloadCourseAtrExcel(programmeBatchCourseId);
     }
-
-    const ws = XLSX.utils.aoa_to_sheet(sheetData);
-    XLSX.utils.book_append_sheet(wb, ws, 'Report Data');
-    XLSX.writeFile(wb, filename);
+    if (effectiveAttainmentViewMode === 'course-attainment') {
+      if (!programmeBatchCourseId) throw new Error('Select a course offering before downloading the Course Attainment report.');
+      return format === 'pdf' ? reportsApi.downloadCourseAttainmentPdf(programmeBatchCourseId) : reportsApi.downloadCourseAttainmentExcel(programmeBatchCourseId);
+    }
+    if (!programmeBatchId) throw new Error('Select a programme batch before downloading the Programme Attainment report.');
+    const section = { 'average-mapping': 'AVERAGE_MAPPING', 'average-attainment-direct': 'AVERAGE_DIRECT', 'average-attainment-indirect': 'AVERAGE_INDIRECT', 'overall-attainment': 'OVERALL' }[batchReportType] || 'AVERAGE_MAPPING';
+    return format === 'pdf' ? reportsApi.downloadProgrammeAttainmentSectionPdf(programmeBatchId, section) : reportsApi.downloadProgrammeAttainmentSectionExcel(programmeBatchId, section);
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleOfficialDownload = async (format) => {
+    setOfficialReportAction(format); setOfficialReportError('');
+    try {
+      const response = await requestOfficialReport(format);
+      if (format === 'pdf') openReportPdf(response);
+      else downloadReportBlob(response, 'official-obe-report.xlsx');
+    } catch (error) {
+      setOfficialReportError(error?.response?.data?.message || error?.message || 'Unable to download the official report.');
+    } finally { setOfficialReportAction(''); }
   };
 
   return (
@@ -810,7 +730,8 @@ export default function ReportsHub() {
             </select>}
             <button
               type="button"
-              onClick={handleDownloadExcel}
+              onClick={() => handleOfficialDownload('excel')}
+              disabled={Boolean(officialReportAction)}
               style={{
                 height: '38px',
                 padding: '0 16px',
@@ -828,12 +749,13 @@ export default function ReportsHub() {
                 boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)',
               }}
             >
-              <FileSpreadsheet size={15} /> Download Excel
+              <FileSpreadsheet size={15} /> {officialReportAction === 'excel' ? 'Downloading…' : 'Download Excel'}
             </button>
 
             <button
               type="button"
-              onClick={handlePrint}
+              onClick={() => handleOfficialDownload('pdf')}
+              disabled={Boolean(officialReportAction)}
               style={{
                 height: '38px',
                 padding: '0 16px',
@@ -850,10 +772,11 @@ export default function ReportsHub() {
                 fontFamily: 'inherit',
               }}
             >
-              <Printer size={15} /> Print Report
+              <Printer size={15} /> {officialReportAction === 'pdf' ? 'Opening…' : 'Print Report'}
             </button>
           </div>
         </div>
+        {officialReportError && <p style={{ margin: '0 0 12px', color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>{officialReportError}</p>}
 
         {/* Dynamic Filters Row */}
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '14px', paddingTop: '14px', borderTop: '1px solid #f1f5f9' }}>

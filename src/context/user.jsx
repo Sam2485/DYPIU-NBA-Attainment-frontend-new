@@ -57,8 +57,8 @@ const getRoleLabel = (role) => {
     case 'MODULE_COORDINATOR':
       return 'Module Coordinator';
 
-    case 'ADMIN':
-      return 'System Administrator';
+    case 'IQAC':
+      return 'IQAC';
 
     default:
       return role || 'User';

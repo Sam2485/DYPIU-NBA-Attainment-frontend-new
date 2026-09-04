@@ -24,7 +24,7 @@ export const AuthProvider = ({ children }) => {
       const response = await authApi.login({ email, password });
       const authData = response?.data || response;
       const jwtToken = authData?.token || authData?.accessToken;
-      const userData = authData?.user || { email, role: 'ADMIN', name: email.split('@')[0] };
+      const userData = authData?.user || { email, role: 'IQAC', name: email.split('@')[0] };
 
       if (!jwtToken) {
         throw new Error('Authentication failed: No token received from server.');

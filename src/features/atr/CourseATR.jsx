@@ -5,6 +5,8 @@ import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import { useAttainment } from '../../context/attainment';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
+import { reportsApi } from '../../api/reports';
+import { openReportPdf } from '../../utils/reportDownload';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -62,6 +64,7 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
 
   const [savedSignature, setSavedSignature] = useState(null);
   const [showHistory, setShowHistory] = useState(showHistoryProp ?? false);
+  const [reportDownloadError, setReportDownloadError] = useState('');
   const [previousYearAtr, setPreviousYearAtr] = useState(null);
   const [previousYearLoadState, setPreviousYearLoadState] = useState('idle');
   const [isSubmittingForReview, setIsSubmittingForReview] = useState(false);
@@ -252,6 +255,13 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
   };
   const handleVerify = () => updateCourseVerificationStatus(activeCourseId, 'atrStatus', 'VERIFIED');
 
+  const handleOfficialPrint = async () => {
+    if (!activeCourseId) { setReportDownloadError('Select a course offering before printing the Course ATR.'); return; }
+    setReportDownloadError('');
+    try { openReportPdf(await reportsApi.downloadCourseAtrPdf(activeCourseId)); }
+    catch (error) { setReportDownloadError(error?.response?.data?.message || 'Unable to open the official Course ATR PDF.'); }
+  };
+
   const handleAddAction    = (i)        => setCoList((p) => p.map((c, idx) => idx === i ? { ...c, actions: [...c.actions, 'New corrective action...'] } : c));
   const handleUpdateAction = (i, j, v)  => setCoList((p) => p.map((c, idx) => { if (idx !== i) return c; const a = [...c.actions]; a[j] = v; return { ...c, actions: a }; }));
   const handleDeleteAction = (i, j)     => setCoList((p) => p.map((c, idx) => idx === i ? { ...c, actions: c.actions.filter((_, k) => k !== j) } : c));
@@ -326,10 +336,11 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
                 style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
                 <History size={13} /> {showHistory ? 'Hide Carry-Forward ATR' : 'View Carry-Forward ATR'}
               </button>
-              <button onClick={() => window.print()}
+              <button onClick={handleOfficialPrint}
                 style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
                 <Printer size={13} /> Print
               </button>
+              {reportDownloadError && <span style={{ color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>{reportDownloadError}</span>}
             </div>
           )}
         </div>

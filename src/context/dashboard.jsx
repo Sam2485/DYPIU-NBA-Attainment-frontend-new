@@ -430,7 +430,7 @@ export function DashboardProvider({ children }) {
   /* General role-based workflow loader */
   const loadWorkflowProgress = useCallback(
     async (targetRole = role) => {
-      if (targetRole === 'DIRECTOR' || targetRole === 'ADMIN') {
+      if (targetRole === 'DIRECTOR' || targetRole === 'IQAC') {
         return loadDirectorSetupProgress();
       }
       if (targetRole === 'HOD') {
@@ -599,7 +599,7 @@ export function DashboardProvider({ children }) {
   /* General role-based workflow saver */
   const saveWorkflowProgress = useCallback(
     async ({ nextStep, completedStep }) => {
-      if (role === 'DIRECTOR' || role === 'ADMIN') {
+      if (role === 'DIRECTOR' || role === 'IQAC') {
         return saveDirectorSetupProgress(nextStep, completedStep);
       }
       if (role === 'HOD') {

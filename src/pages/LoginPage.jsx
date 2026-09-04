@@ -20,7 +20,7 @@ export default function LoginPage() {
   // If already authenticated, redirect to appropriate role dashboard
   useEffect(() => {
     if (isAuthenticated) {
-      if (role === 'ADMIN') {
+      if (role === 'IQAC') {
         navigate('/admin/dashboard', { replace: true });
       } else if (role === 'DIRECTOR') {
         navigate('/director/dashboard', { replace: true });

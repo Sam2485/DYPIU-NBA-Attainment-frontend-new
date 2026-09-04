@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useUser } from '../../context/user';
 import { useAcademic } from '../../context/AcademicContext';
 
-const ROLES = ['ADMIN', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'COURSE_COORDINATOR', 'FACULTY'];
+const ROLES = ['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'COURSE_COORDINATOR', 'FACULTY'];
 const surface = { background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px' };
 const fieldStyle = { width: '100%', height: 39, border: '1px solid #cbd5e1', borderRadius: 7, padding: '0 10px', boxSizing: 'border-box', fontFamily: 'inherit' };
 const emptyUser = { name: '', email: '', password: '', role: 'FACULTY', schoolId: '' };

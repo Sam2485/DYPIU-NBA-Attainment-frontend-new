@@ -9,6 +9,7 @@ import { useAttainment } from '../../context/attainment';
 import { useApproval } from '../../context/approval';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 import { reportsApi } from '../../api/reports';
+import { openReportPdf } from '../../utils/reportDownload';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -88,6 +89,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const [savedAtrSignature, setSavedAtrSignature] = useState(null);
   const [submittedForReview, setSubmittedForReview] = useState(false);
   const [currentAtrLoadState, setCurrentAtrLoadState] = useState(() => selectedBatchId ? 'loading' : 'idle');
+  const [reportDownloadError, setReportDownloadError] = useState('');
   const workspaceProgrammeAtrApproval = useMemo(() => {
     const workspace = batchApprovalWorkspace ?? {};
     const approvals = [
@@ -362,6 +364,13 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     }
   };
 
+  const handleOfficialPrint = async () => {
+    if (!selectedBatchId) { setReportDownloadError('Select a programme batch before printing the Programme ATR.'); return; }
+    setReportDownloadError('');
+    try { openReportPdf(await reportsApi.downloadProgrammeAtrPdf(selectedBatchId)); }
+    catch (error) { setReportDownloadError(error?.response?.data?.message || 'Unable to open the official Programme ATR PDF.'); }
+  };
+
   const handleAddAction    = (idx)       => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, actions: [...c.actions, 'New corrective action...'] } : c));
   const handleUpdateAction = (idx, j, v) => setAtrList((p) => p.map((c, i) => { if (i !== idx) return c; const a = [...c.actions]; a[j] = v; return { ...c, actions: a }; }));
   const handleDeleteAction = (idx, j)    => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, actions: c.actions.filter((_, k) => k !== j) } : c));
@@ -508,10 +517,11 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
                 <History size={13} /> {showHistory ? 'Hide Carry Forwarded ATR' : 'View Carry Forwarded ATR'}
               </button>
 
-              <button onClick={() => window.print()}
+              <button onClick={handleOfficialPrint}
                 style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
                 <Printer size={13} /> Print
               </button>
+              {reportDownloadError && <span style={{ color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>{reportDownloadError}</span>}
             </div>
           )}
         </div>

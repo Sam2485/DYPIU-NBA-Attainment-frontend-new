@@ -2,6 +2,61 @@ import apiClient from './client';
 
 export const reportsApi = {
   // -----------------------------------------------------------------------
+  // IQAC institutional report template
+  // -----------------------------------------------------------------------
+  getInstitutionTemplate: (institutionId = 'DYPIU') =>
+    apiClient.get('/reports/template', { params: { institutionId } }),
+
+  saveInstitutionTemplate: (template) =>
+    apiClient.put('/reports/template', template),
+
+  saveHeaderConfig: (headerConfig) =>
+    apiClient.put('/reports/template/header', headerConfig),
+
+  // -----------------------------------------------------------------------
+  // Generated report history and persisted artifacts
+  // -----------------------------------------------------------------------
+  listGeneratedReports: (params = {}) =>
+    apiClient.get('/reports', { params }),
+
+  getGeneratedReport: (reportId) =>
+    apiClient.get(`/reports/${reportId}`),
+
+  downloadArtifact: (artifactId) =>
+    apiClient.get(`/reports/artifacts/${artifactId}/download`, { responseType: 'blob' }),
+
+  verifyArtifact: ({ reportId, artifactType, file }) => {
+    const formData = new FormData();
+    formData.append('reportId', reportId);
+    formData.append('artifactType', artifactType);
+    formData.append('file', file);
+    return apiClient.post('/reports/verify', formData);
+  },
+
+  // -----------------------------------------------------------------------
+  // Authoritative report-generation downloads
+  // -----------------------------------------------------------------------
+  downloadProgrammeAttainmentMasterPdf: (programmeBatchId, masterProgrammeId = null) =>
+    apiClient.get(`/reports/programme-attainment/${programmeBatchId}/master/pdf`, { params: masterProgrammeId ? { masterProgrammeId } : {}, responseType: 'blob' }),
+  downloadProgrammeAttainmentMasterExcel: (programmeBatchId, masterProgrammeId = null) =>
+    apiClient.get(`/reports/programme-attainment/${programmeBatchId}/master/excel`, { params: masterProgrammeId ? { masterProgrammeId } : {}, responseType: 'blob' }),
+  downloadProgrammeAttainmentSectionPdf: (programmeBatchId, section) =>
+    apiClient.get(`/reports/programme-attainment/${programmeBatchId}/section/${section}/pdf`, { responseType: 'blob' }),
+  downloadProgrammeAttainmentSectionExcel: (programmeBatchId, section) =>
+    apiClient.get(`/reports/programme-attainment/${programmeBatchId}/section/${section}/excel`, { responseType: 'blob' }),
+  downloadCourseAttainmentPdf: (programmeBatchCourseId) =>
+    apiClient.get(`/reports/course-attainment/${programmeBatchCourseId}/pdf`, { responseType: 'blob' }),
+  downloadCourseAttainmentExcel: (programmeBatchCourseId) =>
+    apiClient.get(`/reports/course-attainment/${programmeBatchCourseId}/excel`, { responseType: 'blob' }),
+  downloadProgrammeAtrPdf: (programmeBatchId) =>
+    apiClient.get(`/reports/programme-atr/${programmeBatchId}/pdf`, { responseType: 'blob' }),
+  downloadProgrammeAtrExcel: (programmeBatchId) =>
+    apiClient.get(`/reports/programme-atr/${programmeBatchId}/excel`, { responseType: 'blob' }),
+  downloadCourseAtrPdf: (programmeBatchCourseId) =>
+    apiClient.get(`/reports/course-atr/${programmeBatchCourseId}/pdf`, { responseType: 'blob' }),
+  downloadCourseAtrExcel: (programmeBatchCourseId) =>
+    apiClient.get(`/reports/course-atr/${programmeBatchCourseId}/excel`, { responseType: 'blob' }),
+  // -----------------------------------------------------------------------
   // Report Filters
   // -----------------------------------------------------------------------
 

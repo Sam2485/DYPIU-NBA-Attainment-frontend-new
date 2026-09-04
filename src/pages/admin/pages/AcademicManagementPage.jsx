@@ -161,7 +161,7 @@ export const AcademicManagementPage = () => {
                 {user?.name || user?.username || 'Administrator'}
               </div>
               <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                {user?.role || 'ADMIN'}
+                {user?.role || 'IQAC'}
               </div>
             </div>
           </div>

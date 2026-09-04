@@ -155,7 +155,7 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
               DYPIU NBA
             </div>
             <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>
-              Admin Portal
+              IQAC Portal
             </div>
           </div>
         </div>
@@ -270,7 +270,7 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
                 {user?.name || user?.username || 'Administrator'}
               </div>
               <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase' }}>
-                {user?.role || 'ADMIN'}
+                {user?.role || 'IQAC'}
               </div>
             </div>
           </div>

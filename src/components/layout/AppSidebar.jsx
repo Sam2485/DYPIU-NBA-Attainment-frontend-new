@@ -91,6 +91,15 @@ const FACULTY_NAV = [
   { id: 'reports',             path: '/reports',                  icon: 'reports',   label: 'Reports' },
 ];
 
+// ── IQAC Nav Items ───────────────────────────────────────────────────────────
+const IQAC_NAV = [
+  { id: 'analytics', path: '/admin/dashboard', icon: 'dashboard', label: 'Analytics' },
+  { id: 'users',     path: '/admin/users',     icon: 'users',     label: 'Add Users' },
+  { id: 'academic',  path: '/academic',        icon: 'academic',  label: 'Academic Setup' },
+  { id: 'reports',   path: '/admin/reports',   icon: 'reports',   label: 'Reports' },
+  { id: 'template',  path: '/admin/report-template', icon: 'atr', label: 'Report Template' },
+];
+
 export default function AppSidebar({
   profileCardRef: externalProfileCardRef,
   isProfileOpen: externalIsProfileOpen,
@@ -345,7 +354,7 @@ export default function AppSidebar({
   const [navOpenReview, setNavOpenReview] = useState(false);
   const [navOpenFaculty, setNavOpenFaculty] = useState(false);
 
-  const isCoordinatorRole = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+  const isCoordinatorRole = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR';
 
   const fullPath = location.pathname + location.search;
 
@@ -643,7 +652,26 @@ export default function AppSidebar({
 
       {/* ── MAIN NAVIGATION AREA ─────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', paddingRight: 2 }}>
-        {role === 'DIRECTOR' ? (
+        {role === 'IQAC' ? (
+          <nav style={{ display: 'grid', gap: 4 }} aria-label="IQAC navigation">
+            {IQAC_NAV.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => navigate(item.path)}
+                  style={{ minHeight: 42, border: isActive ? '1px solid rgba(165,180,252,0.30)' : '1px solid transparent', borderRadius: 10, background: isActive ? 'rgba(99,102,241,0.22)' : 'transparent', boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none', color: '#f8fafc', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', textAlign: 'left', fontFamily: 'inherit' }}
+                >
+                  <span style={{ width: 26, height: 26, borderRadius: 7, background: isActive ? 'rgba(99,102,241,0.20)' : 'rgba(148,163,184,0.08)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                    <Icon name={item.icon} active={isActive} size={14} />
+                  </span>
+                  <span style={{ fontSize: 12.5, fontWeight: 800 }}>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        ) : role === 'DIRECTOR' ? (
           <nav style={{ position: 'relative' }}>
             {(() => {
               const activeDirectorItem = DIRECTOR_NAV.find((item) => location.pathname === item.path);

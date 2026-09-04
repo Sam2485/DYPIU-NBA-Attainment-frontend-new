@@ -50,8 +50,8 @@ const getRoleLabel = (role) => {
     case 'MODULE_COORDINATOR':
       return 'Module Coordinator';
 
-    case 'ADMIN':
-      return 'System Administrator';
+    case 'IQAC':
+      return 'IQAC';
 
     default:
       return role || 'User';
@@ -353,7 +353,7 @@ export function AuthProvider({ children }) {
             '/course-coordinator/dashboard';
           break;
 
-        case 'ADMIN':
+        case 'IQAC':
           targetPath =
             '/admin/dashboard';
           break;

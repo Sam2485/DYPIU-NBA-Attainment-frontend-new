@@ -5,5 +5,6 @@ export { academicApi } from './academic';
 export { attainmentApi } from './attainment';
 export { approvalsApi } from './approvals';
 export { reportsApi } from './reports';
+export { reportAssetsApi } from './reportAssets';
 export { healthApi } from './health';
 export { dashboardApi } from './dashboard';

@@ -23,8 +23,8 @@ export const RoleBadge = ({ role }) => {
     color = 'var(--role-pc)';
     bg = 'var(--role-pc-bg)';
     border = 'var(--role-pc-border)';
-  } else if (r === 'ADMIN') {
-    label = 'Administrator';
+  } else if (r === 'IQAC') {
+    label = 'IQAC';
     color = 'var(--primary)';
     bg = 'var(--primary-subtle)';
     border = '#bfdbfe';
