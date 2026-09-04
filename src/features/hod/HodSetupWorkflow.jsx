@@ -729,6 +729,61 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
   return (
     <div className="animated-page" style={{ paddingBottom: '60px' }}>
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+      {standaloneCoordinatorAllocation && <div
+        style={{
+          ...surface,
+          padding: '20px 24px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '14px',
+        }}
+      >
+        <div>
+          <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
+            Programme Coordinator Allocation
+          </h2>
+          <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
+            Assign Programme Coordinators to each batch in the selected master programme.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
+          <div style={{ position: 'relative' }}>
+            <select
+              aria-label="Master programme selector"
+              value={programmeId}
+              onChange={(event) => setProgrammeId(event.target.value)}
+              style={{
+                height: '38px', minWidth: '240px', padding: '0 32px 0 12px',
+                fontSize: '13px', fontWeight: '700', color: accent,
+                border: '1.5px solid #c7d2fe', borderRadius: '8px',
+                background: '#f5f3ff', outline: 'none', appearance: 'none',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              {masterProgrammes.map((programme) => (
+                <option key={programme.id} value={programme.id}>
+                  {programme.code} — {programme.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
+          </div>
+          <button
+            type="button"
+            onClick={handleBulkSaveCoordinatorAssignments}
+            disabled={assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0}
+            className="btn btn-primary"
+            style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '800', opacity: assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0 ? 0.6 : 1, cursor: assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0 ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+          >
+            <Save size={14} /> {assignmentSaveState === 'saving' ? 'Saving Assignments…' : assignmentsAreSaved ? 'Saved' : 'Save Assignments'}
+          </button>
+        </div>
+      </div>}
+
       {!standaloneCoordinatorAllocation && <div
         style={{
           ...surface,
@@ -914,20 +969,6 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
           </form>
 
           {/* Master Course Table */}
-          {standaloneCoordinatorAllocation && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-              <button
-                type="button"
-                onClick={handleBulkSaveCoordinatorAssignments}
-                disabled={assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0}
-                className="btn btn-primary"
-                style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '800', opacity: assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0 ? 0.6 : 1, cursor: assignmentSaveState === 'saving' || assignmentsAreSaved || programmeBatches.length === 0 ? 'not-allowed' : 'pointer' }}
-              >
-                <Save size={14} /> {assignmentSaveState === 'saving' ? 'Saving Assignment…' : assignmentsAreSaved ? 'Saved' : 'Save Assignment'}
-              </button>
-            </div>
-          )}
-
           <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
             <table className="audit-data-table">
               <thead>
@@ -1239,16 +1280,16 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
             </table>
           </div>
 
-          {!standaloneCoordinatorAllocation && assignmentSaveState === 'saved' && (
+          {assignmentSaveState === 'saved' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', marginTop: '16px' }}>
               <CheckCircle2 size={16} style={{ color: '#16a34a', flexShrink: 0 }} />
               <span style={{ fontSize: '13px', fontWeight: '600', color: '#15803d' }}>Programme Coordinator assignments saved successfully.</span>
             </div>
           )}
-          {!standaloneCoordinatorAllocation && assignmentSaveState === 'empty' && (
+          {assignmentSaveState === 'empty' && (
             <div style={{ fontSize: '12px', color: '#b45309', marginTop: '12px', fontWeight: '600' }}>Select at least one Programme Coordinator before saving.</div>
           )}
-          {!standaloneCoordinatorAllocation && assignmentSaveState === 'error' && (
+          {assignmentSaveState === 'error' && (
             <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '12px', fontWeight: '600' }}>Unable to save the assignments. Please try again.</div>
           )}
         </div>

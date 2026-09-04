@@ -405,10 +405,13 @@ body {
    Keep the table wider than its card when needed so the card, rather than the
    whole page, provides a reliable horizontal scroll area. */
 .report-table-scroll {
+  display: block;
+  min-width: 0;
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
+  padding-bottom: 4px;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;

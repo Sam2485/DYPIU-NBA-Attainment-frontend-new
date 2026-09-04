@@ -1351,8 +1351,15 @@ export default function ReportsHub() {
                           Average Attainment (Indirect) — {currentBatchName}
                         </h4>
                       </div>
-                      <div className="report-table-scroll">
-                        <table className="audit-data-table" style={{ margin: 0 }}>
+                      <div className="report-table-scroll" tabIndex={0} aria-label="Scroll horizontally to view all indirect attainment outcomes">
+                        <table
+                          className="audit-data-table"
+                          style={{
+                            margin: 0,
+                            width: 'max-content',
+                            minWidth: `${Math.max(980, 480 + (indirectPoCodes.length + indirectPsoCodes.length) * 76)}px`,
+                          }}
+                        >
                           <thead>
                             <tr>
                               <th style={{ width: '80px', textAlign: 'center' }}>Sr No</th>
@@ -1417,8 +1424,15 @@ export default function ReportsHub() {
                           Overall Attainment — {currentBatchName}
                         </h4>
                       </div>
-                      <div className="report-table-scroll">
-                        <table className="audit-data-table" style={{ margin: 0 }}>
+                      <div className="report-table-scroll" tabIndex={0} aria-label="Scroll horizontally to view all overall attainment outcomes">
+                        <table
+                          className="audit-data-table"
+                          style={{
+                            margin: 0,
+                            width: 'max-content',
+                            minWidth: `${Math.max(1080, 620 + (overallPoCodes.length + overallPsoCodes.length) * 76)}px`,
+                          }}
+                        >
                           <thead>
                             <tr>
                               <th style={{ width: '280px', minWidth: '280px', textAlign: 'center' }}>Year</th>

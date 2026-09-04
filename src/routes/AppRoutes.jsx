@@ -375,7 +375,7 @@ export default function AppRoutes() {
       <Route
         path="/co-mapping"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <MappingPage />
           </RoleProtectedRoute>
         }
@@ -383,7 +383,7 @@ export default function AppRoutes() {
       <Route
         path="/marks-upload"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <MarksPage />
           </RoleProtectedRoute>
         }
@@ -391,7 +391,7 @@ export default function AppRoutes() {
       <Route
         path="/survey-upload"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <SurveyPage />
           </RoleProtectedRoute>
         }

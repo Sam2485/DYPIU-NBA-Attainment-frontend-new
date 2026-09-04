@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { GraduationCap, Building2, Check, ChevronDown, Edit2, Trash2, X } from 'lucide-react';
+import { GraduationCap, Building2, Check, ChevronDown, Edit2, Trash2, X, Plus, LoaderCircle } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
@@ -12,6 +12,7 @@ export default function DirectorProgrammeOverview() {
     loadSchools = () => Promise.resolve([]),
     loadDepartments = () => Promise.resolve([]),
     loadMasterProgrammes = () => Promise.resolve([]),
+    createMasterProgramme = () => Promise.resolve(null),
     updateMasterProgramme = () => {},
     deleteMasterProgramme = () => {},
   } = useAcademic();
@@ -21,6 +22,12 @@ export default function DirectorProgrammeOverview() {
   const [editingProg, setEditingProg] = useState(null);
   const [deletingProg, setDeletingProg] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showAddCard, setShowAddCard] = useState(false);
+  const [newProgrammeDeptId, setNewProgrammeDeptId] = useState('');
+  const [newProgrammeName, setNewProgrammeName] = useState('');
+  const [newProgrammeDuration, setNewProgrammeDuration] = useState(4);
+  const [isSavingProgramme, setIsSavingProgramme] = useState(false);
+  const [addProgrammeError, setAddProgrammeError] = useState('');
 
   const [editName, setEditName] = useState('');
   const [editCode, setEditCode] = useState('');
@@ -39,6 +46,10 @@ export default function DirectorProgrammeOverview() {
 
     loadDirectorProgrammeData().catch(() => {});
   }, [loadDepartments, loadMasterProgrammes, loadSchools, selectedSchoolId]);
+
+  useEffect(() => {
+    setNewProgrammeDeptId((current) => current || departments[0]?.id || '');
+  }, [departments]);
 
   const surface = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
   const ink = '#0f172a';
@@ -59,6 +70,52 @@ export default function DirectorProgrammeOverview() {
     setEditDeptId(prog.departmentId || departments[0]?.id || '');
     setEditDuration(prog.durationYears || 4);
     setShowEditModal(true);
+  };
+
+  const buildProgrammeCode = (department, name) => {
+    const abbreviation = name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((word) => word.replace(/[^a-z0-9]/gi, '').charAt(0))
+      .join('')
+      .slice(0, 8)
+      .toUpperCase();
+    return `${department?.code || 'PROGRAMME'}-${abbreviation || 'NEW'}`;
+  };
+
+  const handleAddProgramme = async (event) => {
+    event.preventDefault();
+    const department = departments.find((item) => item.id === newProgrammeDeptId);
+    const name = newProgrammeName.trim();
+
+    if (!department || !name) {
+      setAddProgrammeError('Select a department and enter the programme name.');
+      return;
+    }
+
+    const baseCode = buildProgrammeCode(department, name);
+    const matchingCodes = masterProgrammes.filter((programme) => programme.code?.startsWith(baseCode));
+    const code = matchingCodes.length ? `${baseCode}-${matchingCodes.length + 1}` : baseCode;
+
+    setIsSavingProgramme(true);
+    setAddProgrammeError('');
+    try {
+      await createMasterProgramme({
+        departmentId: department.id,
+        code,
+        name,
+        durationYears: Number(newProgrammeDuration),
+      });
+      setNewProgrammeName('');
+      setNewProgrammeDuration(4);
+      setShowAddCard(false);
+    } catch (error) {
+      console.error('Failed to create programme:', error);
+      setAddProgrammeError(error?.response?.data?.message || 'Unable to add the programme. Please try again.');
+    } finally {
+      setIsSavingProgramme(false);
+    }
   };
 
   const handleSaveEdit = async (e) => {
@@ -108,25 +165,73 @@ export default function DirectorProgrammeOverview() {
           <h2 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>Programme Overview &amp; Governance</h2>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>Manage degree programmes, coordinators, and duration settings across all departments.</p>
         </div>
+        <button
+          type="button"
+          onClick={() => { setAddProgrammeError(''); setShowAddCard((visible) => !visible); }}
+          style={{ height: '38px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', color: '#ffffff', background: accent, border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+        >
+          {showAddCard ? <X size={15} /> : <Plus size={15} />}
+          {showAddCard ? 'Close' : 'Add Programme'}
+        </button>
+      </div>
+
+      {/* ── ADD PROGRAMME CARD ─────────────────────────────────────────────── */}
+      {showAddCard && (
+        <form onSubmit={handleAddProgramme} style={{ ...surface, padding: '18px 20px', marginBottom: '14px', borderColor: '#c7d2fe', boxShadow: '0 5px 18px rgba(79,70,229,0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '15px' }}>
+            <div>
+              <div style={{ fontSize: '14px', color: ink, fontWeight: '800' }}>Add Programme</div>
+              <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>Create a degree programme under one of this school’s departments.</div>
+            </div>
+            <GraduationCap size={19} style={{ color: accent }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) minmax(220px, 1.7fr) minmax(140px, 0.7fr) auto', gap: '12px', alignItems: 'end' }}>
+            <div>
+              <label style={labelStyle}>Department Code *</label>
+              <select required value={newProgrammeDeptId} onChange={(e) => setNewProgrammeDeptId(e.target.value)} style={inputStyle}>
+                <option value="" disabled>Select department</option>
+                {departments.map((department) => (
+                  <option key={department.id} value={department.id}>{department.code} – {department.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Programme Name *</label>
+              <input required type="text" value={newProgrammeName} onChange={(e) => setNewProgrammeName(e.target.value)} placeholder="B.Tech Artificial Intelligence & ML" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Duration (Years) *</label>
+              <select value={newProgrammeDuration} onChange={(e) => setNewProgrammeDuration(e.target.value)} style={inputStyle}>
+                <option value={1}>1 Year</option>
+                <option value={2}>2 Years</option>
+                <option value={3}>3 Years</option>
+                <option value={4}>4 Years</option>
+                <option value={5}>5 Years</option>
+              </select>
+            </div>
+            <button type="submit" disabled={isSavingProgramme || !newProgrammeDeptId || !newProgrammeName.trim()} style={{ height: '38px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', color: '#ffffff', background: accent, border: 'none', borderRadius: '8px', cursor: isSavingProgramme ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: isSavingProgramme || !newProgrammeDeptId || !newProgrammeName.trim() ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+              {isSavingProgramme ? <LoaderCircle size={14} className="spin" /> : <Plus size={14} />}
+              {isSavingProgramme ? 'Adding…' : 'Add Programme'}
+            </button>
+          </div>
+          {addProgrammeError && <div style={{ marginTop: '12px', fontSize: '12px', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '7px', padding: '8px 10px' }}>{addProgrammeError}</div>}
+        </form>
+      )}
+
+      {/* ── PROGRAMME FILTER ───────────────────────────────────────────────── */}
+      <div style={{ ...surface, padding: '11px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Building2 size={14} style={{ color: muted }} />
+          <span style={{ fontSize: '12px', fontWeight: '700', color: ink }}>Sort by department</span>
           <div style={{ position: 'relative' }}>
-            <select
-              value={selectedDeptFilter}
-              onChange={(e) => setSelectedDeptFilter(e.target.value)}
-              style={{ height: '38px', paddingLeft: '12px', paddingRight: '32px', fontSize: '12.5px', fontWeight: '600', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ffffff', color: ink, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', appearance: 'none' }}
-            >
+            <select value={selectedDeptFilter} onChange={(e) => setSelectedDeptFilter(e.target.value)} style={{ height: '34px', paddingLeft: '10px', paddingRight: '30px', fontSize: '12px', fontWeight: '600', border: '1px solid #e2e8f0', borderRadius: '7px', background: '#ffffff', color: ink, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', appearance: 'none' }}>
               <option value="ALL">All Departments</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.code} – {d.name}</option>
-              ))}
+              {departments.map((department) => <option key={department.id} value={department.id}>{department.code} – {department.name}</option>)}
             </select>
-            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+            <ChevronDown size={13} style={{ position: 'absolute', right: '9px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
           </div>
-          <span style={{ fontSize: '12px', color: muted, whiteSpace: 'nowrap' }}>
-            {filteredProgrammes.length} programme{filteredProgrammes.length !== 1 ? 's' : ''}
-          </span>
         </div>
+        <span style={{ fontSize: '12px', color: muted, whiteSpace: 'nowrap' }}>{filteredProgrammes.length} programme{filteredProgrammes.length !== 1 ? 's' : ''}</span>
       </div>
 
       {/* ── PROGRAMMES GRID ──────────────────────────────────────────────────── */}

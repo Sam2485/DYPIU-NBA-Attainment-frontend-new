@@ -1,5 +1,6 @@
 import AppHeader from '../components/layout/AppHeader';
 import AppSidebar from '../components/layout/AppSidebar';
+import CourseOfferingSelector from '../components/course/CourseOfferingSelector';
 import CourseEndSurveyHub from '../features/survey/CourseEndSurveyHub';
 
 export default function SurveyPage() {
@@ -7,8 +8,9 @@ export default function SurveyPage() {
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <AppSidebar />
       <main className="nba-layout-main">
-        <AppHeader />
+        <AppHeader title="Indirect Assessment" subtitle="Course Coordinator Portal" />
         <div className="page-container">
+          <CourseOfferingSelector />
           <CourseEndSurveyHub hideFooter={true} />
         </div>
       </main>

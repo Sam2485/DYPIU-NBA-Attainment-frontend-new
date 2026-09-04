@@ -86,6 +86,9 @@ const COURSE_REVIEWS_NAV = [
 const FACULTY_NAV = [
   { id: 'dashboard',           path: '/dashboard',                icon: 'dashboard', label: 'Dashboard' },
   { id: 'outcomes',            path: '/outcomes?mode=standalone', icon: 'outcomes',  label: 'Outcomes' },
+  { id: 'co-mapping',          path: '/co-mapping',               icon: 'mapping',   label: 'CO–PO/PSO Mapping' },
+  { id: 'direct-assessment',   path: '/marks-upload',             icon: 'marks',     label: 'Direct Assessment' },
+  { id: 'indirect-assessment', path: '/survey-upload',            icon: 'survey',    label: 'Indirect Assessment' },
   { id: 'configurations',      path: '/configurations',           icon: 'config',    label: 'Attainment Settings' },
   { id: 'course-atr',          path: '/course-atr?mode=standalone', icon: 'atr',     label: 'Course ATR' },
   { id: 'reports',             path: '/reports',                  icon: 'reports',   label: 'Reports' },
@@ -294,7 +297,7 @@ export default function AppSidebar({
   }, [loadCoordinatorMasterProgrammes, programmeId, role, setProgrammeId, user?.email]);
 
   useEffect(() => {
-    if (role !== 'FACULTY' || !user?.email) return;
+    if (!['FACULTY', 'COURSE_COORDINATOR'].includes(role) || !user?.email) return;
     if (courseCoordinatorBatchScopeRef.current === user.email) return;
     courseCoordinatorBatchScopeRef.current = user.email;
     let isCurrent = true;
@@ -441,7 +444,7 @@ export default function AppSidebar({
         <>
           <div
             style={{
-              background: 'linear-gradient(135deg, rgba(79,70,229,0.28), rgba(30,41,59,0.72))',
+              background: '#111827',
               border: '1px solid rgba(165,180,252,0.30)',
               borderRadius: 14,
               padding: '8px 12px',
@@ -513,11 +516,11 @@ export default function AppSidebar({
           </div>
           <div style={{ height: '1px', background: 'rgba(148, 163, 184, 0.18)', width: '100%', flexShrink: 0 }} />
         </>
-      ) : role === 'FACULTY' ? (
+      ) : ['FACULTY', 'COURSE_COORDINATOR'].includes(role) ? (
         <>
           <div
             style={{
-              background: 'linear-gradient(135deg, rgba(8,145,178,0.25), rgba(30,41,59,0.72))',
+              background: '#111827',
               border: '1px solid rgba(103,232,249,0.28)',
               borderRadius: 14,
               padding: '10px 12px',

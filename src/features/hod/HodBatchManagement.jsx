@@ -707,7 +707,7 @@ export default function HodBatchManagement() {
       )}
 
       {/* Top Banner Card */}
-      <div style={{ ...surface, padding: '20px', background: 'linear-gradient(135deg, #f8fafc, #eef2ff)', border: '1px solid #c7d2fe' }}>
+      <div style={{ ...surface, padding: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
           <div>
             <span style={{ fontSize: '11px', fontWeight: '800', background: '#e0e7ff', color: accent, padding: '3px 8px', borderRadius: '5px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -749,11 +749,11 @@ export default function HodBatchManagement() {
                 style={{
                   width: '100%', height: '40px', fontSize: '13px',
                   fontWeight: '700', color: '#1e293b',
-                  background: '#ffffff', border: '1.5px solid rgba(255,255,255,0.8)',
+                  background: '#ffffff', border: '1px solid #e2e8f0',
                   borderRadius: '9px', padding: '0 34px 0 12px',
                   outline: 'none', appearance: 'none', cursor: 'pointer',
                   fontFamily: 'inherit',
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
+                  boxShadow: 'none',
                 }}
               >
                 {masterProgrammes.map((p) => (
@@ -767,7 +767,7 @@ export default function HodBatchManagement() {
       </div>
 
       {/* Add Batch Form */}
-      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px' }}>
+      <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px' }}>
         <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '12px' }}>Add Batch Year</div>
         <form onSubmit={handleCreateBatch}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', alignItems: 'flex-end' }}>
