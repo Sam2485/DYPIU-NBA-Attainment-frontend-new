@@ -973,20 +973,19 @@ export function AcademicProvider({ children }) {
     }
 
     try {
-      const [poResponse, psoResponse, peoResponse, targetResponse] = await Promise.all([
-        apiClient.get(`/outcomes/programme-batches/${targetBatchId}/pos`),
-        apiClient.get(`/outcomes/programme-batches/${targetBatchId}/psos`),
-        apiClient.get(`/outcomes/programme-batches/${targetBatchId}/peos`),
-        apiClient.get(`/outcomes/programme-batches/${targetBatchId}/targets`),
-      ]);
+      const response = await apiClient.get(`/outcomes/programme-batches/${targetBatchId}`);
+      const bundle = unwrap(response) ?? {};
       const withStatement = (outcomes = []) => outcomes.map((outcome) => ({
         ...outcome,
         statement: outcome?.statement ?? outcome?.description ?? outcome?.name ?? '',
       }));
-      const pos = withStatement(unwrapList(poResponse));
-      const psos = withStatement(unwrapList(psoResponse));
-      const peos = withStatement(unwrapList(peoResponse));
-      const targets = unwrap(targetResponse) ?? {};
+      const pos = withStatement(bundle.pos ?? []);
+      const psos = withStatement(bundle.psos ?? []);
+      const peos = withStatement(bundle.peos ?? []);
+      const targets = {
+        poTargets: bundle.poTargets ?? {},
+        psoTargets: bundle.psoTargets ?? {},
+      };
 
       setActivePOs(pos);
       setActivePSOs(psos);
@@ -1853,14 +1852,22 @@ export function AcademicProvider({ children }) {
         poTargets: Object.fromEntries(poPayload.map((item) => [item.code, item.target])),
         psoTargets: Object.fromEntries(psoPayload.map((item) => [item.code, item.target])),
       };
-      // These writes affect the same programme-batch outcome aggregate. Keep
-      // them ordered so a target update cannot race the PO/PSO persistence.
-      const poResponse = await apiClient.post(`/outcomes/programme-batches/${targetBatchId}/pos`, poPayload);
-      const psoResponse = await apiClient.post(`/outcomes/programme-batches/${targetBatchId}/psos`, psoPayload);
-      const peoResponse = await apiClient.post(`/outcomes/programme-batches/${targetBatchId}/peos`, peoPayload);
-      const targetResponse = await apiClient.post(`/outcomes/programme-batches/${targetBatchId}/targets`, targetPayload);
+      const response = await apiClient.put(`/outcomes/programme-batches/${targetBatchId}`, {
+        programmeBatchId: targetBatchId,
+        masterProgrammeId: targetProgrammeId,
+        pos: poPayload,
+        psos: psoPayload,
+        peos: peoPayload,
+        ...targetPayload,
+      });
+      const bundle = unwrap(response) ?? {};
       const normalize = (item) => ({ ...item, statement: item.statement ?? item.description ?? '' });
-      const data = { pos: unwrapList(poResponse), psos: unwrapList(psoResponse), peos: unwrapList(peoResponse), targets: unwrap(targetResponse) ?? targetPayload };
+      const data = {
+        pos: Array.isArray(bundle.pos) ? bundle.pos : poPayload,
+        psos: Array.isArray(bundle.psos) ? bundle.psos : psoPayload,
+        peos: Array.isArray(bundle.peos) ? bundle.peos : peoPayload,
+        targets: { poTargets: bundle.poTargets ?? targetPayload.poTargets, psoTargets: bundle.psoTargets ?? targetPayload.psoTargets },
+      };
       setActivePOs(data.pos.map(normalize));
       setActivePSOs(data.psos.map(normalize));
       setActivePEOs(data.peos.map(normalize));
