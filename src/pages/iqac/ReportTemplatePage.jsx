@@ -64,7 +64,9 @@ export default function ReportTemplatePage() {
       if (!assetId) return;
       try {
         const response = await reportAssetsApi.getRaw(assetId);
-        if (active) setLogoAssets((current) => ({ ...current, [slot]: { assetId, url: URL.createObjectURL(response.data), name: `${slot} logo` } }));
+        const blob = response instanceof Blob ? response : response?.data;
+        if (!(blob instanceof Blob)) throw new Error('The logo preview response did not contain an image.');
+        if (active) setLogoAssets((current) => ({ ...current, [slot]: { assetId, url: URL.createObjectURL(blob), name: `${slot} logo` } }));
       } catch {
         if (active) setLogoAssets((current) => ({ ...current, [slot]: { assetId, url: null, name: `${slot} logo` } }));
       }
