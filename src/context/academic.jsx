@@ -1853,12 +1853,12 @@ export function AcademicProvider({ children }) {
         poTargets: Object.fromEntries(poPayload.map((item) => [item.code, item.target])),
         psoTargets: Object.fromEntries(psoPayload.map((item) => [item.code, item.target])),
       };
-      const [poResponse, psoResponse, peoResponse, targetResponse] = await Promise.all([
-        apiClient.post(`/outcomes/programme-batches/${targetBatchId}/pos`, poPayload),
-        apiClient.post(`/outcomes/programme-batches/${targetBatchId}/psos`, psoPayload),
-        apiClient.post(`/outcomes/programme-batches/${targetBatchId}/peos`, peoPayload),
-        apiClient.post(`/outcomes/programme-batches/${targetBatchId}/targets`, targetPayload),
-      ]);
+      // These writes affect the same programme-batch outcome aggregate. Keep
+      // them ordered so a target update cannot race the PO/PSO persistence.
+      const poResponse = await apiClient.post(`/outcomes/programme-batches/${targetBatchId}/pos`, poPayload);
+      const psoResponse = await apiClient.post(`/outcomes/programme-batches/${targetBatchId}/psos`, psoPayload);
+      const peoResponse = await apiClient.post(`/outcomes/programme-batches/${targetBatchId}/peos`, peoPayload);
+      const targetResponse = await apiClient.post(`/outcomes/programme-batches/${targetBatchId}/targets`, targetPayload);
       const normalize = (item) => ({ ...item, statement: item.statement ?? item.description ?? '' });
       const data = { pos: unwrapList(poResponse), psos: unwrapList(psoResponse), peos: unwrapList(peoResponse), targets: unwrap(targetResponse) ?? targetPayload };
       setActivePOs(data.pos.map(normalize));
