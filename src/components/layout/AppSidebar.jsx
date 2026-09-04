@@ -95,7 +95,6 @@ const FACULTY_NAV = [
 const IQAC_NAV = [
   { id: 'analytics', path: '/admin/dashboard', icon: 'dashboard', label: 'Analytics' },
   { id: 'users',     path: '/admin/users',     icon: 'users',     label: 'Add Users' },
-  { id: 'academic',  path: '/academic',        icon: 'academic',  label: 'Academic Setup' },
   { id: 'reports',   path: '/admin/reports',   icon: 'reports',   label: 'Reports' },
   { id: 'template',  path: '/admin/report-template', icon: 'atr', label: 'Report Template' },
 ];
@@ -438,7 +437,7 @@ export default function AppSidebar({
       <div style={{ height: '1px', background: 'rgba(148, 163, 184, 0.18)', width: '100%', flexShrink: 0 }} />
 
       {/* Governance roles use scoped access context instead of the global batch selector. */}
-      {(role === 'DIRECTOR' || role === 'HOD' || role === 'PROGRAMME_COORDINATOR') ? (
+      {(role === 'IQAC' || role === 'DIRECTOR' || role === 'HOD' || role === 'PROGRAMME_COORDINATOR') ? (
         <>
           <div
             style={{
@@ -455,7 +454,9 @@ export default function AppSidebar({
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 9.5, color: '#c7d2fe', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                {role === 'DIRECTOR'
+                {role === 'IQAC'
+                  ? 'IQAC Access'
+                  : role === 'DIRECTOR'
                   ? 'Director Access'
                   : role === 'HOD'
                   ? 'HOD Access'
@@ -471,7 +472,7 @@ export default function AppSidebar({
                   <Icon name="shield" active size={13} />
                 </span>
                 <span style={{ color: '#f8fafc', fontSize: 11.5, fontWeight: 800, lineHeight: 1.2 }}>
-                  {role === 'DIRECTOR' ? 'School-level governance' : 'Programme-level governance'}
+                  {role === 'IQAC' ? 'Institution-wide governance' : role === 'DIRECTOR' ? 'School-level governance' : 'Programme-level governance'}
                 </span>
               </div>
             )}

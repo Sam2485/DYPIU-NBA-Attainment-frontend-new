@@ -30,15 +30,17 @@ function Toggle({ checked, onChange, label }) {
 
 function LogoSlot({ title, description, asset, onSelect, onRemove }) {
   const [dragging, setDragging] = useState(false);
+  const inputId = `report-template-${title.toLowerCase().replace(/\s+/g, '-')}`;
   const accept = (file) => { if (file) onSelect(file); };
   return <div>
     <div style={{ color: '#334155', fontSize: 12, fontWeight: 800 }}>{title}</div>
     <div style={{ color: '#64748b', fontSize: 11, margin: '3px 0 8px' }}>{description}</div>
-    <div onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); accept(event.dataTransfer.files?.[0]); }} style={{ minHeight: 132, border: `1.5px dashed ${dragging ? '#4f46e5' : '#cbd5e1'}`, borderRadius: 10, background: dragging ? '#eef2ff' : '#f8fafc', display: 'grid', placeItems: 'center', padding: 12, textAlign: 'center' }}>
+    <label htmlFor={inputId} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); accept(event.dataTransfer.files?.[0]); }} style={{ minHeight: 132, border: `1.5px dashed ${dragging ? '#4f46e5' : '#cbd5e1'}`, borderRadius: 10, background: dragging ? '#eef2ff' : '#f8fafc', display: 'grid', placeItems: 'center', padding: 12, textAlign: 'center', cursor: 'pointer' }}>
       {asset?.url ? <img src={asset.url} alt={`${title} preview`} style={{ maxWidth: '100%', width: 120, height: 85, objectFit: 'contain' }} /> : <div style={{ color: '#64748b' }}><Upload size={22} color="#4f46e5" /><div style={{ fontSize: 12, fontWeight: 800, marginTop: 5 }}>Upload Logo</div><div style={{ fontSize: 10, marginTop: 3 }}>PNG / JPG / SVG</div></div>}
-    </div>
+      <input id={inputId} type="file" accept="image/png,image/jpeg,image/svg+xml" onChange={(event) => accept(event.target.files?.[0])} hidden />
+    </label>
     {asset?.url ? <div style={{ marginTop: 8, color: '#64748b', fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Filename: {asset.name || 'Uploaded logo'}{asset.uploadedAt ? ` · Uploaded: ${asset.uploadedAt}` : ''}</div> : null}
-    <div style={{ display: 'flex', gap: 10, marginTop: 9 }}><label style={{ color: '#4338ca', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Upload size={14} /> {asset?.url ? 'Replace Logo' : 'Choose File'}<input type="file" accept="image/png,image/jpeg,image/svg+xml" onChange={(event) => accept(event.target.files?.[0])} hidden /></label>{asset?.url && <button type="button" onClick={onRemove} style={{ padding: 0, border: 0, background: 'transparent', color: '#b91c1c', font: 'inherit', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Trash2 size={13} /> Remove</button>}</div>
+    <div style={{ display: 'flex', gap: 10, marginTop: 9 }}><label htmlFor={inputId} style={{ color: '#4338ca', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Upload size={14} /> {asset?.url ? 'Replace Logo' : 'Choose File'}</label>{asset?.url && <button type="button" onClick={onRemove} style={{ padding: 0, border: 0, background: 'transparent', color: '#b91c1c', font: 'inherit', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Trash2 size={13} /> Remove</button>}</div>
   </div>;
 }
 
