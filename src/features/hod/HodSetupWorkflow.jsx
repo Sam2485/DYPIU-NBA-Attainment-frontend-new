@@ -7,7 +7,7 @@ import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
 
 const STEPS = [
-  { number: 1, title: 'Master Courses',        desc: 'Build the programme course catalogue', path: '/hod/setup-workflow?step=1', icon: BookOpen, color: '#4f46e5', bg: '#eef2ff' },
+  { number: 1, title: 'Course Ownership',      desc: 'Courses are managed per programme batch', path: '/hod/setup-workflow?step=1', icon: BookOpen, color: '#4f46e5', bg: '#eef2ff' },
   { number: 2, title: 'Batch Setup',          desc: 'Initialize student batch cycle',   path: '/hod/batch-management',      icon: Calendar,    color: '#0284c7', bg: '#f0f9ff' },
   { number: 3, title: 'Coordinator Allocation', desc: 'Assign a coordinator to each batch', path: '/hod/setup-workflow?step=3', icon: UserCheck, color: '#7c3aed', bg: '#f5f3ff' },
   { number: 4, title: 'PO / PSO / PEO',       desc: 'Define outcome framework',         path: '/hod/programme-outcomes',    icon: Layers,      color: '#7c3aed', bg: '#f5f3ff' },
@@ -36,10 +36,6 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
     setProgrammeId,
     loadMasterProgrammes = () => Promise.resolve([]),
     loadProgrammeBatches = () => Promise.resolve([]),
-    courses = [],
-    loadMasterCourses = () => Promise.resolve([]),
-    createMasterCourse = () => Promise.resolve(null),
-    deleteMasterCourse = () => Promise.resolve(),
     programmeCoordinators = [],
     loadProgrammeCoordinators = () => Promise.resolve([]),
     loadProgrammeOutcomes = () => Promise.resolve(),
@@ -81,9 +77,6 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
     onConfirm: () => {},
   });
 
-  const [newCourseCode, setNewCourseCode] = useState('');
-  const [newCourseName, setNewCourseName] = useState('');
-  const [newCourseType, setNewCourseType] = useState('THEORY');
   const [batchCoordinatorSelections, setBatchCoordinatorSelections] = useState({});
   const [assignmentSaveState, setAssignmentSaveState] = useState('idle');
   const [savedAssignmentSignature, setSavedAssignmentSignature] = useState(null);
@@ -102,7 +95,6 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
   };
 
   const selectedProgramme = masterProgrammes.find((p) => p.id === programmeId) || masterProgrammes[0] || {};
-  const masterCourses = courses.filter((course) => course.programmeId === selectedProgramme.id);
 
   const currentDept = departments.find((d) => d.id === selectedProgramme.departmentId || d.name === selectedProgramme.department)
     || hodDashboard?.department
@@ -309,9 +301,7 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
       }
       if (!targetProgrammeId) return;
 
-      if (currentStep === 1) {
-        await loadMasterCourses({ masterProgrammeId: targetProgrammeId });
-      } else if (currentStep === 2 || currentStep === 3) {
+      if (currentStep === 2 || currentStep === 3) {
         await loadProgrammeCoordinators();
       } else if (currentStep === 4) {
       } else if (currentStep === 5) {
@@ -326,7 +316,6 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
   }, [
     currentStep,
     loadProgrammeBatches,
-    loadMasterCourses,
     loadProgrammeCoordinators,
     assignProgrammeBatchCoordinator,
     loadProgrammeBatchOutcomes,
@@ -364,38 +353,6 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
   };
 
   const durationYears = selectedProgramme?.durationYears || 4;
-
-  const handleAddMasterCourse = async (event) => {
-    event.preventDefault();
-    if (!selectedProgramme?.id || !newCourseCode.trim() || !newCourseName.trim()) return;
-
-    try {
-      await createMasterCourse({
-        masterProgrammeId: selectedProgramme.id,
-        code: newCourseCode.trim().toUpperCase(),
-        name: newCourseName.trim(),
-        courseType: newCourseType,
-        credits: 4,
-        status: 'ACTIVE',
-      });
-      setNewCourseCode('');
-      setNewCourseName('');
-      setNewCourseType('THEORY');
-      await loadMasterCourses({ masterProgrammeId: selectedProgramme.id });
-    } catch (error) {
-      console.error('Failed to add master course:', error);
-      alert(error?.message || 'Unable to add the master course.');
-    }
-  };
-
-  const handleDeleteMasterCourse = (course) => {
-    triggerDeleteConfirm({
-      title: 'Delete Master Course?',
-      itemName: `${course.code} — ${course.name}`,
-      description: 'Remove this course from the selected programme catalogue.',
-      onConfirm: () => deleteMasterCourse(course.id),
-    });
-  };
 
   const handleStartYearChange = (val) => {
     const v = val.replace(/\D/g, '').slice(0, 4);
@@ -916,99 +873,20 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
         fallbackTitle={`Step ${currentStep} Error (${STEPS[currentStep - 1]?.title || 'Setup Step'})`}
         fallbackMessage={`An error occurred while loading this setup step. You can retry or switch to another step.`}
       >
-      {/* ── STEP 1: MASTER COURSE CATALOGUE ────────────────────────────────── */}
+      {/* ── STEP 1: COURSE OWNERSHIP ───────────────────────────────────────── */}
       {currentStep === 1 && (
         <div style={{ ...surface, padding: '24px' }}>
           <div style={{ marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: ink }}>
-              Step 1: Master Course Catalogue
+              Step 1: Programme-Batch Courses
             </h3>
             <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-              Create the reusable course catalogue for the selected programme. Course Coordinator allocation happens later at the Programme Batch Course stage.
+              Courses are no longer maintained as master courses by the HOD.
             </p>
           </div>
-
-          {/* Selected Master Programme */}
-          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px 18px', marginBottom: '18px' }}>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Chosen Programme</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-              <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '8px', padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '13.5px', fontWeight: '800', color: accent }}>{selectedProgramme.code}</span>
-              </div>
-              <div>
-                <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{selectedProgramme.name}</div>
-                <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>{currentDept?.name || selectedProgramme.department}</div>
-              </div>
-            </div>
+          <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '10px', padding: '16px 18px', color: '#0c4a6e', fontSize: '13px', lineHeight: 1.55 }}>
+            The Programme Coordinator adds and manages each course directly within its selected programme batch, including code, name, credits, type, semester, and Course Coordinator. Continue with Batch Setup to create or manage batches.
           </div>
-
-          {/* Add Master Course */}
-          <form onSubmit={handleAddMasterCourse} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
-            <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '10px' }}>Add Master Course</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 150px auto', gap: '10px', alignItems: 'flex-end' }}>
-              <div>
-                <label style={labelStyle}>Course Code *</label>
-                <input type="text" required placeholder="CS305" value={newCourseCode} onChange={(e) => setNewCourseCode(e.target.value)} style={{ ...inputStyle, fontWeight: '700', color: accent }} />
-              </div>
-              <div>
-                <label style={labelStyle}>Course Name *</label>
-                <input type="text" required placeholder="e.g. Compiler Design" value={newCourseName} onChange={(e) => setNewCourseName(e.target.value)} style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Course Type *</label>
-                <select value={newCourseType} onChange={(e) => setNewCourseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-                  <option value="THEORY">Theory</option>
-                  <option value="LAB">Lab</option>
-                  <option value="ELECTIVE">Elective</option>
-                </select>
-              </div>
-              <button type="submit" className="btn btn-primary" style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', whiteSpace: 'nowrap' }}>
-                <Plus size={14} /> Add Course
-              </button>
-            </div>
-          </form>
-
-          {/* Master Course Table */}
-          <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
-            <table className="audit-data-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '110px' }}>Code</th>
-                  <th>Course Name</th>
-                  <th style={{ width: '150px' }}>Course Type</th>
-                  <th style={{ width: '90px', textAlign: 'center' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {masterCourses.length === 0 && (
-                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>No master courses yet — add one above.</td></tr>
-                )}
-                {masterCourses.map((course) => (
-                  <tr key={course.id}>
-                    <td style={{ fontWeight: '700', color: accent }}>{course.code}</td>
-                    <td style={{ fontWeight: '600', color: ink }}>{course.name}</td>
-                    <td>
-                      <span style={{ fontSize: '11px', fontWeight: '700', color: accent, background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '5px', padding: '2px 8px' }}>
-                        {course.courseType || 'THEORY'}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <button type="button" onClick={() => handleDeleteMasterCourse(course)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Delete Master Course">
-                        <Trash2 size={13} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {masterCourses.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', marginTop: '16px' }}>
-              <CheckCircle2 size={16} style={{ color: '#16a34a', flexShrink: 0 }} />
-              <span style={{ fontSize: '13px', fontWeight: '600', color: '#15803d' }}>{masterCourses.length} master course{masterCourses.length !== 1 ? 's' : ''} added for {selectedProgramme.name}.</span>
-            </div>
-          )}
         </div>
       )}
 
@@ -1616,10 +1494,10 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
             {/* Step 1 Summary */}
             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: muted, textTransform: 'uppercase', marginBottom: '6px' }}>Step 1: Master Courses</div>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: muted, textTransform: 'uppercase', marginBottom: '6px' }}>Step 1: Course Ownership</div>
               <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{selectedProgramme.name} ({selectedProgramme.code})</div>
               <div style={{ fontSize: '13px', color: accent, fontWeight: '700', marginTop: '6px' }}>
-                Catalogue Courses: <span style={{ background: '#eef2ff', padding: '2px 8px', borderRadius: '6px', border: '1px solid #c7d2fe' }}>{masterCourses.length}</span>
+                Managed directly by the Programme Coordinator for each batch.
               </div>
             </div>
 

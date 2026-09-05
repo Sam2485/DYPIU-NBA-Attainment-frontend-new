@@ -178,15 +178,16 @@ const normalizeOffering = (offering) => ({
   courseCoordinatorName:
     offering?.courseCoordinatorName ??
     offering?.courseCoordinator ??
+    offering?.coordinator ??
     '',
-  courseCoordinatorEmail: offering?.courseCoordinatorEmail ?? '',
+  courseCoordinatorEmail: offering?.courseCoordinatorEmail ?? offering?.coordinatorEmail ?? '',
   status: offering?.status ?? null,
   assignedFaculty: offering?.assignedFaculty ?? null,
   createdAt: offering?.createdAt ?? null,
   updatedAt: offering?.updatedAt ?? null,
   course: offering?.course ?? null,
-  courseName: offering?.courseName ?? offering?.courseNameOverride ?? null,
-  courseCode: offering?.courseCode ?? offering?.courseCodeOverride ?? null,
+  courseName: offering?.courseName ?? offering?.name ?? offering?.courseNameOverride ?? null,
+  courseCode: offering?.courseCode ?? offering?.code ?? offering?.courseCodeOverride ?? null,
   courseNameOverride: offering?.courseNameOverride ?? offering?.courseName ?? null,
   courseCodeOverride: offering?.courseCodeOverride ?? offering?.courseCode ?? null,
   credits: offering?.credits ?? null,
@@ -235,11 +236,14 @@ const toMasterCoursePayload = (data = {}) => ({
 });
 
 const toProgrammeBatchCoursePayload = (data = {}) => ({
-  masterCourseId: data.masterCourseId ?? data.courseId,
   programmeBatchId: data.programmeBatchId ?? data.batchId,
+  code: data.code ?? data.courseCode ?? data.courseCodeOverride,
+  name: data.name ?? data.courseName ?? data.courseNameOverride,
+  credits: data.credits,
+  courseType: data.courseType,
   semester: data.semester,
-  courseCoordinatorEmail: data.courseCoordinatorEmail,
-  assignedFaculty: data.assignedFaculty,
+  coordinator: data.coordinator ?? data.courseCoordinator ?? data.courseCoordinatorName,
+  coordinatorEmail: data.coordinatorEmail ?? data.courseCoordinatorEmail,
 });
 
 /* ========================================================================== */
@@ -722,9 +726,9 @@ export function AcademicProvider({ children }) {
       return [];
     }
     try {
-      const response = await apiClient.get('/academic/programme-batch-courses', {
-        params: { programmeBatchId: targetBatchId },
-      });
+      const response = await apiClient.get(
+        `/academic/programme-batches/${targetBatchId}/courses`
+      );
       const data = unwrapList(response).map(normalizeOffering);
       setCourseOfferings(data);
       return data;
@@ -746,9 +750,8 @@ export function AcademicProvider({ children }) {
     }
 
     try {
-      const response = await apiClient.get('/academic/programme-batch-courses', {
+      const response = await apiClient.get(`/academic/programme-batch-courses/batch/${targetBatchId}`, {
         params: {
-          programmeBatchId: targetBatchId,
           coordinatorEmail,
         },
       });
@@ -1571,9 +1574,11 @@ export function AcademicProvider({ children }) {
 
   /* --- Course Offering CRUD --- */
   const addCourseOffering = useCallback(async (payload) => {
+    const targetBatchId = payload.programmeBatchId ?? payload.batchId;
+    const { programmeBatchId, ...coursePayload } = toProgrammeBatchCoursePayload(payload);
     const response = await apiClient.post(
-      '/academic/programme-batch-courses',
-      toProgrammeBatchCoursePayload(payload)
+      `/academic/programme-batches/${targetBatchId}/courses`,
+      coursePayload
     );
     const data = normalizeOffering(unwrap(response));
 
@@ -1592,9 +1597,11 @@ export function AcademicProvider({ children }) {
   // them in the existing offering collection because downstream course work
   // (COs, mappings and attainment) remains scoped by this generated ID.
   const addProgrammeBatchCourse = useCallback(async (payload) => {
+    const targetBatchId = payload.programmeBatchId ?? payload.batchId;
+    const { programmeBatchId, ...coursePayload } = toProgrammeBatchCoursePayload(payload);
     const response = await apiClient.post(
-      '/academic/programme-batch-courses',
-      toProgrammeBatchCoursePayload(payload)
+      `/academic/programme-batches/${targetBatchId}/courses`,
+      coursePayload
     );
     const data = normalizeOffering(unwrap(response));
 

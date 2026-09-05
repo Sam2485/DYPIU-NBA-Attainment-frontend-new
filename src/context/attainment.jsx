@@ -386,7 +386,18 @@ export function AttainmentProvider({ children }) {
       try {
         setError(null);
         const response = await reportsApi.getPreviousYearCourseAtr(targetOfferingId);
-        return unwrapResponse(response);
+        const data = unwrapResponse(response);
+        if (!data) return null;
+        return {
+          ...data,
+          outcomes: (data.outcomes ?? []).map((outcome) => ({
+            ...outcome,
+            outcomeStatement: outcome.outcomeStatement ?? outcome.statement,
+            targetLevel: outcome.targetLevel ?? outcome.target,
+            attainmentLevel: outcome.attainmentLevel ?? outcome.attainment,
+            actions: outcome.actions ?? (outcome.actionTaken ? [outcome.actionTaken] : []),
+          })),
+        };
       } catch (err) {
         console.warn(`loadPreviousYearCourseAtr(${targetOfferingId}) failed:`, err);
         setError(err?.customMessage || err?.message || 'Failed to load the previous-year course ATR');

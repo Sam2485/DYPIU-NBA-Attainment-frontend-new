@@ -89,6 +89,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const [savedAtrSignature, setSavedAtrSignature] = useState(null);
   const [submittedForReview, setSubmittedForReview] = useState(false);
   const [currentAtrLoadState, setCurrentAtrLoadState] = useState(() => selectedBatchId ? 'loading' : 'idle');
+  const [batchAtrAccess, setBatchAtrAccess] = useState(null);
   const [reportDownloadError, setReportDownloadError] = useState('');
   const workspaceProgrammeAtrApproval = useMemo(() => {
     const workspace = batchApprovalWorkspace ?? {};
@@ -104,9 +105,18 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const reportStatus = atrApproval?.status ?? storedReportStatus;
   const verificationRemarks = atrApproval?.remarks ?? storedVerificationRemarks;
   const verifierName = atrApproval?.approvedBy ?? storedVerifierName;
-  const isPreviousBatch = currentBatchObj?.name?.includes('Archived') || currentBatchObj?.name?.includes('Graduated');
+  // GRADUATED is a concluded lifecycle state and must unlock Programme ATR.
+  // Only explicitly archived batches remain read-only historical records.
+  const isPreviousBatch = currentBatchObj?.name?.includes('Archived');
   const isSubmittedForReview = submittedForReview || ['PENDING', 'SUBMITTED_FOR_VERIFICATION', 'SUBMITTED', 'PENDING_APPROVAL'].includes(reportStatus);
-  const locked = readOnly || isPreviousBatch || isSubmittedForReview || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
+  const responseBatchStatus = batchAtrAccess?.batchStatus ?? batchAtrAccess?.batch?.status ?? currentBatchObj?.status ?? null;
+  const isBatchConcluded = ['COMPLETED', 'GRADUATED'].includes(String(responseBatchStatus ?? '').toUpperCase());
+  const isPendingBatchCompletion = batchAtrAccess?.isUnlocked === false
+    || (batchAtrAccess != null && !isBatchConcluded);
+  const batchLockReason = batchAtrAccess?.unlockReason
+    || `Programme ATR is locked until the HOD marks this programme batch as completed or graduated. Current batch status: ${responseBatchStatus ?? 'ACTIVE'}.`;
+  const isAtrAccessLoading = Boolean(selectedBatchId) && currentAtrLoadState === 'loading';
+  const locked = readOnly || isAtrAccessLoading || isPendingBatchCompletion || isPreviousBatch || isSubmittedForReview || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
 
   useEffect(() => {
     // Match the Programme Coordinator workflow: fetch batches using the
@@ -258,9 +268,17 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     }
     let isCurrent = true;
     setCurrentAtrLoadState('loading');
+    setBatchAtrAccess(null);
 
     loadProgrammeATR(selectedBatchId).then((atr) => {
       if (!isCurrent) return;
+      setBatchAtrAccess(atr ? {
+        isUnlocked: atr.isUnlocked,
+        status: atr.status,
+        unlockReason: atr.unlockReason,
+        batchStatus: atr.batchStatus ?? atr.batch?.status,
+        batch: atr.batch,
+      } : null);
       if (!atr) {
         // No saved ATR exists for this batch, so expose the derived draft only
         // after the request has completed.
@@ -312,11 +330,18 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
       }));
       setCurrentAtrLoadState('loaded');
     }).catch(() => {
-      if (isCurrent) setCurrentAtrLoadState('error');
+      if (isCurrent) {
+        setBatchAtrAccess({
+          isUnlocked: false,
+          unlockReason: 'Programme ATR could not be unlocked. Refresh the page after the HOD completes or graduates this batch.',
+          batchStatus: currentBatchObj?.status ?? null,
+        });
+        setCurrentAtrLoadState('error');
+      }
     });
 
     return () => { isCurrent = false; };
-  }, [loadProgrammeATR, selectedBatchId, activePOs, activePSOs]);
+  }, [currentBatchObj?.status, loadProgrammeATR, selectedBatchId, activePOs, activePSOs]);
 
   const buildAtrPayload = () => {
     const outcomesPayload = (type) => atrList
@@ -503,7 +528,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
                 </>
               ) : (
                 <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Lock size={13} /> {isPreviousBatch ? `${currentBatchObj.name} (Archived)` : isSubmittedForReview ? 'Submitted — Pending HOD Review' : 'Report Locked'}
+                  <Lock size={13} /> {isPendingBatchCompletion ? 'Locked — Awaiting Batch Completion' : isPreviousBatch ? `${currentBatchObj.name} (Archived)` : isSubmittedForReview ? 'Submitted — Pending HOD Review' : 'Report Locked'}
                 </span>
               ))}
             </div>
@@ -512,18 +537,28 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
           {/* Action buttons below the title */}
           {showHeaderActions && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <button onClick={() => setShowHistory((v) => !v)}
-                style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+              <button onClick={() => !locked && setShowHistory((v) => !v)} disabled={locked}
+                style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: locked ? '#f1f5f9' : '#f8fafc', color: locked ? '#94a3b8' : ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: locked ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
                 <History size={13} /> {showHistory ? 'Hide Carry Forwarded ATR' : 'View Carry Forwarded ATR'}
               </button>
 
-              <button onClick={handleOfficialPrint}
-                style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: '#f8fafc', color: ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+              <button onClick={() => !locked && handleOfficialPrint()} disabled={locked}
+                style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: locked ? '#f1f5f9' : '#f8fafc', color: locked ? '#94a3b8' : ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: locked ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
                 <Printer size={13} /> Print
               </button>
               {reportDownloadError && <span style={{ color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>{reportDownloadError}</span>}
             </div>
           )}
+        </div>
+      )}
+
+      {isPendingBatchCompletion && (
+        <div style={{ marginBottom: '20px', padding: '15px 18px', borderRadius: '10px', background: '#fffbeb', border: '1px solid #fde68a', borderLeft: '4px solid #f59e0b', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+          <Lock size={18} style={{ color: '#b45309', marginTop: '1px', flexShrink: 0 }} />
+          <div>
+            <div style={{ color: '#92400e', fontSize: '13px', fontWeight: '800' }}>Programme ATR Locked</div>
+            <div style={{ color: '#92400e', fontSize: '12.5px', lineHeight: 1.45, marginTop: '3px' }}>{batchLockReason}</div>
+          </div>
         </div>
       )}
 

@@ -19,6 +19,7 @@ import {
   Search,
   Sparkles,
   UserCheck,
+  LockKeyhole,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
@@ -118,6 +119,14 @@ export default function HodBatchManagement() {
   const [editStatus, setEditStatus] = useState('ACTIVE');
   const [editBatchError, setEditBatchError] = useState('');
   const [isSavingBatch, setIsSavingBatch] = useState(false);
+
+  // Batch conclusion is deliberately separate from ordinary editing because
+  // it permanently unlocks the Programme ATR workflow for the batch.
+  const [concludingBatch, setConcludingBatch] = useState(null);
+  const [conclusionStatus, setConclusionStatus] = useState('COMPLETED');
+  const [conclusionReason, setConclusionReason] = useState('');
+  const [conclusionError, setConclusionError] = useState('');
+  const [isConcludingBatch, setIsConcludingBatch] = useState(false);
 
   // ── Delete confirm modal state for batches ──────────────────────────────
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -252,7 +261,10 @@ export default function HodBatchManagement() {
         endYear,
         durationYears,
       });
-      if (editStatus !== editingBatch.status) {
+      // Ordinary editing may only activate/deactivate a non-concluded batch.
+      // COMPLETED and GRADUATED remain available exclusively through the
+      // protected conclusion modal.
+      if (!['COMPLETED', 'GRADUATED'].includes(editingBatch.status) && editStatus !== editingBatch.status) {
         await updateProgrammeBatchStatus(editingBatch.id, editStatus, 'Updated from HOD batch management');
       }
       setEditingBatch(null);
@@ -262,6 +274,42 @@ export default function HodBatchManagement() {
       setEditBatchError(error?.response?.data?.message || error?.message || 'Unable to update the batch. Please try again.');
     } finally {
       setIsSavingBatch(false);
+    }
+  };
+
+  const handleOpenConclusion = (batch) => {
+    setConcludingBatch(batch);
+    setConclusionStatus('COMPLETED');
+    setConclusionReason('');
+    setConclusionError('');
+  };
+
+  const handleConfirmConclusion = async () => {
+    if (!concludingBatch) return;
+    if (!conclusionReason.trim()) {
+      setConclusionError('Enter the reason for concluding this batch.');
+      return;
+    }
+
+    setIsConcludingBatch(true);
+    setConclusionError('');
+    try {
+      await updateProgrammeBatchStatus(
+        concludingBatch.id,
+        conclusionStatus,
+        conclusionReason.trim()
+      );
+      setToastMessage(
+        `${concludingBatch.name} marked as ${conclusionStatus.toLowerCase()}. Programme ATR is now unlocked.`
+      );
+      setConcludingBatch(null);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (error) {
+      setConclusionError(
+        error?.response?.data?.message || error?.message || 'Unable to conclude this batch. Please try again.'
+      );
+    } finally {
+      setIsConcludingBatch(false);
     }
   };
 
@@ -817,7 +865,10 @@ export default function HodBatchManagement() {
         <div style={{ display: 'grid', gap: '12px' }}>
           {programmeBatches.map((batch) => {
             const isActive     = batch.status === 'ACTIVE';
+            const isCompleted  = batch.status === 'COMPLETED';
             const isGraduated  = batch.status === 'GRADUATED';
+            const isConcluded  = isCompleted || isGraduated;
+            const canDelete = !isActive && !isConcluded;
             const studentsCount = getStudentsByBatch(batch.id).length;
 
             return (
@@ -826,8 +877,8 @@ export default function HodBatchManagement() {
                 style={{
                   ...surface,
                   padding: '16px 20px',
-                  borderLeft: `4px solid ${isActive ? '#16a34a' : '#e2e8f0'}`,
-                  opacity: isGraduated ? 0.8 : 1,
+                  borderLeft: `4px solid ${isActive ? '#16a34a' : isConcluded ? '#4f46e5' : '#e2e8f0'}`,
+                  opacity: isConcluded ? 0.88 : 1,
                   transition: 'box-shadow 0.15s',
                 }}
               >
@@ -856,6 +907,10 @@ export default function HodBatchManagement() {
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '700', color: '#475569', background: '#f1f5f9', border: '1.5px solid #cbd5e1', borderRadius: '6px', padding: '3px 10px' }}>
                         <Archive size={11} /> Graduated
                       </span>
+                    ) : isCompleted ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '700', color: '#3730a3', background: '#eef2ff', border: '1.5px solid #c7d2fe', borderRadius: '6px', padding: '3px 10px' }}>
+                        <CheckCircle2 size={11} /> Completed · ATR Unlocked
+                      </span>
                     ) : (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '700', color: '#b45309', background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '6px', padding: '3px 10px' }}>
                         Initialized
@@ -864,17 +919,34 @@ export default function HodBatchManagement() {
 
                     <button
                       type="button"
-                      onClick={() => handleStartEditBatch(batch)}
+                      onClick={() => !isConcluded && handleStartEditBatch(batch)}
+                      disabled={isConcluded}
                       style={{
                         height: '32px', padding: '0 12px', fontSize: '12px', fontWeight: '600',
-                        border: '1px solid #c7d2fe', background: '#eef2ff', color: accent,
-                        borderRadius: '7px', cursor: 'pointer',
+                        border: isConcluded ? '1px solid #e2e8f0' : '1px solid #c7d2fe', background: isConcluded ? '#f8fafc' : '#eef2ff', color: isConcluded ? '#94a3b8' : accent,
+                        borderRadius: '7px', cursor: isConcluded ? 'not-allowed' : 'pointer', opacity: isConcluded ? 0.6 : 1,
                         display: 'inline-flex', alignItems: 'center', gap: '5px', fontFamily: 'inherit',
                       }}
-                      title="Edit this batch"
+                      title={isConcluded ? 'Concluded batches are locked for audit consistency' : 'Edit this batch'}
                     >
                       <Edit2 size={14} /> Edit
                     </button>
+
+                    {isActive && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenConclusion(batch)}
+                        style={{
+                          height: '32px', padding: '0 12px', fontSize: '12px', fontWeight: '700',
+                          border: '1px solid #a5b4fc', background: '#4f46e5', color: '#fff',
+                          borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
+                          gap: '5px', fontFamily: 'inherit', boxShadow: '0 2px 6px rgba(79,70,229,0.2)',
+                        }}
+                        title="Conclude this batch and unlock Programme ATR"
+                      >
+                        <LockKeyhole size={13} /> Complete Batch
+                      </button>
+                    )}
 
                     {/* REPLACED EDIT WITH ARROW BUTTON TO OPEN BATCH STUDENT ROSTER */}
                     <button
@@ -903,8 +975,9 @@ export default function HodBatchManagement() {
                     <button
                       type="button"
                       onClick={() => handleDeleteBatchClick(batch)}
-                      style={{ width: '32px', height: '32px', borderRadius: '7px', border: isActive ? '1px solid #e2e8f0' : '1px solid #fecaca', background: isActive ? '#f8fafc' : '#fef2f2', color: isActive ? '#94a3b8' : '#dc2626', cursor: isActive ? 'not-allowed' : 'pointer', display: 'grid', placeItems: 'center', opacity: isActive ? 0.45 : 1 }}
-                      title={isActive ? 'Deactivate before deleting' : 'Delete batch'}
+                      disabled={!canDelete}
+                      style={{ width: '32px', height: '32px', borderRadius: '7px', border: canDelete ? '1px solid #fecaca' : '1px solid #e2e8f0', background: canDelete ? '#fef2f2' : '#f8fafc', color: canDelete ? '#dc2626' : '#94a3b8', cursor: canDelete ? 'pointer' : 'not-allowed', display: 'grid', placeItems: 'center', opacity: canDelete ? 1 : 0.45 }}
+                      title={isConcluded ? 'Concluded batches are retained for ATR and audit records' : isActive ? 'Deactivate before deleting' : 'Delete batch'}
                     >
                       <Trash2 size={13} />
                     </button>
@@ -928,7 +1001,7 @@ export default function HodBatchManagement() {
                       <X size={15} /> Cancel
                     </button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1.5fr) repeat(2, minmax(120px, 1fr)) minmax(130px, 1fr)', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isConcluded ? 'minmax(180px, 1.5fr) repeat(2, minmax(120px, 1fr))' : 'minmax(180px, 1.5fr) repeat(2, minmax(120px, 1fr)) minmax(130px, 1fr)', gap: '12px' }}>
                     <div>
                       <label style={labelStyle}>Batch Name *</label>
                       <input value={editBatchName} onChange={(event) => setEditBatchName(event.target.value)} style={inputStyle} required />
@@ -941,14 +1014,15 @@ export default function HodBatchManagement() {
                       <label style={labelStyle}>End Year *</label>
                       <input inputMode="numeric" value={editEndYear} onChange={(event) => setEditEndYear(event.target.value.replace(/\D/g, '').slice(0, 4))} style={inputStyle} required />
                     </div>
-                    <div>
-                      <label style={labelStyle}>Status</label>
-                      <select value={editStatus} onChange={(event) => setEditStatus(event.target.value)} style={inputStyle}>
-                        <option value="ACTIVE">Active</option>
-                        <option value="INACTIVE">Inactive</option>
-                        <option value="GRADUATED">Graduated</option>
-                      </select>
-                    </div>
+                    {!isConcluded && (
+                      <div>
+                        <label style={labelStyle}>Operational Status</label>
+                        <select value={editStatus} onChange={(event) => setEditStatus(event.target.value)} style={inputStyle}>
+                          <option value="ACTIVE">Active</option>
+                          <option value="INACTIVE">Inactive</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
                   {editBatchError && <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#b91c1c', fontSize: '12px', fontWeight: '600' }}><AlertCircle size={14} />{editBatchError}</div>}
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
@@ -973,6 +1047,58 @@ export default function HodBatchManagement() {
           itemName={deletingBatch.name}
           itemType="Batch Record"
         />
+      )}
+
+      {concludingBatch && (
+        <div
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isConcludingBatch) setConcludingBatch(null);
+          }}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'grid', placeItems: 'center', padding: '20px', background: 'rgba(15,23,42,0.58)', backdropFilter: 'blur(3px)' }}
+        >
+          <div role="dialog" aria-modal="true" aria-labelledby="conclude-batch-title" style={{ width: '100%', maxWidth: '500px', background: '#fff', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 22px 70px rgba(15,23,42,0.32)' }}>
+            <div style={{ padding: '22px 24px 18px' }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '10px', display: 'grid', placeItems: 'center', color: '#3730a3', background: '#eef2ff', border: '1px solid #c7d2fe', marginBottom: '13px' }}>
+                <LockKeyhole size={19} />
+              </div>
+              <h3 id="conclude-batch-title" style={{ margin: 0, color: ink, fontSize: '17px', fontWeight: '800' }}>Conclude Programme Batch</h3>
+              <p style={{ margin: '7px 0 0', color: muted, fontSize: '12.5px', lineHeight: 1.5 }}>
+                You are concluding <strong style={{ color: ink }}>{concludingBatch.name}</strong> ({concludingBatch.startYear}–{concludingBatch.endYear}). This unlocks Programme ATR for its Programme Coordinator.
+              </p>
+
+              <div style={{ marginTop: '16px', padding: '12px 14px', borderRadius: '8px', background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', fontSize: '12px', lineHeight: 1.45 }}>
+                This is a lifecycle decision. A concluded batch is retained for ATR and audit records and cannot be returned to Active from this screen.
+              </div>
+
+              <div style={{ marginTop: '16px' }}>
+                <label style={labelStyle}>Conclusion Status *</label>
+                <select value={conclusionStatus} onChange={(event) => setConclusionStatus(event.target.value)} disabled={isConcludingBatch} style={{ ...inputStyle, cursor: isConcludingBatch ? 'wait' : 'pointer' }}>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="GRADUATED">Graduated</option>
+                </select>
+              </div>
+              <div style={{ marginTop: '13px' }}>
+                <label style={labelStyle}>Reason for conclusion *</label>
+                <textarea
+                  value={conclusionReason}
+                  onChange={(event) => { setConclusionReason(event.target.value); setConclusionError(''); }}
+                  placeholder="e.g. Batch completed all curriculum and degree requirements."
+                  disabled={isConcludingBatch}
+                  rows={3}
+                  style={{ ...inputStyle, height: 'auto', minHeight: '78px', padding: '10px 12px', resize: 'vertical', lineHeight: 1.4 }}
+                />
+              </div>
+              {conclusionError && <div style={{ marginTop: '9px', display: 'flex', gap: '6px', color: '#b91c1c', fontSize: '12px', fontWeight: '600' }}><AlertCircle size={14} />{conclusionError}</div>}
+            </div>
+            <div style={{ padding: '14px 24px 20px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button type="button" onClick={() => setConcludingBatch(null)} disabled={isConcludingBatch} style={{ height: '36px', padding: '0 14px', borderRadius: '7px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontWeight: '700', cursor: isConcludingBatch ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              <button type="button" onClick={handleConfirmConclusion} disabled={isConcludingBatch} style={{ height: '36px', padding: '0 15px', borderRadius: '7px', border: 0, background: '#4f46e5', color: '#fff', fontWeight: '800', cursor: isConcludingBatch ? 'wait' : 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: isConcludingBatch ? 0.7 : 1 }}>
+                <CheckCircle2 size={14} /> {isConcludingBatch ? 'Concluding…' : `Mark as ${conclusionStatus === 'GRADUATED' ? 'Graduated' : 'Completed'}`}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

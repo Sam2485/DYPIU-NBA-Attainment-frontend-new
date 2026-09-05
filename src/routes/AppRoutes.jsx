@@ -11,6 +11,7 @@
 
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import CourseAllocationGate from '../components/course/CourseAllocationGate';
 
 import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
@@ -80,7 +81,7 @@ function RoleHomeRedirect() {
   return <Navigate to={isAuthenticated ? dashboardPathForRole(role) : '/login'} replace />;
 }
 
-function RoleProtectedRoute({ children, allowedRoles }) {
+function RoleProtectedRoute({ children, allowedRoles, requiresCourseAllocation = false }) {
   const { isAuthenticated, isRestoringSession, role } = useAuth();
   const location = useLocation();
 
@@ -98,9 +99,13 @@ function RoleProtectedRoute({ children, allowedRoles }) {
 
   return (
     <ErrorBoundary isScreen>
-      {children}
+      {requiresCourseAllocation ? <CourseAllocationProtectedRoute>{children}</CourseAllocationProtectedRoute> : children}
     </ErrorBoundary>
   );
+}
+
+function CourseAllocationProtectedRoute({ children }) {
+  return <CourseAllocationGate>{children}</CourseAllocationGate>;
 }
 
 
@@ -132,7 +137,7 @@ export default function AppRoutes() {
       <Route
         path="/course-coordinator/workflow"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
             <CourseCoordinatorWorkflowPage />
           </RoleProtectedRoute>
         }
@@ -335,7 +340,7 @@ export default function AppRoutes() {
       <Route
         path="/configurations"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
             <ConfigurationPage />
           </RoleProtectedRoute>
         }
@@ -343,7 +348,7 @@ export default function AppRoutes() {
       <Route
         path="/attainment-config"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
             <ConfigurationPage />
           </RoleProtectedRoute>
         }
@@ -359,7 +364,7 @@ export default function AppRoutes() {
       <Route
         path="/outcomes"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
             <OutcomesPage />
           </RoleProtectedRoute>
         }
@@ -375,7 +380,7 @@ export default function AppRoutes() {
       <Route
         path="/co-mapping"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
             <MappingPage />
           </RoleProtectedRoute>
         }
@@ -383,7 +388,7 @@ export default function AppRoutes() {
       <Route
         path="/marks-upload"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
             <MarksPage />
           </RoleProtectedRoute>
         }
@@ -391,7 +396,7 @@ export default function AppRoutes() {
       <Route
         path="/survey-upload"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
             <SurveyPage />
           </RoleProtectedRoute>
         }
@@ -399,7 +404,7 @@ export default function AppRoutes() {
       <Route
         path="/co-attainment"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
             <COAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -407,7 +412,7 @@ export default function AppRoutes() {
       <Route
         path="/po-pso-attainment"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
             <POPSOAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -415,7 +420,7 @@ export default function AppRoutes() {
       <Route
         path="/attainment-overview"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
             <AttainmentOverviewPage />
           </RoleProtectedRoute>
         }
@@ -423,7 +428,7 @@ export default function AppRoutes() {
       <Route
         path="/course-atr"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
             <CourseATRPage />
           </RoleProtectedRoute>
         }
@@ -431,7 +436,7 @@ export default function AppRoutes() {
       <Route
         path="/atr-reports"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
             <ATRReportsPage />
           </RoleProtectedRoute>
         }
@@ -455,7 +460,7 @@ export default function AppRoutes() {
       <Route
         path="/reports"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
             <ReportsPage />
           </RoleProtectedRoute>
         }

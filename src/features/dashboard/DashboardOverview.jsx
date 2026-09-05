@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   BookOpen, Target, BarChart2, FileText, ArrowRight,
   ChevronRight, Check, Clock, Upload,
   Map, ClipboardList, TrendingUp, Award, ShieldCheck,
-  PlayCircle, Settings,
+  PlayCircle, Settings, LockKeyhole,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -28,6 +28,7 @@ const WORKFLOW_STEPS = [
 
 export default function DashboardOverview() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, role }  = useAuth();
   const {
     selectedCourseOffering = null,
@@ -63,6 +64,10 @@ export default function DashboardOverview() {
   const poCount = dashboardData.poCount ?? activePOs?.length ?? 0;
   const psoCount = dashboardData.psoCount ?? 0;
   const assignedCourseCount = dashboardData.assignedCourseCount ?? 0;
+  const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
+  const allocationLocked = isCourseCoordinator
+    && (new URLSearchParams(location.search).get('courseAllocation') === 'locked'
+      || (!screenLoading && !course && courseOfferings.length === 0));
 
   const fetchCCData = async (targetOfferingId = courseOfferingId) => {
     setScreenLoading(true);
@@ -270,13 +275,14 @@ export default function DashboardOverview() {
         </div>
         <div style={{ marginLeft: 'auto' }}>
           <button
-            onClick={() => navigate(`/course-coordinator/workflow?step=${targetStepNum}`)}
+            onClick={() => !allocationLocked && navigate(`/course-coordinator/workflow?step=${targetStepNum}`)}
+            disabled={allocationLocked}
             style={{
               height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '800',
-              background: accent, color: '#fff', border: 'none', borderRadius: '8px',
-              cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px',
+              background: allocationLocked ? '#94a3b8' : accent, color: '#fff', border: 'none', borderRadius: '8px',
+              cursor: allocationLocked ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px',
               fontFamily: 'inherit', flexShrink: 0,
-              boxShadow: '0 4px 14px rgba(79,70,229,0.28)',
+              boxShadow: allocationLocked ? 'none' : '0 4px 14px rgba(79,70,229,0.28)',
             }}
           >
             <PlayCircle size={15} />
@@ -287,6 +293,16 @@ export default function DashboardOverview() {
           </button>
         </div>
       </div>
+
+      {allocationLocked && (
+        <div style={{ marginBottom: '20px', padding: '15px 18px', borderRadius: '10px', background: '#fffbeb', border: '1px solid #fde68a', borderLeft: '4px solid #f59e0b', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+          <LockKeyhole size={18} style={{ color: '#b45309', marginTop: '1px', flexShrink: 0 }} />
+          <div>
+            <div style={{ color: '#92400e', fontSize: '13px', fontWeight: '800' }}>Course allocation awaiting HOD approval</div>
+            <div style={{ color: '#92400e', fontSize: '12.5px', lineHeight: 1.45, marginTop: '3px' }}>No approved course allocation is available in the selected batch. COs, mappings, assessments, attainment, reports, and Course ATR will unlock after the HOD approves the Programme Coordinator’s allocation.</div>
+          </div>
+        </div>
+      )}
 
       {/* ── ONE-TIME REVISION REQUEST STATUS CARD ──────────────────────────── */}
       {hasAnyRevision && !dismissedRevisions && (

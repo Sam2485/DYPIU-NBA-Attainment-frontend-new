@@ -20,9 +20,8 @@ import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import { ScreenLoadingState, ScreenErrorState } from '../../components/common/ScreenState';
 
-// ── HOD 5-Step Department Setup Workflow Definition ──────────────────────────
+// ── HOD Department Setup Workflow Definition ─────────────────────────────────
 const HOD_STEPS = [
-  { step: 1, label: 'Master Course',          desc: 'Build the master course catalogue', path: '/hod/setup-workflow?step=1', icon: GraduationCap, color: '#4f46e5', bg: '#eef2ff' },
   { step: 2, label: 'Batch Setup',            desc: 'Create programme batches',         path: '/hod/setup-workflow?step=2', icon: Calendar,      color: '#0284c7', bg: '#f0f9ff' },
   { step: 3, label: 'Coordinator Allocation', desc: 'Assign programme coordinators',    path: '/hod/setup-workflow?step=3', icon: UserCheck,     color: '#7c3aed', bg: '#f5f3ff' },
   { step: 4, label: 'PO / PSO / PEO',         desc: 'Define the outcome framework',    path: '/hod/setup-workflow?step=4', icon: Layers,        color: '#0f766e', bg: '#f0fdfa' },
@@ -87,7 +86,7 @@ export default function HodDashboard() {
   const completedCount = stepStatus.filter(Boolean).length;
   const progressPct = Math.round((completedCount / HOD_STEPS.length) * 100);
   const nextStep = HOD_STEPS.find((_, i) => !stepStatus[i]) || null;
-  const targetStepNum = nextStep ? nextStep.step : 1;
+  const targetStepNum = nextStep ? nextStep.step : 2;
 
   const quickActions = [
     {

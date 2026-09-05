@@ -74,12 +74,10 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     selectedBatch = null,
     activePOs  = [],
     activePSOs = [],
-    courses    = [],
     courseOfferings = [],
     courseCoordinators = [],
     loadProgrammeBatchOutcomes = () => Promise.resolve({ pos: [], psos: [], peos: [] }),
     saveProgrammeBatchOutcomeDefinitions = () => Promise.resolve(null),
-    loadMasterCourses = () => Promise.resolve([]),
     loadCourseOfferings = () => Promise.resolve([]),
     addProgrammeBatchCourse = () => Promise.resolve(null),
     updateProgrammeBatchCourse = () => Promise.resolve(null),
@@ -303,12 +301,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   };
 
   // ── Step 1 – Add Courses / Programme Setup ─────────────────────────────────
-  const [selectedMasterCourseId, setSelectedMasterCourseId] = useState('');
   const [newCourseCode, setNewCourseCode] = useState('');
   const [newCourseName, setNewCourseName] = useState('');
+  const [newCourseCredits, setNewCourseCredits] = useState(3);
+  const [newCourseType, setNewCourseType] = useState('THEORY');
   const [newCourseSem,   setNewCourseSem]   = useState(programmeSemesters[0] || 'Sem I');
   const [newCourseCoord, setNewCourseCoord] = useState('');
-  const masterCourses = courses.filter((course) => course.programmeId === programmeId);
   const programmeBatchCourses = courseOfferings.filter(
     (offering) => String(offering.batchId) === String(batchId)
   );
@@ -319,8 +317,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({
       && ['COURSE_COORDINATOR', 'FACULTY'].includes(String(person.role ?? '').toUpperCase())
   );
 
-  // The selector is populated from the HOD-created master-course catalogue
-  // for the master programme selected in the Programme Coordinator sidebar.
+  // Courses belong directly to a programme batch; only the coordinator list
+  // needs loading before a new course is added.
   useEffect(() => {
     if (currentStep !== 1 || !programmeId) return;
 
@@ -334,9 +332,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({
         );
       }).catch(() => {});
     }
-    loadMasterCourses({ masterProgrammeId: programmeId }).catch(() => {});
     if (batchId) loadCourseOfferings(batchId).catch(() => {});
-  }, [batchId, currentStep, loadCourseCoordinators, loadCourseOfferings, loadMasterCourses, programmeId]);
+  }, [batchId, currentStep, loadCourseCoordinators, loadCourseOfferings, programmeId]);
 
   // ── Step 2 – PO/PSO Targets ──────────────────────────────────────────────
   const [poTargetDraft, setPoTargetDraft] = useState({});
@@ -373,26 +370,25 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const handleAddCourse = async (e) => {
     e.preventDefault();
     const semester = semesterNumber(newCourseSem);
-    const masterCourse = masterCourses.find(
-      (course) => String(course.id) === String(selectedMasterCourseId)
-    );
     const coordinator = coordinatorOptions.find(
       (person) => String(person.id) === String(newCourseCoord)
     );
-    if (!masterCourse || !programmeId || !batchId || !semester) {
-      alert('Select a master course and semester before adding the batch course.');
+    if (!newCourseCode.trim() || !newCourseName.trim() || !programmeId || !batchId || !semester) {
+      alert('Enter a course code, course name, and semester before adding the batch course.');
       return;
     }
 
     try {
       await addProgrammeBatchCourse({
-        masterCourseId: masterCourse.id,
         programmeBatchId: batchId,
+        code: newCourseCode.trim(),
+        name: newCourseName.trim(),
+        credits: Number(newCourseCredits),
+        courseType: newCourseType,
         semester,
-        courseCoordinatorEmail: coordinator?.email ?? null,
-        assignedFaculty: coordinator?.email ?? null,
+        coordinator: coordinator?.name ?? coordinator?.username ?? coordinator?.email ?? null,
+        coordinatorEmail: coordinator?.email ?? null,
       });
-      setSelectedMasterCourseId('');
       setNewCourseCode('');
       setNewCourseName('');
     } catch (error) {
@@ -409,11 +405,9 @@ export default function ProgrammeCoordinatorSetupWorkflow({
 
     try {
       await updateProgrammeBatchCourse(offering.programmeBatchCourseId ?? offering.id, {
-        masterCourseId: offering.masterCourseId ?? offering.courseId,
         programmeBatchId: offering.programmeBatchId ?? batchId,
-        semester: semesterNumber(offering.semester) ?? semesterNumber(newCourseSem),
-        courseCoordinatorEmail: coordinator.email,
-        assignedFaculty: coordinator.email,
+        coordinator: coordinator.name ?? coordinator.username ?? coordinator.email,
+        coordinatorEmail: coordinator.email,
       });
     } catch (error) {
       console.error('Failed to assign Course Coordinator:', error);
@@ -767,42 +761,42 @@ export default function ProgrammeCoordinatorSetupWorkflow({
               <form onSubmit={handleAddCourse} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
                 <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '3px' }}>Add Programme-Batch Course</div>
                 <p style={{ margin: '0 0 10px', fontSize: '11.5px', color: muted }}>
-                  Select a master course and optionally provide a batch-specific display code or name.
+                  Add this course directly to the selected programme batch.
                 </p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(190px, 1.15fr) 105px minmax(170px, 1fr) 110px 190px auto', gap: '10px', alignItems: 'flex-end' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '110px minmax(170px, 1fr) 85px 110px 110px 190px auto', gap: '10px', alignItems: 'flex-end' }}>
                   <div>
-                    <label style={labelStyle}>Master Course *</label>
-                    <select
-                      required
-                      value={selectedMasterCourseId}
-                      onChange={(e) => setSelectedMasterCourseId(e.target.value)}
-                      style={{ ...inputStyle, cursor: 'pointer', fontWeight: '600' }}
-                    >
-                      <option value="">Select master course</option>
-                      {masterCourses.map((course) => (
-                        <option key={course.id} value={course.id}>{course.code} — {course.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Course Code</label>
+                    <label style={labelStyle}>Course Code *</label>
                     <input
                       type="text"
-                      placeholder="Optional"
+                      required
+                      placeholder="CS305"
                       value={newCourseCode}
                       onChange={(e) => setNewCourseCode(e.target.value)}
                       style={{ ...inputStyle, fontWeight: '700', color: accent }}
                     />
                   </div>
                   <div>
-                    <label style={labelStyle}>Course Name</label>
+                    <label style={labelStyle}>Course Name *</label>
                     <input
                       type="text"
-                      placeholder="Optional"
+                      required
+                      placeholder="e.g. DBMS"
                       value={newCourseName}
                       onChange={(e) => setNewCourseName(e.target.value)}
                       style={inputStyle}
                     />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Credits *</label>
+                    <input type="number" required min="0" step="0.5" value={newCourseCredits} onChange={(e) => setNewCourseCredits(e.target.value)} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Course Type *</label>
+                    <select value={newCourseType} onChange={(e) => setNewCourseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                      <option value="THEORY">Theory</option>
+                      <option value="LAB">Lab</option>
+                      <option value="ELECTIVE">Elective</option>
+                    </select>
                   </div>
                   <div>
                     <label style={labelStyle}>Semester</label>
@@ -843,9 +837,6 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                     <tr><td colSpan={5} style={{ textAlign: 'center', padding: '28px', color: muted, fontSize: '12.5px' }}>No programme-batch courses yet — add one above.</td></tr>
                   )}
                   {programmeBatchCourses.map((offering) => {
-                    const masterCourse = masterCourses.find(
-                      (course) => String(course.id) === String(offering.masterCourseId ?? offering.courseId)
-                    );
                     const assignedCoordinator = coordinatorOptions.find(
                       (faculty) => String(faculty.id) === String(offering.courseCoordinatorId)
                         || faculty.email === offering.courseCoordinatorEmail
@@ -854,8 +845,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                     const coordinatorId = assignedCoordinator?.id ?? offering.courseCoordinatorId ?? '';
                     return (
                       <tr key={offering.id}>
-                        <td style={{ fontWeight: '700', color: accent }}>{offering.courseCodeOverride ?? offering.courseCode ?? masterCourse?.code ?? '—'}</td>
-                        <td style={{ fontWeight: '600', color: ink }}>{offering.courseNameOverride ?? offering.courseName ?? masterCourse?.name ?? '—'}</td>
+                        <td style={{ fontWeight: '700', color: accent }}>{offering.courseCode ?? offering.code ?? offering.courseCodeOverride ?? '—'}</td>
+                        <td style={{ fontWeight: '600', color: ink }}>{offering.courseName ?? offering.name ?? offering.courseNameOverride ?? '—'}</td>
                         <td style={{ textAlign: 'center', color: muted, fontSize: '12px' }}>{offering.semester ? `Sem ${offering.semester}` : '—'}</td>
                         <td>
                           <select

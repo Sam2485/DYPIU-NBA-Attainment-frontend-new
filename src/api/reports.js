@@ -111,7 +111,7 @@ export const reportsApi = {
 
   getPreviousYearCourseAtr: (programmeBatchCourseId) =>
     apiClient.get(
-      `/academic/programme-batch-courses/${programmeBatchCourseId}/previous-year-atr`
+      `/academic/programme-batch-courses/${programmeBatchCourseId}/previous-batch-atr`
     ),
 
   getCourseAtrs: (params = {}) =>
