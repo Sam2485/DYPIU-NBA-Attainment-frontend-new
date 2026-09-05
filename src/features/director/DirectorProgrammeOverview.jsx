@@ -32,7 +32,7 @@ export default function DirectorProgrammeOverview() {
   const [addProgrammeError, setAddProgrammeError] = useState('');
 
   const [editName, setEditName] = useState('');
-  const [editCode, setEditCode] = useState('');
+  const [editDegreeAwarded, setEditDegreeAwarded] = useState('');
   const [editDeptId, setEditDeptId] = useState('');
   const [editDuration, setEditDuration] = useState(4);
 
@@ -68,24 +68,10 @@ export default function DirectorProgrammeOverview() {
   const handleOpenEdit = (prog) => {
     setEditingProg(prog);
     setEditName(prog.name);
-    setEditCode(prog.code);
+    setEditDegreeAwarded(prog.degreeAwarded ?? prog.code ?? '');
     setEditDeptId(prog.departmentId || departments[0]?.id || '');
     setEditDuration(prog.durationYears || 4);
     setShowEditModal(true);
-  };
-
-  const buildProgrammeCode = (department, degreeAwarded, name) => {
-    const degree = degreeAwarded.replace(/[^a-z0-9]/gi, '').toUpperCase() || 'PROGRAMME';
-    const departmentCode = department?.code?.replace(/[^a-z0-9]/gi, '').toUpperCase() || 'DEPT';
-    const abbreviation = name
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((word) => word.replace(/[^a-z0-9]/gi, '').charAt(0))
-      .join('')
-      .slice(0, 8)
-      .toUpperCase();
-    return [degree, departmentCode, abbreviation || 'NEW'].join('-');
   };
 
   const handleAddProgramme = async (event) => {
@@ -98,16 +84,12 @@ export default function DirectorProgrammeOverview() {
       return;
     }
 
-    const baseCode = buildProgrammeCode(department, newProgrammeDegreeAwarded.trim(), name);
-    const matchingCodes = masterProgrammes.filter((programme) => programme.code?.startsWith(baseCode));
-    const code = matchingCodes.length ? `${baseCode}-${matchingCodes.length + 1}` : baseCode;
-
     setIsSavingProgramme(true);
     setAddProgrammeError('');
     try {
       await createMasterProgramme({
         departmentId: department.id,
-        code,
+        degreeAwarded: newProgrammeDegreeAwarded.trim(),
         name,
         durationYears: Number(newProgrammeDuration),
         level: newProgrammeLevel,
@@ -127,7 +109,7 @@ export default function DirectorProgrammeOverview() {
 
   const handleSaveEdit = async (e) => {
     e.preventDefault();
-    if (!editingProg || !editName || !editCode) return;
+    if (!editingProg || !editName || !editDegreeAwarded) return;
     const deptObj = departments.find((d) => d.id === editDeptId);
 
     if (!deptObj) return;
@@ -135,7 +117,7 @@ export default function DirectorProgrammeOverview() {
     try {
       await updateMasterProgramme(editingProg.id, {
       name: editName.trim(),
-      code: editCode.trim().toUpperCase(),
+      degreeAwarded: editDegreeAwarded.trim(),
       departmentId: deptObj.id,
       level: editingProg.level ?? 'UG',
       degree: editingProg.degree ?? '',
@@ -366,8 +348,8 @@ export default function DirectorProgrammeOverview() {
                   </select>
                 </div>
                 <div>
-                  <label style={labelStyle}>Programme Code *</label>
-                  <input type="text" required value={editCode} onChange={(e) => setEditCode(e.target.value.toUpperCase())} style={{ ...inputStyle, fontWeight: '700', color: accent }} />
+                  <label style={labelStyle}>Degree Awarded *</label>
+                  <input type="text" required value={editDegreeAwarded} onChange={(e) => setEditDegreeAwarded(e.target.value)} placeholder="B.Tech" style={{ ...inputStyle, fontWeight: '700', color: accent }} />
                 </div>
                 <div>
                   <label style={labelStyle}>Programme Name *</label>

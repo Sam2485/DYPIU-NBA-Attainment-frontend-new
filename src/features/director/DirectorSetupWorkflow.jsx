@@ -279,28 +279,11 @@ export default function DirectorSetupWorkflow() {
     });
   };
 
-  const buildProgrammeCode = (department, degreeAwarded, programmeName) => {
-    const degree = degreeAwarded.replace(/[^a-z0-9]/gi, '').toUpperCase() || 'PROGRAMME';
-    const departmentCode = department?.code?.replace(/[^a-z0-9]/gi, '').toUpperCase() || 'DEPT';
-    const suffix = programmeName
-      .trim()
-      .split(/\s+/)
-      .map((word) => word.replace(/[^a-z0-9]/gi, '').charAt(0))
-      .join('')
-      .slice(0, 6)
-      .toUpperCase();
-    return [degree, departmentCode, suffix].filter(Boolean).join('-');
-  };
-
   const handleAddProgrammeInline = async () => {
     if (!newProgName || !newProgDegreeAwarded || !selectedDeptIdForProg) return;
     const programmeName = newProgName.trim();
-    const department = deptList.find((item) => item.id === selectedDeptIdForProg);
-    if (!department) return;
-    const programmeCode = buildProgrammeCode(department, newProgDegreeAwarded.trim(), programmeName);
     const newProg = {
-      id: `prog-${programmeCode.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-      code: programmeCode,
+      degreeAwarded: newProgDegreeAwarded.trim(),
       name: programmeName,
       departmentId: selectedDeptIdForProg,
       level: newProgLevel,

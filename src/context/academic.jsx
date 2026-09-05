@@ -93,7 +93,10 @@ const normalizeProgramme = (programme) => ({
   id: programme?.id ?? programme?.masterProgrammeId ?? null,
   masterProgrammeId: programme?.masterProgrammeId ?? programme?.id ?? null,
   departmentId: programme?.departmentId ?? null,
-  code: programme?.code ?? null,
+  // The master-programme API now identifies the awarded degree explicitly.
+  // Retain `code` as a display alias for older screens that still render it.
+  degreeAwarded: programme?.degreeAwarded ?? programme?.degree_awarded ?? programme?.code ?? null,
+  code: programme?.degreeAwarded ?? programme?.degree_awarded ?? programme?.code ?? null,
   name: programme?.name ?? null,
   degree: programme?.degree ?? null,
   level: programme?.level ?? 'UG',
@@ -206,10 +209,13 @@ const normalizeUser = (user) => ({
 
 const toMasterProgrammePayload = (data = {}) => ({
   departmentId: data.departmentId,
-  code: data.code,
+  degreeAwarded: data.degreeAwarded ?? data.degree_awarded ?? data.code,
   name: data.name,
   durationYears: data.durationYears,
   level: data.level,
+  status: data.status,
+  coordinator: data.coordinator,
+  coordinatorEmail: data.coordinatorEmail,
 });
 
 const toProgrammeBatchPayload = (data = {}) => ({
