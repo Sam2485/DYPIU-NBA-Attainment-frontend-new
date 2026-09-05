@@ -81,8 +81,8 @@ export default function DirectorSetupWorkflow() {
   const [progList, setProgList] = useState(masterProgrammes);
   const [selectedDeptIdForProg, setSelectedDeptIdForProg] = useState('');
   const [newProgName, setNewProgName] = useState('');
-  const [newProgCode, setNewProgCode] = useState('');
-
+  const [newProgLevel, setNewProgLevel] = useState('UG');
+  const [newProgDegreeAwarded, setNewProgDegreeAwarded] = useState('');
   const [newProgDuration, setNewProgDuration] = useState(4);
 
   useEffect(() => {
@@ -279,17 +279,31 @@ export default function DirectorSetupWorkflow() {
     });
   };
 
+  const buildProgrammeCode = (department, degreeAwarded, programmeName) => {
+    const degree = degreeAwarded.replace(/[^a-z0-9]/gi, '').toUpperCase() || 'PROGRAMME';
+    const departmentCode = department?.code?.replace(/[^a-z0-9]/gi, '').toUpperCase() || 'DEPT';
+    const suffix = programmeName
+      .trim()
+      .split(/\s+/)
+      .map((word) => word.replace(/[^a-z0-9]/gi, '').charAt(0))
+      .join('')
+      .slice(0, 6)
+      .toUpperCase();
+    return [degree, departmentCode, suffix].filter(Boolean).join('-');
+  };
+
   const handleAddProgrammeInline = async () => {
-    if (!newProgName || !newProgCode || !selectedDeptIdForProg) return;
+    if (!newProgName || !newProgDegreeAwarded || !selectedDeptIdForProg) return;
     const programmeName = newProgName.trim();
-    const programmeCode = newProgCode.trim().toUpperCase();
-    const degreeMatch = programmeName.match(/^(B\.?\s*Tech|M\.?\s*Tech|BBA|MBA|BCA|MCA|B\.?\s*Sc|M\.?\s*Sc)/i);
+    const department = deptList.find((item) => item.id === selectedDeptIdForProg);
+    if (!department) return;
+    const programmeCode = buildProgrammeCode(department, newProgDegreeAwarded.trim(), programmeName);
     const newProg = {
       id: `prog-${programmeCode.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
       code: programmeCode,
       name: programmeName,
       departmentId: selectedDeptIdForProg,
-      degree: degreeMatch?.[0] ?? '',
+      level: newProgLevel,
       durationYears: parseInt(newProgDuration, 10) || 4,
       coordinator: '',
       coordinatorEmail: '',
@@ -298,7 +312,8 @@ export default function DirectorSetupWorkflow() {
     const savedProgramme = await createMasterProgramme(newProg);
     if (savedProgramme) {
       setNewProgName('');
-      setNewProgCode('');
+      setNewProgDegreeAwarded('');
+      setNewProgLevel('UG');
     }
   };
 
@@ -573,7 +588,7 @@ export default function DirectorSetupWorkflow() {
             {/* Add programme row */}
             <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
               <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '10px' }}>Add Programme</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 1.6fr 0.8fr auto', gap: '10px', alignItems: 'flex-end' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 0.55fr 0.9fr 1.55fr 0.7fr auto', gap: '10px', alignItems: 'flex-end' }}>
                 <div>
                   <label style={labelStyle}>Department *</label>
                   <select value={selectedDeptIdForProg} onChange={(e) => setSelectedDeptIdForProg(e.target.value)} style={selectStyle}>
@@ -581,8 +596,15 @@ export default function DirectorSetupWorkflow() {
                   </select>
                 </div>
                 <div>
-                  <label style={labelStyle}>Code *</label>
-                  <input type="text" placeholder="BE-AIML" value={newProgCode} onChange={(e) => setNewProgCode(e.target.value)} style={{ ...inputStyle, fontWeight: '600' }} />
+                  <label style={labelStyle}>Level *</label>
+                  <select value={newProgLevel} onChange={(e) => setNewProgLevel(e.target.value)} style={selectStyle}>
+                    <option value="UG">UG</option>
+                    <option value="PG">PG</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Degree Awarded *</label>
+                  <input type="text" placeholder="B.Tech" value={newProgDegreeAwarded} onChange={(e) => setNewProgDegreeAwarded(e.target.value)} style={inputStyle} />
                 </div>
                 <div>
                   <label style={labelStyle}>Programme Name *</label>
@@ -599,8 +621,8 @@ export default function DirectorSetupWorkflow() {
                 </div>
                 <button
                   type="button" onClick={handleAddProgrammeInline}
-                  disabled={!newProgName || !newProgCode}
-                  style={{ height: '40px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', opacity: (!newProgName || !newProgCode) ? 0.5 : 1 }}
+                  disabled={!newProgName || !newProgDegreeAwarded}
+                  style={{ height: '40px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', opacity: (!newProgName || !newProgDegreeAwarded) ? 0.5 : 1 }}
                 >
                   <Plus size={14} /> Add
                 </button>

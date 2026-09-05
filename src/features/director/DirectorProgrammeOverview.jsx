@@ -24,6 +24,8 @@ export default function DirectorProgrammeOverview() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAddCard, setShowAddCard] = useState(false);
   const [newProgrammeDeptId, setNewProgrammeDeptId] = useState('');
+  const [newProgrammeLevel, setNewProgrammeLevel] = useState('UG');
+  const [newProgrammeDegreeAwarded, setNewProgrammeDegreeAwarded] = useState('');
   const [newProgrammeName, setNewProgrammeName] = useState('');
   const [newProgrammeDuration, setNewProgrammeDuration] = useState(4);
   const [isSavingProgramme, setIsSavingProgramme] = useState(false);
@@ -72,7 +74,9 @@ export default function DirectorProgrammeOverview() {
     setShowEditModal(true);
   };
 
-  const buildProgrammeCode = (department, name) => {
+  const buildProgrammeCode = (department, degreeAwarded, name) => {
+    const degree = degreeAwarded.replace(/[^a-z0-9]/gi, '').toUpperCase() || 'PROGRAMME';
+    const departmentCode = department?.code?.replace(/[^a-z0-9]/gi, '').toUpperCase() || 'DEPT';
     const abbreviation = name
       .trim()
       .split(/\s+/)
@@ -81,7 +85,7 @@ export default function DirectorProgrammeOverview() {
       .join('')
       .slice(0, 8)
       .toUpperCase();
-    return `${department?.code || 'PROGRAMME'}-${abbreviation || 'NEW'}`;
+    return [degree, departmentCode, abbreviation || 'NEW'].join('-');
   };
 
   const handleAddProgramme = async (event) => {
@@ -89,12 +93,12 @@ export default function DirectorProgrammeOverview() {
     const department = departments.find((item) => item.id === newProgrammeDeptId);
     const name = newProgrammeName.trim();
 
-    if (!department || !name) {
-      setAddProgrammeError('Select a department and enter the programme name.');
+    if (!department || !newProgrammeDegreeAwarded.trim() || !name) {
+      setAddProgrammeError('Select a department, degree awarded, and programme name.');
       return;
     }
 
-    const baseCode = buildProgrammeCode(department, name);
+    const baseCode = buildProgrammeCode(department, newProgrammeDegreeAwarded.trim(), name);
     const matchingCodes = masterProgrammes.filter((programme) => programme.code?.startsWith(baseCode));
     const code = matchingCodes.length ? `${baseCode}-${matchingCodes.length + 1}` : baseCode;
 
@@ -106,8 +110,11 @@ export default function DirectorProgrammeOverview() {
         code,
         name,
         durationYears: Number(newProgrammeDuration),
+        level: newProgrammeLevel,
       });
       setNewProgrammeName('');
+      setNewProgrammeDegreeAwarded('');
+      setNewProgrammeLevel('UG');
       setNewProgrammeDuration(4);
       setShowAddCard(false);
     } catch (error) {
@@ -130,6 +137,7 @@ export default function DirectorProgrammeOverview() {
       name: editName.trim(),
       code: editCode.trim().toUpperCase(),
       departmentId: deptObj.id,
+      level: editingProg.level ?? 'UG',
       degree: editingProg.degree ?? '',
       durationYears: parseInt(editDuration, 10) || 4,
       coordinator: editingProg.coordinator ?? '',
@@ -185,15 +193,26 @@ export default function DirectorProgrammeOverview() {
             </div>
             <GraduationCap size={19} style={{ color: accent }} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) minmax(220px, 1.7fr) minmax(140px, 0.7fr) auto', gap: '12px', alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) minmax(90px, 0.55fr) minmax(150px, 0.8fr) minmax(220px, 1.55fr) minmax(140px, 0.7fr) auto', gap: '12px', alignItems: 'end' }}>
             <div>
-              <label style={labelStyle}>Department Code *</label>
+              <label style={labelStyle}>Department *</label>
               <select required value={newProgrammeDeptId} onChange={(e) => setNewProgrammeDeptId(e.target.value)} style={inputStyle}>
                 <option value="" disabled>Select department</option>
                 {departments.map((department) => (
                   <option key={department.id} value={department.id}>{department.code} – {department.name}</option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Level *</label>
+              <select value={newProgrammeLevel} onChange={(e) => setNewProgrammeLevel(e.target.value)} style={inputStyle}>
+                <option value="UG">UG</option>
+                <option value="PG">PG</option>
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Degree Awarded *</label>
+              <input required type="text" value={newProgrammeDegreeAwarded} onChange={(e) => setNewProgrammeDegreeAwarded(e.target.value)} placeholder="B.Tech" style={inputStyle} />
             </div>
             <div>
               <label style={labelStyle}>Programme Name *</label>
@@ -209,7 +228,7 @@ export default function DirectorProgrammeOverview() {
                 <option value={5}>5 Years</option>
               </select>
             </div>
-            <button type="submit" disabled={isSavingProgramme || !newProgrammeDeptId || !newProgrammeName.trim()} style={{ height: '38px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', color: '#ffffff', background: accent, border: 'none', borderRadius: '8px', cursor: isSavingProgramme ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: isSavingProgramme || !newProgrammeDeptId || !newProgrammeName.trim() ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+            <button type="submit" disabled={isSavingProgramme || !newProgrammeDeptId || !newProgrammeDegreeAwarded.trim() || !newProgrammeName.trim()} style={{ height: '38px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', color: '#ffffff', background: accent, border: 'none', borderRadius: '8px', cursor: isSavingProgramme ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: isSavingProgramme || !newProgrammeDeptId || !newProgrammeDegreeAwarded.trim() || !newProgrammeName.trim() ? 0.6 : 1, whiteSpace: 'nowrap' }}>
               {isSavingProgramme ? <LoaderCircle size={14} className="spin" /> : <Plus size={14} />}
               {isSavingProgramme ? 'Adding…' : 'Add Programme'}
             </button>

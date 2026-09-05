@@ -96,6 +96,7 @@ const normalizeProgramme = (programme) => ({
   code: programme?.code ?? null,
   name: programme?.name ?? null,
   degree: programme?.degree ?? null,
+  level: programme?.level ?? 'UG',
   durationYears: programme?.durationYears ?? null,
   department:
     programme?.departmentName ??
@@ -208,6 +209,7 @@ const toMasterProgrammePayload = (data = {}) => ({
   code: data.code,
   name: data.name,
   durationYears: data.durationYears,
+  level: data.level,
 });
 
 const toProgrammeBatchPayload = (data = {}) => ({

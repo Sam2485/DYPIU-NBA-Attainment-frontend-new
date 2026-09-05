@@ -815,7 +815,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                     <select value={newCourseCoord} onChange={(e) => setNewCourseCoord(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', fontWeight: '600', color: accent }}>
                       <option value="">Select FACULTY</option>
                       {coordinatorOptions.map((faculty) => (
-                        <option key={faculty.id} value={faculty.id}>{faculty.name}</option>
+                        <option key={faculty.id} value={faculty.id}>{faculty.name || faculty.username || faculty.email}</option>
                       ))}
                     </select>
                   </div>
@@ -874,7 +874,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                           >
                             <option value="">Select FACULTY</option>
                             {coordinatorOptions.map((faculty) => (
-                              <option key={faculty.id} value={faculty.id}>{faculty.name}</option>
+                              <option key={faculty.id} value={faculty.id}>{faculty.name || faculty.username || faculty.email}</option>
                             ))}
                           </select>
                         </td>

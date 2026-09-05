@@ -176,11 +176,11 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
       b.programmeName === selectedProgramme.name
   );
 
-  // Usernames are for display; email is the stable key required by the
-  // programme-batch coordinator assignment endpoint.
+  // Display the staff member's name while retaining email as the stable key
+  // required by the programme-batch coordinator assignment endpoint.
   const coordinatorValue = (coordinator) => String(coordinator?.email || '');
   const coordinatorLabel = (coordinator) =>
-    coordinator?.username || coordinator?.name || coordinator?.email || 'Unknown coordinator';
+    coordinator?.name || coordinator?.username || coordinator?.email || 'Unknown coordinator';
   const coordinatorOptions = programmeCoordinators.reduce((unique, coordinator) => {
     const value = coordinatorValue(coordinator);
     if (value && !unique.some((item) => coordinatorValue(item) === value)) unique.push(coordinator);
@@ -1309,33 +1309,34 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
                   Define outcome statements and competency breakdowns for a specific Programme Batch under {selectedProgramme.name}.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleSaveBatchOutcomes}
-                disabled={!selectedOutcomesBatch || outcomesSaveState === 'saving' || outcomesAreSaved}
-                className="btn btn-primary"
-                style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '800', whiteSpace: 'nowrap', opacity: !selectedOutcomesBatch || outcomesSaveState === 'saving' || outcomesAreSaved ? 0.6 : 1, cursor: !selectedOutcomesBatch || outcomesSaveState === 'saving' || outcomesAreSaved ? 'not-allowed' : 'pointer' }}
-              >
-                <Save size={14} /> {outcomesSaveState === 'saving' ? 'Saving…' : outcomesAreSaved ? 'Saved' : 'Save Outcomes'}
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={outcomesBatchId}
+                    onChange={(event) => setOutcomesBatchId(event.target.value)}
+                    disabled={programmeBatches.length === 0}
+                    style={{ height: '38px', minWidth: '200px', padding: '0 32px 0 12px', fontSize: '12.5px', fontWeight: '700', color: '#0369a1', border: '1.5px solid #bae6fd', borderRadius: '8px', background: '#f0f9ff', cursor: programmeBatches.length === 0 ? 'not-allowed' : 'pointer', outline: 'none', appearance: 'none', fontFamily: 'inherit' }}
+                  >
+                    <option value="">Select Programme Batch</option>
+                    {programmeBatches.map((batch) => (
+                      <option key={batch.id} value={batch.id}>{batch.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#0284c7', pointerEvents: 'none' }} />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSaveBatchOutcomes}
+                  disabled={!selectedOutcomesBatch || outcomesSaveState === 'saving' || outcomesAreSaved}
+                  className="btn btn-primary"
+                  style={{ height: '38px', padding: '0 18px', fontSize: '12.5px', fontWeight: '800', whiteSpace: 'nowrap', opacity: !selectedOutcomesBatch || outcomesSaveState === 'saving' || outcomesAreSaved ? 0.6 : 1, cursor: !selectedOutcomesBatch || outcomesSaveState === 'saving' || outcomesAreSaved ? 'not-allowed' : 'pointer' }}
+                >
+                  <Save size={14} /> {outcomesSaveState === 'saving' ? 'Saving…' : outcomesAreSaved ? 'Saved' : 'Save Outcomes'}
+                </button>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginTop: '18px' }}>
-              <div style={{ position: 'relative' }}>
-                <select
-                  value={outcomesBatchId}
-                  onChange={(event) => setOutcomesBatchId(event.target.value)}
-                  disabled={programmeBatches.length === 0}
-                  style={{ height: '38px', minWidth: '200px', padding: '0 32px 0 12px', fontSize: '12.5px', fontWeight: '700', color: '#0369a1', border: '1.5px solid #bae6fd', borderRadius: '8px', background: '#f0f9ff', cursor: programmeBatches.length === 0 ? 'not-allowed' : 'pointer', outline: 'none', appearance: 'none', fontFamily: 'inherit' }}
-                >
-                  <option value="">Select Programme Batch</option>
-                  {programmeBatches.map((batch) => (
-                    <option key={batch.id} value={batch.id}>{batch.name}</option>
-                  ))}
-                </select>
-                <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#0284c7', pointerEvents: 'none' }} />
-              </div>
-
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '16px', flexWrap: 'wrap', marginTop: '18px' }}>
               {/* Tab strip */}
               <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px' }}>
                 {[

@@ -308,47 +308,48 @@ export default function HodProgrammeOutcomes() {
           </p>
         </div>
 
-        {/* Programme selector */}
-        <div style={{ position: 'relative' }}>
-          <select
-            value={programmeId}
-            onChange={(e) => setProgrammeId(e.target.value)}
-            style={{
-              height: '38px',
-              paddingLeft: '12px',
-              paddingRight: '32px',
-              fontSize: '12.5px',
-              fontWeight: '600',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              background: '#ffffff',
-              color: ink,
-              cursor: 'pointer',
-              outline: 'none',
-              fontFamily: 'inherit',
-              appearance: 'none',
-              maxWidth: '300px',
-            }}
-          >
-            {masterProgrammes.map((p) => (
-              <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-            ))}
-          </select>
-          <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+        {/* Programme and batch selectors */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative' }}>
+            <select
+              value={programmeId}
+              onChange={(e) => setProgrammeId(e.target.value)}
+              style={{
+                height: '38px',
+                paddingLeft: '12px',
+                paddingRight: '32px',
+                fontSize: '12.5px',
+                fontWeight: '600',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                background: '#ffffff',
+                color: ink,
+                cursor: 'pointer',
+                outline: 'none',
+                fontFamily: 'inherit',
+                appearance: 'none',
+                maxWidth: '300px',
+              }}
+            >
+              {masterProgrammes.map((p) => (
+                <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+              ))}
+            </select>
+            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+          </div>
+          <div style={{ position: 'relative', minWidth: '210px' }}>
+            <select value={selectedBatchId} onChange={(event) => setSelectedBatchId(event.target.value)} style={{ ...inputStyle, height: '38px', paddingRight: '30px', cursor: 'pointer', appearance: 'none' }}>
+              {batches.length === 0 ? <option value="">No programme batches available</option> : batches.map((batch) => (
+                <option key={batch.id} value={batch.id}>{batch.name} · {batch.status}</option>
+              ))}
+            </select>
+            <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
+          </div>
         </div>
       </div>
 
       {/* ── BATCH SELECTOR + TAB STRIP + SAVE OUTCOMES ───────────────────────── */}
       <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ position: 'relative', minWidth: '210px' }}>
-          <select value={selectedBatchId} onChange={(event) => setSelectedBatchId(event.target.value)} style={{ ...inputStyle, height: '36px', paddingRight: '30px', cursor: 'pointer', appearance: 'none' }}>
-            {batches.length === 0 ? <option value="">No programme batches available</option> : batches.map((batch) => (
-              <option key={batch.id} value={batch.id}>{batch.name} · {batch.status}</option>
-            ))}
-          </select>
-          <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: muted, pointerEvents: 'none' }} />
-        </div>
-
         {/* Tab strip */}
         <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px', marginLeft: 'auto' }}>
           {[
