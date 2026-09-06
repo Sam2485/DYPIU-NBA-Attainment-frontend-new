@@ -372,7 +372,7 @@ export default function CourseCoordinatorWorkflow() {
               onClick={handleSaveAndNext}
               style={{
                 height: '40px', padding: '0 22px', fontSize: '13.5px', fontWeight: '800',
-                cursor: 'pointer',
+                background: '#ffffff', color: accent, border: `1px solid ${accent}`, borderRadius: '8px', cursor: 'pointer',
                 display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit',
               }}
             >

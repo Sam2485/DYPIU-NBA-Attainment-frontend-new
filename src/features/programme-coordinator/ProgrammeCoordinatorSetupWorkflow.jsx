@@ -1293,7 +1293,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({
               disabled={isSavingStep}
               style={{
                 height: '40px', padding: '0 22px', fontSize: '13.5px', fontWeight: '800',
-                cursor: isSavingStep ? 'wait' : 'pointer',
+                background: '#ffffff', color: accent, border: `1px solid ${accent}`, borderRadius: '8px',
+                cursor: isSavingStep ? 'wait' : 'pointer', opacity: isSavingStep ? 0.65 : 1,
                 display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit',
               }}
             >

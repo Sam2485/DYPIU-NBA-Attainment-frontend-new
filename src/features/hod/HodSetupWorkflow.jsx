@@ -1602,10 +1602,9 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
               onClick={handleSaveAndNext}
               style={{
                 height: '40px', padding: '0 22px', fontSize: '13.5px', fontWeight: '800',
-                background: `linear-gradient(135deg, ${accent} 0%, #6366f1 100%)`,
-                color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                background: '#ffffff', color: accent, border: `1px solid ${accent}`, borderRadius: '8px', cursor: 'pointer',
                 display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit',
-                boxShadow: '0 4px 14px rgba(79,70,229,0.28)',
+                boxShadow: '0 1px 3px rgba(79,70,229,0.12)',
               }}
             >
               Save &amp; Continue <ArrowRight size={14} />
