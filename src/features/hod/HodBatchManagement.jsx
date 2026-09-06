@@ -123,7 +123,6 @@ export default function HodBatchManagement() {
   // Batch conclusion is deliberately separate from ordinary editing because
   // it permanently unlocks the Programme ATR workflow for the batch.
   const [concludingBatch, setConcludingBatch] = useState(null);
-  const [conclusionStatus, setConclusionStatus] = useState('COMPLETED');
   const [conclusionReason, setConclusionReason] = useState('');
   const [conclusionError, setConclusionError] = useState('');
   const [isConcludingBatch, setIsConcludingBatch] = useState(false);
@@ -261,9 +260,8 @@ export default function HodBatchManagement() {
         endYear,
         durationYears,
       });
-      // Ordinary editing may only activate/deactivate a non-concluded batch.
-      // COMPLETED and GRADUATED remain available exclusively through the
-      // protected conclusion modal.
+      // Only ACTIVE, COMPLETED and GRADUATED are valid lifecycle states.
+      // Concluding a batch is the only status transition exposed to HOD.
       if (!['COMPLETED', 'GRADUATED'].includes(editingBatch.status) && editStatus !== editingBatch.status) {
         await updateProgrammeBatchStatus(editingBatch.id, editStatus, 'Updated from HOD batch management');
       }
@@ -279,7 +277,6 @@ export default function HodBatchManagement() {
 
   const handleOpenConclusion = (batch) => {
     setConcludingBatch(batch);
-    setConclusionStatus('COMPLETED');
     setConclusionReason('');
     setConclusionError('');
   };
@@ -296,11 +293,11 @@ export default function HodBatchManagement() {
     try {
       await updateProgrammeBatchStatus(
         concludingBatch.id,
-        conclusionStatus,
+        'COMPLETED',
         conclusionReason.trim()
       );
       setToastMessage(
-        `${concludingBatch.name} marked as ${conclusionStatus.toLowerCase()}. Programme ATR is now unlocked.`
+        `${concludingBatch.name} marked as completed. Programme ATR is now unlocked.`
       );
       setConcludingBatch(null);
       setTimeout(() => setToastMessage(null), 4000);
@@ -1019,7 +1016,6 @@ export default function HodBatchManagement() {
                         <label style={labelStyle}>Operational Status</label>
                         <select value={editStatus} onChange={(event) => setEditStatus(event.target.value)} style={inputStyle}>
                           <option value="ACTIVE">Active</option>
-                          <option value="INACTIVE">Inactive</option>
                         </select>
                       </div>
                     )}
@@ -1071,12 +1067,8 @@ export default function HodBatchManagement() {
                 This is a lifecycle decision. A concluded batch is retained for ATR and audit records and cannot be returned to Active from this screen.
               </div>
 
-              <div style={{ marginTop: '16px' }}>
-                <label style={labelStyle}>Conclusion Status *</label>
-                <select value={conclusionStatus} onChange={(event) => setConclusionStatus(event.target.value)} disabled={isConcludingBatch} style={{ ...inputStyle, cursor: isConcludingBatch ? 'wait' : 'pointer' }}>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="GRADUATED">Graduated</option>
-                </select>
+              <div style={{ marginTop: '16px', padding: '11px 13px', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '8px', color: '#3730a3', fontSize: '12px', lineHeight: 1.45 }}>
+                This action sets the batch to <strong>COMPLETED</strong> and unlocks Programme ATR. The batch moves to <strong>GRADUATED</strong> automatically only after Programme ATR approval.
               </div>
               <div style={{ marginTop: '13px' }}>
                 <label style={labelStyle}>Reason for conclusion *</label>
@@ -1094,7 +1086,7 @@ export default function HodBatchManagement() {
             <div style={{ padding: '14px 24px 20px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button type="button" onClick={() => setConcludingBatch(null)} disabled={isConcludingBatch} style={{ height: '36px', padding: '0 14px', borderRadius: '7px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontWeight: '700', cursor: isConcludingBatch ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>Cancel</button>
               <button type="button" onClick={handleConfirmConclusion} disabled={isConcludingBatch} style={{ height: '36px', padding: '0 15px', borderRadius: '7px', border: 0, background: '#4f46e5', color: '#fff', fontWeight: '800', cursor: isConcludingBatch ? 'wait' : 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: isConcludingBatch ? 0.7 : 1 }}>
-                <CheckCircle2 size={14} /> {isConcludingBatch ? 'Concluding…' : `Mark as ${conclusionStatus === 'GRADUATED' ? 'Graduated' : 'Completed'}`}
+                <CheckCircle2 size={14} /> {isConcludingBatch ? 'Concluding…' : 'Mark as Completed'}
               </button>
             </div>
           </div>

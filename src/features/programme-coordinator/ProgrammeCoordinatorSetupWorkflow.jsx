@@ -174,6 +174,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const isAllocationReviewLocked = isAllocationSubmitted || isAllocationApproved;
 
   const handleSubmitAllocations = async () => {
+    if (isBatchFrozen) return;
     if (!programmeId || !batchId) {
       alert('Select a Programme and Programme Batch before submitting allocations.');
       return;
@@ -207,6 +208,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const isTargetsReviewLocked = isTargetsSubmitted || isTargetsApproved;
 
   const handleSubmitTargets = async () => {
+    if (isBatchFrozen) return;
     if (!programmeId || !batchId) {
       alert('Select a Programme and Programme Batch before submitting targets.');
       return;
@@ -310,6 +312,9 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const programmeBatchCourses = courseOfferings.filter(
     (offering) => String(offering.batchId) === String(batchId)
   );
+  const batchStatus = String(selectedBatch?.status ?? '').toUpperCase();
+  const isBatchFrozen = batchStatus === 'COMPLETED' || batchStatus === 'GRADUATED';
+  const hasResolvedSelectedBatch = Boolean(selectedBatch?.id) && String(selectedBatch.id) === String(batchId);
   // The API is requested with role=COURSE_COORDINATOR. Some valid responses
   // identify those users as FACULTY, so retain both documented role values.
   const coordinatorOptions = courseCoordinators.filter((person) =>
@@ -332,8 +337,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({
         );
       }).catch(() => {});
     }
-    if (batchId) loadCourseOfferings(batchId).catch(() => {});
-  }, [batchId, currentStep, loadCourseCoordinators, loadCourseOfferings, programmeId]);
+    if (hasResolvedSelectedBatch) loadCourseOfferings(batchId).catch(() => {});
+  }, [batchId, currentStep, hasResolvedSelectedBatch, loadCourseCoordinators, loadCourseOfferings, programmeId]);
 
   // ── Step 2 – PO/PSO Targets ──────────────────────────────────────────────
   const [poTargetDraft, setPoTargetDraft] = useState({});
@@ -348,7 +353,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   // Targets are defined per programme batch. Reload the exact selected batch
   // whenever the selector changes so no values bleed in from another batch.
   useEffect(() => {
-    if (currentStep !== 2 || !programmeId || !batchId) return;
+    if (currentStep !== 2 || !programmeId || !batchId || !hasResolvedSelectedBatch) return;
     let isCurrent = true;
     setSavedTargetSignature(null);
 
@@ -364,11 +369,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({
       .catch(() => {});
 
     return () => { isCurrent = false; };
-  }, [batchId, currentStep, loadProgrammeBatchOutcomes, programmeId]);
+  }, [batchId, currentStep, hasResolvedSelectedBatch, loadProgrammeBatchOutcomes, programmeId]);
 
   // ── Step handlers ────────────────────────────────────────────────────────
   const handleAddCourse = async (e) => {
     e.preventDefault();
+    if (isBatchFrozen) return;
     const semester = semesterNumber(newCourseSem);
     const coordinator = coordinatorOptions.find(
       (person) => String(person.id) === String(newCourseCoord)
@@ -398,6 +404,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   };
 
   const handleCoordinatorChange = async (offering, coordinatorId) => {
+    if (isBatchFrozen) return;
     const coordinator = coordinatorOptions.find(
       (person) => String(person.id) === String(coordinatorId)
     );
@@ -416,6 +423,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   };
 
   const handleSaveTargets = async () => {
+    if (isBatchFrozen) return false;
     if (!programmeId || !batchId) {
       throw new Error('Select an assigned programme batch before saving targets.');
     }
@@ -437,6 +445,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   };
 
   const handleProgrammeSurveyUpload = async (event) => {
+    if (isBatchFrozen) return;
     const file = event.target.files?.[0];
     if (!file) return;
     setProgrammeSurveyUploading(true);
@@ -458,7 +467,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   };
 
   const handleDeleteProgrammeSurvey = async () => {
-    if (!batchId || programmeSurveyUploading) return;
+    if (!batchId || programmeSurveyUploading || isBatchFrozen) return;
     setProgrammeSurveyUploading(true);
     setProgrammeSurveyError(null);
     try {
@@ -484,7 +493,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const handleSaveAndNext = async () => {
     try {
       setIsSavingStep(true);
-      if (currentStep === 2) {
+      if (currentStep === 2 && !isBatchFrozen) {
         await handleSaveTargets();
       }
       await saveSetupProgress(Math.min(currentStep + 1, STEPS.length), currentStep);
@@ -706,7 +715,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   Create programme-batch courses from the HOD master-course catalogue and assign their Course Coordinators.
                 </p>
               </div>
-              {!isAllocationReviewLocked && !approvalReadOnly ? (
+              {!isBatchFrozen && !isAllocationReviewLocked && !approvalReadOnly ? (
                 <button
                   className="btn btn-primary"
                   type="button"
@@ -757,7 +766,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
             )}
 
             {/* Inline add form */}
-            {!isAllocationReviewLocked && !approvalReadOnly && (
+              {!isBatchFrozen && !isAllocationReviewLocked && !approvalReadOnly && (
               <form onSubmit={handleAddCourse} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
                 <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '3px' }}>Add Programme-Batch Course</div>
                 <p style={{ margin: '0 0 10px', fontSize: '11.5px', color: muted }}>
@@ -851,13 +860,13 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                         <td>
                           <select
                             value={coordinatorId}
-                            disabled={isAllocationReviewLocked}
+                            disabled={isAllocationReviewLocked || isBatchFrozen}
                             onChange={(e) => handleCoordinatorChange(offering, e.target.value)}
                             style={{
                               ...inputStyle,
                               height: '34px',
                               fontSize: '12px',
-                              cursor: isAllocationReviewLocked ? 'not-allowed' : 'pointer',
+                              cursor: isAllocationReviewLocked || isBatchFrozen ? 'not-allowed' : 'pointer',
                               color: accent,
                               fontWeight: '600',
                               background: isAllocationReviewLocked ? '#f8fafc' : '#ffffff',
@@ -909,7 +918,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {!isTargetsReviewLocked && !approvalReadOnly ? (
+                {!isBatchFrozen && !isTargetsReviewLocked && !approvalReadOnly ? (
                   <>
                     <button
                       className="btn btn-primary"
@@ -1003,11 +1012,11 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                           <td style={{ textAlign: 'center' }}>
                             <input
                               type="number" min={1} max={3} step={0.1}
-                              disabled={isTargetsReviewLocked}
+                              disabled={isTargetsReviewLocked || isBatchFrozen}
                               value={poTargetDraft[po.code] ?? 2.0}
                               onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) setPoTargetDraft((prev) => ({ ...prev, [po.code]: v })); }}
                               onBlur={(e) => { const v = Math.min(3, Math.max(1, parseFloat(e.target.value) || 1)); setPoTargetDraft((prev) => ({ ...prev, [po.code]: Math.round(v * 10) / 10 })); }}
-                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: accent, background: isTargetsReviewLocked ? '#f8fafc' : '#ffffff', cursor: isTargetsReviewLocked ? 'not-allowed' : 'text' }}
+                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: accent, background: isTargetsReviewLocked || isBatchFrozen ? '#f8fafc' : '#ffffff', cursor: isTargetsReviewLocked || isBatchFrozen ? 'not-allowed' : 'text' }}
                             />
                           </td>
                         </tr>
@@ -1041,11 +1050,11 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                           <td style={{ textAlign: 'center' }}>
                             <input
                               type="number" min={1} max={3} step={0.1}
-                              disabled={isTargetsReviewLocked}
+                              disabled={isTargetsReviewLocked || isBatchFrozen}
                               value={psoTargetDraft[pso.code] ?? 2.0}
                               onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) setPsoTargetDraft((prev) => ({ ...prev, [pso.code]: v })); }}
                               onBlur={(e) => { const v = Math.min(3, Math.max(1, parseFloat(e.target.value) || 1)); setPsoTargetDraft((prev) => ({ ...prev, [pso.code]: Math.round(v * 10) / 10 })); }}
-                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: '#059669', background: isTargetsReviewLocked ? '#f8fafc' : '#ffffff', cursor: isTargetsReviewLocked ? 'not-allowed' : 'text' }}
+                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: '#059669', background: isTargetsReviewLocked || isBatchFrozen ? '#f8fafc' : '#ffffff', cursor: isTargetsReviewLocked || isBatchFrozen ? 'not-allowed' : 'text' }}
                             />
                           </td>
                         </tr>
@@ -1096,7 +1105,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   <Download size={14} /> Download Template
                 </a>
                 {surveyResult && (
-                  <button type="button" onClick={handleDeleteProgrammeSurvey} disabled={programmeSurveyUploading} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', cursor: programmeSurveyUploading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                  <button type="button" onClick={handleDeleteProgrammeSurvey} disabled={programmeSurveyUploading || isBatchFrozen} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', cursor: programmeSurveyUploading || isBatchFrozen ? 'not-allowed' : 'pointer', opacity: isBatchFrozen ? 0.55 : 1, fontFamily: 'inherit' }}>
                     Remove Survey Data
                   </button>
                 )}
@@ -1114,8 +1123,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   <Upload size={36} style={{ color: accent, marginBottom: '8px' }} />
                   <strong style={{ display: 'block', fontSize: '15px', color: ink }}>Upload Programme End Survey Excel File (.xlsx, .xls)</strong>
                   <p style={{ margin: '4px 0 14px', fontSize: '12px', color: muted }}>Excel survey ratings mapped to the programme batch PO and PSO outcomes.</p>
-                  <input type="file" accept=".xlsx,.xls" id="programme-survey-file-input" style={{ display: 'none' }} onChange={handleProgrammeSurveyUpload} disabled={programmeSurveyUploading || !programmeId || !batchId} />
-                  <label htmlFor="programme-survey-file-input" style={{ height: '38px', padding: '0 16px', background: accent, color: '#ffffff', borderRadius: '8px', fontWeight: '700', fontSize: '12.5px', cursor: programmeId && batchId ? 'pointer' : 'not-allowed', opacity: programmeId && batchId ? 1 : 0.5, display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Upload size={15} /> Select Survey Excel</label>
+                  <input type="file" accept=".xlsx,.xls" id="programme-survey-file-input" style={{ display: 'none' }} onChange={handleProgrammeSurveyUpload} disabled={programmeSurveyUploading || !programmeId || !batchId || isBatchFrozen} />
+                  <label htmlFor="programme-survey-file-input" style={{ height: '38px', padding: '0 16px', background: accent, color: '#ffffff', borderRadius: '8px', fontWeight: '700', fontSize: '12.5px', cursor: programmeId && batchId && !isBatchFrozen ? 'pointer' : 'not-allowed', opacity: programmeId && batchId && !isBatchFrozen ? 1 : 0.5, display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Upload size={15} /> Select Survey Excel</label>
                 </>}
               </div>
             </div>

@@ -113,8 +113,11 @@ const normalizeProgramme = (programme) => ({
 });
 
 const normalizeBatch = (batch) => ({
-  id: batch?.id ?? batch?.programmeBatchId ?? null,
-  programmeBatchId: batch?.programmeBatchId ?? batch?.id ?? null,
+  // The lifecycle API identifies a batch by `id`.  Retain the explicit
+  // `batchId` compatibility alias so a display name is never persisted as
+  // the selected batch identifier when older responses use that field.
+  id: batch?.id ?? batch?.programmeBatchId ?? batch?.batchId ?? null,
+  programmeBatchId: batch?.programmeBatchId ?? batch?.batchId ?? batch?.id ?? null,
   name: batch?.name ?? null,
   masterProgrammeId: batch?.masterProgrammeId ?? null,
   programmeId: batch?.masterProgrammeId ?? null,

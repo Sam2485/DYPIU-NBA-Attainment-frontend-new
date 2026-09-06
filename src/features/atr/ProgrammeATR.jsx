@@ -105,18 +105,18 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const reportStatus = atrApproval?.status ?? storedReportStatus;
   const verificationRemarks = atrApproval?.remarks ?? storedVerificationRemarks;
   const verifierName = atrApproval?.approvedBy ?? storedVerifierName;
-  // GRADUATED is a concluded lifecycle state and must unlock Programme ATR.
-  // Only explicitly archived batches remain read-only historical records.
-  const isPreviousBatch = currentBatchObj?.name?.includes('Archived');
+  // A completed batch is the sole lifecycle state in which a Programme ATR
+  // can be edited. Approval then moves the batch to GRADUATED, which is
+  // permanently read-only unless the backend explicitly reopens it.
   const isSubmittedForReview = submittedForReview || ['PENDING', 'SUBMITTED_FOR_VERIFICATION', 'SUBMITTED', 'PENDING_APPROVAL'].includes(reportStatus);
   const responseBatchStatus = batchAtrAccess?.batchStatus ?? batchAtrAccess?.batch?.status ?? currentBatchObj?.status ?? null;
-  const isBatchConcluded = ['COMPLETED', 'GRADUATED'].includes(String(responseBatchStatus ?? '').toUpperCase());
-  const isPendingBatchCompletion = batchAtrAccess?.isUnlocked === false
-    || (batchAtrAccess != null && !isBatchConcluded);
+  const isBatchCompleted = String(responseBatchStatus ?? '').toUpperCase() === 'COMPLETED';
+  const isBatchGraduated = String(responseBatchStatus ?? '').toUpperCase() === 'GRADUATED';
+  const isPendingBatchCompletion = batchAtrAccess?.isUnlocked === false || !isBatchCompleted;
   const batchLockReason = batchAtrAccess?.unlockReason
     || `Programme ATR is locked until the HOD marks this programme batch as completed or graduated. Current batch status: ${responseBatchStatus ?? 'ACTIVE'}.`;
   const isAtrAccessLoading = Boolean(selectedBatchId) && currentAtrLoadState === 'loading';
-  const locked = readOnly || isAtrAccessLoading || isPendingBatchCompletion || isPreviousBatch || isSubmittedForReview || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
+  const locked = readOnly || isAtrAccessLoading || isPendingBatchCompletion || isBatchGraduated || isSubmittedForReview || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
 
   useEffect(() => {
     // Match the Programme Coordinator workflow: fetch batches using the
@@ -528,7 +528,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
                 </>
               ) : (
                 <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Lock size={13} /> {isPendingBatchCompletion ? 'Locked — Awaiting Batch Completion' : isPreviousBatch ? `${currentBatchObj.name} (Archived)` : isSubmittedForReview ? 'Submitted — Pending HOD Review' : 'Report Locked'}
+                  <Lock size={13} /> {isPendingBatchCompletion ? 'Locked — Awaiting Batch Completion' : isBatchGraduated ? 'Graduated — Permanently Locked' : isSubmittedForReview ? 'Submitted — Pending HOD Review' : 'Report Locked'}
                 </span>
               ))}
             </div>
@@ -590,21 +590,6 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
               </div>
             </>
           )}
-        </div>
-      )}
-
-      {/* Archived Year Lock Banner */}
-      {!showHistory && isPreviousBatch && (
-        <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-          <Lock size={20} style={{ color: '#1d4ed8', flexShrink: 0 }} />
-          <div>
-            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#1e40af', display: 'block' }}>
-              🔒 Archived Academic Batch ({currentBatchObj.name}) — Read Only
-            </span>
-            <span style={{ fontSize: '12px', color: '#1e3a8a', display: 'block', marginTop: '2px' }}>
-              This Programme Action Taken Report is an archived historical record from {currentBatchObj.name}. Previous batch ATR reports are locked and cannot be edited.
-            </span>
-          </div>
         </div>
       )}
 

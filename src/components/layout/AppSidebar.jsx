@@ -322,7 +322,7 @@ export default function AppSidebar({
     : uniqueBatches.find((ub) => ub.span === currentSpan) || uniqueBatches[0];
   const isBatchActive = isHod
     ? Boolean(hodDashboard?.activeBatch)
-    : currentUniqueBatch?.status === 'ACTIVE' || currentUniqueBatch?.status === 'INITIALIZED';
+    : currentUniqueBatch?.status === 'ACTIVE';
 
   const handleBatchChange = (targetSpan) => {
     const matchingUnique = uniqueBatches.find((ub) => ub.span === targetSpan);
@@ -604,11 +604,9 @@ export default function AppSidebar({
           >
             {currentUniqueBatch?.status === 'GRADUATED'
               ? 'GRADUATED'
-              : currentUniqueBatch?.status === 'INITIALIZED'
-              ? 'UPCOMING'
-              : isBatchActive
-              ? 'ACTIVE'
-              : 'CLOSED'}
+              : currentUniqueBatch?.status === 'COMPLETED'
+              ? 'COMPLETED'
+              : 'ACTIVE'}
           </span>
         </div>
         <select
@@ -632,16 +630,11 @@ export default function AppSidebar({
           {isHod ? (
             <option value={currentSpan}>{currentSpan}</option>
           ) : uniqueBatches.map((ub) => {
-            const isCurrent = ub.span === '2025-2029' || ub.startYear === '2025-26';
-            const statusLabel = isCurrent
-              ? '(Active — Current)'
-              : ub.status === 'ACTIVE'
+            const statusLabel = ub.status === 'ACTIVE'
               ? '(Active)'
               : ub.status === 'GRADUATED'
               ? '(Graduated / Alumni)'
-              : ub.status === 'INITIALIZED'
-              ? '(Upcoming)'
-              : '(Closed)';
+              : '(Completed — ATR in progress)';
 
             return (
               <option key={ub.span} value={ub.span} style={{ color: '#0f172a', background: '#ffffff' }}>

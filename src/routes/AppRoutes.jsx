@@ -12,6 +12,7 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import CourseAllocationGate from '../components/course/CourseAllocationGate';
+import CourseBatchLifecycleGate from '../components/course/CourseBatchLifecycleGate';
 
 import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
@@ -105,7 +106,11 @@ function RoleProtectedRoute({ children, allowedRoles, requiresCourseAllocation =
 }
 
 function CourseAllocationProtectedRoute({ children }) {
-  return <CourseAllocationGate>{children}</CourseAllocationGate>;
+  return (
+    <CourseAllocationGate>
+      <CourseBatchLifecycleGate>{children}</CourseBatchLifecycleGate>
+    </CourseAllocationGate>
+  );
 }
 
 
