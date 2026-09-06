@@ -91,6 +91,11 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     completeProgrammeCoordinatorSetupProgress = () => Promise.resolve(null),
     loadCoordinatorProgrammeBatches = () => Promise.resolve([]),
     loadCourseCoordinators = () => Promise.resolve([]),
+    activeSemester = 1,
+    setActiveSemester = () => {},
+    semestersStatusOverview = {},
+    loadSemestersStatusOverview = () => Promise.resolve([]),
+    allocateCourses = () => Promise.resolve(null),
   } = useAcademic();
   const loadedBatchScopeRef = useRef(null);
   const loadedCourseCoordinatorsRef = useRef(false);
@@ -158,13 +163,18 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     masterProgrammes[0] ||
     { id: 'prog-1', name: 'B.Tech Computer Science & Engineering', code: 'BE-COMP', durationYears: 4 };
 
+  const semesterOverview = semestersStatusOverview[batchId] ?? [];
+  const activeSemesterStatus = semesterOverview.find((item) => Number(item.semester) === Number(activeSemester));
+  const semesterStatus = String(activeSemesterStatus?.status ?? '').toUpperCase();
+  const isActiveSemesterLocked = ['COMPLETED', 'ALLOCATION_APPROVED', 'SUBMITTED_FOR_VERIFICATION', 'SUBMITTED'].includes(semesterStatus);
+
   const allocationKey = `allocation-${programmeId}-${batchId}`;
   const allocationRecord = safeCourseVerificationStore[allocationKey] || {};
   const approvalForBatch = (type) => programmeCoordinatorApprovals
     .filter((approval) => approval.type === type && String(approval.programmeBatchId) === String(batchId))
     .sort((left, right) => new Date(right.submittedAt ?? right.approvedAt ?? 0) - new Date(left.submittedAt ?? left.approvedAt ?? 0))[0] ?? null;
   const allocationApproval = approvalForBatch('COURSE_ALLOCATION');
-  const allocationStatus = allocationApproval?.status ?? allocationRecord.allocationStatus ?? 'DRAFT';
+  const allocationStatus = activeSemesterStatus?.allocationStatus ?? allocationApproval?.status ?? allocationRecord.allocationStatus ?? 'DRAFT';
   const allocationRemarks = allocationApproval?.remarks ?? allocationRecord.allocationRemarks ?? '';
   const allocationApprovedBy = allocationApproval?.approvedBy ?? 'Head of Department (HOD)';
 
@@ -174,21 +184,33 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const isAllocationReviewLocked = isAllocationSubmitted || isAllocationApproved;
 
   const handleSubmitAllocations = async () => {
-    if (isBatchFrozen) return;
+    if (isBatchFrozen || isActiveSemesterLocked) return;
     if (!programmeId || !batchId) {
       alert('Select a Programme and Programme Batch before submitting allocations.');
       return;
     }
     try {
-      await approvalsApi.submitApproval({
-        type: 'COURSE_ALLOCATION',
-        title: `Course Allocations for ${selectedBatch?.name || batchId}`,
+      const allocations = programmeBatchCourses.map((offering) => ({
+        masterCourseId: offering.masterCourseId ?? offering.courseId ?? offering.id,
+        semester: activeSemester,
+        courseCode: offering.courseCode ?? offering.code ?? offering.courseCodeOverride,
+        courseName: offering.courseName ?? offering.name ?? offering.courseNameOverride,
+        credits: offering.credits,
+        coordinator: offering.courseCoordinatorName ?? offering.coordinator,
+        coordinatorEmail: offering.courseCoordinatorEmail ?? offering.coordinatorEmail,
+      }));
+      if (!allocations.length) {
+        alert(`Add at least one course to Semester ${activeSemester} before submitting it.`);
+        return;
+      }
+      await allocateCourses({
         masterProgrammeId: programmeId,
         programmeBatchId: batchId,
-        resourceId: batchId,
+        submit: true,
+        allocations,
       });
-      updateCourseVerificationStatus(allocationKey, 'allocationStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
-      alert(`Course Coordinator allocations for ${selectedProgramme?.name} submitted for HOD approval!`);
+      await loadSemestersStatusOverview(batchId);
+      alert(`Semester ${activeSemester} course allocations submitted for HOD approval.`);
     } catch (error) {
       console.error('Failed to submit course allocations for review:', error);
       alert(error?.response?.data?.message || 'Unable to submit allocations for HOD review. Please try again.');
@@ -310,7 +332,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const [newCourseSem,   setNewCourseSem]   = useState(programmeSemesters[0] || 'Sem I');
   const [newCourseCoord, setNewCourseCoord] = useState('');
   const programmeBatchCourses = courseOfferings.filter(
-    (offering) => String(offering.batchId) === String(batchId)
+    (offering) => String(offering.batchId) === String(batchId) && Number(offering.semester) === Number(activeSemester)
   );
   const batchStatus = String(selectedBatch?.status ?? '').toUpperCase();
   const isBatchFrozen = batchStatus === 'COMPLETED' || batchStatus === 'GRADUATED';
@@ -338,7 +360,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({
       }).catch(() => {});
     }
     if (hasResolvedSelectedBatch) loadCourseOfferings(batchId).catch(() => {});
-  }, [batchId, currentStep, hasResolvedSelectedBatch, loadCourseCoordinators, loadCourseOfferings, programmeId]);
+    if (hasResolvedSelectedBatch) loadSemestersStatusOverview(batchId).catch(() => {});
+  }, [batchId, currentStep, hasResolvedSelectedBatch, loadCourseCoordinators, loadCourseOfferings, loadSemestersStatusOverview, programmeId]);
 
   // ── Step 2 – PO/PSO Targets ──────────────────────────────────────────────
   const [poTargetDraft, setPoTargetDraft] = useState({});
@@ -374,8 +397,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   // ── Step handlers ────────────────────────────────────────────────────────
   const handleAddCourse = async (e) => {
     e.preventDefault();
-    if (isBatchFrozen) return;
-    const semester = semesterNumber(newCourseSem);
+    if (isBatchFrozen || isActiveSemesterLocked) return;
+    const semester = Number(activeSemester);
     const coordinator = coordinatorOptions.find(
       (person) => String(person.id) === String(newCourseCoord)
     );
@@ -404,7 +427,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   };
 
   const handleCoordinatorChange = async (offering, coordinatorId) => {
-    if (isBatchFrozen) return;
+    if (isBatchFrozen || isActiveSemesterLocked) return;
     const coordinator = coordinatorOptions.find(
       (person) => String(person.id) === String(coordinatorId)
     );
@@ -735,6 +758,21 @@ export default function ProgrammeCoordinatorSetupWorkflow({
               )}
             </div>
 
+            <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: muted, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: '8px' }}>Semester Allocation</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+                {Array.from({ length: totalSemesters }, (_, index) => index + 1).map((semester) => {
+                  const item = semesterOverview.find((entry) => Number(entry.semester) === semester);
+                  const status = String(item?.status ?? 'EMPTY').toUpperCase();
+                  const active = Number(activeSemester) === semester;
+                  const color = status === 'COMPLETED' ? '#64748b' : status === 'ALLOCATION_APPROVED' ? '#15803d' : ['SUBMITTED_FOR_VERIFICATION', 'SUBMITTED'].includes(status) ? '#b45309' : status === 'DRAFT' ? '#7c3aed' : '#64748b';
+                  const background = active ? '#eef2ff' : '#ffffff';
+                  return <button key={semester} type="button" onClick={() => { setActiveSemester(semester); setNewCourseSem(`Sem ${ROMAN_NUMERALS[semester - 1] || semester}`); }} style={{ minWidth: '78px', height: '39px', padding: '0 9px', borderRadius: '8px', border: `1px solid ${active ? '#818cf8' : '#e2e8f0'}`, background, color, fontSize: '11px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit' }}>Sem {semester}<br /><span style={{ fontSize: '9px' }}>{status.replaceAll('_', ' ')}</span></button>;
+                })}
+              </div>
+              <p style={{ margin: '9px 0 0', color: muted, fontSize: '11.5px' }}>You are editing Semester {activeSemester} independently. Approved or completed semesters are read-only.</p>
+            </div>
+
             {/* Approved Banner */}
             {isAllocationApproved && (
               <div style={{ background: '#f0fdf4', border: '1.5px solid #a7f3d0', padding: '14px 18px', marginBottom: '18px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -766,7 +804,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
             )}
 
             {/* Inline add form */}
-              {!isBatchFrozen && !isAllocationReviewLocked && !approvalReadOnly && (
+              {!isBatchFrozen && !isActiveSemesterLocked && !approvalReadOnly && (
               <form onSubmit={handleAddCourse} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
                 <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '3px' }}>Add Programme-Batch Course</div>
                 <p style={{ margin: '0 0 10px', fontSize: '11.5px', color: muted }}>
@@ -809,9 +847,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   </div>
                   <div>
                     <label style={labelStyle}>Semester</label>
-                    <select value={newCourseSem} onChange={(e) => setNewCourseSem(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-                      {programmeSemesters.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    <input value={`Semester ${activeSemester}`} readOnly style={{ ...inputStyle, color: accent, fontWeight: '700', background: '#f8fafc' }} />
                   </div>
                   <div>
                     <label style={labelStyle}>Course Coordinator</label>

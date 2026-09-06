@@ -62,6 +62,10 @@ export default function HodBatchManagement() {
     createBatch = () => Promise.resolve(null),
     updateBatch = () => Promise.resolve(null),
     updateProgrammeBatchStatus = () => Promise.resolve(null),
+    loadSemestersStatusOverview = () => Promise.resolve([]),
+    loadSemesterReadiness = () => Promise.resolve(null),
+    executeCompleteSemester = () => Promise.resolve(null),
+    executeReopenSemester = () => Promise.resolve(null),
     deleteBatch             = () => {},
     getStudentsByBatch      = () => [],
     addStudentToBatch       = () => {},
@@ -147,6 +151,11 @@ export default function HodBatchManagement() {
   const [deletingStudent, setDeletingStudent] = useState(null);
 
   const [toastMessage, setToastMessage] = useState(null);
+  const [semesterStatusByBatch, setSemesterStatusByBatch] = useState({});
+  const [readinessDialog, setReadinessDialog] = useState(null);
+  const [semesterReason, setSemesterReason] = useState('');
+  const [semesterActionError, setSemesterActionError] = useState('');
+  const [isUpdatingSemester, setIsUpdatingSemester] = useState(false);
 
   // Auto-recalc end year when programme or start year changes
   useEffect(() => {
@@ -155,7 +164,51 @@ export default function HodBatchManagement() {
   }, [selectedProgrammeId, durationYears]);
 
   const programmeBatches   = batches.filter((b) => b.programmeId === selectedProgrammeId);
+  const programmeBatchIds = programmeBatches.map((batch) => batch.id).join('|');
   const activeBatchesCount = programmeBatches.filter((b) => b.status === 'ACTIVE').length;
+
+  useEffect(() => {
+    let current = true;
+    Promise.all(programmeBatches.map(async (batch) => [batch.id, await loadSemestersStatusOverview(batch.id)]))
+      .then((entries) => { if (current) setSemesterStatusByBatch(Object.fromEntries(entries)); })
+      .catch(() => {});
+    return () => { current = false; };
+  }, [loadSemestersStatusOverview, programmeBatchIds]);
+
+  const openSemesterReadiness = async (batch, semester) => {
+    setSemesterActionError('');
+    setSemesterReason('');
+    setReadinessDialog({ batch, semester, loading: true, readiness: null });
+    try {
+      const readiness = await loadSemesterReadiness(batch.id, semester.semester);
+      setReadinessDialog({ batch, semester, loading: false, readiness });
+    } catch (error) {
+      setReadinessDialog({ batch, semester, loading: false, readiness: null });
+      setSemesterActionError(error?.response?.data?.message || 'Unable to load semester readiness.');
+    }
+  };
+
+  const updateSemesterLifecycle = async (action) => {
+    if (!readinessDialog) return;
+    if (action === 'reopen' && !semesterReason.trim()) {
+      setSemesterActionError('Enter a reason to reopen this completed semester.');
+      return;
+    }
+    setIsUpdatingSemester(true);
+    setSemesterActionError('');
+    try {
+      const { batch, semester } = readinessDialog;
+      if (action === 'complete') await executeCompleteSemester(batch.id, semester.semester, semesterReason.trim());
+      else await executeReopenSemester(batch.id, semester.semester, semesterReason.trim());
+      const overview = await loadSemestersStatusOverview(batch.id);
+      setSemesterStatusByBatch((previous) => ({ ...previous, [batch.id]: overview }));
+      setReadinessDialog(null);
+    } catch (error) {
+      setSemesterActionError(error?.response?.data?.message || error?.message || 'Unable to update semester status.');
+    } finally {
+      setIsUpdatingSemester(false);
+    }
+  };
 
   // ── Add batch handlers ───────────────────────────────────────────────────
   const handleStartYearChange = (val) => {
@@ -981,6 +1034,24 @@ export default function HodBatchManagement() {
                   </div>
                 </div>
               </div>
+              {isActive && (
+                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #eef2f7' }}>
+                  <div style={{ fontSize: '10.5px', fontWeight: '800', color: muted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '8px' }}>Semester lifecycle</div>
+                  <div style={{ display: 'grid', gap: '7px' }}>
+                    {(semesterStatusByBatch[batch.id] ?? Array.from({ length: (batch.durationYears ?? durationYears) * 2 }, (_, index) => ({ semester: index + 1, status: 'EMPTY', courseCount: 0 }))).map((semester) => {
+                      const status = String(semester.status ?? 'EMPTY').replaceAll('_', ' ');
+                      const completed = semester.isCompleted || String(semester.status).toUpperCase() === 'COMPLETED';
+                      return <div key={semester.semester} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '12px' }}>
+                        <strong style={{ minWidth: '72px', color: ink }}>Semester {semester.semester}</strong>
+                        <span style={{ padding: '3px 8px', borderRadius: '5px', background: completed ? '#f1f5f9' : '#eef2ff', border: `1px solid ${completed ? '#cbd5e1' : '#c7d2fe'}`, color: completed ? '#475569' : '#3730a3', fontWeight: '800', fontSize: '10.5px' }}>{status}</span>
+                        <span style={{ color: muted }}>{semester.courseCount ?? 0} course(s)</span>
+                        <button type="button" onClick={() => openSemesterReadiness(batch, semester)} style={{ height: '27px', padding: '0 9px', border: '1px solid #c7d2fe', borderRadius: '6px', background: '#fff', color: accent, fontWeight: '700', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit' }}>Inspect readiness</button>
+                        {completed && <button type="button" onClick={() => { setSemesterReason(''); setSemesterActionError(''); setReadinessDialog({ batch, semester, loading: false, readiness: null, mode: 'reopen' }); }} style={{ height: '27px', padding: '0 9px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff', color: '#475569', fontWeight: '700', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit' }}>Reopen</button>}
+                      </div>;
+                    })}
+                  </div>
+                </div>
+              )}
               {editingBatch?.id === batch.id && (
                 <form
                   onSubmit={handleSaveEditBatch}
@@ -1043,6 +1114,26 @@ export default function HodBatchManagement() {
           itemName={deletingBatch.name}
           itemType="Batch Record"
         />
+      )}
+
+      {readinessDialog && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1001, display: 'grid', placeItems: 'center', padding: '20px', background: 'rgba(15,23,42,.58)' }}>
+          <div role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: '560px', background: '#fff', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 22px 70px rgba(15,23,42,.32)' }}>
+            <div style={{ padding: '20px 22px' }}>
+              <h3 style={{ margin: 0, color: ink, fontSize: '16px' }}>{readinessDialog.mode === 'reopen' ? `Reopen Semester ${readinessDialog.semester.semester}` : `Semester ${readinessDialog.semester.semester} Readiness`}</h3>
+              {readinessDialog.loading ? <p style={{ color: muted, fontSize: '13px' }}>Loading readiness checklist…</p> : readinessDialog.mode === 'reopen' ? <p style={{ color: muted, fontSize: '12.5px', lineHeight: 1.5 }}>Reopening re-enables course work for this semester. An audited reason is required.</p> : <>
+                <p style={{ color: muted, fontSize: '12.5px' }}>Ready courses: <strong style={{ color: ink }}>{readinessDialog.readiness?.readyCourseCount ?? 0} / {readinessDialog.readiness?.courseCount ?? 0}</strong>. Warnings are advisory; HOD may still complete the semester.</p>
+                <div style={{ display: 'grid', gap: '7px', maxHeight: '190px', overflowY: 'auto' }}>{(readinessDialog.readiness?.warnings ?? []).length ? readinessDialog.readiness.warnings.map((warning, index) => <div key={`${warning.programmeBatchCourseId ?? index}-${warning.issue}`} style={{ padding: '9px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '7px', color: '#92400e', fontSize: '12px' }}><strong>{warning.issue}</strong> — {warning.message}</div>) : <div style={{ padding: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '7px', color: '#166534', fontSize: '12px' }}>No readiness warnings.</div>}</div>
+              </>}
+              <div style={{ marginTop: '14px' }}><label style={labelStyle}>{readinessDialog.mode === 'reopen' ? 'Reason *' : 'Completion note (optional)'}</label><textarea value={semesterReason} onChange={(event) => { setSemesterReason(event.target.value); setSemesterActionError(''); }} rows={3} style={{ ...inputStyle, height: 'auto', padding: '9px 11px', resize: 'vertical' }} /></div>
+              {semesterActionError && <div style={{ marginTop: '8px', color: '#b91c1c', fontSize: '12px', fontWeight: '700' }}>{semesterActionError}</div>}
+            </div>
+            <div style={{ padding: '14px 22px', display: 'flex', justifyContent: 'flex-end', gap: '8px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+              <button type="button" onClick={() => setReadinessDialog(null)} disabled={isUpdatingSemester} style={{ height: '35px', padding: '0 13px', border: '1px solid #cbd5e1', background: '#fff', borderRadius: '7px', color: '#475569', fontWeight: '700', cursor: 'pointer' }}>Cancel</button>
+              {!readinessDialog.loading && <button type="button" onClick={() => updateSemesterLifecycle(readinessDialog.mode === 'reopen' ? 'reopen' : 'complete')} disabled={isUpdatingSemester} style={{ height: '35px', padding: '0 13px', border: 0, background: '#4f46e5', borderRadius: '7px', color: '#fff', fontWeight: '800', cursor: isUpdatingSemester ? 'wait' : 'pointer' }}>{isUpdatingSemester ? 'Saving…' : readinessDialog.mode === 'reopen' ? 'Reopen Semester' : 'Complete Semester'}</button>}
+            </div>
+          </div>
+        </div>
       )}
 
       {concludingBatch && (

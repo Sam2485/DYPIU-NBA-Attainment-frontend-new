@@ -303,6 +303,8 @@ export function AcademicProvider({ children }) {
     () => readCourseCoordinatorSelection('programme_batch_course')
   );
   const [academicYear, setAcademicYear] = useState('');
+  const [activeSemester, setActiveSemester] = useState(1);
+  const [semestersStatusOverview, setSemestersStatusOverview] = useState({});
 
   /* ------------------------------------------------------------------------ */
   /* Academic entities state                                                  */
@@ -1543,6 +1545,34 @@ export function AcademicProvider({ children }) {
     return item;
   }, []);
 
+  /* --- Semester Lifecycle --- */
+  const loadSemestersStatusOverview = useCallback(async (targetBatchId = batchId) => {
+    if (!targetBatchId) return [];
+    const response = await apiClient.get(`/academic/programme-batches/${targetBatchId}/semesters/status`);
+    const data = unwrapList(response);
+    setSemestersStatusOverview((previous) => ({ ...previous, [targetBatchId]: data }));
+    return data;
+  }, [batchId]);
+
+  const loadSemesterReadiness = useCallback(async (targetBatchId, semester) => {
+    if (!targetBatchId || !semester) return null;
+    const response = await apiClient.get(`/academic/programme-batches/${targetBatchId}/semesters/${semester}/readiness`);
+    return unwrap(response);
+  }, []);
+
+  const executeCompleteSemester = useCallback(async (targetBatchId, semester, reason = '') => {
+    const response = await apiClient.post(`/academic/programme-batches/${targetBatchId}/semesters/${semester}/complete`, { reason });
+    await loadSemestersStatusOverview(targetBatchId);
+    return unwrap(response);
+  }, [loadSemestersStatusOverview]);
+
+  const executeReopenSemester = useCallback(async (targetBatchId, semester, reason) => {
+    if (!String(reason ?? '').trim()) throw new Error('A reason is required to reopen a completed semester.');
+    const response = await apiClient.post(`/academic/programme-batches/${targetBatchId}/semesters/${semester}/reopen`, { reason: reason.trim() });
+    await loadSemestersStatusOverview(targetBatchId);
+    return unwrap(response);
+  }, [loadSemestersStatusOverview]);
+
   /* --- Course CRUD --- */
   const createCourse = useCallback(async (data) => {
     const res = await apiClient.post('/academic/master-courses', toMasterCoursePayload(data));
@@ -2024,6 +2054,13 @@ export function AcademicProvider({ children }) {
     deleteProgrammeBatch,
     updateProgrammeBatchStatus,
     assignProgrammeBatchCoordinator,
+    activeSemester,
+    setActiveSemester,
+    semestersStatusOverview,
+    loadSemestersStatusOverview,
+    loadSemesterReadiness,
+    executeCompleteSemester,
+    executeReopenSemester,
 
     /* Academic year */
     academicYear,

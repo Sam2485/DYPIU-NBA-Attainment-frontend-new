@@ -100,6 +100,21 @@ export const academicApi = {
     apiClient.delete(`/academic/programme-batches/${id}`),
 
   // =========================
+  // Semester Lifecycle
+  // =========================
+  getSemestersStatusOverview: (programmeBatchId) =>
+    apiClient.get(`/academic/programme-batches/${programmeBatchId}/semesters/status`),
+
+  getSemesterReadiness: (programmeBatchId, semester) =>
+    apiClient.get(`/academic/programme-batches/${programmeBatchId}/semesters/${semester}/readiness`),
+
+  completeSemester: (programmeBatchId, semester, reason) =>
+    apiClient.post(`/academic/programme-batches/${programmeBatchId}/semesters/${semester}/complete`, { reason }),
+
+  reopenSemester: (programmeBatchId, semester, reason) =>
+    apiClient.post(`/academic/programme-batches/${programmeBatchId}/semesters/${semester}/reopen`, { reason }),
+
+  // =========================
   // Programme Batches
   // =========================
   getProgrammeBatches: (masterProgrammeId) => {
