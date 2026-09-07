@@ -195,14 +195,14 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     }
     try {
       const allocations = programmeBatchCourses.map((offering) => ({
-        programmeBatchCourseId: offering.programmeBatchCourseId ?? offering.id,
-        semester: activeSemester,
-        code: offering.courseCode ?? offering.code ?? offering.courseCodeOverride,
-        name: offering.courseName ?? offering.name ?? offering.courseNameOverride,
+        courseId: offering.programmeBatchCourseId ?? offering.id,
+        courseCode: offering.courseCode ?? offering.code ?? offering.courseCodeOverride,
+        courseName: offering.courseName ?? offering.name ?? offering.courseNameOverride,
         credits: offering.credits,
         courseType: offering.courseType,
-        coordinator: offering.courseCoordinatorName ?? offering.coordinator,
-        coordinatorEmail: offering.courseCoordinatorEmail ?? offering.coordinatorEmail,
+        courseCoordinatorId: offering.courseCoordinatorId,
+        courseCoordinatorName: offering.courseCoordinatorName ?? offering.coordinator,
+        assignedFaculty: offering.assignedFaculty ?? '',
       }));
       if (!allocations.length) {
         alert(`Add at least one course to Semester ${activeSemester} before submitting it.`);
@@ -211,6 +211,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
       await allocateCourses({
         masterProgrammeId: programmeId,
         programmeBatchId: batchId,
+        semester: activeSemester,
         submit: true,
         allocations,
       });
@@ -741,7 +742,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   {standaloneCourseManagement ? 'Manage Courses' : 'Programme Setup — Course & Coordinator Roster'}
                 </h3>
                 <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>
-                  Create programme-batch courses from the HOD master-course catalogue and assign their Course Coordinators.
+                  Create programme-batch courses and assign their Course Coordinators.
                 </p>
               </div>
               {!isBatchFrozen && !isAllocationReviewLocked && !approvalReadOnly ? (

@@ -13,9 +13,9 @@ export const dashboardApi = {
     const params = masterProgrammeId ? { masterProgrammeId } : {};
     return apiClient.get('/dashboard/programme-coordinator', { params });
   },
-  getCourseCoordinatorDashboard: (masterCourseId, programmeBatchId) => {
+  getCourseCoordinatorDashboard: (programmeBatchCourseId, programmeBatchId) => {
     const params = {};
-    if (masterCourseId) params.masterCourseId = masterCourseId;
+    if (programmeBatchCourseId) params.programmeBatchCourseId = programmeBatchCourseId;
     if (programmeBatchId) params.programmeBatchId = programmeBatchId;
     return apiClient.get('/dashboard/course-coordinator', { params });
   },

@@ -151,8 +151,11 @@ export default function AcademicSetup() {
 
       if (createdCourse?.id && batchId && coordinator?.id != null) {
         await addCourseOffering({
-          masterCourseId: createdCourse.masterCourseId ?? createdCourse.id,
           programmeBatchId: batchId,
+          code: createdCourse.code,
+          name: createdCourse.name,
+          credits: createdCourse.credits,
+          courseType: createdCourse.courseType,
           semester: createdCourse.semester,
           courseCoordinatorEmail: coordinator.email,
           assignedFaculty: coordinator.email,
@@ -183,16 +186,22 @@ export default function AcademicSetup() {
     try {
       if (offering) {
         await updateCourseOffering(offering.id, {
-          masterCourseId: course.masterCourseId ?? course.id,
           programmeBatchId: batchId,
+          code: course.code,
+          name: course.name,
+          credits: course.credits,
+          courseType: course.courseType,
           semester: course.semester,
           courseCoordinatorEmail: coordinator.email,
           assignedFaculty: coordinator.email,
         });
       } else {
         await addCourseOffering({
-          masterCourseId: course.masterCourseId ?? course.id,
           programmeBatchId: batchId,
+          code: course.code,
+          name: course.name,
+          credits: course.credits,
+          courseType: course.courseType,
           semester: course.semester,
           courseCoordinatorEmail: coordinator.email,
           assignedFaculty: coordinator.email,

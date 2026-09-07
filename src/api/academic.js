@@ -151,20 +151,20 @@ export const academicApi = {
   // Programme-Batch Courses
   // =========================
   getCourseOfferings: (programmeBatchId, semester) =>
-    apiClient.get(`/academic/programme-batches/${programmeBatchId}/courses`, {
+    apiClient.get(`/programme-batch-courses/batch/${programmeBatchId}`, {
       params: semester ? { semester } : undefined,
     }),
 
   getCourseOfferingById: (programmeBatchCourseId) =>
-    apiClient.get(`/academic/programme-batch-courses/${programmeBatchCourseId}`),
+    apiClient.get(`/programme-batch-courses/${programmeBatchCourseId}`),
 
-  createCourseOffering: (data) => apiClient.post('/academic/programme-batch-courses', data),
+  createCourseOffering: (data) => apiClient.post('/programme-batch-courses', data),
 
   updateCourseOffering: (id, data) =>
-    apiClient.put(`/academic/programme-batch-courses/${id}`, data),
+    apiClient.put(`/programme-batch-courses/${id}`, data),
 
   deleteCourseOffering: (id) =>
-    apiClient.delete(`/academic/programme-batch-courses/${id}`),
+    apiClient.delete(`/programme-batch-courses/${id}`),
 
   // =========================
   // Course Offering Outcomes

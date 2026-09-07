@@ -105,8 +105,6 @@ export default function ProgrammeCoordinatorDashboard() {
   const courseCount = countValue(
     dashboardStatistics.courses,
     dashboardStatistics.coursesCount,
-    dashboardStatistics.masterCourses,
-    dashboardStatistics.masterCoursesCount,
     scopedDashboard?.totalCoursesCount,
     scopedDashboard?.courses?.length
   );

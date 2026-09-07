@@ -94,7 +94,7 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
     : selectedCourseOffering || selectedCourse;
 
   // All Course ATR API operations are scoped to the selected programme-batch
-  // course, never to the underlying master-course ID.
+  // programme-batch course ID.
   const activeCourseId = selectedCourseOffering?.programmeBatchCourseId
     ?? courseOfferingId
     ?? courseId

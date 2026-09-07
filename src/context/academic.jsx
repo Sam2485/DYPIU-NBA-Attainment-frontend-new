@@ -237,8 +237,9 @@ const toProgrammeBatchCoursePayload = (data = {}) => ({
   credits: data.credits,
   courseType: data.courseType,
   semester: data.semester,
-  coordinator: data.coordinator ?? data.courseCoordinator ?? data.courseCoordinatorName,
-  coordinatorEmail: data.coordinatorEmail ?? data.courseCoordinatorEmail,
+  courseCoordinatorId: data.courseCoordinatorId ?? data.coordinatorId ?? null,
+  courseCoordinatorName: data.courseCoordinatorName ?? data.courseCoordinator ?? data.coordinator ?? '',
+  assignedFaculty: data.assignedFaculty ?? '',
 });
 
 /* ========================================================================== */
@@ -677,7 +678,7 @@ export function AcademicProvider({ children }) {
       return [];
     }
     try {
-      const response = await apiClient.get(`/academic/programme-batches/${targetBatchId}/courses`, {
+      const response = await apiClient.get(`/programme-batch-courses/batch/${targetBatchId}`, {
         params: semester ? { semester } : undefined,
       });
       const data = unwrapList(response).map(normalizeCourse);
@@ -698,7 +699,7 @@ export function AcademicProvider({ children }) {
     }
     try {
       const response = await apiClient.get(
-        `/academic/programme-batches/${targetBatchId}/courses`
+        `/programme-batch-courses/batch/${targetBatchId}`
       );
       const data = unwrapList(response).map(normalizeOffering);
       setCourseOfferings(data);
@@ -721,11 +722,7 @@ export function AcademicProvider({ children }) {
     }
 
     try {
-      const response = await apiClient.get(`/academic/programme-batch-courses/batch/${targetBatchId}`, {
-        params: {
-          coordinatorEmail,
-        },
-      });
+      const response = await apiClient.get(`/programme-batch-courses/batch/${targetBatchId}`);
       const assigned = unwrapList(response).map(normalizeOffering);
       setCourseOfferings(assigned);
       return assigned;
@@ -739,7 +736,7 @@ export function AcademicProvider({ children }) {
   const loadCourseOffering = useCallback(async (offeringId) => {
     if (!offeringId) return null;
     try {
-      const response = await apiClient.get(`/academic/programme-batch-courses/${offeringId}`);
+      const response = await apiClient.get(`/programme-batch-courses/${offeringId}`);
       const data = normalizeOffering(unwrap(response));
       setCourseOfferings((prev) => {
         const withoutCurrent = prev.filter((item) => item.id !== data.id);
@@ -1077,7 +1074,7 @@ export function AcademicProvider({ children }) {
       }
       try {
         const response = await apiClient.get(
-          `/academic/programme-batch-courses/${offeringId}/attainment-main`
+          `/programme-batch-courses/${offeringId}/attainment-main`
         );
         const data = unwrap(response);
         setCoAttainment(data);
@@ -1098,7 +1095,7 @@ export function AcademicProvider({ children }) {
         return null;
       }
       try {
-        const response = await apiClient.get(`/academic/programme-batch-courses/${programmeBatchCourseId}/atr`);
+        const response = await apiClient.get(`/programme-batch-courses/${programmeBatchCourseId}/atr`);
         const data = unwrap(response);
         setCourseATR(data);
         return data;
@@ -1541,27 +1538,27 @@ export function AcademicProvider({ children }) {
 
   /* --- Course CRUD --- */
   const createCourse = useCallback(async (data) => {
-    const res = await apiClient.post('/academic/programme-batch-courses', toProgrammeBatchCoursePayload(data));
+    const res = await apiClient.post('/programme-batch-courses', toProgrammeBatchCoursePayload(data));
     const item = normalizeCourse(unwrap(res));
     setCourses((prev) => [...prev.filter((c) => c.id !== item.id), item]);
     return item;
   }, []);
 
   const updateCourse = useCallback(async (id, data) => {
-    const res = await apiClient.put(`/academic/programme-batch-courses/${id}`, toProgrammeBatchCoursePayload(data));
+    const res = await apiClient.put(`/programme-batch-courses/${id}`, toProgrammeBatchCoursePayload(data));
     const item = normalizeCourse(unwrap(res));
     setCourses((prev) => prev.map((c) => (c.id === id ? item : c)));
     return item;
   }, []);
 
   const deleteCourse = useCallback(async (id) => {
-    await apiClient.delete(`/academic/programme-batch-courses/${id}`);
+    await apiClient.delete(`/programme-batch-courses/${id}`);
     setCourses((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
   /* --- Course Offering CRUD --- */
   const addCourseOffering = useCallback(async (payload) => {
-    const response = await apiClient.post('/academic/programme-batch-courses', toProgrammeBatchCoursePayload(payload));
+    const response = await apiClient.post('/programme-batch-courses', toProgrammeBatchCoursePayload(payload));
     const data = normalizeOffering(unwrap(response));
 
     setCourseOfferings((prev) => {
@@ -1579,7 +1576,7 @@ export function AcademicProvider({ children }) {
   // them in the existing offering collection because downstream course work
   // (COs, mappings and attainment) remains scoped by this generated ID.
   const addProgrammeBatchCourse = useCallback(async (payload) => {
-    const response = await apiClient.post('/academic/programme-batch-courses', toProgrammeBatchCoursePayload(payload));
+    const response = await apiClient.post('/programme-batch-courses', toProgrammeBatchCoursePayload(payload));
     const data = normalizeOffering(unwrap(response));
 
     setCourseOfferings((prev) => {
@@ -1594,7 +1591,7 @@ export function AcademicProvider({ children }) {
   const updateCourseOffering = useCallback(
     async (offeringId, payload) => {
       const response = await apiClient.put(
-        `/academic/programme-batch-courses/${offeringId}`,
+        `/programme-batch-courses/${offeringId}`,
         toProgrammeBatchCoursePayload(payload)
       );
       const data = normalizeOffering(unwrap(response));
@@ -1614,7 +1611,7 @@ export function AcademicProvider({ children }) {
   const updateProgrammeBatchCourse = useCallback(
     async (programmeBatchCourseId, payload) => {
       const response = await apiClient.put(
-        `/academic/programme-batch-courses/${programmeBatchCourseId}`,
+        `/programme-batch-courses/${programmeBatchCourseId}`,
         toProgrammeBatchCoursePayload(payload)
       );
       const data = normalizeOffering(unwrap(response));
@@ -1646,8 +1643,8 @@ export function AcademicProvider({ children }) {
       }
 
       const coordinator = courseCoordinators.find((user) => String(user.id) === String(coordinatorId));
-      if (!coordinator?.email) {
-        throw new Error('A course coordinator email is required for the programme-batch course assignment.');
+      if (!coordinator?.id) {
+        throw new Error('A course coordinator is required for the programme-batch course assignment.');
       }
 
       return updateCourseOffering(offering.id, {
@@ -1657,8 +1654,9 @@ export function AcademicProvider({ children }) {
         credits: offering.credits,
         courseType: offering.courseType,
         semester: offering.semester,
-        courseCoordinatorEmail: coordinator.email,
-        assignedFaculty: coordinator.email,
+        courseCoordinatorId: coordinator.id,
+        courseCoordinatorName: coordinator.name ?? coordinator.username ?? coordinator.email,
+        assignedFaculty: coordinator.name ?? coordinator.username ?? coordinator.email,
       });
     },
     [batchId, courseCoordinators, courseOfferings, updateCourseOffering]
@@ -1666,7 +1664,9 @@ export function AcademicProvider({ children }) {
 
   /* --- Course Allocation --- */
   const allocateCourses = useCallback(async (payload) => {
-    const { programmeBatchId, semester, ...allocation } = payload;
+    const programmeBatchId = payload.programmeBatchId ?? payload.batchId;
+    const semester = payload.semester ?? payload.allocations?.[0]?.semester;
+    const { batchId: _batchId, programmeBatchId: _programmeBatchId, semester: _semester, ...allocation } = payload;
     if (!programmeBatchId || !semester) throw new Error('Programme batch and semester are required to allocate courses.');
     const response = await apiClient.post(
       `/academic/programme-batches/${programmeBatchId}/semesters/${semester}/allocate`,

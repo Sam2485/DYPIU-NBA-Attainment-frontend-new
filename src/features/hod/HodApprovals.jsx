@@ -72,7 +72,7 @@ export default function HodApprovals() {
     try {
       const approvalResponse = queue === 'REVIEWED'
         ? await apiClient.get('/approvals/hod/reviewed', { params: { masterProgrammeId: selectedProgrammeId } })
-        : await apiClient.get('/approvals/hod', { params: { masterProgrammeId: selectedProgrammeId } });
+        : await apiClient.get('/approvals/pending');
       setApprovals(asList(approvalResponse).filter((item) => !programmeIdOf(item) || String(programmeIdOf(item)) === String(selectedProgrammeId)));
     } catch (requestError) { setError(requestError?.response?.data?.message ?? 'Unable to load HOD approvals.'); setApprovals([]); } finally { setLoading(false); }
   }, [queueTab, selectedDepartmentId, selectedProgrammeId]);
@@ -97,7 +97,8 @@ export default function HodApprovals() {
     apiClient.get(`/academic/programme-batches/${targetBatchId}/semesters/${semester}/review-courses`)
       .then((response) => {
         if (!current) return;
-        const allocations = asList(response);
+        const review = unwrap(response);
+        const allocations = Array.isArray(review?.courses) ? review.courses : asList(response);
         setDetail({ loading: false, error: '', allocations, targets: null, atr: null });
       })
       .catch((requestError) => {

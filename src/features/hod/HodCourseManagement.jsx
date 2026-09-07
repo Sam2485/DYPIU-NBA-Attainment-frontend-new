@@ -115,8 +115,11 @@ export default function HodCourseManagement() {
       );
       if (batchId && coordinator) {
         await addCourseOffering({
-          masterCourseId: savedCourse.masterCourseId ?? savedCourse.id,
           programmeBatchId: batchId,
+          code: savedCourse.code,
+          name: savedCourse.name,
+          credits: savedCourse.credits,
+          courseType: savedCourse.courseType,
           semester: savedCourse.semester,
           courseCoordinatorEmail: coordinator.email || '',
           assignedFaculty: coordinator.email || '',

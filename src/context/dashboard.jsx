@@ -36,7 +36,7 @@ export const DIRECTOR_WORKFLOW_STEPS = [
 ];
 
 export const HOD_WORKFLOW_STEPS = [
-  { step: 1, key: 'master_courses', number: 1, title: 'Master Courses', label: 'Master Courses', desc: 'Build the programme course catalogue', path: '/hod/setup-workflow?step=1', icon: 'BookOpen' },
+  { step: 1, key: 'programme_batch_courses', number: 1, title: 'Programme Batch Courses', label: 'Programme Batch Courses', desc: 'Manage programme-batch courses', path: '/hod/setup-workflow?step=1', icon: 'BookOpen' },
   { step: 2, key: 'batch', number: 2, title: 'Batch Setup', label: 'Batch Setup', desc: 'Initialize student batch cycle', path: '/hod/batch-management', icon: 'Calendar' },
   { step: 3, key: 'coordinators', number: 3, title: 'Coordinator Allocation', label: 'Coordinator Allocation', desc: 'Assign a coordinator to each batch', path: '/hod/setup-workflow?step=3', icon: 'UserCheck' },
   { step: 4, key: 'outcomes', number: 4, title: 'PO / PSO / PEO', label: 'PO / PSO / PEO', desc: 'Define outcome framework', path: '/hod/programme-outcomes', icon: 'Layers' },
@@ -44,7 +44,7 @@ export const HOD_WORKFLOW_STEPS = [
 ];
 
 const HOD_STEP_ALIASES = {
-  master_courses: 1, master_course: 1, mastercourse: 1, course: 1, courses: 1,
+  programme_batch_courses: 1, course: 1, courses: 1,
   batch: 2, batches: 2, batch_setup: 2,
   coordinators: 3, coordinator: 3, coordinator_allocation: 3, allocation: 3, programme_coordinator: 3,
   outcomes: 4, outcome: 4, po_pso: 4, po_pso_peo: 4, pos: 4, peo: 4, peos: 4,

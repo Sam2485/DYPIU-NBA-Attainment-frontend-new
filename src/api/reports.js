@@ -45,9 +45,9 @@ export const reportsApi = {
   downloadProgrammeAttainmentSectionExcel: (programmeBatchId, section) =>
     apiClient.get(`/reports/programme-attainment/${programmeBatchId}/section/${section}/excel`, { responseType: 'blob' }),
   downloadCourseAttainmentPdf: (programmeBatchCourseId) =>
-    apiClient.get(`/reports/course-attainment/${programmeBatchCourseId}/pdf`, { responseType: 'blob' }),
+    apiClient.get(`/reports/course-attainment/${programmeBatchCourseId}/export/pdf`, { responseType: 'blob' }),
   downloadCourseAttainmentExcel: (programmeBatchCourseId) =>
-    apiClient.get(`/reports/course-attainment/${programmeBatchCourseId}/excel`, { responseType: 'blob' }),
+    apiClient.get(`/reports/course-attainment/${programmeBatchCourseId}/export/excel`, { responseType: 'blob' }),
   downloadProgrammeAtrPdf: (programmeBatchId) =>
     apiClient.get(`/reports/programme-atr/${programmeBatchId}/pdf`, { responseType: 'blob' }),
   downloadProgrammeAtrExcel: (programmeBatchId) =>
@@ -193,7 +193,7 @@ export const reportsApi = {
     programmeBatchCourseId
   ) =>
     apiClient.get(
-      `/programme-batch-courses/${programmeBatchCourseId}/co-attainment`
+      `/programme-batch-courses/${programmeBatchCourseId}/attainment-main`
     ),
 
   // -----------------------------------------------------------------------
