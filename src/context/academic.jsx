@@ -140,8 +140,8 @@ const normalizeBatch = (batch) => ({
 });
 
 const normalizeCourse = (course) => ({
-  id: course?.id ?? course?.masterCourseId ?? null,
-  masterCourseId: course?.masterCourseId ?? course?.id ?? null,
+  id: course?.id ?? course?.programmeBatchCourseId ?? null,
+  programmeBatchCourseId: course?.programmeBatchCourseId ?? course?.id ?? null,
   code: course?.code ?? null,
   name: course?.name ?? null,
   masterProgrammeId: course?.masterProgrammeId ?? null,
@@ -169,8 +169,8 @@ const PC_SETUP_STEP_KEYS = {
 const normalizeOffering = (offering) => ({
   id: offering?.id ?? offering?.programmeBatchCourseId ?? null,
   programmeBatchCourseId: offering?.programmeBatchCourseId ?? offering?.id ?? null,
-  masterCourseId: offering?.masterCourseId ?? null,
-  courseId: offering?.masterCourseId ?? null,
+  // A programme-batch course is the course identity throughout the frontend.
+  courseId: offering?.programmeBatchCourseId ?? offering?.id ?? null,
   masterProgrammeId: offering?.masterProgrammeId ?? null,
   programmeId: offering?.masterProgrammeId ?? null,
   programmeBatchId: offering?.programmeBatchId ?? null,
@@ -228,14 +228,6 @@ const toProgrammeBatchPayload = (data = {}) => ({
   startYear: data.startYear,
   endYear: data.endYear,
   durationYears: data.durationYears,
-});
-
-const toMasterCoursePayload = (data = {}) => ({
-  masterProgrammeId: data.masterProgrammeId ?? data.programmeId,
-  code: data.code,
-  name: data.name,
-  credits: data.credits,
-  courseType: data.courseType,
 });
 
 const toProgrammeBatchCoursePayload = (data = {}) => ({
@@ -436,21 +428,19 @@ export function AcademicProvider({ children }) {
     const nextCourseId = newCourseId || null;
     setCourseIdState(nextCourseId);
     if ((role === 'FACULTY' || role === 'COURSE_COORDINATOR') && typeof window !== 'undefined') {
-      const key = getCourseCoordinatorSelectionStorageKey('master_course');
+      const key = getCourseCoordinatorSelectionStorageKey('programme_batch_course');
       if (nextCourseId) sessionStorage.setItem(key, nextCourseId);
       else sessionStorage.removeItem(key);
     }
   }, [role, user?.email, user?.id]);
 
-  // After a refresh, the offering list is fetched asynchronously. Reconnect
-  // the restored offering to its underlying course as soon as that list is
-  // available, so screens that use either selector retain the same course.
+  // Course Coordinator selection is always the programme-batch course ID.
   useEffect(() => {
     if ((role !== 'FACULTY' && role !== 'COURSE_COORDINATOR') || !courseOfferingId) return;
     const restoredOffering = courseOfferings.find(
       (offering) => String(offering.id) === String(courseOfferingId)
     );
-    const restoredCourseId = restoredOffering?.courseId ?? restoredOffering?.masterCourseId;
+    const restoredCourseId = restoredOffering?.id;
     if (restoredCourseId && String(restoredCourseId) !== String(courseId)) {
       setCourseId(restoredCourseId);
     }
@@ -476,19 +466,14 @@ export function AcademicProvider({ children }) {
     [courseOfferings, courseOfferingId]
   );
 
-  const availableCourses = useMemo(() => {
-    if (!programmeId) return [];
-    return courses.filter((course) => course.programmeId === programmeId);
-  }, [courses, programmeId]);
+  const availableCourses = useMemo(() => courses, [courses]);
 
   const availableCourseOfferings = useMemo(() => {
     let result = courseOfferings;
     if (batchId) {
       result = result.filter((offering) => offering.batchId === batchId);
     }
-    if (courseId) {
-      result = result.filter((offering) => offering.courseId === courseId);
-    }
+    if (courseId) result = result.filter((offering) => offering.id === courseId);
     return result;
   }, [courseOfferings, batchId, courseId]);
 
@@ -686,43 +671,24 @@ export function AcademicProvider({ children }) {
   }, []);
 
   /* --- Courses --- */
-  const loadCourses = useCallback(
-    async ({ targetProgrammeId = null, targetBatchId = null } = {}) => {
-      try {
-        const params = {};
-        if (targetProgrammeId) params.masterProgrammeId = targetProgrammeId;
-        if (targetBatchId) params.programmeBatchId = targetBatchId;
-
-        const response = await apiClient.get('/academic/master-courses', { params });
-        const data = unwrapList(response).map(normalizeCourse);
-        setCourses(data);
-        return data;
-      } catch (err) {
-        console.warn('loadCourses failed:', err);
-        return [];
-      }
-    },
-    []
-  );
-
-  const loadMasterCourses = useCallback(
-    async ({ masterProgrammeId = null, programmeBatchId = null } = {}) => {
-      try {
-        const params = {};
-        if (masterProgrammeId) params.masterProgrammeId = masterProgrammeId;
-        if (programmeBatchId) params.programmeBatchId = programmeBatchId;
-
-        const response = await apiClient.get('/academic/master-courses', { params });
-        const data = unwrapList(response).map(normalizeCourse);
-        setCourses(data);
-        return data;
-      } catch (err) {
-        console.warn('loadMasterCourses failed:', err);
-        return [];
-      }
-    },
-    []
-  );
+  const loadCourses = useCallback(async ({ targetBatchId = batchId, semester = null } = {}) => {
+    if (!targetBatchId) {
+      setCourses([]);
+      return [];
+    }
+    try {
+      const response = await apiClient.get(`/academic/programme-batches/${targetBatchId}/courses`, {
+        params: semester ? { semester } : undefined,
+      });
+      const data = unwrapList(response).map(normalizeCourse);
+      setCourses(data);
+      return data;
+    } catch (err) {
+      console.warn('loadCourses failed:', err);
+      setCourses([]);
+      return [];
+    }
+  }, [batchId]);
 
   /* --- Programme-Batch Courses --- */
   const loadCourseOfferings = useCallback(async (targetBatchId = batchId) => {
@@ -744,7 +710,7 @@ export function AcademicProvider({ children }) {
   }, [batchId]);
 
   // Course Coordinators work only with their assigned programme-batch courses.
-  // The offering ID, not the master-course ID, is the scope for every
+  // The offering ID is the scope for every
   // downstream CO, mapping, attainment and ATR operation.
   const loadAssignedCourseOfferings = useCallback(async (coordinator = user, targetBatchId = batchId) => {
     const coordinatorEmail = String(coordinator?.email ?? '').trim().toLowerCase();
@@ -1575,44 +1541,27 @@ export function AcademicProvider({ children }) {
 
   /* --- Course CRUD --- */
   const createCourse = useCallback(async (data) => {
-    const res = await apiClient.post('/academic/master-courses', toMasterCoursePayload(data));
+    const res = await apiClient.post('/academic/programme-batch-courses', toProgrammeBatchCoursePayload(data));
     const item = normalizeCourse(unwrap(res));
     setCourses((prev) => [...prev.filter((c) => c.id !== item.id), item]);
     return item;
   }, []);
 
   const updateCourse = useCallback(async (id, data) => {
-    const res = await apiClient.put(`/academic/master-courses/${id}`, toMasterCoursePayload(data));
+    const res = await apiClient.put(`/academic/programme-batch-courses/${id}`, toProgrammeBatchCoursePayload(data));
     const item = normalizeCourse(unwrap(res));
     setCourses((prev) => prev.map((c) => (c.id === id ? item : c)));
     return item;
   }, []);
 
   const deleteCourse = useCallback(async (id) => {
-    await apiClient.delete(`/academic/master-courses/${id}`);
+    await apiClient.delete(`/academic/programme-batch-courses/${id}`);
     setCourses((prev) => prev.filter((c) => c.id !== id));
-  }, []);
-
-  const createMasterCourse = useCallback(async (data) => {
-    const response = await apiClient.post('/academic/master-courses', toMasterCoursePayload(data));
-    const item = normalizeCourse(unwrap(response));
-    setCourses((previous) => [...previous.filter((course) => course.id !== item.id), item]);
-    return item;
-  }, []);
-
-  const deleteMasterCourse = useCallback(async (masterCourseId) => {
-    await apiClient.delete(`/academic/master-courses/${masterCourseId}`);
-    setCourses((previous) => previous.filter((course) => course.id !== masterCourseId));
   }, []);
 
   /* --- Course Offering CRUD --- */
   const addCourseOffering = useCallback(async (payload) => {
-    const targetBatchId = payload.programmeBatchId ?? payload.batchId;
-    const { programmeBatchId, ...coursePayload } = toProgrammeBatchCoursePayload(payload);
-    const response = await apiClient.post(
-      `/academic/programme-batches/${targetBatchId}/courses`,
-      coursePayload
-    );
+    const response = await apiClient.post('/academic/programme-batch-courses', toProgrammeBatchCoursePayload(payload));
     const data = normalizeOffering(unwrap(response));
 
     setCourseOfferings((prev) => {
@@ -1630,12 +1579,7 @@ export function AcademicProvider({ children }) {
   // them in the existing offering collection because downstream course work
   // (COs, mappings and attainment) remains scoped by this generated ID.
   const addProgrammeBatchCourse = useCallback(async (payload) => {
-    const targetBatchId = payload.programmeBatchId ?? payload.batchId;
-    const { programmeBatchId, ...coursePayload } = toProgrammeBatchCoursePayload(payload);
-    const response = await apiClient.post(
-      `/academic/programme-batches/${targetBatchId}/courses`,
-      coursePayload
-    );
+    const response = await apiClient.post('/academic/programme-batch-courses', toProgrammeBatchCoursePayload(payload));
     const data = normalizeOffering(unwrap(response));
 
     setCourseOfferings((prev) => {
@@ -1692,7 +1636,7 @@ export function AcademicProvider({ children }) {
   const assignCourseCoordinator = useCallback(
     async (targetCourseId, coordinatorId, targetBatchId = batchId) => {
       const offering = courseOfferings.find(
-        (item) => item.courseId === targetCourseId && item.batchId === targetBatchId
+        (item) => item.id === targetCourseId && item.batchId === targetBatchId
       );
 
       if (!offering) {
@@ -1707,8 +1651,11 @@ export function AcademicProvider({ children }) {
       }
 
       return updateCourseOffering(offering.id, {
-        masterCourseId: offering.masterCourseId,
         programmeBatchId: offering.programmeBatchId,
+        code: offering.courseCode,
+        name: offering.courseName,
+        credits: offering.credits,
+        courseType: offering.courseType,
         semester: offering.semester,
         courseCoordinatorEmail: coordinator.email,
         assignedFaculty: coordinator.email,
@@ -1719,7 +1666,12 @@ export function AcademicProvider({ children }) {
 
   /* --- Course Allocation --- */
   const allocateCourses = useCallback(async (payload) => {
-    const response = await apiClient.post('/academic/master-courses/allocate', payload);
+    const { programmeBatchId, semester, ...allocation } = payload;
+    if (!programmeBatchId || !semester) throw new Error('Programme batch and semester are required to allocate courses.');
+    const response = await apiClient.post(
+      `/academic/programme-batches/${programmeBatchId}/semesters/${semester}/allocate`,
+      { programmeBatchId, semester, ...allocation }
+    );
     return unwrap(response);
   }, []);
 
@@ -1981,7 +1933,7 @@ export function AcademicProvider({ children }) {
       return;
     }
     setCourseOfferingId(offering.id);
-    setCourseId(offering.courseId ?? offering.masterCourseId);
+    setCourseId(offering.id);
     setBatchId(offering.batchId);
     if ((role === 'FACULTY' || role === 'COURSE_COORDINATOR') && typeof window !== 'undefined') {
       sessionStorage.setItem(getCourseCoordinatorSelectionStorageKey('programme_batch_course'), offering.id);
@@ -2073,13 +2025,10 @@ export function AcademicProvider({ children }) {
     courseId,
     setCourseId,
     loadCourses,
-    loadMasterCourses,
     createCourse,
     addCourse: createCourse,
     updateCourse,
     deleteCourse,
-    createMasterCourse,
-    deleteMasterCourse,
 
     /* Course Offerings */
     courseOfferings,

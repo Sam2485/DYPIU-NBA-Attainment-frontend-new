@@ -99,6 +99,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   } = useAcademic();
   const loadedBatchScopeRef = useRef(null);
   const loadedCourseCoordinatorsRef = useRef(false);
+  const [locallySubmittedSemesters, setLocallySubmittedSemesters] = useState(() => new Set());
 
   // Context data is initially empty while the selected programme is restored.
   // Defaults in destructuring do not cover an explicit null value, so normalize
@@ -166,14 +167,16 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const semesterOverview = semestersStatusOverview[batchId] ?? [];
   const activeSemesterStatus = semesterOverview.find((item) => Number(item.semester) === Number(activeSemester));
   const semesterStatus = String(activeSemesterStatus?.status ?? '').toUpperCase();
-  const isActiveSemesterLocked = ['COMPLETED', 'ALLOCATION_APPROVED', 'SUBMITTED_FOR_VERIFICATION', 'SUBMITTED'].includes(semesterStatus);
+  const activeSemesterScope = `${batchId ?? 'no-batch'}:${activeSemester}`;
+  const isLocallySubmitted = locallySubmittedSemesters.has(activeSemesterScope);
+  const isActiveSemesterLocked = isLocallySubmitted || ['COMPLETED', 'ALLOCATION_APPROVED', 'SUBMITTED_FOR_VERIFICATION', 'SUBMITTED'].includes(semesterStatus);
 
-  const allocationKey = `allocation-${programmeId}-${batchId}`;
+  const allocationKey = `allocation-${batchId}-sem-${activeSemester}`;
   const allocationRecord = safeCourseVerificationStore[allocationKey] || {};
-  const approvalForBatch = (type) => programmeCoordinatorApprovals
-    .filter((approval) => approval.type === type && String(approval.programmeBatchId) === String(batchId))
+  const approvalForBatch = (type, resourceId = null) => programmeCoordinatorApprovals
+    .filter((approval) => approval.type === type && String(approval.programmeBatchId) === String(batchId) && (!resourceId || String(approval.resourceId) === resourceId))
     .sort((left, right) => new Date(right.submittedAt ?? right.approvedAt ?? 0) - new Date(left.submittedAt ?? left.approvedAt ?? 0))[0] ?? null;
-  const allocationApproval = approvalForBatch('COURSE_ALLOCATION');
+  const allocationApproval = approvalForBatch('COURSE_ALLOCATION', allocationKey);
   const allocationStatus = activeSemesterStatus?.allocationStatus ?? allocationApproval?.status ?? allocationRecord.allocationStatus ?? 'DRAFT';
   const allocationRemarks = allocationApproval?.remarks ?? allocationRecord.allocationRemarks ?? '';
   const allocationApprovedBy = allocationApproval?.approvedBy ?? 'Head of Department (HOD)';
@@ -182,6 +185,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const isAllocationSubmitted = ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(allocationStatus);
   const isAllocationRevision = allocationStatus === 'REVISION_REQUESTED' || allocationStatus === 'NEEDS_REVISION';
   const isAllocationReviewLocked = isAllocationSubmitted || isAllocationApproved;
+  const allocationRevisionRemarks = activeSemesterStatus?.remarks ?? allocationRemarks;
 
   const handleSubmitAllocations = async () => {
     if (isBatchFrozen || isActiveSemesterLocked) return;
@@ -210,6 +214,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
         submit: true,
         allocations,
       });
+      setLocallySubmittedSemesters((previous) => new Set([...previous, activeSemesterScope]));
       await loadSemestersStatusOverview(batchId);
       alert(`Semester ${activeSemester} course allocations submitted for HOD approval.`);
     } catch (error) {
@@ -764,7 +769,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
                 {Array.from({ length: totalSemesters }, (_, index) => index + 1).map((semester) => {
                   const item = semesterOverview.find((entry) => Number(entry.semester) === semester);
-                  const status = String(item?.status ?? 'EMPTY').toUpperCase();
+                  const status = isLocallySubmitted && semester === Number(activeSemester) ? 'SUBMITTED_FOR_VERIFICATION' : String(item?.status ?? 'EMPTY').toUpperCase();
                   const active = Number(activeSemester) === semester;
                   const color = status === 'COMPLETED' ? '#64748b' : status === 'ALLOCATION_APPROVED' ? '#15803d' : ['SUBMITTED_FOR_VERIFICATION', 'SUBMITTED'].includes(status) ? '#b45309' : status === 'DRAFT' ? '#7c3aed' : '#64748b';
                   const background = active ? '#eef2ff' : '#ffffff';
@@ -773,6 +778,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({
               </div>
               <p style={{ margin: '9px 0 0', color: muted, fontSize: '11.5px' }}>You are editing Semester {activeSemester} independently. Approved or completed semesters are read-only.</p>
             </div>
+
+            {isAllocationRevision && (
+              <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '9px', background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', fontSize: '12.5px', lineHeight: 1.45 }}>
+                <strong>Revision requested for Semester {activeSemester}.</strong>{allocationRevisionRemarks ? ` HOD remarks: ${allocationRevisionRemarks}` : ' Update the allocations and submit this semester again for HOD review.'}
+              </div>
+            )}
 
             {/* Approved Banner */}
             {isAllocationApproved && (

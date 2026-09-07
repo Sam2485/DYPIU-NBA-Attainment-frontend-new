@@ -106,7 +106,7 @@ export function ReportsProvider({ children }) {
         setError(null);
         const params = {};
         if (targetProgrammeId) params.masterProgrammeId = targetProgrammeId;
-        if (targetCourseId) params.masterCourseId = targetCourseId;
+        if (targetCourseId) params.programmeBatchCourseId = targetCourseId;
         if (targetBatchId) params.programmeBatchId = targetBatchId;
 
         const response = await reportsApi.getReportsSummary(params);
@@ -136,7 +136,7 @@ export function ReportsProvider({ children }) {
         setError(null);
         const params = {};
         if (targetProgrammeId) params.masterProgrammeId = targetProgrammeId;
-        if (targetCourseId) params.masterCourseId = targetCourseId;
+        if (targetCourseId) params.programmeBatchCourseId = targetCourseId;
         if (targetBatchId) params.programmeBatchId = targetBatchId;
 
         const response = await reportsApi.getCourseAtrs(params);
@@ -452,7 +452,7 @@ export function ReportsProvider({ children }) {
       try {
         const params = {};
         if (programmeId) params.masterProgrammeId = programmeId;
-        if (courseId) params.masterCourseId = courseId;
+        if (courseId) params.programmeBatchCourseId = courseId;
         if (batchId) params.programmeBatchId = batchId;
         params.reportType = reportType;
 
@@ -481,7 +481,7 @@ export function ReportsProvider({ children }) {
       try {
         const params = {};
         if (programmeId) params.masterProgrammeId = programmeId;
-        if (courseId) params.masterCourseId = courseId;
+        if (courseId) params.programmeBatchCourseId = courseId;
         if (batchId) params.programmeBatchId = batchId;
         params.reportType = reportType;
 

@@ -13,6 +13,10 @@ const unwrap = (response) => response?.data?.data ?? response?.data ?? response 
 const asList = (response) => { const value = unwrap(response); return Array.isArray(value) ? value : []; };
 const approvalIdOf = (item) => item?.approvalRequestId ?? item?.approvalId ?? item?.id ?? null;
 const batchIdOf = (item) => item?.programmeBatchId ?? item?.batchId ?? null;
+const semesterOf = (item) => {
+  const match = String(item?.resourceId ?? '').match(/-sem-(\d+)$/i);
+  return match ? Number(match[1]) : null;
+};
 const programmeIdOf = (item) => item?.masterProgrammeId ?? item?.programmeId ?? null;
 const isPendingApproval = (item) => ['PENDING', 'SUBMITTED', 'SUBMITTED_FOR_VERIFICATION', 'PENDING_APPROVAL'].includes(item?.status ?? 'PENDING');
 const prettyType = (type) => TYPE_META[type]?.label ?? String(type ?? '').replaceAll('_', ' ');
@@ -74,10 +78,34 @@ export default function HodApprovals() {
   }, [queueTab, selectedDepartmentId, selectedProgrammeId]);
   useEffect(() => { loadQueue(); }, [loadQueue]);
   const groupedBatches = useMemo(() => { const groups = new Map(); approvals.filter((item) => queueTab === 'PENDING' ? isPendingApproval(item) : !isPendingApproval(item)).forEach((item) => { const id = batchIdOf(item); if (!id) return; if (!groups.has(id)) groups.set(id, []); groups.get(id).push(item); }); return [...groups.entries()].map(([id, items]) => ({ id, items, label: batchLabelOf(items, id) })).sort((a, b) => a.label.localeCompare(b.label)); }, [approvals, queueTab]);
-  const selectedBatchId = searchParams.get('batchId'); const selectedGroup = groupedBatches.find((group) => String(group.id) === String(selectedBatchId)) ?? null; const selectedApproval = selectedGroup?.items.find((item) => item.type === tab) ?? null;
+  const selectedBatchId = searchParams.get('batchId'); const selectedApprovalId = searchParams.get('approvalId'); const selectedGroup = groupedBatches.find((group) => String(group.id) === String(selectedBatchId)) ?? null; const selectedApproval = selectedGroup?.items.find((item) => String(approvalIdOf(item)) === String(selectedApprovalId)) ?? selectedGroup?.items.find((item) => item.type === tab) ?? null;
   useEffect(() => { if (selectedGroup?.id && String(selectedGroup.id) !== String(batchId)) setBatchId(selectedGroup.id); }, [batchId, selectedGroup?.id, setBatchId]);
-  useEffect(() => { if (!selectedGroup) { setTab(''); return; } setTab((current) => selectedGroup.items.some((item) => item.type === current) ? current : selectedGroup.items[0]?.type ?? ''); }, [selectedGroup]);
-  const handleAction = async (action) => { const approvalId = approvalIdOf(selectedApproval); const status = selectedApproval?.status; const canApprove = isPendingApproval(selectedApproval) || ['REVISION_REQUESTED', 'REJECTED'].includes(status); const canRequestRevision = isPendingApproval(selectedApproval) || ['APPROVED', 'VERIFIED'].includes(status); if (!approvalId || (action === 'approve' && !canApprove) || (action === 'revision' && !canRequestRevision)) return; if (action === 'revision' && !revisionReason.trim()) { setError('Enter revision feedback before sending the request.'); return; } setActionLoading(true); setError(''); try { if (action === 'approve') await apiClient.post(`/approvals/${approvalId}/approve`, { actorName: user?.name ?? user?.username ?? user?.email ?? 'Head of Department', actorRole: 'HOD' }); else await apiClient.post(`/approvals/${approvalId}/request-revision`, { reason: revisionReason.trim() }); setRevisionReason(''); await loadQueue({ force: true }); } catch (requestError) { setError(requestError?.response?.data?.message ?? 'Unable to complete the review action.'); } finally { setActionLoading(false); } };
+  useEffect(() => { if (!selectedGroup) { setTab(''); return; } setTab(selectedApproval?.type ?? selectedGroup.items[0]?.type ?? ''); }, [selectedApproval?.type, selectedGroup]);
+  useEffect(() => {
+    if (!selectedApproval || selectedApproval.type !== 'COURSE_ALLOCATION') {
+      setDetail({ loading: false, error: '', allocations: null, targets: null, atr: null });
+      return;
+    }
+    const targetBatchId = batchIdOf(selectedApproval);
+    const semester = semesterOf(selectedApproval);
+    if (!targetBatchId || !semester) {
+      setDetail({ loading: false, error: 'This semester allocation request is missing its batch or semester scope.', allocations: null, targets: null, atr: null });
+      return;
+    }
+    let current = true;
+    setDetail({ loading: true, error: '', allocations: null, targets: null, atr: null });
+    apiClient.get(`/academic/programme-batches/${targetBatchId}/semesters/${semester}/review-courses`)
+      .then((response) => {
+        if (!current) return;
+        const allocations = asList(response);
+        setDetail({ loading: false, error: '', allocations, targets: null, atr: null });
+      })
+      .catch((requestError) => {
+        if (current) setDetail({ loading: false, error: requestError?.response?.data?.message ?? 'Unable to load submitted semester allocations.', allocations: null, targets: null, atr: null });
+      });
+    return () => { current = false; };
+  }, [selectedApproval]);
+  const handleAction = async (action) => { const approvalId = approvalIdOf(selectedApproval); const status = selectedApproval?.status; const canApprove = isPendingApproval(selectedApproval) || ['REVISION_REQUESTED', 'REJECTED'].includes(status); const canRequestRevision = isPendingApproval(selectedApproval) || ['APPROVED', 'VERIFIED'].includes(status); if (!approvalId || (action === 'approve' && !canApprove) || (action === 'revision' && !canRequestRevision)) return; if (action === 'revision' && !revisionReason.trim()) { setError('Enter revision feedback before sending the request.'); return; } setActionLoading(true); setError(''); try { await apiClient.post(`/approvals/${approvalId}/decision`, { decision: action === 'approve' ? 'APPROVE' : 'REQUEST_REVISION', remarks: action === 'revision' ? revisionReason.trim() : '' }); setRevisionReason(''); await loadQueue({ force: true }); } catch (requestError) { setError(requestError?.response?.data?.message ?? 'Unable to complete the review action.'); } finally { setActionLoading(false); } };
   const activeProgramme = programmes.find((programme) => String(programme.id) === String(selectedProgrammeId));
   const handleProgrammeChange = (nextProgrammeId) => {
     setSelectedProgrammeId(nextProgrammeId);
@@ -96,9 +124,9 @@ export default function HodApprovals() {
         <div><button onClick={() => setSearchParams({})} style={{ border: 0, background: 'transparent', color: accent, cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 700, fontSize: 13 }}><ChevronLeft size={16} /> {queueTab === 'REVIEWED' ? 'Reviewed approvals' : 'Pending approvals'}</button><div style={{ color: ink, fontSize: 19, fontWeight: 800, marginTop: 6 }}>{selectedGroup.label}</div><div style={{ fontSize: 12, color: muted, marginTop: 2 }}>{activeProgramme?.code ? `${activeProgramme.code} · ` : ''}{activeProgramme?.name ?? 'Master Programme'}</div></div>
         <span style={{ fontSize: 12, color: statusTone.color, background: statusTone.background, border: `1px solid ${statusTone.border}`, padding: '5px 10px', borderRadius: 999, fontWeight: 700 }}>{status.replaceAll('_', ' ')}</span>
       </div>
-      <div style={{ ...surface, padding: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>{selectedGroup.items.map((item) => { const meta = TYPE_META[item.type] ?? { label: prettyType(item.type), icon: Layers }; const Icon = meta.icon; const active = tab === item.type; return <button key={item.type} onClick={() => setTab(item.type)} style={{ border: active ? '1px solid #c7d2fe' : '1px solid transparent', color: active ? accent : muted, background: active ? '#eef2ff' : 'transparent', borderRadius: 8, cursor: 'pointer', padding: '9px 12px', display: 'inline-flex', gap: 7, alignItems: 'center', fontFamily: 'inherit', fontSize: 13, fontWeight: 750 }}><Icon size={16} />{meta.label}</button>; })}</div>
+      <div style={{ ...surface, padding: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>{selectedGroup.items.map((item) => { const meta = TYPE_META[item.type] ?? { label: prettyType(item.type), icon: Layers }; const Icon = meta.icon; const active = String(approvalIdOf(item)) === String(approvalIdOf(selectedApproval)); const semester = semesterOf(item); return <button key={approvalIdOf(item)} onClick={() => setSearchParams({ batchId: selectedGroup.id, approvalId: approvalIdOf(item) })} style={{ border: active ? '1px solid #c7d2fe' : '1px solid transparent', color: active ? accent : muted, background: active ? '#eef2ff' : 'transparent', borderRadius: 8, cursor: 'pointer', padding: '9px 12px', display: 'inline-flex', gap: 7, alignItems: 'center', fontFamily: 'inherit', fontSize: 13, fontWeight: 750 }}><Icon size={16} />{meta.label}{semester ? ` · Sem ${semester}` : ''}</button>; })}</div>
       {error && <div style={{ color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 9, padding: '10px 12px', fontSize: 13 }}>{error}</div>}
-      {detail.loading ? <EmptyState>Loading submitted {prettyType(tab).toLowerCase()}…</EmptyState> : detail.error ? <EmptyState>{detail.error}</EmptyState> : tab === 'COURSE_ALLOCATION' ? <ProgrammeCoordinatorSetupWorkflow approvalViewStep={1} approvalReadOnly /> : tab === 'PO_TARGETS' || tab === 'PO_PSO_TARGETS' ? <ProgrammeCoordinatorSetupWorkflow approvalViewStep={2} approvalReadOnly /> : <ProgrammeCoordinatorSetupWorkflow approvalViewStep={4} approvalReadOnly />}
+      {detail.loading ? <EmptyState>Loading submitted {prettyType(tab).toLowerCase()}…</EmptyState> : detail.error ? <EmptyState>{detail.error}</EmptyState> : tab === 'COURSE_ALLOCATION' ? <AllocationView items={detail.allocations ?? []} /> : tab === 'PO_TARGETS' || tab === 'PO_PSO_TARGETS' ? <ProgrammeCoordinatorSetupWorkflow approvalViewStep={2} approvalReadOnly /> : <ProgrammeCoordinatorSetupWorkflow approvalViewStep={4} approvalReadOnly />}
       {(canRequestRevision || canApprove) && <div style={{ ...surface, padding: 18, display: 'grid', gap: 12 }}><div style={{ fontWeight: 800, color: ink }}>{approved ? 'Approved item review' : revisionRequested ? 'Revision review decision' : 'HOD review decision'}</div>{canRequestRevision && <textarea value={revisionReason} onChange={(event) => setRevisionReason(event.target.value)} placeholder="Revision feedback (required when requesting revision)" rows={3} style={{ resize: 'vertical', width: '100%', boxSizing: 'border-box', border: '1px solid #cbd5e1', borderRadius: 8, padding: 10, fontFamily: 'inherit', fontSize: 13, color: ink }} />}<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>{canRequestRevision && <button disabled={actionLoading} onClick={() => handleAction('revision')} style={{ border: '1px solid #fca5a5', background: '#fff', color: '#dc2626', borderRadius: 8, padding: '9px 13px', cursor: 'pointer', fontWeight: 750, fontFamily: 'inherit' }}><Send size={15} style={{ verticalAlign: -3, marginRight: 5 }} />Request revision</button>}{canApprove && <button disabled={actionLoading} onClick={() => handleAction('approve')} style={{ border: 0, background: '#16a34a', color: '#fff', borderRadius: 8, padding: '9px 13px', cursor: 'pointer', fontWeight: 750, fontFamily: 'inherit' }}><Check size={15} style={{ verticalAlign: -3, marginRight: 5 }} />{revisionRequested ? 'Approve' : 'Approve'}</button>}</div></div>}
     </div>;
   }

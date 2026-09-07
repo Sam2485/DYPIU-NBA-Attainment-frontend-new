@@ -461,9 +461,7 @@ export default function ReportsHub() {
     if (isCourseCoordinator || !reportCourseOfferings.length) return;
     const matchingOffering = reportCourseOfferings.find((offering) =>
       String(offering.id) === String(selectedReportCourseOfferingId)
-    ) ?? reportCourseOfferings.find((offering) =>
-      String(offering.courseId ?? offering.masterCourseId) === String(courseId)
-    ) ?? reportCourseOfferings[0];
+    ) ?? reportCourseOfferings.find((offering) => String(offering.id) === String(courseId)) ?? reportCourseOfferings[0];
     if (matchingOffering && String(matchingOffering.id) !== String(selectedCourseOffering?.id)) {
       selectCourseOffering(matchingOffering);
     }
@@ -836,11 +834,9 @@ export default function ReportsHub() {
                 value={isProgrammeCoordinator || isHod || isDirector ? (selectedCourseOffering?.id ?? selectedReportCourseOfferingId) : (currentCourseObj.id || courseId || '')}
                 onChange={(e) => {
                   const selectionId = e.target.value;
-                  const matchingOffering = reportCourseOfferings.find((offering) =>
-                    String(isProgrammeCoordinator || isHod || isDirector ? offering.id : (offering.courseId ?? offering.masterCourseId)) === String(selectionId)
-                  );
+                  const matchingOffering = reportCourseOfferings.find((offering) => String(offering.id) === String(selectionId));
                   if (matchingOffering) {
-                    setCourseId(matchingOffering.courseId ?? matchingOffering.masterCourseId);
+                    setCourseId(matchingOffering.id);
                     setSelectedReportCourseOfferingId(matchingOffering.id);
                     selectCourseOffering(matchingOffering);
                   }
