@@ -191,11 +191,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     }
     try {
       const allocations = programmeBatchCourses.map((offering) => ({
-        masterCourseId: offering.masterCourseId ?? offering.courseId ?? offering.id,
+        programmeBatchCourseId: offering.programmeBatchCourseId ?? offering.id,
         semester: activeSemester,
-        courseCode: offering.courseCode ?? offering.code ?? offering.courseCodeOverride,
-        courseName: offering.courseName ?? offering.name ?? offering.courseNameOverride,
+        code: offering.courseCode ?? offering.code ?? offering.courseCodeOverride,
+        name: offering.courseName ?? offering.name ?? offering.courseNameOverride,
         credits: offering.credits,
+        courseType: offering.courseType,
         coordinator: offering.courseCoordinatorName ?? offering.coordinator,
         coordinatorEmail: offering.courseCoordinatorEmail ?? offering.coordinatorEmail,
       }));
