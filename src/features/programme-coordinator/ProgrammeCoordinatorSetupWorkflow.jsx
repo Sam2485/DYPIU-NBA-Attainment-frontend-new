@@ -194,18 +194,30 @@ export default function ProgrammeCoordinatorSetupWorkflow({
       return;
     }
     try {
-      const allocations = programmeBatchCourses.map((offering) => ({
-        courseId: offering.programmeBatchCourseId ?? offering.id,
-        courseCode: offering.courseCode ?? offering.code ?? offering.courseCodeOverride,
-        courseName: offering.courseName ?? offering.name ?? offering.courseNameOverride,
-        credits: offering.credits,
-        courseType: offering.courseType,
-        courseCoordinatorId: offering.courseCoordinatorId,
-        courseCoordinatorName: offering.courseCoordinatorName ?? offering.coordinator,
-        assignedFaculty: offering.assignedFaculty ?? '',
-      }));
+      const allocations = programmeBatchCourses.map((offering) => {
+        const coordinator = coordinatorOptions.find((person) =>
+          String(person.id) === String(offering.courseCoordinatorId)
+          || String(person.email ?? '').toLowerCase() === String(offering.courseCoordinatorEmail ?? '').toLowerCase()
+          || String(person.name ?? '') === String(offering.courseCoordinatorName ?? offering.coordinator ?? '')
+        );
+        const coordinatorName = coordinator?.name ?? coordinator?.username ?? coordinator?.email ?? offering.courseCoordinatorName ?? offering.coordinator ?? '';
+        return {
+          courseId: offering.programmeBatchCourseId ?? offering.id,
+          courseCode: offering.courseCode ?? offering.code ?? offering.courseCodeOverride,
+          courseName: offering.courseName ?? offering.name ?? offering.courseNameOverride,
+          credits: offering.credits,
+          courseType: offering.courseType,
+          courseCoordinatorId: coordinator?.id ?? offering.courseCoordinatorId ?? null,
+          courseCoordinatorName: coordinatorName,
+          assignedFaculty: offering.assignedFaculty || coordinatorName,
+        };
+      });
       if (!allocations.length) {
         alert(`Add at least one course to Semester ${activeSemester} before submitting it.`);
+        return;
+      }
+      if (allocations.some((allocation) => !allocation.courseId || !allocation.courseCoordinatorId)) {
+        alert(`Assign a Course Coordinator to every course in Semester ${activeSemester} before submitting it.`);
         return;
       }
       await allocateCourses({
@@ -422,8 +434,9 @@ export default function ProgrammeCoordinatorSetupWorkflow({
         credits: Number(newCourseCredits),
         courseType: newCourseType,
         semester,
-        coordinator: coordinator?.name ?? coordinator?.username ?? coordinator?.email ?? null,
-        coordinatorEmail: coordinator?.email ?? null,
+        courseCoordinatorId: coordinator?.id ?? null,
+        courseCoordinatorName: coordinator?.name ?? coordinator?.username ?? coordinator?.email ?? '',
+        assignedFaculty: coordinator?.name ?? coordinator?.username ?? coordinator?.email ?? '',
       });
       setNewCourseCode('');
       setNewCourseName('');
@@ -443,8 +456,14 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     try {
       await updateProgrammeBatchCourse(offering.programmeBatchCourseId ?? offering.id, {
         programmeBatchId: offering.programmeBatchId ?? batchId,
-        coordinator: coordinator.name ?? coordinator.username ?? coordinator.email,
-        coordinatorEmail: coordinator.email,
+        code: offering.courseCode ?? offering.code,
+        name: offering.courseName ?? offering.name,
+        credits: offering.credits,
+        courseType: offering.courseType,
+        semester: offering.semester,
+        courseCoordinatorId: coordinator.id,
+        courseCoordinatorName: coordinator.name ?? coordinator.username ?? coordinator.email,
+        assignedFaculty: coordinator.name ?? coordinator.username ?? coordinator.email,
       });
     } catch (error) {
       console.error('Failed to assign Course Coordinator:', error);
