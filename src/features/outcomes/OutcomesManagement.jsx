@@ -541,6 +541,10 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
         targetLevel: Number(co.targetLevel ?? co.target ?? 2.5),
         bloomsLevel: co.bloomsLevel ?? 'UNDERSTAND',
       }));
+      if (!payload.length) {
+        alert('Add at least one Course Outcome before saving.');
+        return false;
+      }
       if (payload.some((co) => !co.code || !co.statement)) {
         alert('Enter a code and statement for every Course Outcome before saving.');
         return;
@@ -559,7 +563,14 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
   };
 
   const handleSubmitForReview = async () => {
-    if (!targetCourseId || coList.length === 0) return;
+    if (!targetCourseId) {
+      alert('Select an assigned programme-batch course before submitting outcomes.');
+      return;
+    }
+    if (!coList.length) {
+      alert('Add at least one Course Outcome before submitting for review.');
+      return;
+    }
     try {
       setIsSubmittingForReview(true);
       // The approval must always follow a successful save of the exact
@@ -635,16 +646,14 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                 <button
                   className="btn btn-primary"
                   onClick={handleSaveOutcomes}
-                  disabled={!outcomesDirty || isSavingOutcomes}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', opacity: !outcomesDirty || isSavingOutcomes ? 0.5 : 1, cursor: !outcomesDirty || isSavingOutcomes ? 'not-allowed' : 'pointer' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', opacity: 1, cursor: 'pointer' }}
                 >
                   <Save size={15} /> {isSavingOutcomes ? 'Saving…' : outcomesDirty ? 'Save Outcomes' : 'Saved'}
                 </button>
                 <button
                   className="btn btn-primary"
                   onClick={handleSubmitForReview}
-                  disabled={isSubmittingForReview || outcomesPendingReview || coList.length === 0}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', opacity: isSubmittingForReview || outcomesPendingReview || coList.length === 0 ? 0.5 : 1, cursor: isSubmittingForReview || outcomesPendingReview || coList.length === 0 ? 'not-allowed' : 'pointer' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', opacity: 1, cursor: 'pointer' }}
                 >
                   <Send size={15} /> {isSubmittingForReview ? 'Submitting…' : outcomesPendingReview ? 'Submitted' : 'Submit for Review'}
                 </button>

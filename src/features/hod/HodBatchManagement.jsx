@@ -137,6 +137,8 @@ export default function HodBatchManagement() {
 
   // ── Student Roster Screen State ─────────────────────────────────────────
   const [selectedBatchForRoster, setSelectedBatchForRoster] = useState(null);
+  const [managedBatchId, setManagedBatchId] = useState(null);
+  const [manageTab, setManageTab] = useState('overview');
   const [studentSearch, setStudentSearch] = useState('');
 
   // Student Edit / Add Modal States
@@ -164,6 +166,7 @@ export default function HodBatchManagement() {
   }, [selectedProgrammeId, durationYears]);
 
   const programmeBatches   = batches.filter((b) => b.programmeId === selectedProgrammeId);
+  const managedBatch = programmeBatches.find((batch) => String(batch.id) === String(managedBatchId)) ?? null;
   const programmeBatchIds = programmeBatches.map((batch) => batch.id).join('|');
   const activeBatchesCount = programmeBatches.filter((b) => b.status === 'ACTIVE').length;
 
@@ -229,13 +232,18 @@ export default function HodBatchManagement() {
     setShowDeleteModal(true);
   };
 
-  const handleConfirmDeleteBatch = () => {
+  const handleConfirmDeleteBatch = async () => {
     if (deletingBatch) {
-      deleteBatch(deletingBatch.id);
-      setShowDeleteModal(false);
-      setDeletingBatch(null);
-      setToastMessage('🗑️ Batch deleted successfully.');
-      setTimeout(() => setToastMessage(null), 3000);
+      try {
+        await deleteBatch(deletingBatch.id);
+        setShowDeleteModal(false);
+        setDeletingBatch(null);
+        setToastMessage('🗑️ Batch deleted successfully.');
+        setTimeout(() => setToastMessage(null), 3000);
+      } catch (error) {
+        setToastMessage(error?.response?.data?.message || error?.message || 'Unable to delete this batch.');
+        setTimeout(() => setToastMessage(null), 4000);
+      }
     }
   };
 
@@ -363,6 +371,32 @@ export default function HodBatchManagement() {
     }
   };
 
+  const handleReopenBatch = async (batch) => {
+    const reason = window.prompt(`Reason for reopening ${batch.name}:`);
+    if (!reason?.trim()) return;
+    try {
+      await updateProgrammeBatchStatus(batch.id, 'ACTIVE', reason.trim());
+      setToastMessage(`${batch.name} reopened and set to active.`);
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (error) {
+      setToastMessage(error?.response?.data?.message || error?.message || 'Unable to reopen this batch.');
+      setTimeout(() => setToastMessage(null), 4000);
+    }
+  };
+
+  const handleCompleteBatch = async (batch) => {
+    const reason = window.prompt(`Reason for completing ${batch.name}:`);
+    if (!reason?.trim()) return;
+    try {
+      await updateProgrammeBatchStatus(batch.id, 'COMPLETED', reason.trim());
+      setToastMessage(`${batch.name} marked as completed. Programme ATR is now unlocked.`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (error) {
+      setToastMessage(error?.response?.data?.message || error?.message || 'Unable to complete this batch.');
+      setTimeout(() => setToastMessage(null), 4000);
+    }
+  };
+
   // ── Student Roster Handlers ─────────────────────────────────────────────
   const currentBatchStudents = selectedBatchForRoster ? getStudentsByBatch(selectedBatchForRoster.id) : [];
 
@@ -438,7 +472,7 @@ export default function HodBatchManagement() {
   // =========================================================================
   // RENDER SCREEN 2: BATCH STUDENT ROSTER SCREEN
   // =========================================================================
-  if (selectedBatchForRoster) {
+  if (managedBatch && manageTab === 'students' && selectedBatchForRoster) {
     return (
       <div style={{ display: 'grid', gap: '20px' }}>
 
@@ -468,7 +502,7 @@ export default function HodBatchManagement() {
         <div style={{ background: 'linear-gradient(135deg, #eff6ff, #e0f2fe)', border: '1.5px solid #bfdbfe', borderRadius: '16px', padding: '24px 28px', color: '#0f172a', boxShadow: '0 4px 14px rgba(191, 219, 254, 0.35)' }}>
           <button
             type="button"
-            onClick={() => setSelectedBatchForRoster(null)}
+            onClick={() => { setManagedBatchId(null); setSelectedBatchForRoster(null); setManageTab('overview'); }}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -523,6 +557,17 @@ export default function HodBatchManagement() {
             >
               <Plus size={16} /> Add Student to Batch
             </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '20px' }}>
+            {[
+              ['overview', 'Overview'],
+              ['lifecycle', 'Semester Lifecycle'],
+              ['students', 'Students'],
+              ['completion', 'Completion'],
+            ].map(([id, label]) => (
+              <button key={id} type="button" onClick={() => setManageTab(id)} style={{ height: '32px', padding: '0 12px', borderRadius: '7px', border: manageTab === id ? '1px solid #4f46e5' : '1px solid #cbd5e1', background: manageTab === id ? '#4f46e5' : '#fff', color: manageTab === id ? '#fff' : '#475569', cursor: 'pointer', fontWeight: '700', fontSize: '12px', fontFamily: 'inherit' }}>{label}</button>
+            ))}
           </div>
         </div>
 
@@ -777,6 +822,75 @@ export default function HodBatchManagement() {
   }
 
   // =========================================================================
+  // MANAGE BATCH WORKSPACE
+  // =========================================================================
+  if (managedBatch) {
+    const isActive = managedBatch.status === 'ACTIVE';
+    const isCompleted = managedBatch.status === 'COMPLETED';
+    const isGraduated = managedBatch.status === 'GRADUATED';
+    const semesters = semesterStatusByBatch[managedBatch.id]
+      ?? Array.from({ length: (managedBatch.durationYears ?? durationYears) * 2 }, (_, index) => ({ semester: index + 1, status: 'EMPTY', courseCount: 0 }));
+    const completedSemesters = semesters.filter((semester) => semester.isCompleted || String(semester.status).toUpperCase() === 'COMPLETED').length;
+
+    return (
+      <div style={{ display: 'grid', gap: '20px' }}>
+        {toastMessage && <div style={{ background: '#ecfdf5', border: '1px solid #6ee7b7', color: '#065f46', padding: '12px 18px', borderRadius: '10px', fontWeight: '700', fontSize: '13px' }}>{toastMessage}</div>}
+        <div style={{ ...surface, padding: '22px 24px' }}>
+          <button type="button" onClick={() => { setManagedBatchId(null); setSelectedBatchForRoster(null); setManageTab('overview'); }} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', border: 0, background: 'transparent', color: accent, cursor: 'pointer', padding: 0, fontWeight: '800', fontSize: '12px', fontFamily: 'inherit' }}>
+            <ArrowLeft size={14} /> Back to Batch Management
+          </button>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginTop: '16px' }}>
+            <div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', background: isActive ? '#dcfce7' : isCompleted ? '#eef2ff' : '#f1f5f9', color: isActive ? '#15803d' : isCompleted ? '#3730a3' : '#475569', borderRadius: '6px', padding: '3px 9px' }}>{managedBatch.status}</span>
+                <span style={{ fontSize: '11px', color: muted, fontWeight: '700' }}>{managedBatch.startYear}–{managedBatch.endYear}</span>
+              </div>
+              <h2 style={{ margin: '8px 0 4px', color: ink, fontSize: '21px', fontWeight: '900' }}>{managedBatch.name}</h2>
+              <p style={{ margin: 0, color: muted, fontSize: '13px' }}>{managedBatch.programmeName || selectedProgramme?.name || 'Programme batch'} · {managedBatch.durationYears ?? durationYears}-year programme</p>
+            </div>
+            <button type="button" onClick={() => handleStartEditBatch(managedBatch)} disabled={isGraduated} style={{ height: '36px', padding: '0 14px', borderRadius: '8px', border: '1px solid #c7d2fe', background: '#fff', color: accent, cursor: isGraduated ? 'not-allowed' : 'pointer', opacity: isGraduated ? .55 : 1, fontWeight: '800', fontSize: '12px', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Edit2 size={14} /> Edit Batch</button>
+          </div>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '22px', borderTop: '1px solid #e2e8f0', paddingTop: '14px' }}>
+            {[
+              ['overview', 'Overview'],
+              ['lifecycle', 'Semester Lifecycle'],
+              ['students', 'Students'],
+              ['completion', 'Completion'],
+            ].map(([id, label]) => <button key={id} type="button" onClick={() => { setManageTab(id); if (id === 'students') setSelectedBatchForRoster(managedBatch); }} style={{ height: '34px', padding: '0 13px', borderRadius: '7px', border: manageTab === id ? '1px solid #4f46e5' : '1px solid #cbd5e1', background: manageTab === id ? '#4f46e5' : '#fff', color: manageTab === id ? '#fff' : '#475569', cursor: 'pointer', fontWeight: '800', fontSize: '12px', fontFamily: 'inherit' }}>{label}</button>)}
+          </div>
+        </div>
+
+        {editingBatch?.id === managedBatch.id && <form onSubmit={handleSaveEditBatch} style={{ ...surface, padding: '18px', display: 'grid', gap: '12px' }}>
+          <div style={{ fontWeight: '800', color: ink, fontSize: '14px' }}>Edit Batch Details</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px' }}>
+            <div><label style={labelStyle}>Batch Name *</label><input value={editBatchName} onChange={(event) => setEditBatchName(event.target.value)} style={inputStyle} required /></div>
+            <div><label style={labelStyle}>Start Year *</label><input inputMode="numeric" value={editStartYear} onChange={(event) => setEditStartYear(event.target.value.replace(/\D/g, '').slice(0, 4))} style={inputStyle} required /></div>
+            <div><label style={labelStyle}>End Year *</label><input inputMode="numeric" value={editEndYear} onChange={(event) => setEditEndYear(event.target.value.replace(/\D/g, '').slice(0, 4))} style={inputStyle} required /></div>
+          </div>
+          {editBatchError && <div style={{ color: '#b91c1c', fontWeight: '700', fontSize: '12px' }}>{editBatchError}</div>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}><button type="button" onClick={handleCancelEditBatch} style={{ height: '36px', padding: '0 13px', border: '1px solid #cbd5e1', background: '#fff', borderRadius: '7px', color: '#475569', cursor: 'pointer', fontWeight: '700' }}>Cancel</button><button type="submit" disabled={isSavingBatch} style={{ height: '36px', padding: '0 14px', border: 0, background: accent, color: '#fff', borderRadius: '7px', cursor: 'pointer', fontWeight: '800' }}>{isSavingBatch ? 'Saving…' : 'Save Changes'}</button></div>
+        </form>}
+
+        {manageTab === 'overview' && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+          {[['Academic years', `${managedBatch.startYear}–${managedBatch.endYear}`], ['Students', String(getStudentsByBatch(managedBatch.id).length)], ['Semesters completed', `${completedSemesters} / ${semesters.length}`], ['Batch status', managedBatch.status]].map(([label, value]) => <div key={label} style={{ ...surface, padding: '18px' }}><div style={{ color: muted, fontWeight: '700', fontSize: '12px' }}>{label}</div><div style={{ color: ink, fontWeight: '900', fontSize: '20px', marginTop: '6px' }}>{value}</div></div>)}
+          <div style={{ ...surface, padding: '20px', gridColumn: '1 / -1' }}><h3 style={{ margin: 0, color: ink, fontSize: '14px' }}>Batch overview</h3><p style={{ margin: '7px 0 0', color: muted, fontSize: '12.5px', lineHeight: 1.5 }}>Use Semester Lifecycle to review and close individual semesters, Students to manage the roster, and Completion when the whole programme batch is ready for Programme ATR.</p></div>
+        </div>}
+
+        {manageTab === 'lifecycle' && <div style={{ ...surface, overflow: 'hidden' }}><div style={{ padding: '18px 20px', borderBottom: '1px solid #e2e8f0' }}><h3 style={{ margin: 0, color: ink, fontSize: '15px' }}>Semester Lifecycle</h3><p style={{ margin: '5px 0 0', color: muted, fontSize: '12px' }}>Review readiness, complete a semester, or reopen a completed semester with an auditable reason.</p></div><div style={{ overflowX: 'auto' }}><table className="audit-data-table" style={{ margin: 0 }}><thead><tr><th>Semester</th><th>Status</th><th>Courses</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead><tbody>{semesters.map((semester) => { const completed = semester.isCompleted || String(semester.status).toUpperCase() === 'COMPLETED'; return <tr key={semester.semester}><td style={{ fontWeight: '800' }}>Semester {semester.semester}</td><td><span style={{ fontSize: '11px', fontWeight: '800', color: completed ? '#475569' : '#3730a3' }}>{String(semester.status ?? 'EMPTY').replaceAll('_', ' ')}</span></td><td>{semester.courseCount ?? 0}</td><td style={{ textAlign: 'right' }}><button type="button" onClick={() => openSemesterReadiness(managedBatch, semester)} style={{ height: '29px', padding: '0 9px', border: '1px solid #c7d2fe', borderRadius: '6px', background: '#fff', color: accent, cursor: 'pointer', fontWeight: '700', fontSize: '11px' }}>Inspect readiness</button>{completed && <button type="button" onClick={() => { setSemesterReason(''); setSemesterActionError(''); setReadinessDialog({ batch: managedBatch, semester, loading: false, readiness: null, mode: 'reopen' }); }} style={{ height: '29px', padding: '0 9px', marginLeft: '7px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: '700', fontSize: '11px' }}>Reopen</button>}</td></tr>; })}</tbody></table></div></div>}
+
+        {manageTab === 'completion' && <div style={{ ...surface, padding: '22px', maxWidth: '760px' }}>
+          <h3 style={{ margin: 0, color: ink, fontSize: '16px' }}>Batch Completion</h3>
+          {isActive && <><p style={{ color: muted, fontSize: '12.5px', lineHeight: 1.55 }}>Complete this batch only after its academic work is finished. Completion unlocks Programme ATR for the Programme Coordinator.</p><div style={{ padding: '13px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', color: '#92400e', fontSize: '12px' }}>Semester completion: {completedSemesters} of {semesters.length}. Review lifecycle readiness before completing the batch.</div><button type="button" onClick={() => handleCompleteBatch(managedBatch)} style={{ marginTop: '16px', height: '37px', padding: '0 14px', border: 0, borderRadius: '8px', background: accent, color: '#fff', cursor: 'pointer', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><CheckCircle2 size={15} /> Complete Batch</button></>}
+          {isCompleted && <><p style={{ color: muted, fontSize: '12.5px', lineHeight: 1.55 }}>This batch is completed and its Programme ATR is available. Reopen it only when academic corrections are required.</p><div style={{ padding: '13px', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '8px', color: '#3730a3', fontSize: '12px' }}>Current state: COMPLETED · Programme ATR unlocked</div><button type="button" onClick={() => handleReopenBatch(managedBatch)} style={{ marginTop: '16px', height: '37px', padding: '0 14px', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: '800' }}>Reopen Batch</button></>}
+          {isGraduated && <><p style={{ color: muted, fontSize: '12.5px', lineHeight: 1.55 }}>This batch has graduated and is retained as a read-only academic record.</p><div style={{ padding: '13px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', color: '#475569', fontSize: '12px' }}>Current state: GRADUATED · no lifecycle actions are available.</div></>}
+        </div>}
+
+        {readinessDialog && <div style={{ position: 'fixed', inset: 0, zIndex: 1001, display: 'grid', placeItems: 'center', padding: '20px', background: 'rgba(15,23,42,.58)' }}><div role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: '560px', background: '#fff', borderRadius: '14px', overflow: 'hidden' }}><div style={{ padding: '20px 22px' }}><h3 style={{ margin: 0, color: ink, fontSize: '16px' }}>{readinessDialog.mode === 'reopen' ? `Reopen Semester ${readinessDialog.semester.semester}` : `Semester ${readinessDialog.semester.semester} Readiness`}</h3>{readinessDialog.loading ? <p style={{ color: muted, fontSize: '13px' }}>Loading readiness checklist…</p> : readinessDialog.mode === 'reopen' ? <p style={{ color: muted, fontSize: '12.5px' }}>Reopening re-enables course work. An audited reason is required.</p> : <p style={{ color: muted, fontSize: '12.5px' }}>Ready courses: <strong>{readinessDialog.readiness?.readyCourseCount ?? 0} / {readinessDialog.readiness?.courseCount ?? 0}</strong></p>}<label style={labelStyle}>{readinessDialog.mode === 'reopen' ? 'Reason *' : 'Completion note (optional)'}</label><textarea value={semesterReason} onChange={(event) => { setSemesterReason(event.target.value); setSemesterActionError(''); }} rows={3} style={{ ...inputStyle, height: 'auto', padding: '9px 11px', resize: 'vertical' }} />{semesterActionError && <div style={{ marginTop: '8px', color: '#b91c1c', fontSize: '12px', fontWeight: '700' }}>{semesterActionError}</div>}</div><div style={{ padding: '14px 22px', display: 'flex', justifyContent: 'flex-end', gap: '8px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}><button type="button" onClick={() => setReadinessDialog(null)} disabled={isUpdatingSemester} style={{ height: '35px', padding: '0 13px', border: '1px solid #cbd5e1', background: '#fff', borderRadius: '7px', color: '#475569', fontWeight: '700', cursor: 'pointer' }}>Cancel</button>{!readinessDialog.loading && <button type="button" onClick={() => updateSemesterLifecycle(readinessDialog.mode === 'reopen' ? 'reopen' : 'complete')} disabled={isUpdatingSemester} style={{ height: '35px', padding: '0 13px', border: 0, background: accent, borderRadius: '7px', color: '#fff', fontWeight: '800', cursor: 'pointer' }}>{isUpdatingSemester ? 'Saving…' : readinessDialog.mode === 'reopen' ? 'Reopen Semester' : 'Complete Semester'}</button>}</div></div></div>}
+      </div>
+    );
+  }
+
+  // =========================================================================
   // RENDER SCREEN 1: MAIN BATCH MANAGEMENT LIST
   // =========================================================================
   return (
@@ -918,7 +1032,9 @@ export default function HodBatchManagement() {
             const isCompleted  = batch.status === 'COMPLETED';
             const isGraduated  = batch.status === 'GRADUATED';
             const isConcluded  = isCompleted || isGraduated;
-            const canDelete = !isActive && !isConcluded;
+            // Active batches may be removed; completed and graduated batches
+            // are retained for Programme ATR and audit history.
+            const canDelete = isActive;
             const studentsCount = getStudentsByBatch(batch.id).length;
 
             return (
@@ -969,39 +1085,7 @@ export default function HodBatchManagement() {
 
                     <button
                       type="button"
-                      onClick={() => !isConcluded && handleStartEditBatch(batch)}
-                      disabled={isConcluded}
-                      style={{
-                        height: '32px', padding: '0 12px', fontSize: '12px', fontWeight: '600',
-                        border: isConcluded ? '1px solid #e2e8f0' : '1px solid #c7d2fe', background: isConcluded ? '#f8fafc' : '#eef2ff', color: isConcluded ? '#94a3b8' : accent,
-                        borderRadius: '7px', cursor: isConcluded ? 'not-allowed' : 'pointer', opacity: isConcluded ? 0.6 : 1,
-                        display: 'inline-flex', alignItems: 'center', gap: '5px', fontFamily: 'inherit',
-                      }}
-                      title={isConcluded ? 'Concluded batches are locked for audit consistency' : 'Edit this batch'}
-                    >
-                      <Edit2 size={14} /> Edit
-                    </button>
-
-                    {isActive && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenConclusion(batch)}
-                        style={{
-                          height: '32px', padding: '0 12px', fontSize: '12px', fontWeight: '700',
-                          border: '1px solid #a5b4fc', background: '#4f46e5', color: '#fff',
-                          borderRadius: '7px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
-                          gap: '5px', fontFamily: 'inherit', boxShadow: '0 2px 6px rgba(79,70,229,0.2)',
-                        }}
-                        title="Conclude this batch and unlock Programme ATR"
-                      >
-                        <LockKeyhole size={13} /> Complete Batch
-                      </button>
-                    )}
-
-                    {/* REPLACED EDIT WITH ARROW BUTTON TO OPEN BATCH STUDENT ROSTER */}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedBatchForRoster(batch)}
+                      onClick={() => { setManagedBatchId(batch.id); setSelectedBatchForRoster(batch); setManageTab('overview'); }}
                       style={{
                         height: '32px',
                         padding: '0 14px',
@@ -1017,9 +1101,9 @@ export default function HodBatchManagement() {
                         fontSize: '12.5px',
                         fontFamily: 'inherit',
                       }}
-                      title="Open Batch Student Roster"
+                      title="Open Manage Batch workspace"
                     >
-                      View <ArrowRight size={14} />
+                      Manage Batch <ArrowRight size={14} />
                     </button>
 
                     <button
@@ -1027,32 +1111,14 @@ export default function HodBatchManagement() {
                       onClick={() => handleDeleteBatchClick(batch)}
                       disabled={!canDelete}
                       style={{ width: '32px', height: '32px', borderRadius: '7px', border: canDelete ? '1px solid #fecaca' : '1px solid #e2e8f0', background: canDelete ? '#fef2f2' : '#f8fafc', color: canDelete ? '#dc2626' : '#94a3b8', cursor: canDelete ? 'pointer' : 'not-allowed', display: 'grid', placeItems: 'center', opacity: canDelete ? 1 : 0.45 }}
-                      title={isConcluded ? 'Concluded batches are retained for ATR and audit records' : isActive ? 'Deactivate before deleting' : 'Delete batch'}
+                      title={canDelete ? 'Delete batch' : 'Completed and graduated batches are retained for ATR and audit records'}
                     >
                       <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
               </div>
-              {isActive && (
-                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #eef2f7' }}>
-                  <div style={{ fontSize: '10.5px', fontWeight: '800', color: muted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '8px' }}>Semester lifecycle</div>
-                  <div style={{ display: 'grid', gap: '7px' }}>
-                    {(semesterStatusByBatch[batch.id] ?? Array.from({ length: (batch.durationYears ?? durationYears) * 2 }, (_, index) => ({ semester: index + 1, status: 'EMPTY', courseCount: 0 }))).map((semester) => {
-                      const status = String(semester.status ?? 'EMPTY').replaceAll('_', ' ');
-                      const completed = semester.isCompleted || String(semester.status).toUpperCase() === 'COMPLETED';
-                      return <div key={semester.semester} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '12px' }}>
-                        <strong style={{ minWidth: '72px', color: ink }}>Semester {semester.semester}</strong>
-                        <span style={{ padding: '3px 8px', borderRadius: '5px', background: completed ? '#f1f5f9' : '#eef2ff', border: `1px solid ${completed ? '#cbd5e1' : '#c7d2fe'}`, color: completed ? '#475569' : '#3730a3', fontWeight: '800', fontSize: '10.5px' }}>{status}</span>
-                        <span style={{ color: muted }}>{semester.courseCount ?? 0} course(s)</span>
-                        <button type="button" onClick={() => openSemesterReadiness(batch, semester)} style={{ height: '27px', padding: '0 9px', border: '1px solid #c7d2fe', borderRadius: '6px', background: '#fff', color: accent, fontWeight: '700', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit' }}>Inspect readiness</button>
-                        {completed && <button type="button" onClick={() => { setSemesterReason(''); setSemesterActionError(''); setReadinessDialog({ batch, semester, loading: false, readiness: null, mode: 'reopen' }); }} style={{ height: '27px', padding: '0 9px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff', color: '#475569', fontWeight: '700', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit' }}>Reopen</button>}
-                      </div>;
-                    })}
-                  </div>
-                </div>
-              )}
-              {editingBatch?.id === batch.id && (
+              {false && editingBatch?.id === batch.id && (
                 <form
                   onSubmit={handleSaveEditBatch}
                   style={{

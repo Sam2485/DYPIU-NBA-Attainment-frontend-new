@@ -517,7 +517,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const handleSaveTargets = async () => {
     if (isBatchFrozen) return false;
     if (!programmeId || !batchId) {
-      throw new Error('Select an assigned programme batch before saving targets.');
+      alert('Select an assigned programme batch before saving targets.');
+      return false;
+    }
+    if (!activePOs.length && !activePSOs.length) {
+      alert('Enter the required PO or PSO target data before saving.');
+      return false;
     }
     if (isSavingTargets) return false;
 
@@ -1038,12 +1043,11 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                           alert('Unable to save targets. Please try again.');
                         }
                       }}
-                      disabled={isSavingTargets || targetsAreSaved}
                       style={{
                         height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700',
                         background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb',
-                        borderRadius: '8px', cursor: isSavingTargets ? 'wait' : targetsAreSaved ? 'not-allowed' : 'pointer',
-                        opacity: isSavingTargets || targetsAreSaved ? 0.5 : 1,
+                        borderRadius: '8px', cursor: 'pointer',
+                        opacity: 1,
                         display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit',
                       }}
                     >

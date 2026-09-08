@@ -239,7 +239,14 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
   });
 
   const handleSaveATR = async ({ silent = false } = {}) => {
-    if (!activeCourseId) return;
+    if (!activeCourseId) {
+      if (!silent) alert('Select an assigned programme-batch course before saving the Course ATR.');
+      return false;
+    }
+    if (!coList.length) {
+      if (!silent) alert('No Course Outcome data is available yet. Enter the required course data before saving the Course ATR.');
+      return false;
+    }
     try {
       await saveCourseATR(activeCourseId, createAtrPayload());
       setSavedSignature(currentSignature);
@@ -253,7 +260,14 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
   };
 
   const handleSaveSubmit = async () => {
-    if (!activeCourseId) return;
+    if (!activeCourseId) {
+      alert('Select an assigned programme-batch course before submitting the Course ATR.');
+      return;
+    }
+    if (!coList.length) {
+      alert('No Course Outcome data is available yet. Enter the required course data before submitting the Course ATR.');
+      return;
+    }
     try {
       setIsSubmittingForReview(true);
       // Submit the freshly persisted report even if it was saved earlier.
@@ -328,8 +342,8 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
 
               {!locked ? (
                 <>
-                  <button onClick={handleSaveATR} disabled={isSaved || coList.length === 0}
-                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: isSaved ? '#f1f5f9' : '#ffffff', color: isSaved ? '#64748b' : accent, border: `1px solid ${isSaved ? '#cbd5e1' : accent}`, borderRadius: '8px', cursor: isSaved ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                  <button onClick={handleSaveATR}
+                    style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '700', background: '#ffffff', color: accent, border: `1px solid ${accent}`, borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
                     <Save size={14} /> {isSaved ? 'Saved' : 'Save ATR'}
                   </button>
                   <button className="btn btn-primary" onClick={handleSaveSubmit} disabled={isSubmittingForReview}
@@ -370,8 +384,8 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
 
       {hideHeader && !locked && (
         <div style={{ ...surface, padding: '12px 16px', marginBottom: '14px', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
-          <button onClick={handleSaveATR} disabled={isSaved || coList.length === 0}
-            style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: isSaved ? '#f1f5f9' : '#ffffff', color: isSaved ? '#64748b' : accent, border: `1px solid ${isSaved ? '#cbd5e1' : accent}`, borderRadius: '8px', cursor: isSaved ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+          <button onClick={handleSaveATR}
+            style={{ height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: accent, border: `1px solid ${accent}`, borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
             <Save size={14} /> {isSaved ? 'Saved' : 'Save ATR'}
           </button>
           <button className="btn btn-primary" onClick={handleSaveSubmit} disabled={isSubmittingForReview}

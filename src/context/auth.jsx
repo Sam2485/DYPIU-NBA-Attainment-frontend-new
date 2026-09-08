@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useCallback,
   useEffect,
   useState,
 } from 'react';
@@ -21,7 +22,8 @@ export const AuthContext = createContext(null);
  * - No email aliases
  * - No hardcoded users
  * - No hardcoded department/programme values
- * - No role switching
+ * - Profile switching is permitted only through the backend-issued
+ *   scoped token returned by /auth/switch-role.
  *
  * The backend is the source of truth for:
  *   user
@@ -60,6 +62,18 @@ const getRoleLabel = (role) => {
 
 const AUTH_SESSION_KEY = 'nba_auth_session';
 
+const dashboardPathForRole = (role) => {
+  switch (role) {
+    case 'IQAC': return '/admin/dashboard';
+    case 'DIRECTOR': return '/director/dashboard';
+    case 'HOD': return '/hod/dashboard';
+    case 'PROGRAMME_COORDINATOR': return '/programme-coordinator/dashboard';
+    case 'FACULTY':
+    case 'COURSE_COORDINATOR': return '/course-coordinator/dashboard';
+    default: return '/dashboard';
+  }
+};
+
 const toAuthenticatedUser = (backendUser, fallbackEmail = null) => {
   if (!backendUser?.role) {
     return null;
@@ -81,6 +95,11 @@ const toAuthenticatedUser = (backendUser, fallbackEmail = null) => {
       backendUser.masterProgrammeId ??
       backendUser.programmeId ??
       backendUser.programme_id ??
+      null,
+    programmeBatchId:
+      backendUser.programmeBatchId ??
+      backendUser.batchId ??
+      backendUser.programme_batch_id ??
       null,
     school: backendUser.school ?? null,
     department: backendUser.department ?? null,
@@ -121,9 +140,33 @@ export function AuthProvider({ children }) {
 
   const [token, setToken] = useState(null);
 
+  const [availableProfiles, setAvailableProfiles] = useState([]);
+
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
+
   const [loading, setLoading] = useState(false);
 
   const [isRestoringSession, setIsRestoringSession] = useState(true);
+
+  const loadAvailableProfiles = useCallback(async () => {
+    setIsLoadingProfiles(true);
+    try {
+      const response = await apiClient.get('/auth/roles');
+      const payload = response?.data ?? response;
+      const data = payload?.data ?? payload;
+      const profiles = Array.isArray(data?.profiles) ? data.profiles : [];
+      setAvailableProfiles(profiles);
+      return profiles;
+    } catch (error) {
+      // Profile switching is an enhancement. A failed discovery request must
+      // never prevent an otherwise valid session from being used.
+      console.warn('Unable to load available profiles:', error);
+      setAvailableProfiles([]);
+      return [];
+    } finally {
+      setIsLoadingProfiles(false);
+    }
+  }, []);
 
   /* -------------------------------------------------------------------- */
   /* Restore session after a browser refresh                              */
@@ -152,6 +195,7 @@ export function AuthProvider({ children }) {
         setRole(restoredUser.role);
         setIsRestoringSession(false);
       }
+      void loadAvailableProfiles();
     };
 
     restoreSession();
@@ -159,7 +203,7 @@ export function AuthProvider({ children }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadAvailableProfiles]);
 
   /* -------------------------------------------------------------------- */
   /* Refresh an expired access token without interrupting the session     */
@@ -202,6 +246,7 @@ export function AuthProvider({ children }) {
       setToken(null);
       setUser(null);
       setRole(null);
+      setAvailableProfiles([]);
     };
 
     window.addEventListener('nba-auth-expired', handleExpiredSession);
@@ -325,6 +370,8 @@ export function AuthProvider({ children }) {
 
       setRole(userRole);
 
+      void loadAvailableProfiles();
+
       /*
        * Determine destination strictly from the authenticated
        * backend role.
@@ -397,12 +444,64 @@ export function AuthProvider({ children }) {
       setUser(null);
       setRole(null);
       setToken(null);
+      setAvailableProfiles([]);
       clearApiAuthToken();
       clearStoredSession();
 
       return {
         success: false,
         error: errorMessage,
+      };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const switchProfile = async (profile) => {
+    if (!profile?.role) {
+      return { success: false, error: 'Select a valid profile.' };
+    }
+
+    setLoading(true);
+    try {
+      const response = await apiClient.post('/auth/switch-role', {
+        role: profile.role,
+        departmentId: profile.departmentId ?? null,
+        schoolId: profile.schoolId ?? null,
+        masterProgrammeId: profile.masterProgrammeId ?? null,
+        programmeBatchId: profile.programmeBatchId ?? null,
+      });
+      const payload = response?.data ?? response;
+      const data = payload?.data ?? payload;
+      const nextAccessToken = data?.accessToken ?? data?.token ?? null;
+      const nextRefreshToken = data?.refreshToken ?? null;
+      const backendUser = data?.user ?? null;
+      const nextUser = toAuthenticatedUser(
+        backendUser ?? { ...user, role: profile.role },
+        user?.email ?? null
+      );
+
+      if (!nextAccessToken || !nextUser) {
+        return { success: false, error: 'The profile switch response is missing a token or user profile.' };
+      }
+
+      setApiAuthToken(nextAccessToken);
+      persistSession(nextAccessToken, nextRefreshToken, nextUser);
+      setToken(nextAccessToken);
+      setUser(nextUser);
+      setRole(nextUser.role);
+      void loadAvailableProfiles();
+
+      return {
+        success: true,
+        user: nextUser,
+        role: nextUser.role,
+        targetPath: dashboardPathForRole(nextUser.role),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error?.response?.data?.message ?? error?.response?.data?.error ?? error?.message ?? 'Unable to switch profile.',
       };
     } finally {
       setLoading(false);
@@ -435,6 +534,7 @@ export function AuthProvider({ children }) {
       setToken(null);
       setUser(null);
       setRole(null);
+      setAvailableProfiles([]);
 
       const isNba = typeof window !== 'undefined' && window.location.pathname.startsWith('/nba');
       window.location.replace(isNba ? '/nba/login' : '/login');
@@ -467,9 +567,17 @@ export function AuthProvider({ children }) {
 
         loading,
 
+        availableProfiles,
+
+        isLoadingProfiles,
+
         isRestoringSession,
 
         login,
+
+        loadAvailableProfiles,
+
+        switchProfile,
 
         logout,
 
