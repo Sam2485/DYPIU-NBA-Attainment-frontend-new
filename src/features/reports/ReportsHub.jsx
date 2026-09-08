@@ -1324,62 +1324,57 @@ export default function ReportsHub() {
 
               {/* 3. AVERAGE ATTAINMENT INDIRECT */}
               {batchReportType === 'average-attainment-indirect' && (
-                <div>
+                <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                  <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
+                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                      Average Attainment (Indirect) — {currentBatchName}
+                    </h4>
+                  </div>
                   {programmeBatchReportErrors.indirect ? (
-                    <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '12px', padding: '32px 24px', textAlign: 'center' }}>
-                      <AlertCircle size={36} style={{ color: '#dc2626', marginBottom: '12px' }} />
-                      <h4 style={{ margin: 0, fontSize: '18px', color: '#991b1b', fontWeight: '800' }}>Unable to load indirect attainment</h4>
-                      <p style={{ margin: '8px auto 0', fontSize: '13px', color: '#7f1d1d', maxWidth: '620px', lineHeight: '1.5' }}>{programmeBatchReportErrors.indirect}</p>
+                    <div style={{ padding: '28px', textAlign: 'center', color: '#b91c1c' }}>
+                      {programmeBatchReportErrors.indirect}
                     </div>
                   ) : (
-                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', minWidth: 0, maxWidth: '100%', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-                      <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
-                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                          Average Attainment (Indirect) — {currentBatchName}
-                        </h4>
-                      </div>
-                      <div className="report-table-scroll" tabIndex={0} aria-label="Scroll horizontally to view all indirect attainment outcomes" style={{ display: 'block', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'scroll', overflowY: 'hidden', WebkitOverflowScrolling: 'touch' }}>
-                        <table
-                          className="audit-data-table"
-                          style={{
-                            margin: 0,
-                            width: 'max-content',
-                            minWidth: `${Math.max(980, 480 + (indirectPoCodes.length + indirectPsoCodes.length) * 76)}px`,
-                          }}
-                        >
-                          <thead>
+                    <div className="report-table-scroll">
+                      <table className="audit-data-table" style={{ margin: 0 }}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: '80px', minWidth: '80px', textAlign: 'center' }}>Sr No</th>
+                            <th style={{ width: '140px', minWidth: '140px' }}>PRN</th>
+                            <th style={{ minWidth: '260px', width: '280px' }}>Name of the Student</th>
+                            {indirectPoCodes.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
+                            {indirectPsoCodes.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5', color: '#065f46' }}>{pso}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {programmeBatchReportsLoading ? (
+                            <tr><td colSpan={3 + indirectPoCodes.length + indirectPsoCodes.length} style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>Loading programme-batch report…</td></tr>
+                          ) : indirectStudents.length === 0 ? (
                             <tr>
-                              <th style={{ width: '80px', textAlign: 'center' }}>Sr No</th>
-                              <th style={{ width: '140px' }}>PRN</th>
-                              <th style={{ minWidth: '260px' }}>Name of the Student</th>
-                              {indirectPoCodes.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
-                              {indirectPsoCodes.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5' }}>{pso}</th>)}
+                              <td colSpan={3 + indirectPoCodes.length + indirectPsoCodes.length} style={{ textAlign: 'center', padding: '28px', color: '#64748b' }}>
+                                No programme end-survey responses are available for this programme batch.
+                              </td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {indirectStudents.length === 0 ? (
-                              <tr>
-                                <td colSpan={3 + indirectPoCodes.length + indirectPsoCodes.length} style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>
-                                  No programme end-survey responses are available for this programme batch.
-                                </td>
+                          ) : (
+                            <>
+                              {indirectStudents.map((student, index) => (
+                                <tr key={`${student.prn ?? student.studentPrn ?? 'student'}-${student.srNo ?? index}`}>
+                                  <td style={{ textAlign: 'center', fontWeight: '600' }}>{student.srNo ?? index + 1}</td>
+                                  <td style={{ fontWeight: '600' }}>{student.prn ?? student.studentPrn ?? '—'}</td>
+                                  <td style={{ fontSize: '12.5px', color: '#0f172a' }}>{student.studentName ?? student.name ?? '—'}</td>
+                                  {indirectPoCodes.map((po) => <td key={po} style={{ textAlign: 'center', fontWeight: '700' }}>{valueOrDash(responseValue(student, po))}</td>)}
+                                  {indirectPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center', fontWeight: '700', color: '#047857', background: '#f0fdf4' }}>{valueOrDash(responseValue(student, pso))}</td>)}
+                                </tr>
+                              ))}
+                              <tr style={{ background: '#f1f5f9', fontWeight: '800' }}>
+                                <td colSpan={3} style={{ textAlign: 'right', paddingRight: '16px', color: '#0f172a' }}>Average Attainment (Indirect)</td>
+                                {indirectPoCodes.map((po) => <td key={po} style={{ textAlign: 'center', color: '#4f46e5' }}>{valueOrDash(indirectPoScores[po])}</td>)}
+                                {indirectPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center', color: '#047857', background: '#e6f4ea' }}>{valueOrDash(indirectPsoScores[pso])}</td>)}
                               </tr>
-                            ) : indirectStudents.map((student, index) => (
-                              <tr key={`${student.prn ?? student.studentPrn ?? 'student'}-${student.srNo ?? index}`}>
-                                <td style={{ textAlign: 'center', fontWeight: '600' }}>{student.srNo ?? index + 1}</td>
-                                <td style={{ fontWeight: '600' }}>{student.prn ?? student.studentPrn ?? '—'}</td>
-                                <td>{student.studentName ?? student.name ?? '—'}</td>
-                                {indirectPoCodes.map((po) => <td key={po} style={{ textAlign: 'center' }}>{responseValue(student, po)}</td>)}
-                                {indirectPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center', background: '#f0fdf4' }}>{responseValue(student, pso)}</td>)}
-                              </tr>
-                            ))}
-                            <tr style={{ background: '#f1f5f9', fontWeight: '800' }}>
-                              <td colSpan={3} style={{ textAlign: 'right', paddingRight: '16px', color: '#0f172a' }}>Average Attainment (Indirect)</td>
-                              {indirectPoCodes.map((po) => <td key={po} style={{ textAlign: 'center', color: '#4f46e5' }}>{valueOrDash(indirectPoScores[po])}</td>)}
-                              {indirectPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center', color: '#047857', background: '#e6f4ea' }}>{valueOrDash(indirectPsoScores[pso])}</td>)}
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
+                            </>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>
@@ -1387,62 +1382,57 @@ export default function ReportsHub() {
 
               {/* 4. OVERALL ATTAINMENT */}
               {batchReportType === 'overall-attainment' && (
-                <div>
+                <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                  <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
+                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                      Overall Attainment — {currentBatchName}
+                    </h4>
+                  </div>
                   {programmeBatchReportErrors.indirect ? (
-                    <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '12px', padding: '32px 24px', textAlign: 'center' }}>
-                      <AlertCircle size={36} style={{ color: '#dc2626', marginBottom: '12px' }} />
-                      <h4 style={{ margin: 0, fontSize: '18px', color: '#991b1b', fontWeight: '800' }}>Unable to calculate overall attainment</h4>
-                      <p style={{ margin: '8px auto 0', fontSize: '13px', color: '#7f1d1d', maxWidth: '620px', lineHeight: '1.5' }}>{programmeBatchReportErrors.indirect}</p>
+                    <div style={{ padding: '28px', textAlign: 'center', color: '#b91c1c' }}>
+                      {programmeBatchReportErrors.indirect}
                     </div>
                   ) : (
-                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', minWidth: 0, maxWidth: '100%', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-                      <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
-                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                          Overall Attainment — {currentBatchName}
-                        </h4>
-                      </div>
-                      <div className="report-table-scroll" tabIndex={0} aria-label="Scroll horizontally to view all overall attainment outcomes" style={{ display: 'block', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'scroll', overflowY: 'hidden', WebkitOverflowScrolling: 'touch' }}>
-                        <table
-                          className="audit-data-table"
-                          style={{
-                            margin: 0,
-                            width: 'max-content',
-                            minWidth: `${Math.max(1080, 620 + (overallPoCodes.length + overallPsoCodes.length) * 76)}px`,
-                          }}
-                        >
-                          <thead>
-                            <tr>
-                              <th style={{ width: '280px', minWidth: '280px', textAlign: 'center' }}>Year</th>
-                              <th style={{ minWidth: '270px' }}>Attainment Type</th>
-                              {overallPoCodes.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
-                              {overallPsoCodes.map((pso) => <th key={pso} style={{ textAlign: 'center' }}>{pso}</th>)}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td rowSpan={4} style={{ textAlign: 'center', verticalAlign: 'middle', fontWeight: '700', fontSize: '14px' }}>{batchAcademicYear || academicYear || 'AY —'}</td>
-                              <td style={{ fontWeight: '700', background: '#dcf0e0' }}>Average Mapping Values</td>
-                              {overallPoCodes.map((po) => <td key={po} style={{ textAlign: 'center' }}>{valueOrDash(mappingTable.summaryValues[po])}</td>)}
-                              {overallPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center' }}>{valueOrDash(mappingTable.summaryValues[pso])}</td>)}
-                            </tr>
-                            <tr>
-                              <td style={{ fontWeight: '700' }}>Average Attainment (Direct)</td>
-                              {overallPoCodes.map((po) => <td key={po} style={{ textAlign: 'center' }}>{valueOrDash(directTable.summaryValues[po])}</td>)}
-                              {overallPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center' }}>{valueOrDash(directTable.summaryValues[pso])}</td>)}
-                            </tr>
-                            <tr>
-                              <td style={{ fontWeight: '700' }}>Average Attainment (Indirect)</td>
-                              {overallPoCodes.map((po) => <td key={po} style={{ textAlign: 'center' }}>{valueOrDash(indirectPoScores[po])}</td>)}
-                              {overallPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center' }}>{valueOrDash(indirectPsoScores[pso])}</td>)}
-                            </tr>
-                            <tr style={{ fontWeight: '800' }}>
-                              <td style={{ color: '#0f172a', fontSize: '13.5px', background: '#a8c4ed', lineHeight: '1.25' }}>Overall Attainment<br />(80% of Direct + 20% of Indirect)</td>
-                              {overallPoCodes.map((po) => <td key={po} style={{ textAlign: 'center', background: '#b4dfe3', fontSize: '14px' }}>{overallAttainmentValue(directTable.summaryValues[po], indirectPoScores[po])}</td>)}
-                              {overallPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center', background: '#b4dfe3', fontSize: '14px' }}>{overallAttainmentValue(directTable.summaryValues[pso], indirectPsoScores[pso])}</td>)}
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
+                    <div className="report-table-scroll">
+                      <table className="audit-data-table" style={{ margin: 0 }}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: '140px', minWidth: '140px', textAlign: 'center' }}>Year</th>
+                            <th style={{ minWidth: '280px', width: '320px' }}>Attainment Type</th>
+                            {overallPoCodes.map((po) => <th key={po} style={{ textAlign: 'center' }}>{po}</th>)}
+                            {overallPsoCodes.map((pso) => <th key={pso} style={{ textAlign: 'center', background: '#ecfdf5', color: '#065f46' }}>{pso}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {programmeBatchReportsLoading ? (
+                            <tr><td colSpan={2 + overallPoCodes.length + overallPsoCodes.length} style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>Loading programme-batch report…</td></tr>
+                          ) : (
+                            <>
+                              <tr>
+                                <td rowSpan={4} style={{ textAlign: 'center', verticalAlign: 'middle', fontWeight: '800', fontSize: '13px', color: '#334155', background: '#f8fafc', borderRight: '1.5px solid #e2e8f0', padding: '12px 14px' }}>{batchAcademicYear || academicYear || 'AY —'}</td>
+                                <td style={{ fontWeight: '700', background: '#dcf0e0' }}>Average Mapping Values</td>
+                                {overallPoCodes.map((po) => <td key={po} style={{ textAlign: 'center', fontWeight: '700' }}>{valueOrDash(mappingTable.summaryValues[po])}</td>)}
+                                {overallPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center', fontWeight: '700', color: '#047857', background: '#f0fdf4' }}>{valueOrDash(mappingTable.summaryValues[pso])}</td>)}
+                              </tr>
+                              <tr>
+                                <td style={{ fontWeight: '700' }}>Average Attainment (Direct)</td>
+                                {overallPoCodes.map((po) => <td key={po} style={{ textAlign: 'center', fontWeight: '700' }}>{valueOrDash(directTable.summaryValues[po])}</td>)}
+                                {overallPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center', fontWeight: '700', color: '#047857', background: '#f0fdf4' }}>{valueOrDash(directTable.summaryValues[pso])}</td>)}
+                              </tr>
+                              <tr>
+                                <td style={{ fontWeight: '700' }}>Average Attainment (Indirect)</td>
+                                {overallPoCodes.map((po) => <td key={po} style={{ textAlign: 'center', fontWeight: '700' }}>{valueOrDash(indirectPoScores[po])}</td>)}
+                                {overallPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center', fontWeight: '700', color: '#047857', background: '#f0fdf4' }}>{valueOrDash(indirectPsoScores[pso])}</td>)}
+                              </tr>
+                              <tr style={{ fontWeight: '800' }}>
+                                <td style={{ color: '#0f172a', fontSize: '13.5px', background: '#a8c4ed', lineHeight: '1.25' }}>Overall Attainment<br />(80% of Direct + 20% of Indirect)</td>
+                                {overallPoCodes.map((po) => <td key={po} style={{ textAlign: 'center', background: '#b4dfe3', fontSize: '14px', fontWeight: '800' }}>{overallAttainmentValue(directTable.summaryValues[po], indirectPoScores[po])}</td>)}
+                                {overallPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center', background: '#b4dfe3', fontSize: '14px', fontWeight: '800' }}>{overallAttainmentValue(directTable.summaryValues[pso], indirectPsoScores[pso])}</td>)}
+                              </tr>
+                            </>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>
