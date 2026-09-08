@@ -46,8 +46,8 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setToken(null);
       setUser(null);
-      const isNba = typeof window !== 'undefined' && window.location.pathname.startsWith('/nba');
-      window.location.href = isNba ? '/nba/login' : '/login';
+      const isObe = typeof window !== 'undefined' && window.location.pathname.startsWith('/obe');
+      window.location.href = isObe ? '/obe/login' : '/login';
     }
   }, []);
 

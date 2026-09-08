@@ -184,7 +184,7 @@ export default function EndSemMarksHub({ hideFooter = false }) {
             </div>
           </div>
           <a
-            href="/examination-template.xlsx"
+            href={`${import.meta.env.BASE_URL}examination-template.xlsx`}
             download="examination-template.xlsx"
             style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
           >

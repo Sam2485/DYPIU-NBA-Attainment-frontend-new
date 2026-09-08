@@ -174,7 +174,7 @@ export default function AppSidebar({
 
     // A full navigation starts every dashboard with fresh, backend-scoped
     // data rather than leaving role-specific context from the prior profile.
-    const basePath = window.location.pathname.startsWith('/nba') ? '/nba' : '';
+    const basePath = window.location.pathname.startsWith('/obe') ? '/obe' : '';
     window.location.assign(`${basePath}${result.targetPath}`);
   };
 

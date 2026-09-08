@@ -312,7 +312,7 @@ export default function DashboardOverview() {
                 placeItems: 'center',
                 flexShrink: 0,
               }}>
-                <img src="/exclaimation.png" alt="Revision Needed" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
+                <img src={`${import.meta.env.BASE_URL}exclaimation.png`} alt="Revision Needed" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
@@ -520,7 +520,7 @@ export default function DashboardOverview() {
                     alignItems: 'center',
                   }}>
                     <img
-                      src="/exclaimation.png"
+                      src={`${import.meta.env.BASE_URL}exclaimation.png`}
                       alt="Revision Needed"
                       style={{ width: '36px', height: '36px', objectFit: 'contain' }}
                       onError={(e) => {
@@ -605,7 +605,7 @@ export default function DashboardOverview() {
                   color: done ? '#16a34a' : current ? s.color : '#94a3b8',
                 }}>
                   {isStepRev ? (
-                    <img src="/exclaimation.png" alt="Revision Needed" style={{ width: '16px', height: '16px', objectFit: 'contain' }} />
+                    <img src={`${import.meta.env.BASE_URL}exclaimation.png`} alt="Revision Needed" style={{ width: '16px', height: '16px', objectFit: 'contain' }} />
                   ) : done ? (
                     <Check size={15} />
                   ) : (
@@ -621,7 +621,7 @@ export default function DashboardOverview() {
                     </span>
                     {isStepRev && (
                       <span style={{ fontSize: '10px', fontWeight: '700', color: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                        <img src="/exclaimation.png" alt="" style={{ width: '10px', height: '10px' }} /> Revision Needed
+                        <img src={`${import.meta.env.BASE_URL}exclaimation.png`} alt="" style={{ width: '10px', height: '10px' }} /> Revision Needed
                       </span>
                     )}
                     {current && !isStepRev && (
@@ -643,7 +643,7 @@ export default function DashboardOverview() {
                 }}>
                   {isStepRev ? (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <img src="/exclaimation.png" alt="" style={{ width: '11px', height: '11px' }} /> Revision Needed
+                      <img src={`${import.meta.env.BASE_URL}exclaimation.png`} alt="" style={{ width: '11px', height: '11px' }} /> Revision Needed
                     </span>
                   ) : done ? (
                     '✓ Done'

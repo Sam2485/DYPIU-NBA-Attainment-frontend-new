@@ -2,10 +2,10 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  // The production app is mounted below https://pbas.dypiu.ac.in/nba/.
+  // The production app is mounted below https://pbas.dypiu.ac.in/obe/.
   // Absolute subpath asset URLs prevent deep-link refreshes from requesting
   // JavaScript and CSS relative to the active route.
-  base: '/nba/',
+  base: '/obe/',
   plugins: [react()],
   server: {
     port: 5173,
@@ -15,11 +15,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      '/nba/api/v1': {
+      '/obe/api/v1': {
         target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/nba/, ''),
+        rewrite: (path) => path.replace(/^\/obe/, ''),
       },
     },
   },

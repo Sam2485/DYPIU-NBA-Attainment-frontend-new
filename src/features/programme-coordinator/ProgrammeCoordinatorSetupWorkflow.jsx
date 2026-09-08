@@ -1212,7 +1212,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>Upload the programme end survey for <strong>{selectedProgramme.code} · {selectedBatch?.name ?? 'selected batch'}</strong>.</p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <a href="/ProgrammeEnd-Survey.xlsx" download="ProgrammeEnd-Survey.xlsx" style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
+                <a href={`${import.meta.env.BASE_URL}ProgrammeEnd-Survey.xlsx`} download="ProgrammeEnd-Survey.xlsx" style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
                   <Download size={14} /> Download Template
                 </a>
                 {surveyResult && (

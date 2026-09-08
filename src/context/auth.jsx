@@ -536,8 +536,8 @@ export function AuthProvider({ children }) {
       setRole(null);
       setAvailableProfiles([]);
 
-      const isNba = typeof window !== 'undefined' && window.location.pathname.startsWith('/nba');
-      window.location.replace(isNba ? '/nba/login' : '/login');
+      const isObe = typeof window !== 'undefined' && window.location.pathname.startsWith('/obe');
+      window.location.replace(isObe ? '/obe/login' : '/login');
     }
   };
 
