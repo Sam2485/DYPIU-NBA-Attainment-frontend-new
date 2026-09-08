@@ -234,6 +234,10 @@ export default function ReportsHub() {
     : (batches || []);
   const effectiveBatchId = isCourseCoordinator ? batchId : selectedBatchId;
   const currentBatchObj = batchList.find((b) => b.id === effectiveBatchId) || null;
+  const batchAcademicYear = currentBatchObj?.academicYear
+    ?? (currentBatchObj?.startYear && currentBatchObj?.endYear
+      ? `${currentBatchObj.startYear}-${currentBatchObj.endYear}`
+      : null);
   // A persisted batch can belong to a previously selected programme or a
   // different user scope. Do not query programme reports until the current
   // role's batch API has confirmed that this ID is valid.
@@ -1416,7 +1420,7 @@ export default function ReportsHub() {
                           </thead>
                           <tbody>
                             <tr>
-                              <td rowSpan={4} style={{ textAlign: 'center', verticalAlign: 'middle', fontWeight: '700', fontSize: '14px' }}>{academicYear || currentBatchObj?.academicYear || 'AY —'}</td>
+                              <td rowSpan={4} style={{ textAlign: 'center', verticalAlign: 'middle', fontWeight: '700', fontSize: '14px' }}>{batchAcademicYear || academicYear || 'AY —'}</td>
                               <td style={{ fontWeight: '700', background: '#dcf0e0' }}>Average Mapping Values</td>
                               {overallPoCodes.map((po) => <td key={po} style={{ textAlign: 'center' }}>{valueOrDash(mappingTable.summaryValues[po])}</td>)}
                               {overallPsoCodes.map((pso) => <td key={pso} style={{ textAlign: 'center' }}>{valueOrDash(mappingTable.summaryValues[pso])}</td>)}
