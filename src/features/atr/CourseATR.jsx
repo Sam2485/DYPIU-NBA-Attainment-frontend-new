@@ -45,6 +45,8 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
     setCourseId = () => {},
     academicYear    = '2025-26',
     selectedBatch,
+    semestersStatusOverview = {},
+    loadSemestersStatusOverview = () => Promise.resolve([]),
     courseAtrStore  = {},
     updateCourseAtrData          = () => {},
     courseVerificationStore      = {},
@@ -101,6 +103,20 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
     ?? currentCourse?.id
     ?? selectedCourse?.id
     ?? null;
+
+  const targetBatchId = batchId ?? selectedCourseOffering?.programmeBatchId ?? selectedBatch?.id ?? null;
+  const activeSemester = Number(selectedCourseOffering?.semester ?? currentCourse?.semester);
+  const activeSemesterState = (semestersStatusOverview[targetBatchId] ?? []).find(
+    (item) => Number(item.semester) === activeSemester
+  );
+  const isSemesterCompleted = String(activeSemesterState?.status ?? '').toUpperCase() === 'COMPLETED'
+    || activeSemesterState?.isCompleted === true;
+  const atrWaitingForSemesterCompletion = isCourseCoordinator && Boolean(activeCourseId) && !isSemesterCompleted;
+
+  useEffect(() => {
+    if (!isCourseCoordinator || !targetBatchId) return;
+    loadSemestersStatusOverview(targetBatchId).catch(() => {});
+  }, [isCourseCoordinator, loadSemestersStatusOverview, targetBatchId]);
 
   useEffect(() => {
     if (showHistoryProp !== undefined) setShowHistory(showHistoryProp);
@@ -202,7 +218,7 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
   }, [apiCourseAtr]);
 
   const reportStatus = atrStatus;
-  const locked       = readOnly || isApproved || isSubmitted || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
+  const locked       = readOnly || isApproved || isSubmitted || atrWaitingForSemesterCompletion || role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
   const currentSignature = atrSignature(coList);
   const isSaved = savedSignature !== null && savedSignature === currentSignature;
 
@@ -323,7 +339,7 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
                 </>
               ) : (
                 <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Lock size={13} /> {isApproved ? 'Report Locked' : 'Submitted — Pending Review'}
+                  <Lock size={13} /> {atrWaitingForSemesterCompletion ? `Locked until Semester ${activeSemester || '—'} is completed` : isApproved ? 'Report Locked' : 'Submitted — Pending Review'}
                 </span>
               )}
             </div>
@@ -343,6 +359,12 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
               {reportDownloadError && <span style={{ color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>{reportDownloadError}</span>}
             </div>
           )}
+        </div>
+      )}
+
+      {atrWaitingForSemesterCompletion && (
+        <div style={{ margin: '0 0 16px', padding: '13px 15px', borderRadius: '9px', border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', fontSize: '12.5px', lineHeight: 1.45 }}>
+          <strong>Course ATR is available after Semester {activeSemester || '—'} is marked completed.</strong> You can view the course data now, but save and submit actions remain disabled until then.
         </div>
       )}
 

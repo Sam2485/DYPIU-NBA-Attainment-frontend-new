@@ -81,6 +81,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     loadCourseOfferings = () => Promise.resolve([]),
     addProgrammeBatchCourse = () => Promise.resolve(null),
     updateProgrammeBatchCourse = () => Promise.resolve(null),
+    deleteProgrammeBatchCourse = () => Promise.resolve(null),
     courseVerificationStore = {},
     programmeCoordinatorApprovals = [],
     loadProgrammeCoordinatorApprovals = () => Promise.resolve([]),
@@ -350,6 +351,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const [newCourseType, setNewCourseType] = useState('THEORY');
   const [newCourseSem,   setNewCourseSem]   = useState(programmeSemesters[0] || 'Sem I');
   const [newCourseCoord, setNewCourseCoord] = useState('');
+  const [editingCourseId, setEditingCourseId] = useState(null);
   const programmeBatchCourses = courseOfferings.filter(
     (offering) => String(offering.batchId) === String(batchId) && Number(offering.semester) === Number(activeSemester)
   );
@@ -427,7 +429,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     }
 
     try {
-      await addProgrammeBatchCourse({
+      const payload = {
         programmeBatchId: batchId,
         code: newCourseCode.trim(),
         name: newCourseName.trim(),
@@ -436,10 +438,17 @@ export default function ProgrammeCoordinatorSetupWorkflow({
         semester,
         courseCoordinatorId: coordinator?.id ?? null,
         courseCoordinatorName: coordinator?.name ?? coordinator?.username ?? coordinator?.email ?? '',
+        courseCoordinatorEmail: coordinator?.email ?? '',
         assignedFaculty: coordinator?.name ?? coordinator?.username ?? coordinator?.email ?? '',
-      });
+      };
+      if (editingCourseId) await updateProgrammeBatchCourse(editingCourseId, payload);
+      else await addProgrammeBatchCourse(payload);
       setNewCourseCode('');
       setNewCourseName('');
+      setNewCourseCredits(3);
+      setNewCourseType('THEORY');
+      setNewCourseCoord('');
+      setEditingCourseId(null);
     } catch (error) {
       console.error('Failed to add programme-batch course:', error);
       alert('Unable to create the programme-batch course. Please try again.');
@@ -463,11 +472,45 @@ export default function ProgrammeCoordinatorSetupWorkflow({
         semester: offering.semester,
         courseCoordinatorId: coordinator.id,
         courseCoordinatorName: coordinator.name ?? coordinator.username ?? coordinator.email,
+        courseCoordinatorEmail: coordinator.email ?? '',
         assignedFaculty: coordinator.name ?? coordinator.username ?? coordinator.email,
       });
     } catch (error) {
       console.error('Failed to assign Course Coordinator:', error);
       alert('Unable to update the Course Coordinator. Please try again.');
+    }
+  };
+
+  const handleStartCourseEdit = (offering) => {
+    const coordinator = coordinatorOptions.find((person) =>
+      String(person.id) === String(offering.courseCoordinatorId)
+      || String(person.email ?? '').toLowerCase() === String(offering.courseCoordinatorEmail ?? '').toLowerCase()
+    );
+    setEditingCourseId(offering.programmeBatchCourseId ?? offering.id);
+    setNewCourseCode(offering.courseCode ?? offering.code ?? '');
+    setNewCourseName(offering.courseName ?? offering.name ?? '');
+    setNewCourseCredits(offering.credits ?? 3);
+    setNewCourseType(offering.courseType ?? 'THEORY');
+    setNewCourseCoord(String(coordinator?.id ?? offering.courseCoordinatorId ?? ''));
+  };
+
+  const handleDeleteCourse = async (offering) => {
+    const courseId = offering.programmeBatchCourseId ?? offering.id;
+    const label = offering.courseCode ?? offering.code ?? 'this course';
+    if (!courseId || !window.confirm(`Delete ${label}? This cannot be undone from the active course list.`)) return;
+    try {
+      await deleteProgrammeBatchCourse(courseId);
+      if (editingCourseId === courseId) {
+        setEditingCourseId(null);
+        setNewCourseCode('');
+        setNewCourseName('');
+        setNewCourseCredits(3);
+        setNewCourseType('THEORY');
+        setNewCourseCoord('');
+      }
+    } catch (error) {
+      console.error('Failed to delete programme-batch course:', error);
+      alert(error?.response?.data?.message || 'Unable to delete this course. Submitted or approved semesters cannot be modified.');
     }
   };
 
@@ -838,9 +881,9 @@ export default function ProgrammeCoordinatorSetupWorkflow({
             {/* Inline add form */}
               {!isBatchFrozen && !isActiveSemesterLocked && !approvalReadOnly && (
               <form onSubmit={handleAddCourse} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
-                <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '3px' }}>Add Programme-Batch Course</div>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '3px' }}>{editingCourseId ? 'Edit Programme-Batch Course' : 'Add Programme-Batch Course'}</div>
                 <p style={{ margin: '0 0 10px', fontSize: '11.5px', color: muted }}>
-                  Add this course directly to the selected programme batch.
+                  {editingCourseId ? 'Update the selected course details and coordinator.' : 'Add this course directly to the selected programme batch.'}
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '110px minmax(170px, 1fr) 85px 110px 110px 190px auto', gap: '10px', alignItems: 'flex-end' }}>
                   <div>
@@ -890,9 +933,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                       ))}
                     </select>
                   </div>
-                  <button type="submit" style={{ height: '40px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-                    <Plus size={14} /> Add Course
-                  </button>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button type="submit" style={{ height: '40px', padding: '0 18px', fontSize: '12.5px', fontWeight: '700', background: accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                      <Plus size={14} /> {editingCourseId ? 'Update' : 'Add Course'}
+                    </button>
+                    {editingCourseId && <button type="button" onClick={() => { setEditingCourseId(null); setNewCourseCode(''); setNewCourseName(''); setNewCourseCredits(3); setNewCourseType('THEORY'); setNewCourseCoord(''); }} style={{ height: '40px', padding: '0 11px', fontSize: '12px', fontWeight: '700', background: '#fff', color: muted, border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>}
+                  </div>
                 </div>
               </form>
             )}
@@ -906,7 +952,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                     <th>Course Name</th>
                     <th style={{ width: '110px', textAlign: 'center' }}>Semester</th>
                     <th style={{ width: '230px' }}>Course Coordinator</th>
-                    <th style={{ width: '115px', textAlign: 'center' }}>Status</th>
+                    <th style={{ width: '145px', textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -947,17 +993,10 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                           </select>
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          {isAllocationApproved ? (
-                            <span style={{ fontSize: '11.5px', color: '#16a34a', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                              <CheckCircle2 size={12} /> Locked
-                            </span>
-                          ) : isAllocationSubmitted ? (
-                            <span style={{ fontSize: '11.5px', color: '#b45309', fontWeight: '700' }}>Submitted</span>
-                          ) : (
-                            <span style={{ fontSize: '11.5px', color: isAllocationSubmitted ? '#b45309' : muted, fontWeight: '700' }}>
-                              {isAllocationSubmitted ? 'Pending HOD' : 'Draft'}
-                            </span>
-                          )}
+                          <div style={{ display: 'inline-flex', gap: 6 }}>
+                            <button type="button" disabled={isAllocationReviewLocked || isBatchFrozen || approvalReadOnly} onClick={() => handleStartCourseEdit(offering)} style={{ height: 29, padding: '0 9px', borderRadius: 6, border: '1px solid #c7d2fe', color: accent, background: '#fff', fontSize: 11, fontWeight: 750, cursor: isAllocationReviewLocked || isBatchFrozen || approvalReadOnly ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>Edit</button>
+                            <button type="button" disabled={isAllocationReviewLocked || isBatchFrozen || approvalReadOnly} onClick={() => handleDeleteCourse(offering)} style={{ height: 29, padding: '0 9px', borderRadius: 6, border: '1px solid #fecaca', color: '#b91c1c', background: '#fff', fontSize: 11, fontWeight: 750, cursor: isAllocationReviewLocked || isBatchFrozen || approvalReadOnly ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>Delete</button>
+                          </div>
                         </td>
                       </tr>
                     );

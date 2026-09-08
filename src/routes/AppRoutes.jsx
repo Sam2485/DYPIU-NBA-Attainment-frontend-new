@@ -11,8 +11,6 @@
 
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import CourseAllocationGate from '../components/course/CourseAllocationGate';
-import CourseBatchLifecycleGate from '../components/course/CourseBatchLifecycleGate';
 
 import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
@@ -82,7 +80,7 @@ function RoleHomeRedirect() {
   return <Navigate to={isAuthenticated ? dashboardPathForRole(role) : '/login'} replace />;
 }
 
-function RoleProtectedRoute({ children, allowedRoles, requiresCourseAllocation = false }) {
+function RoleProtectedRoute({ children, allowedRoles }) {
   const { isAuthenticated, isRestoringSession, role } = useAuth();
   const location = useLocation();
 
@@ -98,19 +96,7 @@ function RoleProtectedRoute({ children, allowedRoles, requiresCourseAllocation =
     return <Navigate to={dashboardPathForRole(role)} replace />;
   }
 
-  return (
-    <ErrorBoundary isScreen>
-      {requiresCourseAllocation ? <CourseAllocationProtectedRoute>{children}</CourseAllocationProtectedRoute> : children}
-    </ErrorBoundary>
-  );
-}
-
-function CourseAllocationProtectedRoute({ children }) {
-  return (
-    <CourseAllocationGate>
-      <CourseBatchLifecycleGate>{children}</CourseBatchLifecycleGate>
-    </CourseAllocationGate>
-  );
+  return <ErrorBoundary isScreen>{children}</ErrorBoundary>;
 }
 
 

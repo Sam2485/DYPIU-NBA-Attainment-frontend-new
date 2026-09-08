@@ -239,6 +239,7 @@ const toProgrammeBatchCoursePayload = (data = {}) => ({
   semester: data.semester,
   courseCoordinatorId: data.courseCoordinatorId ?? data.coordinatorId ?? null,
   courseCoordinatorName: data.courseCoordinatorName ?? data.courseCoordinator ?? data.coordinator ?? '',
+  courseCoordinatorEmail: data.courseCoordinatorEmail ?? data.coordinatorEmail ?? '',
   assignedFaculty: data.assignedFaculty ?? '',
 });
 
@@ -1630,6 +1631,16 @@ export function AcademicProvider({ children }) {
     [courseOfferingId]
   );
 
+  const deleteProgrammeBatchCourse = useCallback(async (programmeBatchCourseId) => {
+    await apiClient.delete(`/programme-batch-courses/${programmeBatchCourseId}`);
+    setCourseOfferings((previous) => previous.filter((offering) => offering.id !== programmeBatchCourseId));
+    setCourses((previous) => previous.filter((course) => course.id !== programmeBatchCourseId));
+    if (courseOfferingId === programmeBatchCourseId) {
+      setCourseOfferingId(null);
+      setCourseId(null);
+    }
+  }, [courseOfferingId, setCourseId]);
+
   const assignCourseCoordinator = useCallback(
     async (targetCourseId, coordinatorId, targetBatchId = batchId) => {
       const offering = courseOfferings.find(
@@ -2045,6 +2056,7 @@ export function AcademicProvider({ children }) {
     updateCourseOffering,
     addProgrammeBatchCourse,
     updateProgrammeBatchCourse,
+    deleteProgrammeBatchCourse,
     assignCourseCoordinator,
     allocateCourses,
 
