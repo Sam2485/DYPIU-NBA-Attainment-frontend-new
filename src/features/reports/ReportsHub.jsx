@@ -7,7 +7,6 @@ import {
   Printer,
   ChevronDown,
   AlertCircle,
-  Clock,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -242,7 +241,6 @@ export default function ReportsHub() {
     (batch) => String(batch.id) === String(effectiveBatchId)
   );
   const currentBatchName = currentBatchObj?.name || 'No programme batch selected';
-  const isFinalSemCompleted = currentBatchObj?.isCompleted || currentBatchObj?.name?.includes('Completed') || currentBatchObj?.name?.includes('Graduated');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -615,7 +613,6 @@ export default function ReportsHub() {
   ])].filter(Boolean).sort(codeOrder), [indirectPsoScores, indirectStudents]);
   const overallPoCodes = useMemo(() => [...new Set([...mappingTable.poCodes, ...directTable.poCodes, ...indirectPoCodes])].sort(codeOrder), [directTable.poCodes, indirectPoCodes, mappingTable.poCodes]);
   const overallPsoCodes = useMemo(() => [...new Set([...mappingTable.psoCodes, ...directTable.psoCodes, ...indirectPsoCodes])].sort(codeOrder), [directTable.psoCodes, indirectPsoCodes, mappingTable.psoCodes]);
-  const showIndirectReport = isFinalSemCompleted || Boolean(programmeBatchReports.indirect);
   const overallAttainmentValue = (directValue, indirectValue) => {
     if (!Number.isFinite(Number(directValue)) || !Number.isFinite(Number(indirectValue))) return '—';
     return ((Number(directValue) * 0.8) + (Number(indirectValue) * 0.2)).toFixed(2);
@@ -1330,16 +1327,6 @@ export default function ReportsHub() {
                       <h4 style={{ margin: 0, fontSize: '18px', color: '#991b1b', fontWeight: '800' }}>Unable to load indirect attainment</h4>
                       <p style={{ margin: '8px auto 0', fontSize: '13px', color: '#7f1d1d', maxWidth: '620px', lineHeight: '1.5' }}>{programmeBatchReportErrors.indirect}</p>
                     </div>
-                  ) : !showIndirectReport ? (
-                    <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '12px', padding: '32px 24px', textAlign: 'center' }}>
-                      <Clock size={36} style={{ color: '#d97706', marginBottom: '12px' }} />
-                      <h4 style={{ margin: 0, fontSize: '18px', color: '#92400e', fontWeight: '800' }}>
-                        Not Available Yet
-                      </h4>
-                      <p style={{ margin: '8px auto 0', fontSize: '13px', color: '#b45309', maxWidth: '520px', lineHeight: '1.5' }}>
-                        Indirect attainment survey data is compiled at the conclusion of the final semester (Semester 8) of the batch. This batch (<strong>{currentBatchName}</strong>) is currently in progress.
-                      </p>
-                    </div>
                   ) : (
                     <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                       <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
@@ -1347,7 +1334,7 @@ export default function ReportsHub() {
                           Average Attainment (Indirect) — {currentBatchName}
                         </h4>
                       </div>
-                      <div className="report-table-scroll" tabIndex={0} aria-label="Scroll horizontally to view all indirect attainment outcomes">
+                      <div className="report-table-scroll" tabIndex={0} aria-label="Scroll horizontally to view all indirect attainment outcomes" style={{ overflowX: 'auto', overflowY: 'hidden', maxWidth: '100%', WebkitOverflowScrolling: 'touch' }}>
                         <table
                           className="audit-data-table"
                           style={{
@@ -1403,16 +1390,6 @@ export default function ReportsHub() {
                       <h4 style={{ margin: 0, fontSize: '18px', color: '#991b1b', fontWeight: '800' }}>Unable to calculate overall attainment</h4>
                       <p style={{ margin: '8px auto 0', fontSize: '13px', color: '#7f1d1d', maxWidth: '620px', lineHeight: '1.5' }}>{programmeBatchReportErrors.indirect}</p>
                     </div>
-                  ) : !showIndirectReport ? (
-                    <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '12px', padding: '32px 24px', textAlign: 'center' }}>
-                      <AlertCircle size={36} style={{ color: '#dc2626', marginBottom: '12px' }} />
-                      <h4 style={{ margin: 0, fontSize: '18px', color: '#991b1b', fontWeight: '800' }}>
-                        Not Generated Yet!
-                      </h4>
-                      <p style={{ margin: '8px auto 0', fontSize: '13px', color: '#7f1d1d', maxWidth: '520px', lineHeight: '1.5' }}>
-                        Overall Attainment (80% Direct + 20% Indirect) is calculated upon completion of the final semester of the batch once all direct and indirect assessment data are submitted.
-                      </p>
-                    </div>
                   ) : (
                     <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                       <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
@@ -1420,7 +1397,7 @@ export default function ReportsHub() {
                           Overall Attainment — {currentBatchName}
                         </h4>
                       </div>
-                      <div className="report-table-scroll" tabIndex={0} aria-label="Scroll horizontally to view all overall attainment outcomes">
+                      <div className="report-table-scroll" tabIndex={0} aria-label="Scroll horizontally to view all overall attainment outcomes" style={{ overflowX: 'auto', overflowY: 'hidden', maxWidth: '100%', WebkitOverflowScrolling: 'touch' }}>
                         <table
                           className="audit-data-table"
                           style={{

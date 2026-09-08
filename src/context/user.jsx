@@ -74,9 +74,12 @@ const mapBackendUser = (user) => {
     return null;
   }
 
-  const role =
-    user.role ??
-    null;
+  const normalizedRoles = [...new Set(
+    (Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role])
+      .filter(Boolean)
+      .map((value) => value === 'COURSE_COORDINATOR' ? 'FACULTY' : value)
+  )];
+  const role = normalizedRoles[0] ?? null;
 
   return {
     id:
@@ -98,6 +101,8 @@ const mapBackendUser = (user) => {
       null,
 
     role,
+
+    roles: normalizedRoles,
 
     roleLabel:
       getRoleLabel(role),
@@ -622,8 +627,14 @@ export function UserProvider({
           null,
 
         role:
+          (Array.isArray(newUser.roles) && newUser.roles[0]) ??
           newUser.role ??
           'FACULTY',
+
+        roles: (Array.isArray(newUser.roles) && newUser.roles.length
+          ? newUser.roles
+          : [newUser.role ?? 'FACULTY'])
+          .map((value) => value === 'COURSE_COORDINATOR' ? 'FACULTY' : value),
 
         /*
          * Password must be supplied through
