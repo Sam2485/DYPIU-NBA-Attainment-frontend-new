@@ -427,6 +427,165 @@ body {
   min-width: 64px;
 }
 
+/* ------------------------------------------------------------------------- */
+/* Responsive foundation                                                     */
+/* Desktop remains the source layout. These rules only activate below the   */
+/* corresponding viewport widths and keep overflow inside its own component. */
+/* ------------------------------------------------------------------------- */
+.mobile-nav-toggle,
+.mobile-nav-backdrop { display: none; }
+
+@media (max-width: 1024px) {
+  .nba-sidebar-nav {
+    width: 236px !important;
+    padding-inline: 11px !important;
+  }
+
+  .app-header-frame { padding: 20px 22px 0 !important; }
+  .app-header-card { padding: 20px 22px !important; gap: 16px !important; }
+  .app-header-logo { height: 58px !important; max-width: 22vw !important; }
+  .app-header-title-text { font-size: 20px !important; white-space: normal !important; }
+  .page-container { padding: 18px 22px 40px; }
+
+  .card,
+  .banner-dark-gradient { padding: 18px 20px; }
+
+  .grid-cards-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .grid-cards-4 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  body { overflow-x: hidden; }
+
+  .mobile-nav-toggle {
+    position: fixed;
+    z-index: 120;
+    top: 12px;
+    left: 12px;
+    width: 42px;
+    height: 42px;
+    padding: 10px;
+    display: grid;
+    align-content: center;
+    gap: 4px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #ffffff;
+    box-shadow: 0 6px 18px rgba(15,23,42,.16);
+    cursor: pointer;
+  }
+  .mobile-nav-toggle span { width: 20px; height: 2px; display: block; border-radius: 99px; background: #334155; }
+  .mobile-nav-backdrop {
+    position: fixed;
+    z-index: 90;
+    inset: 0;
+    display: block;
+    border: 0;
+    background: rgba(15,23,42,.45);
+    cursor: pointer;
+  }
+  .nba-sidebar-nav {
+    position: fixed !important;
+    z-index: 110 !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: min(292px, 86vw) !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow-y: auto !important;
+    transform: translateX(-105%);
+    transition: transform .22s ease;
+    box-shadow: 16px 0 40px rgba(15,23,42,.28);
+  }
+  .nba-sidebar-nav.is-mobile-open { transform: translateX(0); }
+  .nba-sidebar-nav + main,
+  .nba-layout-main {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 100dvh;
+    overflow-x: hidden !important;
+  }
+
+  .app-header-frame { padding: 12px 14px 0 !important; }
+  .app-header-card {
+    min-height: 74px;
+    padding: 14px 14px 14px 60px !important;
+    gap: 10px !important;
+    align-items: center !important;
+  }
+  .app-header-logo { height: 42px !important; max-width: 18vw !important; }
+  .app-header-title { flex: 1; }
+  .app-header-title-text { font-size: 14px !important; line-height: 1.25 !important; }
+  .app-header-title > div { font-size: 11px !important; }
+  .page-container { padding: 16px 14px 32px; min-width: 0; }
+  .nba-layout-main > main[style*="padding"] { padding: 16px !important; }
+
+  .card,
+  .banner-dark-gradient { padding: 15px; border-radius: 12px; }
+  .banner-title-group h2 { font-size: 18px; }
+  .card-header,
+  .banner-content-row,
+  .banner-footer-row,
+  .filter-toolbar-row { align-items: stretch; }
+  .filter-toolbar { padding: 12px; }
+  .glass-selector-group { width: 100%; flex-wrap: wrap; padding: 9px 11px; }
+  .glass-selector-control { min-width: 0; max-width: 100%; }
+
+  .grid-cards-3,
+  .grid-cards-4 { grid-template-columns: minmax(0, 1fr); gap: 12px; margin-bottom: 16px; }
+
+  /* Most role screens use inline grid styles. Collapse their forms/cards on
+     phones without altering the desktop inline design. */
+  .page-container [style*="grid-template-columns"],
+  .nba-layout-main [style*="grid-template-columns"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .page-container [style*="justify-content: space-between"],
+  .nba-layout-main [style*="justify-content: space-between"] {
+    flex-wrap: wrap !important;
+  }
+  .page-container select,
+  .page-container input,
+  .page-container textarea { max-width: 100%; }
+
+  .report-table-scroll,
+  .page-container > div[style*="overflow"],
+  .nba-layout-main > div[style*="overflow"] { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .audit-data-table th,
+  .audit-data-table td { padding: 9px 11px; font-size: 12px; }
+
+  .user-profile-modal-backdrop {
+    left: 0 !important;
+    padding: 12px !important;
+    place-items: end center !important;
+  }
+  .account-panel-section { width: 100% !important; height: min(82dvh, 680px) !important; }
+  .account-panel-section [style*="grid-template-columns: 210px"] { grid-template-columns: minmax(0, 1fr) !important; }
+  .account-panel-section aside { border-right: 0 !important; border-bottom: 1px solid #e7edf5; padding: 4px 0 16px !important; }
+  .attainment-progress-tracker { padding: 12px 14px 0 !important; }
+  .attainment-progress-steps {
+    display: flex !important;
+    overflow-x: auto;
+    grid-template-columns: none !important;
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
+  }
+  .attainment-progress-steps > button { flex: 0 0 156px; scroll-snap-align: start; }
+  .section-save-footer { align-items: stretch !important; }
+  .section-save-footer > div { width: 100%; justify-content: stretch !important; }
+  .section-save-footer button { flex: 1 1 auto; justify-content: center; }
+}
+
+@media (max-width: 420px) {
+  .app-header-logo { height: 34px !important; max-width: 16vw !important; }
+  .app-header-title-text { font-size: 12.5px !important; }
+  .page-container { padding-inline: 10px; }
+  .card,
+  .banner-dark-gradient { padding: 13px; }
+  .btn { width: 100%; min-height: 40px; }
+}
+
 /* Status Badges & Pills */
 .badge {
   display: inline-flex;

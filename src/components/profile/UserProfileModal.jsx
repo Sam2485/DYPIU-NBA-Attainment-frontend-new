@@ -59,6 +59,7 @@ export default function UserProfileModal({
 
   const content = (
     <div
+      className="user-profile-modal-backdrop"
       role="presentation"
       onMouseDown={onClose}
       style={{
@@ -90,6 +91,7 @@ export default function UserProfileModal({
       }}
     >
       <AccountPanelSection
+        className="account-panel-section"
         accountPanelRef={accountPanelRef}
         tab={currentTab}
         setTab={handleSelectTab}

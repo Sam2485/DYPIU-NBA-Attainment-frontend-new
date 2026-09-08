@@ -46,6 +46,7 @@ export default function SectionSaveFooter({
 
   return (
     <div
+      className="section-save-footer"
       style={{
         marginTop: 22,
         paddingTop: 18,

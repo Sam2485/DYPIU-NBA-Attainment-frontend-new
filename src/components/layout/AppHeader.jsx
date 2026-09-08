@@ -39,9 +39,10 @@ export default function AppHeader() {
   }
 
   return (
-    <div style={{ width: '100%', boxSizing: 'border-box' }}>
-      <div style={{ width: '100%', padding: '25px 35px 0', boxSizing: 'border-box' }}>
+    <div className="app-header-shell" style={{ width: '100%', boxSizing: 'border-box' }}>
+      <div className="app-header-frame" style={{ width: '100%', padding: '25px 35px 0', boxSizing: 'border-box' }}>
         <header
+          className="app-header-card"
           style={{
             width: '100%',
             margin: 0,
@@ -58,6 +59,7 @@ export default function AppHeader() {
           }}
         >
           <img
+            className="app-header-logo"
             src={dypLogo}
             alt="DYPIU logo"
             style={{
@@ -72,6 +74,7 @@ export default function AppHeader() {
           />
 
           <div
+            className="app-header-title"
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -80,7 +83,7 @@ export default function AppHeader() {
               textAlign: 'center',
             }}
           >
-            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '950', color: '#111827', letterSpacing: '-0.01em', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+            <h1 className="app-header-title-text" style={{ margin: 0, fontSize: '24px', fontWeight: '950', color: '#111827', letterSpacing: '-0.01em', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
               Outcome-Based Education (OBE) Attainment System
             </h1>
             <div style={{ fontSize: '14px', fontWeight: '800', color: '#374151', margin: '2px 0 0' }}>
@@ -89,6 +92,7 @@ export default function AppHeader() {
           </div>
 
           <img
+            className="app-header-logo"
             src={iqacLogo}
             alt="IQAC logo"
             style={{

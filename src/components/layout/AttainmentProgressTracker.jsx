@@ -54,7 +54,7 @@ export default function AttainmentProgressTracker() {
   const activeStep = WORKFLOW_STEPS[currentStepIndex];
 
   return (
-    <div style={{ padding: '16px 28px 0', width: '100%', boxSizing: 'border-box' }}>
+    <div className="attainment-progress-tracker" style={{ padding: '16px 28px 0', width: '100%', boxSizing: 'border-box' }}>
       <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 2px 8px rgba(15,23,42,0.04)', width: '100%', boxSizing: 'border-box' }}>
 
         {/* Header row */}
@@ -87,7 +87,7 @@ export default function AttainmentProgressTracker() {
         </div>
 
         {/* 6-step stepper strip */}
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${WORKFLOW_STEPS.length}, 1fr)`, gap: '4px' }}>
+        <div className="attainment-progress-steps" style={{ display: 'grid', gridTemplateColumns: `repeat(${WORKFLOW_STEPS.length}, 1fr)`, gap: '4px' }}>
           {WORKFLOW_STEPS.map((stepItem, idx) => {
             const isCompleted = Array.isArray(courseProgress?.stepStatus)
               ? !!courseProgress.stepStatus[idx]

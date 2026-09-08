@@ -68,6 +68,7 @@ function AccountPanelSection({
   courseCount = 0,
   batchName,
   enableProfileSwitching = false,
+  className = '',
   style = {},
 }) {
   const { role, availableProfiles = [], isLoadingProfiles, loadAvailableProfiles, switchProfile } = useAuth();
@@ -118,6 +119,7 @@ function AccountPanelSection({
 
   return (
     <section
+      className={className}
       ref={accountPanelRef}
       role="dialog"
       aria-modal="true"

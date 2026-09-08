@@ -119,6 +119,7 @@ export default function AppSidebar({
   const [internalActiveTab, setInternalActiveTab] = useState(() => (
     typeof window !== 'undefined' ? sessionStorage.getItem(`${profileSessionKey}:tab`) || 'profile' : 'profile'
   ));
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   const isControlled = Boolean(externalOnProfileOpen);
   const isInternalProfileOpen =
@@ -184,6 +185,10 @@ export default function AppSidebar({
   } = useAcademic();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    setIsMobileNavOpen(false);
+  }, [location.pathname]);
 
   // Helper to extract clean 4-digit span e.g. "2025-2029" from batch object
   const getBatchYearSpan = (b) => {
@@ -390,8 +395,20 @@ export default function AppSidebar({
     : 'DY';
 
   return (
+    <>
+      <button
+        type="button"
+        className="mobile-nav-toggle"
+        onClick={() => setIsMobileNavOpen(true)}
+        aria-label="Open navigation"
+      >
+        <span />
+        <span />
+        <span />
+      </button>
+      {isMobileNavOpen && <button type="button" className="mobile-nav-backdrop" aria-label="Close navigation" onClick={() => setIsMobileNavOpen(false)} />}
     <aside
-      className="nba-sidebar-nav"
+      className={`nba-sidebar-nav${isMobileNavOpen ? ' is-mobile-open' : ''}`}
       style={{
         width: 280,
         flexShrink: 0,
@@ -1380,5 +1397,6 @@ export default function AppSidebar({
         </>
       )}
     </aside>
+    </>
   );
 }
