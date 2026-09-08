@@ -1328,13 +1328,13 @@ export default function ReportsHub() {
                       <p style={{ margin: '8px auto 0', fontSize: '13px', color: '#7f1d1d', maxWidth: '620px', lineHeight: '1.5' }}>{programmeBatchReportErrors.indirect}</p>
                     </div>
                   ) : (
-                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', minWidth: 0, maxWidth: '100%', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                       <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
                         <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
                           Average Attainment (Indirect) — {currentBatchName}
                         </h4>
                       </div>
-                      <div className="report-table-scroll" tabIndex={0} aria-label="Scroll horizontally to view all indirect attainment outcomes" style={{ overflowX: 'auto', overflowY: 'hidden', maxWidth: '100%', WebkitOverflowScrolling: 'touch' }}>
+                      <div className="report-table-scroll" tabIndex={0} aria-label="Scroll horizontally to view all indirect attainment outcomes" style={{ display: 'block', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'scroll', overflowY: 'hidden', WebkitOverflowScrolling: 'touch' }}>
                         <table
                           className="audit-data-table"
                           style={{
@@ -1391,13 +1391,13 @@ export default function ReportsHub() {
                       <p style={{ margin: '8px auto 0', fontSize: '13px', color: '#7f1d1d', maxWidth: '620px', lineHeight: '1.5' }}>{programmeBatchReportErrors.indirect}</p>
                     </div>
                   ) : (
-                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', minWidth: 0, maxWidth: '100%', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                       <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
                         <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
                           Overall Attainment — {currentBatchName}
                         </h4>
                       </div>
-                      <div className="report-table-scroll" tabIndex={0} aria-label="Scroll horizontally to view all overall attainment outcomes" style={{ overflowX: 'auto', overflowY: 'hidden', maxWidth: '100%', WebkitOverflowScrolling: 'touch' }}>
+                      <div className="report-table-scroll" tabIndex={0} aria-label="Scroll horizontally to view all overall attainment outcomes" style={{ display: 'block', width: '100%', minWidth: 0, maxWidth: '100%', overflowX: 'scroll', overflowY: 'hidden', WebkitOverflowScrolling: 'touch' }}>
                         <table
                           className="audit-data-table"
                           style={{
