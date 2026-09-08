@@ -100,6 +100,7 @@ export default function UserProfileModal({
         roleLabel={roleLabel}
         courseCount={courseCount}
         batchName={batchName}
+        enableProfileSwitching
         style={{
           transform: 'translateX(60px)',
           // Instant visibility toggle: no opacity transition to prevent intermediate frame flicker

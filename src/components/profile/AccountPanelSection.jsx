@@ -1,5 +1,6 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { Bell, Check, ChevronRight, Clock3, Eye, LockKeyhole, Monitor, Moon, ShieldCheck, SlidersHorizontal, UserRound, X } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 export const tabs = [
   { id: 'profile', label: 'Profile', icon: UserRound },
@@ -66,14 +67,42 @@ function AccountPanelSection({
   roleLabel,
   courseCount = 0,
   batchName,
+  enableProfileSwitching = false,
   style = {},
 }) {
+  const { role, availableProfiles = [], isLoadingProfiles, loadAvailableProfiles, switchProfile } = useAuth();
+  const [profileSwitchError, setProfileSwitchError] = useState('');
+  const [switchingProfileKey, setSwitchingProfileKey] = useState(null);
   const toggle = onTogglePreference || ((key) => setPreferences?.((prev) => ({ ...prev, [key]: !prev[key] })));
   const userName = user?.name || user?.username || 'Academic User';
   const initials = userName.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
   const department = user?.department?.name || user?.departmentName || 'Not assigned';
   const school = user?.school?.name || user?.schoolName || 'Not assigned';
   const about = `${roleLabel || 'Academic user'} in the Outcome-Based Education Attainment System, responsible for assigned academic workflow and attainment activities.`;
+  const profileRoleName = (profileRole) => String(profileRole || 'Profile')
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+
+  useEffect(() => {
+    if (enableProfileSwitching) void loadAvailableProfiles();
+  }, [enableProfileSwitching, loadAvailableProfiles]);
+
+  const handleSwitchProfile = async (profile, profileKey) => {
+    if (profile.isCurrent || profile.role === role) return;
+    setProfileSwitchError('');
+    setSwitchingProfileKey(profileKey);
+    const result = await switchProfile(profile);
+    if (!result.success) {
+      setProfileSwitchError(result.error || 'Unable to switch profile.');
+      setSwitchingProfileKey(null);
+      return;
+    }
+
+    const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+    window.location.assign(`${basePath}${result.targetPath}`);
+  };
 
   const notificationItems = useMemo(
     () => [
@@ -221,6 +250,30 @@ function AccountPanelSection({
                 <Check size={12} />
                 Active
               </span>
+              {enableProfileSwitching && availableProfiles.length > 1 && (
+                <div style={{ marginTop: 18, paddingTop: 15, borderTop: '1px solid #e7edf5', textAlign: 'left' }}>
+                  <div style={{ color: '#64748b', fontSize: 10, fontWeight: 850, letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 8 }}>Switch profile</div>
+                  <div style={{ display: 'grid', gap: 6 }}>
+                    {availableProfiles.map((profile, index) => {
+                      const profileKey = `${profile.role}-${profile.departmentId ?? profile.programmeBatchId ?? index}`;
+                      const isCurrent = Boolean(profile.isCurrent) || profile.role === role;
+                      const isSwitching = switchingProfileKey === profileKey;
+                      return (
+                        <button
+                          key={profileKey}
+                          type="button"
+                          onClick={() => handleSwitchProfile(profile, profileKey)}
+                          disabled={isCurrent || isLoadingProfiles || Boolean(switchingProfileKey)}
+                          style={{ width: '100%', minHeight: 32, padding: '6px 8px', borderRadius: 8, border: isCurrent ? '1px solid #a5b4fc' : '1px solid #e2e8f0', background: isCurrent ? '#eef2ff' : '#fff', color: isCurrent ? '#4338ca' : '#334155', textAlign: 'left', cursor: isCurrent || isLoadingProfiles || Boolean(switchingProfileKey) ? 'default' : 'pointer', fontSize: 11, fontWeight: 800, fontFamily: 'inherit' }}
+                        >
+                          {isSwitching ? 'Switching…' : profileRoleName(profile.role)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {profileSwitchError && <div style={{ marginTop: 8, color: '#b91c1c', fontSize: 10.5, fontWeight: 700 }}>{profileSwitchError}</div>}
+                </div>
+              )}
             </aside>
             <div>
               <h3 style={{ margin: '0 0 11px', fontSize: 15, color: '#172033' }}>Personal information</h3>
@@ -355,4 +408,3 @@ function AccountPanelSection({
 }
 
 export default memo(AccountPanelSection);
-

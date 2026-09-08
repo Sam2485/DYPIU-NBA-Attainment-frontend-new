@@ -110,14 +110,7 @@ export default function AppSidebar({
   const internalProfileCardRef = useRef(null);
   const internalAccountPanelRef = useRef(null);
   const profileCardRef = externalProfileCardRef || internalProfileCardRef;
-  const {
-    user,
-    role,
-    logout,
-    availableProfiles = [],
-    isLoadingProfiles,
-    switchProfile,
-  } = useAuth();
+  const { user, role, logout } = useAuth();
   const profileSessionKey = `profile-panel:${user?.id ?? user?.email ?? 'anonymous'}`;
 
   const [internalProfileState, setInternalProfileState] = useState(() => (
@@ -126,8 +119,6 @@ export default function AppSidebar({
   const [internalActiveTab, setInternalActiveTab] = useState(() => (
     typeof window !== 'undefined' ? sessionStorage.getItem(`${profileSessionKey}:tab`) || 'profile' : 'profile'
   ));
-  const [isProfileSwitcherOpen, setIsProfileSwitcherOpen] = useState(false);
-  const [profileSwitchError, setProfileSwitchError] = useState('');
 
   const isControlled = Boolean(externalOnProfileOpen);
   const isInternalProfileOpen =
@@ -158,24 +149,6 @@ export default function AppSidebar({
     if (internalProfileState === 'open') {
       setInternalProfileState('closing');
     }
-  };
-
-  const handleSwitchProfile = async (profile) => {
-    if (profile.isCurrent || profile.role === role) {
-      setIsProfileSwitcherOpen(false);
-      return;
-    }
-    setProfileSwitchError('');
-    const result = await switchProfile(profile);
-    if (!result.success) {
-      setProfileSwitchError(result.error || 'Unable to switch profile.');
-      return;
-    }
-
-    // A full navigation starts every dashboard with fresh, backend-scoped
-    // data rather than leaving role-specific context from the prior profile.
-    const basePath = window.location.pathname.startsWith('/obe') ? '/obe' : '';
-    window.location.assign(`${basePath}${result.targetPath}`);
   };
 
   const handleGenieComplete = (completedState) => {
@@ -1310,50 +1283,6 @@ export default function AppSidebar({
           <Icon name="profile" size={14} />
         </span>
       </button>
-
-      {availableProfiles.length > 1 && (
-        <div style={{ position: 'relative', marginTop: '-2px', flexShrink: 0 }}>
-          <button
-            type="button"
-            onClick={() => { setProfileSwitchError(''); setIsProfileSwitcherOpen((open) => !open); }}
-            style={{
-              width: '100%', minHeight: 32, borderRadius: 9,
-              border: '1px solid rgba(165,180,252,0.3)', background: 'rgba(99,102,241,0.12)',
-              color: '#c7d2fe', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11,
-              fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-            }}
-            aria-expanded={isProfileSwitcherOpen}
-          >
-            <Icon name="profile" size={13} /> {isLoadingProfiles ? 'Loading profiles…' : 'Switch Profile'}
-            <Icon name="chevron" size={13} />
-          </button>
-
-          {isProfileSwitcherOpen && (
-            <div style={{ position: 'absolute', zIndex: 50, bottom: 'calc(100% + 8px)', left: 0, right: 0, padding: 7, borderRadius: 12, background: '#1e293b', border: '1px solid rgba(148,163,184,0.28)', boxShadow: '0 14px 30px rgba(2,6,23,.42)' }}>
-              <div style={{ padding: '5px 7px 7px', color: '#94a3b8', fontSize: 9.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.06em' }}>Available profiles</div>
-              {availableProfiles.map((profile, index) => {
-                const isCurrent = Boolean(profile.isCurrent) || profile.role === role;
-                return (
-                  <button
-                    key={`${profile.role}-${profile.departmentId ?? profile.programmeBatchId ?? index}`}
-                    type="button"
-                    onClick={() => handleSwitchProfile(profile)}
-                    disabled={isCurrent || isLoadingProfiles}
-                    style={{ width: '100%', border: isCurrent ? '1px solid rgba(129,140,248,.45)' : '1px solid transparent', borderRadius: 8, background: isCurrent ? 'rgba(99,102,241,.2)' : 'transparent', color: '#f8fafc', textAlign: 'left', padding: '8px 9px', cursor: isCurrent || isLoadingProfiles ? 'default' : 'pointer', fontFamily: 'inherit', opacity: isLoadingProfiles ? .65 : 1, marginBottom: 3 }}
-                  >
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 11, fontWeight: 800 }}>
-                      <span style={{ flex: 1 }}>{profile.displayName || profile.title || profile.role}</span>
-                      {isCurrent && <span style={{ fontSize: 9, color: '#c7d2fe' }}>Current</span>}
-                    </div>
-                    {profile.description && <div style={{ color: '#94a3b8', fontSize: 9.5, lineHeight: 1.3, marginTop: 3 }}>{profile.description}</div>}
-                  </button>
-                );
-              })}
-              {profileSwitchError && <div style={{ padding: '6px 7px 2px', color: '#fca5a5', fontSize: 10, fontWeight: 700 }}>{profileSwitchError}</div>}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ── Need Help card ─────────────────────────────────────────── */}
       <div
