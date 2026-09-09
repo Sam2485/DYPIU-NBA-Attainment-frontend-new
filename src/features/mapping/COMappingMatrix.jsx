@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FileSpreadsheet, Grid2X2, Save } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
+import { sortOutcomes } from '../../utils/outcomeOrder';
 
 export default function COMappingMatrix({ hideFooter = false }) {
   const {
@@ -42,15 +43,15 @@ export default function COMappingMatrix({ hideFooter = false }) {
   // The programme-batch-course mapping endpoint is authoritative for this
   // screen. Context outcomes are only a fallback while its response loads.
   const mappingPOs = useMemo(
-    () => Array.isArray(coMapping?.pos) && coMapping.pos.length > 0 ? coMapping.pos : (activePOs || []),
+    () => sortOutcomes(Array.isArray(coMapping?.pos) && coMapping.pos.length > 0 ? coMapping.pos : activePOs),
     [activePOs, coMapping?.pos]
   );
   const mappingPSOs = useMemo(
-    () => Array.isArray(coMapping?.psos) && coMapping.psos.length > 0 ? coMapping.psos : (activePSOs || []),
+    () => sortOutcomes(Array.isArray(coMapping?.psos) && coMapping.psos.length > 0 ? coMapping.psos : activePSOs),
     [activePSOs, coMapping?.psos]
   );
   const courseOutcomes = useMemo(
-    () => Array.isArray(coMapping?.cos) && coMapping.cos.length > 0 ? coMapping.cos : (activeCOs || []),
+    () => sortOutcomes(Array.isArray(coMapping?.cos) && coMapping.cos.length > 0 ? coMapping.cos : activeCOs),
     [activeCOs, coMapping?.cos]
   );
   const poList = mappingPOs.map((p) => p.code);

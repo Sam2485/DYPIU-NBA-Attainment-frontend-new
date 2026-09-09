@@ -10,6 +10,7 @@ import {
 
 import { useAuth } from './auth';
 import apiClient from '../api/client';
+import { sortOutcomes } from '../utils/outcomeOrder';
 
 export const AcademicContext = createContext(null);
 
@@ -917,9 +918,9 @@ export function AcademicProvider({ children }) {
           statement: outcome?.statement ?? outcome?.description ?? outcome?.name ?? '',
         }));
 
-        const pos = withStatement(unwrapList(poResponse));
-        const psos = withStatement(unwrapList(psoResponse));
-        const peos = withStatement(unwrapList(peoResponse));
+        const pos = sortOutcomes(withStatement(unwrapList(poResponse)));
+        const psos = sortOutcomes(withStatement(unwrapList(psoResponse)));
+        const peos = sortOutcomes(withStatement(unwrapList(peoResponse)));
 
         setActivePOs(pos);
         setActivePSOs(psos);
@@ -959,9 +960,9 @@ export function AcademicProvider({ children }) {
         ...outcome,
         statement: outcome?.statement ?? outcome?.description ?? outcome?.name ?? '',
       }));
-      const pos = withStatement(bundle.pos ?? []);
-      const psos = withStatement(bundle.psos ?? []);
-      const peos = withStatement(bundle.peos ?? []);
+      const pos = sortOutcomes(withStatement(bundle.pos ?? []));
+      const psos = sortOutcomes(withStatement(bundle.psos ?? []));
+      const peos = sortOutcomes(withStatement(bundle.peos ?? []));
       const targets = {
         poTargets: bundle.poTargets ?? {},
         psoTargets: bundle.psoTargets ?? {},
@@ -1010,7 +1011,7 @@ export function AcademicProvider({ children }) {
         const response = await apiClient.get(
           `/programme-batch-courses/${offeringId}/course-outcomes`
         );
-        const data = unwrapList(response);
+        const data = sortOutcomes(unwrapList(response));
         setActiveCOs(data);
         return data;
       } catch (err) {
@@ -1697,8 +1698,9 @@ export function AcademicProvider({ children }) {
         newCOs
       );
       const data = unwrapList(response);
-      setActiveCOs(data);
-      return data;
+      const sorted = sortOutcomes(data);
+      setActiveCOs(sorted);
+      return sorted;
     },
     [courseOfferingId]
   );
@@ -1832,9 +1834,9 @@ export function AcademicProvider({ children }) {
         ...item,
         statement: item?.statement ?? item?.description ?? '',
       });
-      setActivePOs(unwrapList(poResponse).map(normalizeOutcomeDraft));
-      setActivePSOs(unwrapList(psoResponse).map((item) => normalizeOutcomeDraft(item)));
-      setActivePEOs(unwrapList(peoResponse).map((item) => normalizeOutcomeDraft(item)));
+      setActivePOs(sortOutcomes(unwrapList(poResponse).map(normalizeOutcomeDraft)));
+      setActivePSOs(sortOutcomes(unwrapList(psoResponse).map((item) => normalizeOutcomeDraft(item))));
+      setActivePEOs(sortOutcomes(unwrapList(peoResponse).map((item) => normalizeOutcomeDraft(item))));
     },
     [activePEOs, activePOs, activePSOs]
   );
@@ -1879,9 +1881,9 @@ export function AcademicProvider({ children }) {
         peos: Array.isArray(bundle.peos) ? bundle.peos : peoPayload,
         targets: { poTargets: bundle.poTargets ?? targetPayload.poTargets, psoTargets: bundle.psoTargets ?? targetPayload.psoTargets },
       };
-      setActivePOs(data.pos.map(normalize));
-      setActivePSOs(data.psos.map(normalize));
-      setActivePEOs(data.peos.map(normalize));
+      setActivePOs(sortOutcomes(data.pos.map(normalize)));
+      setActivePSOs(sortOutcomes(data.psos.map(normalize)));
+      setActivePEOs(sortOutcomes(data.peos.map(normalize)));
       setPoPsoTargets(data.targets);
       return data;
     },

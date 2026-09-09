@@ -563,6 +563,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
   };
 
   const handleSubmitForReview = async () => {
+    if (isSubmittingForReview || isSavingOutcomes) return;
     if (!targetCourseId) {
       alert('Select an assigned programme-batch course before submitting outcomes.');
       return;
@@ -646,14 +647,16 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                 <button
                   className="btn btn-primary"
                   onClick={handleSaveOutcomes}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', opacity: 1, cursor: 'pointer' }}
+                  disabled={isSavingOutcomes || isSubmittingForReview}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', opacity: (isSavingOutcomes || isSubmittingForReview) ? 0.6 : 1, cursor: (isSavingOutcomes || isSubmittingForReview) ? 'not-allowed' : 'pointer' }}
                 >
                   <Save size={15} /> {isSavingOutcomes ? 'Saving…' : outcomesDirty ? 'Save Outcomes' : 'Saved'}
                 </button>
                 <button
                   className="btn btn-primary"
                   onClick={handleSubmitForReview}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', opacity: 1, cursor: 'pointer' }}
+                  disabled={isSubmittingForReview || isSavingOutcomes}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', opacity: (isSubmittingForReview || isSavingOutcomes) ? 0.6 : 1, cursor: (isSubmittingForReview || isSavingOutcomes) ? 'not-allowed' : 'pointer' }}
                 >
                   <Send size={15} /> {isSubmittingForReview ? 'Submitting…' : outcomesPendingReview ? 'Submitted' : 'Submit for Review'}
                 </button>

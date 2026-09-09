@@ -10,6 +10,7 @@ import { useApproval } from '../../context/approval';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 import { reportsApi } from '../../api/reports';
 import { openReportPdf } from '../../utils/reportDownload';
+import { sortOutcomes } from '../../utils/outcomeOrder';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -133,8 +134,8 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   // ── Build PO/PSO ATR list ──────────────────────────────────────────
   const progTargets = poPsoTargets ?? { poTargets: {}, psoTargets: {} };
 
-  const normPOs = activePOs || [];
-  const normPSOs = activePSOs || [];
+  const normPOs = sortOutcomes(activePOs);
+  const normPSOs = sortOutcomes(activePSOs);
 
   const buildList = () => [
     ...normPOs.map((po) => {
@@ -308,7 +309,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
         })),
       ];
       const observations = reportOutcomes.length > 0 ? reportOutcomes : parseObservations(atr.observationsJson);
-      setAtrList(observations.map((observation) => {
+      setAtrList(sortOutcomes(observations).map((observation) => {
         const code = observation.outcomeCode;
         const outcome = outcomeDefinitions.find((item) => item.code === code);
         const attained = observation.attainmentLevel >= observation.targetLevel

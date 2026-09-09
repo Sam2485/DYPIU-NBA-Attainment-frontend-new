@@ -4,6 +4,7 @@ import { useAcademic } from '../../context/academic';
 import { useAttainment } from '../../context/attainment';
 import { useAuth } from '../../context/AuthContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
+import { sortOutcomeCodes, sortOutcomes } from '../../utils/outcomeOrder';
 
 const normalizeOutcomeCode = (code) => String(code ?? '').trim().toUpperCase().replace(/\s+/g, '');
 
@@ -67,25 +68,25 @@ export default function COAttainmentEngine({ hideFooter = false }) {
     ?? selectedCourse?.name
     ?? selectedCourseOffering?.courseName
     ?? 'Selected Offering';
-  const table1Mapping = Array.isArray(attainmentReport.table1Mapping) ? attainmentReport.table1Mapping : [];
-  const table2DirectPO = Array.isArray(attainmentReport.table2DirectPO) ? attainmentReport.table2DirectPO : [];
-  const table2DirectPSO = Array.isArray(attainmentReport.table2DirectPSO) ? attainmentReport.table2DirectPSO : [];
-  const table3CoAttainments = Array.isArray(attainmentReport.table3CoAttainments)
+  const table1Mapping = sortOutcomes(Array.isArray(attainmentReport.table1Mapping) ? attainmentReport.table1Mapping : []);
+  const table2DirectPO = sortOutcomes(Array.isArray(attainmentReport.table2DirectPO) ? attainmentReport.table2DirectPO : []);
+  const table2DirectPSO = sortOutcomes(Array.isArray(attainmentReport.table2DirectPSO) ? attainmentReport.table2DirectPSO : []);
+  const table3CoAttainments = sortOutcomes(Array.isArray(attainmentReport.table3CoAttainments)
     ? attainmentReport.table3CoAttainments
-    : [];
+    : []);
   const courseOutcomes = table3CoAttainments.length > 0
-    ? table3CoAttainments.map((item) => ({ code: item.coCode, statement: item.statement }))
-    : activeCOs;
-  const poList = [...new Set([
+    ? sortOutcomes(table3CoAttainments.map((item) => ({ code: item.coCode, statement: item.statement })))
+    : sortOutcomes(activeCOs);
+  const poList = sortOutcomeCodes([
     ...table1Mapping.flatMap((item) => Object.keys(item.poMappings ?? {}).map(normalizeOutcomeCode)),
     ...table2DirectPO.map((item) => normalizeOutcomeCode(item.poCode)).filter(Boolean),
-  ])];
-  const psoList = [...new Set([
+  ]);
+  const psoList = sortOutcomeCodes([
     ...table1Mapping.flatMap((item) => Object.keys(item.psoMappings ?? {}).map(normalizeOutcomeCode)),
     ...table2DirectPSO.map((item) => normalizeOutcomeCode(item.psoCode)).filter(Boolean),
-  ])];
-  const displayPOs = poList.length > 0 ? poList : [...new Set(activePOs.map((p) => normalizeOutcomeCode(p.code)).filter(Boolean))];
-  const displayPSOs = psoList.length > 0 ? psoList : [...new Set(activePSOs.map((p) => normalizeOutcomeCode(p.code)).filter(Boolean))];
+  ]);
+  const displayPOs = poList.length > 0 ? poList : sortOutcomeCodes(activePOs.map((p) => normalizeOutcomeCode(p.code)));
+  const displayPSOs = psoList.length > 0 ? psoList : sortOutcomeCodes(activePSOs.map((p) => normalizeOutcomeCode(p.code)));
 
   // Backend returned CO Attainment values
   const directLevel = attainmentReport.directAttainment ?? attainmentReport.averageDirectAttainment ?? null;

@@ -7,6 +7,7 @@ import { useAttainment } from '../../context/attainment';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 import { reportsApi } from '../../api/reports';
 import { openReportPdf } from '../../utils/reportDownload';
+import { sortOutcomes } from '../../utils/outcomeOrder';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -140,10 +141,10 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
 
     return () => { isCurrent = false; };
   }, [activeCourseId, loadPreviousYearCourseATR, showHistory]);
-  const apiOutcomes = Array.isArray(apiCourseAtr?.outcomes) ? apiCourseAtr.outcomes : EMPTY_ARRAY;
+  const apiOutcomes = sortOutcomes(Array.isArray(apiCourseAtr?.outcomes) ? apiCourseAtr.outcomes : EMPTY_ARRAY);
   const courseOutcomes = apiOutcomes.length > 0
     ? apiOutcomes
-    : (activeCOs.length > 0 ? activeCOs : (currentCourse?.courseOutcomes || EMPTY_ARRAY));
+    : sortOutcomes(activeCOs.length > 0 ? activeCOs : (currentCourse?.courseOutcomes || EMPTY_ARRAY));
 
   // Context stores can legitimately be null before their first load. Normalize
   // them before looking up the selected programme-batch-course ID.
@@ -201,7 +202,7 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
 
   useEffect(() => {
     if (!apiCourseAtr?.outcomes) return;
-    setCoList(apiCourseAtr.outcomes.map((outcome) => {
+    setCoList(sortOutcomes(apiCourseAtr.outcomes).map((outcome) => {
       const target = Number(outcome.targetLevel) || 0;
       const actual = Number(outcome.attainmentLevel) || 0;
       return {
