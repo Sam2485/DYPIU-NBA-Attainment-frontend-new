@@ -49,6 +49,8 @@ export default function ProgrammeCoordinatorApprovals() {
   const [error, setError] = useState('');
   const [remarks, setRemarks] = useState('');
   const requestedScope = useRef(null);
+  const queueRequestRef = useRef(0);
+  const workspaceRequestRef = useRef(0);
   // `useSearchParams` updates on the following render. Keep a short-lived
   // guard so the URL-sync effect cannot restore the just-closed workspace
   // from the previous render's approvalId.
@@ -59,6 +61,7 @@ export default function ProgrammeCoordinatorApprovals() {
   }, [selectedBatchId, user?.email]);
 
   const openApproval = (approvalId, courseId = null) => {
+    workspaceRequestRef.current += 1;
     isClosingApprovalRef.current = false;
     // Clearing the current workspace here makes the page fall back to the
     // inbox until the next tab's details request returns. Keep it only for a
@@ -73,6 +76,7 @@ export default function ProgrammeCoordinatorApprovals() {
   const selectWorkspaceTab = (item) => {
     const approvalId = item.approvalRequestId ?? item.id;
     if (!approvalId) return;
+    workspaceRequestRef.current += 1;
     isClosingApprovalRef.current = false;
     setSelectedId(approvalId);
     // Preserve the loaded course workspace while the API refreshes the
@@ -90,6 +94,7 @@ export default function ProgrammeCoordinatorApprovals() {
   };
 
   const closeApproval = () => {
+    workspaceRequestRef.current += 1;
     isClosingApprovalRef.current = true;
     setSelectedId(null);
     setSelectedCourseId(null);
@@ -100,6 +105,7 @@ export default function ProgrammeCoordinatorApprovals() {
 
   const loadQueue = useCallback(async ({ reloadCourses = false, programmeBatchId: requestedBatchId = null, queue = queueTab } = {}) => {
     if (!user?.email) return;
+    const requestId = ++queueRequestRef.current;
     setLoading(true);
     setError('');
     try {
@@ -124,7 +130,7 @@ export default function ProgrammeCoordinatorApprovals() {
 
       const activeBatchId = requestedBatchId || selectedBatchId || String((coordinatorBatches || [])[0]?.id ?? '');
       if (!activeBatchId) {
-        setApprovals([]);
+        if (queueRequestRef.current === requestId) setApprovals([]);
         return;
       }
 
@@ -149,15 +155,19 @@ export default function ProgrammeCoordinatorApprovals() {
         })));
       };
       const requests = flattenInbox(approvalResponse);
-      setProgrammeBatchCourses((current) => {
-        const fromInbox = requests.map((item) => ({ ...item, id: item.programmeBatchCourseId }));
-        return [...new Map([...current, ...fromInbox].map((item) => [item.programmeBatchCourseId ?? item.id, item])).values()];
-      });
-      setApprovals(requests);
+      if (queueRequestRef.current === requestId) {
+        setProgrammeBatchCourses((current) => {
+          const fromInbox = requests.map((item) => ({ ...item, id: item.programmeBatchCourseId }));
+          return [...new Map([...current, ...fromInbox].map((item) => [item.programmeBatchCourseId ?? item.id, item])).values()];
+        });
+        setApprovals(requests);
+      }
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Unable to load approval requests.');
+      if (queueRequestRef.current === requestId) {
+        setError(err?.response?.data?.message || err?.message || 'Unable to load approval requests.');
+      }
     } finally {
-      setLoading(false);
+      if (queueRequestRef.current === requestId) setLoading(false);
     }
   }, [loadCoordinatorProgrammeBatches, programmeBatchCourses, programmeBatches, queueTab, selectedBatchId, user?.email]);
 
@@ -187,17 +197,22 @@ export default function ProgrammeCoordinatorApprovals() {
 
   useEffect(() => {
     if (!selectedId) return;
+    const requestVersion = workspaceRequestRef.current;
     let active = true;
     const selectedRequest = approvals.find((item) => item.id === selectedId);
     const courseId = selectedRequest?.programmeBatchCourseId ?? selectedCourseId;
     if (!courseId) return undefined;
     apiClient.get(`/approvals/programme-batch-courses/${courseId}`).then((response) => {
-      if (!active) return;
+      if (!active || workspaceRequestRef.current !== requestVersion) return;
       const workspace = unwrap(response) ?? {};
       const approval = (workspace.approvalItems ?? []).find((item) => item.approvalRequestId === selectedId) ?? {};
       setDetails({ ...selectedRequest, ...approval, id: approval.approvalRequestId ?? selectedId, programmeBatchCourseId: courseId, programmeBatchCourse: workspace.programmeBatchCourse, workspaceApprovalItems: workspace.approvalItems ?? [] });
       setRemarks('');
-    }).catch((err) => active && setError(err?.response?.data?.message || 'Unable to load approval details.'));
+    }).catch((err) => {
+      if (active && workspaceRequestRef.current === requestVersion) {
+        setError(err?.response?.data?.message || 'Unable to load approval details.');
+      }
+    });
     return () => { active = false; };
   }, [approvals, selectedCourseId, selectedId]);
 
@@ -216,11 +231,12 @@ export default function ProgrammeCoordinatorApprovals() {
     }[selectedApproval.type];
     if (!detailByType) return undefined;
     let active = true;
+    const requestVersion = workspaceRequestRef.current;
     Promise.all([
       apiClient.get(detailByType.content),
       apiClient.get('/approvals/verification-status', { params: { key: detailByType.key } }),
     ]).then(([contentResponse, statusResponse]) => {
-      if (!active) return;
+      if (!active || workspaceRequestRef.current !== requestVersion) return;
       const status = unwrap(statusResponse) ?? {};
       setDetails((current) => current?.id === selectedApproval.id ? {
         ...current,
@@ -228,7 +244,11 @@ export default function ProgrammeCoordinatorApprovals() {
         status: status.status ?? current.status,
         remarks: status.remarks ?? current.remarks,
       } : current);
-    }).catch((err) => active && setError(err?.response?.data?.message || 'Unable to load the submitted approval content.'));
+    }).catch((err) => {
+      if (active && workspaceRequestRef.current === requestVersion) {
+        setError(err?.response?.data?.message || 'Unable to load the submitted approval content.');
+      }
+    });
     return () => { active = false; };
   }, [approvals, details?.id, details?.programmeBatchCourseId, details?.type, selectedId]);
 
@@ -352,11 +372,11 @@ export default function ProgrammeCoordinatorApprovals() {
     {error && <div style={{ marginBottom: '14px', padding: '10px 14px', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '13px' }}>{error}</div>}
     <div style={{ ...surface, padding: '14px 18px', marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
       <label style={{ fontSize: '12px', fontWeight: 800, color: '#475569' }}>Programme Batch</label>
-      <select value={selectedBatchId} onChange={(event) => { const nextBatchId = event.target.value; setSelectedBatchId(nextBatchId); setSelectedId(null); setDetails(null); loadQueue({ programmeBatchId: nextBatchId, queue: queueTab }); }} style={{ height: '38px', minWidth: '230px', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0 10px', color: '#0f172a', background: '#fff', fontWeight: 600 }}>
+      <select value={selectedBatchId} onChange={(event) => { const nextBatchId = event.target.value; workspaceRequestRef.current += 1; setSelectedBatchId(nextBatchId); setSelectedId(null); setDetails(null); loadQueue({ programmeBatchId: nextBatchId, queue: queueTab }); }} style={{ height: '38px', minWidth: '230px', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0 10px', color: '#0f172a', background: '#fff', fontWeight: 600 }}>
         {programmeBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.name}</option>)}
       </select>
       <div style={{ display: 'flex', marginLeft: 'auto', gap: '6px' }}>
-        {['PENDING', 'REVIEWED'].map((tab) => <button key={tab} type="button" onClick={() => { setQueueTab(tab); setSelectedId(null); setDetails(null); setSearchParams({ queue: tab }); loadQueue({ programmeBatchId: selectedBatchId, queue: tab }); }} style={{ height: '34px', padding: '0 12px', borderRadius: '7px', border: `1px solid ${queueTab === tab ? '#4f46e5' : '#e2e8f0'}`, background: queueTab === tab ? '#eef2ff' : '#fff', color: queueTab === tab ? '#4338ca' : '#64748b', fontWeight: 800, fontSize: '12px', cursor: 'pointer' }}>{tab === 'PENDING' ? `Pending (${pendingCount})` : 'Reviewed'}</button>)}
+        {['PENDING', 'REVIEWED'].map((tab) => <button key={tab} type="button" onClick={() => { workspaceRequestRef.current += 1; setQueueTab(tab); setSelectedId(null); setDetails(null); setSearchParams({ queue: tab }); loadQueue({ programmeBatchId: selectedBatchId, queue: tab }); }} style={{ height: '34px', padding: '0 12px', borderRadius: '7px', border: `1px solid ${queueTab === tab ? '#4f46e5' : '#e2e8f0'}`, background: queueTab === tab ? '#eef2ff' : '#fff', color: queueTab === tab ? '#4338ca' : '#64748b', fontWeight: 800, fontSize: '12px', cursor: 'pointer' }}>{tab === 'PENDING' ? `Pending (${pendingCount})` : 'Reviewed'}</button>)}
       </div>
     </div>
     <div style={{ ...surface, overflow: 'hidden' }}>
