@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, CheckCircle2, Clock, ShieldCheck, History, Printer, ChevronDown, AlertCircle, Lock, Send } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
@@ -145,10 +145,16 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
 
     return () => { isCurrent = false; };
   }, [activeCourseId, loadPreviousYearCourseATR, showHistory]);
-  const apiOutcomes = sortOutcomes(Array.isArray(apiCourseAtr?.outcomes) ? apiCourseAtr.outcomes : EMPTY_ARRAY);
-  const courseOutcomes = apiOutcomes.length > 0
-    ? apiOutcomes
-    : sortOutcomes(activeCOs.length > 0 ? activeCOs : (currentCourse?.courseOutcomes || EMPTY_ARRAY));
+  const apiOutcomes = useMemo(
+    () => sortOutcomes(Array.isArray(apiCourseAtr?.outcomes) ? apiCourseAtr.outcomes : EMPTY_ARRAY),
+    [apiCourseAtr?.outcomes]
+  );
+  const activeCOsSignature = JSON.stringify(activeCOs);
+  const currentCourseCOsSignature = JSON.stringify(currentCourse?.courseOutcomes);
+  const courseOutcomes = useMemo(() => {
+    if (apiOutcomes.length > 0) return apiOutcomes;
+    return sortOutcomes(activeCOs.length > 0 ? activeCOs : (currentCourse?.courseOutcomes || EMPTY_ARRAY));
+  }, [activeCOs, activeCOsSignature, apiOutcomes, currentCourseCOsSignature, currentCourse?.courseOutcomes]);
 
   // Context stores can legitimately be null before their first load. Normalize
   // them before looking up the selected programme-batch-course ID.
@@ -167,7 +173,7 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
   const isSubmitted = submittedForReview || ['PENDING', 'SUBMITTED', 'PENDING_APPROVAL', 'SUBMITTED_FOR_VERIFICATION'].includes(atrStatus);
 
   // Build ATR list from COs
-  const buildList = () => {
+  const buildList = useCallback(() => {
     const savedValue = (activeCourseId && atrDraftStore[activeCourseId]) || EMPTY_ARRAY;
     const saved = Array.isArray(savedValue) ? savedValue : EMPTY_ARRAY;
     const savedMap = new Map(saved.map((i) => [i.code, i]));
@@ -188,10 +194,12 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
         actions: ex?.actions?.length ? ex.actions : (co.actions?.length ? co.actions : []),
       };
     });
-  };
+  }, [activeCourseId, atrDraftStore, courseOutcomes]);
 
   const [coList, setCoList] = useState(buildList);
-  useEffect(() => { setCoList(buildList()); }, [activeCourseId, currentCourse, courseOutcomes, atrDraftStore]);
+  useEffect(() => {
+    setCoList(buildList());
+  }, [buildList]);
 
   useEffect(() => {
     if (activeCourseId) {
