@@ -478,12 +478,11 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
       alert('A course can have a maximum of 6 Course Outcomes (CO1 to CO6).');
       return;
     }
-    const newCoNum = coList.length + 1;
     const newCo = {
-      code: `CO${newCoNum}`,
+      code: '',
       statement: '',
-      targetLevel: 2.5,
-      target: 2.5,
+      targetLevel: '',
+      target: '',
       status: role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' ? 'APPROVED' : 'DRAFT',
       submittedBy: user?.name || 'Course Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],

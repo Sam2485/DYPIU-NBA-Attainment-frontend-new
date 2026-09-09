@@ -94,6 +94,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
   const [savedMatrix, setSavedMatrix] = useState({});
   const [savedMappingSignature, setSavedMappingSignature] = useState(null);
   const [isSavingMapping, setIsSavingMapping] = useState(false);
+  const [activeKeywordEditor, setActiveKeywordEditor] = useState(null);
 
   // A saved signature belongs to one programme-batch course only. Never let
   // an identical-looking mapping from a previous course disable Save here.
@@ -328,6 +329,34 @@ export default function COMappingMatrix({ hideFooter = false }) {
     }
   };
 
+  const openKeywordEditor = (event, type, outcomeCode, competencyIndex, coCode) => {
+    const anchor = event.currentTarget.getBoundingClientRect();
+    const editorWidth = 280;
+    const editorHeight = 154;
+    setActiveKeywordEditor({
+      type,
+      outcomeCode,
+      competencyIndex,
+      coCode,
+      left: Math.min(window.innerWidth - editorWidth - 12, Math.max(12, anchor.left - 90)),
+      top: Math.max(12, anchor.top - editorHeight - 8),
+    });
+  };
+
+  const activeKeywordValue = activeKeywordEditor
+    ? (activeKeywordEditor.type === 'po'
+      ? getCoursePoCompetencies(activeKeywordEditor.outcomeCode)
+      : getCoursePsoCompetencies(activeKeywordEditor.outcomeCode)
+    )[activeKeywordEditor.competencyIndex]?.keywords?.[activeKeywordEditor.coCode] ?? ''
+    : '';
+
+  const updateActiveKeyword = (value) => {
+    if (!activeKeywordEditor) return;
+    const { type, outcomeCode, competencyIndex, coCode } = activeKeywordEditor;
+    if (type === 'po') handlePoKeywordChange(outcomeCode, competencyIndex, coCode, value);
+    else handlePsoKeywordChange(outcomeCode, competencyIndex, coCode, value);
+  };
+
   return (
     <div className="animated-page">
       {/* Standard Header Banner */}
@@ -481,6 +510,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
                                   }}
                                   placeholder="KW..."
                                   value={kw}
+                                  onFocus={(event) => openKeywordEditor(event, 'po', poDef.code, compIdx, co.code)}
                                   onChange={(e) => handlePoKeywordChange(poDef.code, compIdx, co.code, e.target.value)}
                                 />
                               </td>
@@ -633,6 +663,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
                                     }}
                                     placeholder="KW..."
                                     value={kw}
+                                    onFocus={(event) => openKeywordEditor(event, 'pso', psoDef.code, compIdx, co.code)}
                                     onChange={(e) => handlePsoKeywordChange(psoDef.code, compIdx, co.code, e.target.value)}
                                   />
                                 </td>
@@ -794,6 +825,49 @@ export default function COMappingMatrix({ hideFooter = false }) {
               </table>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeKeywordEditor && (
+        <div
+          role="dialog"
+          aria-label={`Edit ${activeKeywordEditor.outcomeCode} ${activeKeywordEditor.coCode} keywords`}
+          style={{
+            position: 'fixed',
+            zIndex: 1000,
+            width: '280px',
+            left: `${activeKeywordEditor.left}px`,
+            top: `${activeKeywordEditor.top}px`,
+            padding: '12px',
+            background: '#ffffff',
+            border: '1.5px solid #60a5fa',
+            borderRadius: '10px',
+            boxShadow: '0 14px 30px rgba(15,23,42,0.22)',
+          }}
+        >
+          <div style={{ marginBottom: '7px', color: '#1e3a8a', fontSize: '11px', fontWeight: '800' }}>
+            {activeKeywordEditor.outcomeCode} · {activeKeywordEditor.coCode} keywords
+          </div>
+          <textarea
+            autoFocus
+            rows={4}
+            value={activeKeywordValue}
+            placeholder="Enter comma-separated keywords"
+            onChange={(event) => updateActiveKeyword(event.target.value)}
+            onBlur={() => setActiveKeywordEditor(null)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setActiveKeywordEditor(null);
+            }}
+            style={{ width: '100%', minHeight: '84px', boxSizing: 'border-box', resize: 'vertical', border: '1px solid #bfdbfe', borderRadius: '7px', padding: '8px 9px', color: '#0f172a', fontFamily: 'inherit', fontSize: '13px', lineHeight: 1.4, outline: 'none' }}
+          />
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setActiveKeywordEditor(null)}
+            style={{ marginTop: '8px', height: '28px', padding: '0 10px', border: 0, borderRadius: '6px', background: '#2563eb', color: '#ffffff', cursor: 'pointer', fontSize: '11px', fontWeight: '800', fontFamily: 'inherit' }}
+          >
+            Done
+          </button>
         </div>
       )}
 
