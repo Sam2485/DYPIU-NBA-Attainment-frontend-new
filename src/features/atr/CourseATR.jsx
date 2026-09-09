@@ -45,6 +45,7 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
     activeCOs = [],
     setCourseId = () => {},
     academicYear    = '2025-26',
+    batchId: contextBatchId = null,
     selectedBatch,
     semestersStatusOverview = {},
     loadSemestersStatusOverview = () => Promise.resolve([]),
@@ -75,7 +76,7 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
 
 
   useEffect(() => {
-    const targetBatchId = batchId ?? selectedBatch?.id;
+    const targetBatchId = batchId ?? contextBatchId ?? selectedBatch?.id;
     if (!isCourseCoordinator || !user?.email || !targetBatchId) return;
     let isCurrent = true;
     loadAssignedCourseOfferings(user, targetBatchId).then((offerings) => {
@@ -108,7 +109,7 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
     ?? selectedCourse?.id
     ?? null;
 
-  const targetBatchId = batchId ?? selectedCourseOffering?.programmeBatchId ?? selectedBatch?.id ?? null;
+  const targetBatchId = batchId ?? contextBatchId ?? selectedCourseOffering?.programmeBatchId ?? selectedBatch?.id ?? null;
   const activeSemester = Number(selectedCourseOffering?.semester ?? currentCourse?.semester);
   const activeSemesterState = (semestersStatusOverview[targetBatchId] ?? []).find(
     (item) => Number(item.semester) === activeSemester

@@ -182,6 +182,7 @@ export default function AppSidebar({
     loadDepartments = () => Promise.resolve([]),
     loadCoordinatorMasterProgrammes = () => Promise.resolve([]),
     loadCourseCoordinatorProgrammeBatches = () => Promise.resolve([]),
+    loadAssignedCourseOfferings = () => Promise.resolve([]),
   } = useAcademic();
   const navigate = useNavigate();
   const location = useLocation();
@@ -309,13 +310,24 @@ export default function AppSidebar({
     loadCourseCoordinatorProgrammeBatches(user.email).then((loadedBatches) => {
       if (!isCurrent || loadedBatches.length === 0) return;
       const hasSelectedBatch = loadedBatches.some((batch) => batch.id === batchId);
-      if (!hasSelectedBatch) {
-        const initialBatch = loadedBatches.find((batch) => batch.status === 'ACTIVE') || loadedBatches[0];
-        setBatchId(initialBatch?.id ?? null);
+      const targetBatchId = hasSelectedBatch
+        ? batchId
+        : (loadedBatches.find((batch) => batch.status === 'ACTIVE') || loadedBatches[0])?.id;
+
+      if (!hasSelectedBatch && targetBatchId) {
+        setBatchId(targetBatchId);
+      }
+      if (targetBatchId) {
+        loadAssignedCourseOfferings(user, targetBatchId).catch(() => {});
       }
     }).catch(() => {});
     return () => { isCurrent = false; };
-  }, [batchId, loadCourseCoordinatorProgrammeBatches, role, setBatchId, user?.email]);
+  }, [batchId, loadAssignedCourseOfferings, loadCourseCoordinatorProgrammeBatches, role, setBatchId, user]);
+
+  useEffect(() => {
+    if (!['FACULTY', 'COURSE_COORDINATOR'].includes(role) || !user?.email || !batchId) return;
+    loadAssignedCourseOfferings(user, batchId).catch(() => {});
+  }, [batchId, loadAssignedCourseOfferings, role, user]);
   const currentSpan = isHod
     ? (hodDashboard?.activeBatch ?? '—')
     : selectedBatch

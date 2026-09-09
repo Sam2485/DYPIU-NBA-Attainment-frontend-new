@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import AppHeader from '../components/layout/AppHeader';
 import AppSidebar from '../components/layout/AppSidebar';
 import CourseATR from '../features/atr/CourseATR';
@@ -6,14 +6,33 @@ import { useAuth } from '../context/AuthContext';
 import { useAcademic } from '../context/AcademicContext';
 
 export default function CourseATRPage() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const {
     batchId,
     courseOfferings = [],
     selectedCourseOffering,
+    courseOfferingId,
     selectCourseOffering = () => {},
+    loadAssignedCourseOfferings = () => Promise.resolve([]),
   } = useAcademic();
   const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
+
+  useEffect(() => {
+    if (!isCourseCoordinator || !user?.email || !batchId) return;
+    let isCurrent = true;
+    loadAssignedCourseOfferings(user, batchId).then((offerings) => {
+      if (!isCurrent || !offerings?.length) return;
+      const currentId = selectedCourseOffering?.id ?? courseOfferingId;
+      const selected = (offerings ?? []).find(
+        (offering) => String(offering.id) === String(currentId)
+      ) ?? offerings[0];
+      if (selected && String(selected.id) !== String(selectedCourseOffering?.id)) {
+        selectCourseOffering(selected);
+      }
+    }).catch(() => {});
+    return () => { isCurrent = false; };
+  }, [batchId, courseOfferingId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, selectedCourseOffering?.id, user]);
+
   const assignedOfferings = useMemo(
     () => courseOfferings.filter((offering) => String(offering.batchId ?? offering.programmeBatchId) === String(batchId)),
     [batchId, courseOfferings],
