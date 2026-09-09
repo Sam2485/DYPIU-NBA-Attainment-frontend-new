@@ -118,7 +118,7 @@ export default function ReportsHub() {
     // The coordinator-scoped programme-batch-courses endpoint returns only
     // courses assigned to the signed-in Course Coordinator. The offering ID
     // (`id`) is kept as the report scope for every course-level request.
-    loadCourseOfferings(batchId).then((offerings) => {
+    loadAssignedCourseOfferings(user, batchId).then((offerings) => {
       if (!isCurrent) return;
       const selectedStillAssigned = (offerings ?? []).some(
         (offering) => String(offering.id) === String(courseOfferingId)
@@ -126,7 +126,7 @@ export default function ReportsHub() {
       if (!selectedStillAssigned && offerings?.[0]) selectCourseOffering(offerings[0]);
     }).catch(() => {});
     return () => { isCurrent = false; };
-  }, [batchId, courseOfferingId, isCourseCoordinator, loadCourseOfferings, selectCourseOffering]);
+  }, [batchId, courseOfferingId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, user]);
 
   // Role-based Programmes List
   const roleProgrammes = (() => {

@@ -474,11 +474,16 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
 
   // ── CO Handlers (Faculty Proposes -> Programme Coordinator Approves) ──────────
   const handleAddCO = () => {
+    if (coList.length >= 6) {
+      alert('A course can have a maximum of 6 Course Outcomes (CO1 to CO6).');
+      return;
+    }
+    const newCoNum = coList.length + 1;
     const newCo = {
-      code: '',
+      code: `CO${newCoNum}`,
       statement: '',
-      targetLevel: '',
-      target: '',
+      targetLevel: 2.5,
+      target: 2.5,
       status: role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' ? 'APPROVED' : 'DRAFT',
       submittedBy: user?.name || 'Course Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
@@ -553,6 +558,10 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
       }));
     if (!payload.length) {
       if (!silent) alert('Add at least one Course Outcome before saving.');
+      return false;
+    }
+    if (payload.length > 6) {
+      if (!silent) alert('A course can have a maximum of 6 Course Outcomes.');
       return false;
     }
     if (coList.some((co) => !isCompleteCourseOutcome(co))) {
@@ -1357,12 +1366,17 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                   )}
                 </tbody>
               </table>
-              {!isCoReviewLocked && (
+              {!isCoReviewLocked && coList.length < 6 && (
                 <RowButtons
                   onAdd={handleAddCO}
                   canDel={false}
                   addLabel="+ Add CO Row"
                 />
+              )}
+              {!isCoReviewLocked && coList.length >= 6 && (
+                <p style={{ margin: '10px 0 0', color: '#64748b', fontSize: '12px', fontWeight: '600' }}>
+                  Maximum limit of 6 Course Outcomes (CO1–CO6) reached for this course.
+                </p>
               )}
               {!isCoReviewLocked && coList.length > 0 && !outcomesComplete && (
                 <p style={{ margin: '10px 0 0', color: '#b45309', fontSize: '12px', fontWeight: '700' }}>

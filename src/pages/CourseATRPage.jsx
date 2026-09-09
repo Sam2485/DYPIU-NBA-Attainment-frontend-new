@@ -31,6 +31,7 @@ export default function CourseATRPage() {
         <AppHeader title="Course Action Taken Report (ATR)" subtitle="Target Gap Analysis & Corrective Actions" />
         <div className="page-container">
           <CourseATR
+            batchId={batchId}
             courseId={isCourseCoordinator ? selectedCourseOffering?.id : undefined}
             showAssignedCourseSelector={isCourseCoordinator}
             assignedOfferings={assignedOfferings}

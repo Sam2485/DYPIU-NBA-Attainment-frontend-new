@@ -719,7 +719,9 @@ export function AcademicProvider({ children }) {
     const coordinatorEmail = String(coordinator?.email ?? '').trim().toLowerCase();
 
     if (!coordinatorEmail || !targetBatchId) {
-      setCourseOfferings([]);
+      // Route transitions can briefly run before the sidebar has restored
+      // the Course Coordinator batch. Keep the last confirmed assignments
+      // during that gap so the navigation menu is not globally disabled.
       return [];
     }
 
@@ -730,7 +732,9 @@ export function AcademicProvider({ children }) {
       return assigned;
     } catch (err) {
       console.warn('loadAssignedCourseOfferings failed:', err);
-      setCourseOfferings([]);
+      // Preserve an already loaded assignment list on a transient request
+      // failure. The sidebar treats an empty list as "no allocation" and
+      // disables every Course Coordinator destination except Dashboard.
       return [];
     }
   }, [batchId, user]);
