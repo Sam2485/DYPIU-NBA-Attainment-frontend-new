@@ -35,12 +35,15 @@ export default function COAttainmentEngine({ hideFooter = false }) {
   useEffect(() => {
     const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
     if (!isCourseCoordinator || !user?.email || !batchId) return;
+    let isCurrent = true;
     loadAssignedCourseOfferings(user, batchId).then((offerings) => {
+      if (!isCurrent) return;
       const selectedStillAssigned = (offerings ?? []).some(
         (offering) => String(offering.id) === String(courseOfferingId)
       );
       if (!selectedStillAssigned && offerings?.[0]) selectCourseOffering(offerings[0]);
     }).catch(() => {});
+    return () => { isCurrent = false; };
   }, [batchId, courseOfferingId, loadAssignedCourseOfferings, role, selectCourseOffering, user]);
 
   useEffect(() => {

@@ -175,12 +175,9 @@ export default function CoordinatorReviewHub() {
       const target   = ex?.target ?? co.targetLevel ?? 2.50;
       const actual   = ex?.actual ?? ex?.attainment ?? null;
       const pct      = actual !== null ? Number(((actual / target) * 100).toFixed(2)) : 0;
-      const met      = actual !== null && actual >= target;
       return {
-        code: co.code, statement: co.statement, target, actual, pct, met,
-        actions: ex?.actions || (met
-          ? ['Maintain current teaching methodology and continuous assessment structure.']
-          : [`Conduct extra tutorial sessions on ${co.statement ? co.statement.slice(0, 45) : ''}...`, 'Provide additional practice assignments and interactive problem sets.']),
+        code: co.code, statement: co.statement, target, actual, pct,
+        actions: Array.isArray(ex?.actions) ? ex.actions.filter(Boolean) : [],
       };
     });
   })();

@@ -16,6 +16,19 @@ const outcomeSignature = (outcomes = []) => JSON.stringify(outcomes.map((outcome
   bloomsLevel: outcome.bloomsLevel ?? 'UNDERSTAND',
 })));
 
+const isCompleteCourseOutcome = (outcome) => {
+  const target = outcome?.targetLevel ?? outcome?.target;
+  const targetNumber = Number(target);
+  return Boolean(String(outcome?.code ?? '').trim())
+    && Boolean(String(outcome?.statement ?? '').trim())
+    && target !== null
+    && target !== undefined
+    && String(target).trim() !== ''
+    && Number.isFinite(targetNumber)
+    && targetNumber >= 1
+    && targetNumber <= 3;
+};
+
 export default function OutcomesManagement({ hideFooter = false, hideHeader = false, readOnly = false, reviewCourseId = null, suppressPendingMessage = false }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -461,12 +474,11 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
 
   // ── CO Handlers (Faculty Proposes -> Programme Coordinator Approves) ──────────
   const handleAddCO = () => {
-    const newCoNum = coList.length + 1;
     const newCo = {
-      code: `C321.${newCoNum}`,
-      statement: `New proposed Course Outcome statement ${newCoNum}...`,
-      targetLevel: 2.5,
-      target: 2.5,
+      code: '',
+      statement: '',
+      targetLevel: '',
+      target: '',
       status: role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' ? 'APPROVED' : 'DRAFT',
       submittedBy: user?.name || 'Course Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
@@ -532,23 +544,23 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
       alert('Select an assigned programme-batch course before saving outcomes.');
       return;
     }
-    try {
-      setIsSavingOutcomes(true);
-      const payload = coList.map((co) => ({
+    const payload = coList.map((co) => ({
         ...(co.courseOutcomeId ?? co.id ? { courseOutcomeId: co.courseOutcomeId ?? co.id } : {}),
         code: String(co.code ?? '').trim(),
         statement: String(co.statement ?? '').trim(),
         targetLevel: Number(co.targetLevel ?? co.target ?? 2.5),
         bloomsLevel: co.bloomsLevel ?? 'UNDERSTAND',
       }));
-      if (!payload.length) {
-        alert('Add at least one Course Outcome before saving.');
-        return false;
-      }
-      if (payload.some((co) => !co.code || !co.statement)) {
-        alert('Enter a code and statement for every Course Outcome before saving.');
-        return;
-      }
+    if (!payload.length) {
+      if (!silent) alert('Add at least one Course Outcome before saving.');
+      return false;
+    }
+    if (coList.some((co) => !isCompleteCourseOutcome(co))) {
+      if (!silent) alert('Enter a code, outcome statement, and target level (1.0–3.0) for every Course Outcome before saving.');
+      return false;
+    }
+    try {
+      setIsSavingOutcomes(true);
       await updateCourseCOs(payload, targetCourseId);
       setSavedOutcomeSignature(outcomeSignature(coList));
       if (!silent) alert('Course Outcomes saved successfully.');
@@ -611,6 +623,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
   const targetData = courseVerificationStore[targetCourseId] || {};
   const isCoApproved = readOnly || currentCoVerificationStatus === 'APPROVED' || currentCoVerificationStatus === 'VERIFIED' || targetData.coStatus === 'APPROVED' || targetData.coStatus === 'VERIFIED';
   const outcomesDirty = savedOutcomeSignature === null || outcomeSignature(coList) !== savedOutcomeSignature;
+  const outcomesComplete = coList.length > 0 && coList.every(isCompleteCourseOutcome);
   const outcomesPendingReview = isSubmittedForReview
     || currentCoVerificationStatus === 'SUBMITTED'
     || currentCoVerificationStatus === 'PENDING'
@@ -647,16 +660,18 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                 <button
                   className="btn btn-primary"
                   onClick={handleSaveOutcomes}
-                  disabled={isSavingOutcomes || isSubmittingForReview}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', opacity: (isSavingOutcomes || isSubmittingForReview) ? 0.6 : 1, cursor: (isSavingOutcomes || isSubmittingForReview) ? 'not-allowed' : 'pointer' }}
+                  disabled={isSavingOutcomes || isSubmittingForReview || !outcomesComplete}
+                  title={!outcomesComplete ? 'Complete the code, statement, and target for every CO before saving.' : undefined}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', opacity: (isSavingOutcomes || isSubmittingForReview || !outcomesComplete) ? 0.6 : 1, cursor: (isSavingOutcomes || isSubmittingForReview || !outcomesComplete) ? 'not-allowed' : 'pointer' }}
                 >
                   <Save size={15} /> {isSavingOutcomes ? 'Saving…' : outcomesDirty ? 'Save Outcomes' : 'Saved'}
                 </button>
                 <button
                   className="btn btn-primary"
                   onClick={handleSubmitForReview}
-                  disabled={isSubmittingForReview || isSavingOutcomes}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', opacity: (isSubmittingForReview || isSavingOutcomes) ? 0.6 : 1, cursor: (isSubmittingForReview || isSavingOutcomes) ? 'not-allowed' : 'pointer' }}
+                  disabled={isSubmittingForReview || isSavingOutcomes || !outcomesComplete}
+                  title={!outcomesComplete ? 'Complete the code, statement, and target for every CO before submitting.' : undefined}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '38px', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', opacity: (isSubmittingForReview || isSavingOutcomes || !outcomesComplete) ? 0.6 : 1, cursor: (isSubmittingForReview || isSavingOutcomes || !outcomesComplete) ? 'not-allowed' : 'pointer' }}
                 >
                   <Send size={15} /> {isSubmittingForReview ? 'Submitting…' : outcomesPendingReview ? 'Submitted' : 'Submit for Review'}
                 </button>
@@ -1348,6 +1363,11 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                   canDel={false}
                   addLabel="+ Add CO Row"
                 />
+              )}
+              {!isCoReviewLocked && coList.length > 0 && !outcomesComplete && (
+                <p style={{ margin: '10px 0 0', color: '#b45309', fontSize: '12px', fontWeight: '700' }}>
+                  Complete the code, course outcome statement, and target (1.0–3.0) for every row to save or submit.
+                </p>
               )}
             </div>
           </div>

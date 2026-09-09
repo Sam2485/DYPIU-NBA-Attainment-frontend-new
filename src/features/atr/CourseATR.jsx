@@ -77,12 +77,15 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
   useEffect(() => {
     const targetBatchId = batchId ?? selectedBatch?.id;
     if (!isCourseCoordinator || !user?.email || !targetBatchId) return;
+    let isCurrent = true;
     loadAssignedCourseOfferings(user, targetBatchId).then((offerings) => {
+      if (!isCurrent) return;
       const selectedStillAssigned = (offerings ?? []).some(
         (offering) => String(offering.id) === String(courseOfferingId)
       );
       if (!selectedStillAssigned && offerings?.[0]) selectCourseOffering(offerings[0]);
     }).catch(() => {});
+    return () => { isCurrent = false; };
   }, [batchId, courseOfferingId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, selectedBatch?.id, user]);
 
   useEffect(() => {
@@ -178,14 +181,10 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
       const met    = actual !== null && actual >= target;
       return {
         code, statement: co.outcomeStatement ?? co.statement ?? '', target, actual, pct, met,
-        // An achieved target records the sustaining measure as Action 1, never as a remark.
         remark: met ? '' : (ex?.remark ?? co.observation ?? ''),
-        actions: ex?.actions?.length ? ex.actions : co.actions?.length ? co.actions : met ? [
-          ex?.remark ?? co.observation ?? 'Maintain current teaching methodology and continuous assessment structure.',
-        ] : [
-          `Conduct extra tutorial sessions on ${co.statement ? co.statement.slice(0, 45) : ''}...`,
-          'Provide additional practice numericals and interactive assignment problem sets.',
-        ],
+        // Actions are official ATR data. Never fabricate suggestions or turn
+        // an observation into an action when the API has not supplied one.
+        actions: ex?.actions?.length ? ex.actions : (co.actions?.length ? co.actions : []),
       };
     });
   };
@@ -213,7 +212,7 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
         pct: Number(outcome.achievementPercentage) || (target ? Number(((actual / target) * 100).toFixed(2)) : 0),
         met: actual >= target,
         remark: actual >= target ? '' : (outcome.observation ?? ''),
-        actions: outcome.actions?.length ? outcome.actions : actual >= target && outcome.observation ? [outcome.observation] : [],
+        actions: outcome.actions?.length ? outcome.actions : [],
       };
     }));
   }, [apiCourseAtr]);
@@ -451,7 +450,7 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
             <div style={{ overflowX: 'auto' }}>
               <table className="audit-data-table" style={{ margin: 0 }}>
                 <thead><tr><th>CO</th><th>Outcome Statement</th><th>Target</th><th>Attainment</th><th>Achievement</th><th>Observation</th><th>Actions Taken</th></tr></thead>
-                <tbody>{previousYearAtr.outcomes.map((outcome, index) => <tr key={outcome.outcomeCode ?? index} style={{ verticalAlign: 'top' }}><td style={{ fontWeight: 800, color: accent }}>{outcome.outcomeCode ?? `CO${index + 1}`}</td><td>{outcome.outcomeStatement ?? '—'}</td><td>{formatLevel(outcome.targetLevel)}</td><td>{formatLevel(outcome.attainmentLevel)}</td><td>{outcome.achievementPercentage != null ? `${Number(outcome.achievementPercentage).toFixed(1)}%` : '—'}</td><td>{outcome.observation || '—'}</td><td>{Array.isArray(outcome.actions) && outcome.actions.length ? outcome.actions.map((action, actionIndex) => <div key={actionIndex} style={{ marginBottom: 4 }}><strong>Action {actionIndex + 1}:</strong> {action}</div>) : '—'}</td></tr>)}</tbody>
+                <tbody>{previousYearAtr.outcomes.map((outcome, index) => <tr key={outcome.outcomeCode ?? index} style={{ verticalAlign: 'top' }}><td style={{ fontWeight: 800, color: accent }}>{outcome.outcomeCode ?? `CO${index + 1}`}</td><td>{outcome.outcomeStatement ?? '—'}</td><td>{formatLevel(outcome.targetLevel)}</td><td>{formatLevel(outcome.attainmentLevel)}</td><td>{outcome.achievementPercentage != null ? `${Number(outcome.achievementPercentage).toFixed(1)}%` : '—'}</td><td>{outcome.observation || '—'}</td><td>{Array.isArray(outcome.actions) && outcome.actions.length ? outcome.actions.map((action, actionIndex) => <div key={actionIndex} style={{ marginBottom: 4 }}><strong>Action {actionIndex + 1}:</strong> {action}</div>) : null}</td></tr>)}</tbody>
               </table>
             </div>
           )}
