@@ -5,10 +5,10 @@ export const attainmentApi = {
   // Attainment Configuration (Offering Scoped)
   // ---------------------------------------------------------------------------
   getConfig: (programmeBatchCourseId) =>
-    apiClient.get(`/programme-batch-courses/${programmeBatchCourseId}/config`),
+    apiClient.get(`/attainment/config/${programmeBatchCourseId}`),
 
   saveConfig: (programmeBatchCourseId, config) =>
-    apiClient.put(`/programme-batch-courses/${programmeBatchCourseId}/config`, config),
+    apiClient.put(`/attainment/config/${programmeBatchCourseId}`, config),
 
   updateConfig: (configId, config) =>
     apiClient.put(`/attainment/configurations/${configId}`, config),

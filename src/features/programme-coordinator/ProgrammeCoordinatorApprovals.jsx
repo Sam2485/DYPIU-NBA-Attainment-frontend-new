@@ -225,8 +225,8 @@ export default function ProgrammeCoordinatorApprovals() {
     const detailByType = {
       COURSE_OUTCOMES_TARGETS: { content: `/outcomes/courses/${courseId}/cos`, key: `co-${courseId}` },
       CO_DEFINITION: { content: `/outcomes/courses/${courseId}/cos`, key: `co-${courseId}` },
-      ATTAINMENT_SETTINGS: { content: `/attainment/config/${courseId}`, key: `course-setting-${courseId}` },
-      ATTAINMENT_CONFIGURATION: { content: `/attainment/config/${courseId}`, key: `course-setting-${courseId}` },
+      ATTAINMENT_SETTINGS: { content: `/attainment/config/${courseId}`, key: courseId },
+      ATTAINMENT_CONFIGURATION: { content: `/attainment/config/${courseId}`, key: courseId },
       COURSE_ATR: { content: `/atr/course/${courseId}`, key: `atr-course-${courseId}` },
     }[selectedApproval.type];
     if (!detailByType) return undefined;

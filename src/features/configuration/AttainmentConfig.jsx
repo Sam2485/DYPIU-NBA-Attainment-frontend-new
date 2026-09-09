@@ -53,6 +53,8 @@ export default function AttainmentConfig({ hideHeader = false, readOnly = false,
   const isCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC';
   const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
   const programmeBatchCourseId = reviewCourseId ?? selectedCourseOffering?.programmeBatchCourseId ?? courseOfferingId ?? null;
+  const selectedCourseCode = selectedCourseOffering?.courseCode ?? selectedCourseOffering?.code ?? selectedCourse?.courseCode ?? selectedCourse?.code ?? '';
+  const selectedCourseName = selectedCourseOffering?.courseName ?? selectedCourseOffering?.name ?? selectedCourse?.courseName ?? selectedCourse?.name ?? '';
   const safePoPsoTargets = poPsoTargets ?? {};
   const safeAttainmentConfigs = attainmentConfigs ?? {};
   const safeVerificationStore = courseVerificationStore ?? {};
@@ -110,8 +112,8 @@ export default function AttainmentConfig({ hideHeader = false, readOnly = false,
 
   // Attainment Configuration Store (Direct/Indirect weights, Threshold, Direct/Indirect Level 1-3 Bands)
   const defaultConfig = {
-    courseCode: selectedCourse?.code || '310244',
-    courseName: selectedCourse?.name || 'Course Title',
+    courseCode: selectedCourseCode,
+    courseName: selectedCourseName,
     directWeight: 80,
     indirectWeight: 20,
     directThreshold: 60,
@@ -152,6 +154,8 @@ export default function AttainmentConfig({ hideHeader = false, readOnly = false,
   const currentConfig = (isCourseCoordinator || reviewCourseId)
     ? localCourseConfig
     : safeAttainmentConfigs[activeCourseId] || defaultConfig;
+  const displayedCourseCode = selectedCourseCode || currentConfig.courseCode || 'Course';
+  const displayedCourseName = selectedCourseName || currentConfig.courseName || 'Title';
 
   const handleDirectWeightChange = (val) => {
     const direct = Math.min(100, Math.max(0, Number(val)));
@@ -442,7 +446,7 @@ export default function AttainmentConfig({ hideHeader = false, readOnly = false,
         <div className="card-header" style={{ marginBottom: '16px' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a', fontWeight: '800' }}>
-              Course Attainment Settings ({currentConfig.courseCode} - {currentConfig.courseName})
+              Course Attainment Settings ({displayedCourseCode} - {displayedCourseName})
             </h3>
           </div>
 

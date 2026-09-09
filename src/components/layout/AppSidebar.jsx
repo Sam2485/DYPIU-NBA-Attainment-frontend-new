@@ -87,9 +87,9 @@ const FACULTY_NAV = [
   { id: 'dashboard',           path: '/dashboard',                icon: 'dashboard', label: 'Dashboard' },
   { id: 'outcomes',            path: '/outcomes?mode=standalone', icon: 'outcomes',  label: 'Outcomes' },
   { id: 'co-mapping',          path: '/co-mapping',               icon: 'mapping',   label: 'CO–PO/PSO Mapping' },
+  { id: 'configurations',      path: '/configurations',           icon: 'config',    label: 'Attainment Settings' },
   { id: 'direct-assessment',   path: '/marks-upload',             icon: 'marks',     label: 'Direct Assessment' },
   { id: 'indirect-assessment', path: '/survey-upload',            icon: 'survey',    label: 'Indirect Assessment' },
-  { id: 'configurations',      path: '/configurations',           icon: 'config',    label: 'Attainment Settings' },
   { id: 'course-atr',          path: '/course-atr?mode=standalone', icon: 'atr',     label: 'Course ATR' },
   { id: 'reports',             path: '/reports',                  icon: 'reports',   label: 'Reports' },
 ];
