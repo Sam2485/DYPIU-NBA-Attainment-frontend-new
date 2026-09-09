@@ -45,9 +45,6 @@ export default function CourseCoordinatorWorkflow() {
     selectCourseOffering      = () => {},
     loadAssignedCourseOfferings = () => Promise.resolve([]),
     loadCourseOutcomes        = () => Promise.resolve([]),
-    loadCourseMapping         = () => Promise.resolve(null),
-    loadProgrammeOutcomes     = () => Promise.resolve(null),
-    programmeId               = null,
     batchId                   = null,
     courseOfferingId          = null,
   } = useAcademic();
@@ -59,13 +56,6 @@ export default function CourseCoordinatorWorkflow() {
 
   const course = selectedCourseOffering || courseOfferings[0] || null;
   const courseId = course?.id || null;
-  const programmeBatchCourseId = selectedCourseOffering?.programmeBatchCourseId ?? courseOfferingId;
-  const masterProgrammeId = course?.masterProgrammeId
-    ?? course?.programmeId
-    ?? course?.course?.masterProgrammeId
-    ?? programmeId
-    ?? user?.masterProgrammeId
-    ?? null;
   const courseProgress = ccWorkflowProgress || {};
 
   // ── Per-step completion flags ──
@@ -113,24 +103,6 @@ export default function CourseCoordinatorWorkflow() {
     if (currentStep !== 1 || !courseOfferingId) return;
     loadCourseOutcomes(courseOfferingId).catch(() => {});
   }, [courseOfferingId, currentStep, loadCourseOutcomes]);
-
-  useEffect(() => {
-    if (currentStep !== 2 || !programmeBatchCourseId) return;
-    // Step 2 must be independently renderable on a cold session. Do not rely
-    // on Step 1 or another screen having already populated shared outcome
-    // state, and do not make the initial matrix depend on a prior save.
-    const requests = [
-      loadCourseOutcomes(programmeBatchCourseId),
-      loadCourseMapping(programmeBatchCourseId),
-    ];
-    if (masterProgrammeId) {
-      requests.push(loadProgrammeOutcomes(masterProgrammeId, {
-        includeTargets: false,
-        includePEOs: false,
-      }));
-    }
-    Promise.allSettled(requests).catch(() => {});
-  }, [currentStep, loadCourseMapping, loadCourseOutcomes, loadProgrammeOutcomes, masterProgrammeId, programmeBatchCourseId]);
 
   useEffect(() => {
     if (batchId && user?.email) loadCcSetupProgress(batchId, user.email).catch(() => {});

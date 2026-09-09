@@ -11,18 +11,47 @@ export default function COMappingMatrix({ hideFooter = false }) {
     selectedCourse,
     selectedCourseOffering,
     courseOfferingId,
+    programmeId,
     activePOs,
     activePSOs,
     activeCOs,
     yearMetrics,
     activeAttainmentConfig,
     coMapping = null,
+    loadCourseOutcomes = () => Promise.resolve([]),
+    loadCourseMapping = () => Promise.resolve(null),
+    loadProgrammeOutcomes = () => Promise.resolve(null),
     updateCourseMapping = () => Promise.resolve(null),
   } = useAcademic();
 
   const [activeTab, setActiveTab] = useState('po-detail'); // 'po-detail', 'pso-detail', 'combined'
   const courseScope = selectedCourseOffering ?? selectedCourse;
   const programmeBatchCourseId = selectedCourseOffering?.programmeBatchCourseId ?? courseOfferingId;
+  const masterProgrammeId = selectedCourseOffering?.masterProgrammeId
+    ?? selectedCourseOffering?.programmeId
+    ?? selectedCourseOffering?.course?.masterProgrammeId
+    ?? selectedProgramme?.masterProgrammeId
+    ?? selectedProgramme?.id
+    ?? programmeId
+    ?? null;
+
+  useEffect(() => {
+    if (!programmeBatchCourseId) return;
+    // This component is mounted both in workflow Step 2 and on the standalone
+    // Mapping page. Fetch every definition it renders so either entry point
+    // works on a cold session and never depends on Save Mapping Matrix.
+    const requests = [
+      loadCourseOutcomes(programmeBatchCourseId),
+      loadCourseMapping(programmeBatchCourseId),
+    ];
+    if (masterProgrammeId) {
+      requests.push(loadProgrammeOutcomes(masterProgrammeId, {
+        includeTargets: false,
+        includePEOs: false,
+      }));
+    }
+    Promise.allSettled(requests);
+  }, [loadCourseMapping, loadCourseOutcomes, loadProgrammeOutcomes, masterProgrammeId, programmeBatchCourseId]);
 
   // Dynamic parameters from Attainment Configuration
   const directWeight = activeAttainmentConfig?.directWeight || 80;
