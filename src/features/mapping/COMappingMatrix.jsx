@@ -329,32 +329,33 @@ export default function COMappingMatrix({ hideFooter = false }) {
     }
   };
 
-  const openKeywordEditor = (event, type, outcomeCode, competencyIndex, coCode) => {
-    const anchor = event.currentTarget.getBoundingClientRect();
-    const editorWidth = 280;
-    const editorHeight = 154;
-    setActiveKeywordEditor({
-      type,
-      outcomeCode,
-      competencyIndex,
-      coCode,
-      left: Math.min(window.innerWidth - editorWidth - 12, Math.max(12, anchor.left - 90)),
-      top: Math.max(12, anchor.top - editorHeight - 8),
-    });
-  };
+  const isKeywordEditorExpanded = (type, outcomeCode, competencyIndex, coCode) => (
+    activeKeywordEditor?.type === type
+    && activeKeywordEditor?.outcomeCode === outcomeCode
+    && activeKeywordEditor?.competencyIndex === competencyIndex
+    && activeKeywordEditor?.coCode === coCode
+  );
 
-  const activeKeywordValue = activeKeywordEditor
-    ? (activeKeywordEditor.type === 'po'
-      ? getCoursePoCompetencies(activeKeywordEditor.outcomeCode)
-      : getCoursePsoCompetencies(activeKeywordEditor.outcomeCode)
-    )[activeKeywordEditor.competencyIndex]?.keywords?.[activeKeywordEditor.coCode] ?? ''
-    : '';
-
-  const updateActiveKeyword = (value) => {
-    if (!activeKeywordEditor) return;
-    const { type, outcomeCode, competencyIndex, coCode } = activeKeywordEditor;
-    if (type === 'po') handlePoKeywordChange(outcomeCode, competencyIndex, coCode, value);
-    else handlePsoKeywordChange(outcomeCode, competencyIndex, coCode, value);
+  const keywordInputStyle = (expanded, columnIndex, columnCount, hasValue) => {
+    const isFirstColumn = columnIndex === 0;
+    const isLastColumn = columnIndex === columnCount - 1;
+    return {
+      position: 'absolute',
+      top: '50%',
+      width: expanded ? '214px' : 'calc(100% - 4px)',
+      height: expanded ? '32px' : '26px',
+      left: expanded && !isFirstColumn && !isLastColumn ? '50%' : '2px',
+      right: expanded && isLastColumn ? '2px' : 'auto',
+      transform: expanded && !isFirstColumn && !isLastColumn ? 'translate(-50%, -50%)' : 'translateY(-50%)',
+      zIndex: expanded ? 20 : 1,
+      fontSize: expanded ? '12.5px' : '10.5px',
+      padding: expanded ? '5px 8px' : '3px 4px',
+      boxSizing: 'border-box',
+      borderColor: hasValue ? '#93c5fd' : '#cbd5e1',
+      background: '#ffffff',
+      boxShadow: expanded ? '0 4px 12px rgba(37,99,235,0.20)' : 'none',
+      transition: 'width 160ms ease, height 160ms ease, left 160ms ease, transform 160ms ease, font-size 160ms ease, box-shadow 160ms ease',
+    };
   };
 
   return (
@@ -495,22 +496,17 @@ export default function COMappingMatrix({ hideFooter = false }) {
                           <td></td>
                           {courseOutcomes.map((co) => {
                             const kw = comp.keywords?.[co.code] || '';
+                            const expanded = isKeywordEditorExpanded('po', poDef.code, compIdx, co.code);
                             return (
-                              <td key={`input-${co.code}`} style={{ padding: '2px', width: '70px' }}>
+                              <td key={`input-${co.code}`} style={{ position: 'relative', padding: '2px', width: '70px', minWidth: '70px', height: '32px' }}>
                                 <input
                                   type="text"
                                   className="form-control"
-                                  style={{
-                                    fontSize: '10.5px',
-                                    padding: '3px 4px',
-                                    height: '26px',
-                                    width: '100%',
-                                    borderColor: kw.trim() !== '' ? '#93c5fd' : '#cbd5e1',
-                                    background: kw.trim() !== '' ? '#f8fafc' : '#ffffff',
-                                  }}
+                                  style={keywordInputStyle(expanded, courseOutcomes.indexOf(co), courseOutcomes.length, kw.trim() !== '')}
                                   placeholder="KW..."
                                   value={kw}
-                                  onFocus={(event) => openKeywordEditor(event, 'po', poDef.code, compIdx, co.code)}
+                                  onFocus={() => setActiveKeywordEditor({ type: 'po', outcomeCode: poDef.code, competencyIndex: compIdx, coCode: co.code })}
+                                  onBlur={() => setActiveKeywordEditor(null)}
                                   onChange={(e) => handlePoKeywordChange(poDef.code, compIdx, co.code, e.target.value)}
                                 />
                               </td>
@@ -648,22 +644,17 @@ export default function COMappingMatrix({ hideFooter = false }) {
                             <td></td>
                             {courseOutcomes.map((co) => {
                               const kw = comp.keywords?.[co.code] || '';
+                              const expanded = isKeywordEditorExpanded('pso', psoDef.code, compIdx, co.code);
                               return (
-                                <td key={`input-${co.code}`} style={{ padding: '2px', width: '70px' }}>
+                                <td key={`input-${co.code}`} style={{ position: 'relative', padding: '2px', width: '70px', minWidth: '70px', height: '32px' }}>
                                   <input
                                     type="text"
                                     className="form-control"
-                                    style={{
-                                      fontSize: '10.5px',
-                                      padding: '3px 4px',
-                                      height: '26px',
-                                      width: '100%',
-                                      borderColor: kw.trim() !== '' ? '#93c5fd' : '#cbd5e1',
-                                      background: kw.trim() !== '' ? '#f8fafc' : '#ffffff',
-                                    }}
+                                    style={keywordInputStyle(expanded, courseOutcomes.indexOf(co), courseOutcomes.length, kw.trim() !== '')}
                                     placeholder="KW..."
                                     value={kw}
-                                    onFocus={(event) => openKeywordEditor(event, 'pso', psoDef.code, compIdx, co.code)}
+                                    onFocus={() => setActiveKeywordEditor({ type: 'pso', outcomeCode: psoDef.code, competencyIndex: compIdx, coCode: co.code })}
+                                    onBlur={() => setActiveKeywordEditor(null)}
                                     onChange={(e) => handlePsoKeywordChange(psoDef.code, compIdx, co.code, e.target.value)}
                                   />
                                 </td>
@@ -825,49 +816,6 @@ export default function COMappingMatrix({ hideFooter = false }) {
               </table>
             </div>
           </div>
-        </div>
-      )}
-
-      {activeKeywordEditor && (
-        <div
-          role="dialog"
-          aria-label={`Edit ${activeKeywordEditor.outcomeCode} ${activeKeywordEditor.coCode} keywords`}
-          style={{
-            position: 'fixed',
-            zIndex: 1000,
-            width: '280px',
-            left: `${activeKeywordEditor.left}px`,
-            top: `${activeKeywordEditor.top}px`,
-            padding: '12px',
-            background: '#ffffff',
-            border: '1.5px solid #60a5fa',
-            borderRadius: '10px',
-            boxShadow: '0 14px 30px rgba(15,23,42,0.22)',
-          }}
-        >
-          <div style={{ marginBottom: '7px', color: '#1e3a8a', fontSize: '11px', fontWeight: '800' }}>
-            {activeKeywordEditor.outcomeCode} · {activeKeywordEditor.coCode} keywords
-          </div>
-          <textarea
-            autoFocus
-            rows={4}
-            value={activeKeywordValue}
-            placeholder="Enter comma-separated keywords"
-            onChange={(event) => updateActiveKeyword(event.target.value)}
-            onBlur={() => setActiveKeywordEditor(null)}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') setActiveKeywordEditor(null);
-            }}
-            style={{ width: '100%', minHeight: '84px', boxSizing: 'border-box', resize: 'vertical', border: '1px solid #bfdbfe', borderRadius: '7px', padding: '8px 9px', color: '#0f172a', fontFamily: 'inherit', fontSize: '13px', lineHeight: 1.4, outline: 'none' }}
-          />
-          <button
-            type="button"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => setActiveKeywordEditor(null)}
-            style={{ marginTop: '8px', height: '28px', padding: '0 10px', border: 0, borderRadius: '6px', background: '#2563eb', color: '#ffffff', cursor: 'pointer', fontSize: '11px', fontWeight: '800', fontFamily: 'inherit' }}
-          >
-            Done
-          </button>
         </div>
       )}
 
