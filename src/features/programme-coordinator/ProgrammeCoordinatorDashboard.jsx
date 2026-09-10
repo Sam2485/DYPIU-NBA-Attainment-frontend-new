@@ -202,6 +202,15 @@ export default function ProgrammeCoordinatorDashboard() {
       iconBg: '#f5f3ff',
     },
     {
+      id: 'indirect',
+      title: 'Indirect Attainment',
+      desc: 'Evaluate surveys & co-curricular events and programme exit survey.',
+      path: '/programme-coordinator/indirect-attainment',
+      icon: ClipboardList,
+      iconColor: '#059669',
+      iconBg: '#f0fdf4',
+    },
+    {
       id: 'programme-atr',
       title: 'Programme ATR',
       desc: 'Formulate PO/PSO gap analysis, observations & Action Taken Report.',

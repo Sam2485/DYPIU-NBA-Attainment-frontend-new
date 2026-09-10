@@ -55,6 +55,7 @@ const STEPS = [
 export default function ProgrammeCoordinatorSetupWorkflow({
   standaloneTargetSettings = false,
   standaloneCourseManagement = false,
+  standaloneIndirectAttainment = false,
   approvalViewStep = null,
   approvalReadOnly = false,
 }) {
@@ -86,6 +87,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     activePSOs = [],
     courseOfferings = [],
     courseCoordinators = [],
+    loadProgrammeOutcomes = () => Promise.resolve({ pos: [], psos: [], peos: [] }),
     loadProgrammeBatchOutcomes = () => Promise.resolve({ pos: [], psos: [], peos: [] }),
     saveProgrammeBatchOutcomeDefinitions = () => Promise.resolve(null),
     loadCourseOfferings = () => Promise.resolve([]),
@@ -328,10 +330,18 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const hasValidParam = parsedStep >= 1 && parsedStep <= STEPS.length;
 
   const [currentStep, setCurrentStep] = useState(
-    approvalViewStep ?? (standaloneCourseManagement ? 1 : (standaloneTargetSettings ? 2 : (hasValidParam ? parsedStep : firstIncompleteStep)))
+    approvalViewStep ?? (
+      standaloneCourseManagement ? 1 : (
+        standaloneTargetSettings ? 2 : (
+          standaloneIndirectAttainment ? 3 : (
+            hasValidParam ? parsedStep : firstIncompleteStep
+          )
+        )
+      )
+    )
   );
 
-  const isStandaloneView = standaloneTargetSettings || standaloneCourseManagement || Boolean(approvalViewStep);
+  const isStandaloneView = standaloneTargetSettings || standaloneCourseManagement || standaloneIndirectAttainment || Boolean(approvalViewStep);
 
   useEffect(() => {
     if (approvalViewStep) {
@@ -346,6 +356,10 @@ export default function ProgrammeCoordinatorSetupWorkflow({
       if (currentStep !== 2) setCurrentStep(2);
       return;
     }
+    if (standaloneIndirectAttainment) {
+      if (currentStep !== 3) setCurrentStep(3);
+      return;
+    }
 
     const s = parseInt(searchParams.get('step'), 10);
     if (!s || isNaN(s) || s < 1 || s > STEPS.length) {
@@ -354,7 +368,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     } else if (s !== currentStep) {
       setCurrentStep(s);
     }
-  }, [approvalViewStep, currentStep, firstIncompleteStep, searchParams, setSearchParams, standaloneCourseManagement, standaloneTargetSettings]);
+  }, [approvalViewStep, currentStep, firstIncompleteStep, searchParams, setSearchParams, standaloneCourseManagement, standaloneIndirectAttainment, standaloneTargetSettings]);
 
   const goToStep = (n) => {
     setCurrentStep(n);
@@ -412,26 +426,40 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const currentTargetSignature = targetSignature(activePOs, activePSOs, poTargetDraft, psoTargetDraft);
   const targetsAreSaved = savedTargetSignature !== null && savedTargetSignature === currentTargetSignature;
 
-  // Targets are defined per programme batch. Reload the exact selected batch
+  // Targets and outcomes are defined per programme batch. Reload the exact selected batch
   // whenever the selector changes so no values bleed in from another batch.
   useEffect(() => {
-    if (currentStep !== 2 || !programmeId || !batchId || !hasResolvedSelectedBatch) return;
+    if (!programmeId || !batchId || !hasResolvedSelectedBatch) return;
+    if (currentStep !== 2 && currentStep !== 3) return;
     let isCurrent = true;
     setSavedTargetSignature(null);
 
     loadProgrammeBatchOutcomes(programmeId, batchId)
       .then(({ pos = [], psos = [] } = {}) => {
         if (!isCurrent) return;
-        const nextPoTargets = Object.fromEntries(pos.map((po) => [po.code, Number(po.target) || 2]));
-        const nextPsoTargets = Object.fromEntries(psos.map((pso) => [pso.code, Number(pso.target) || 2]));
-        setPoTargetDraft(nextPoTargets);
-        setPsoTargetDraft(nextPsoTargets);
-        setSavedTargetSignature(targetSignature(pos, psos, nextPoTargets, nextPsoTargets));
+        if (pos.length === 0 && loadProgrammeOutcomes) {
+          loadProgrammeOutcomes(programmeId).then((progOutcomes) => {
+            if (!isCurrent) return;
+            const pList = progOutcomes?.pos || [];
+            const psoList = progOutcomes?.psos || [];
+            const nextPoTargets = Object.fromEntries(pList.map((po) => [po.code, Number(po.target) || 2]));
+            const nextPsoTargets = Object.fromEntries(psoList.map((pso) => [pso.code, Number(pso.target) || 2]));
+            setPoTargetDraft(nextPoTargets);
+            setPsoTargetDraft(nextPsoTargets);
+            setSavedTargetSignature(targetSignature(pList, psoList, nextPoTargets, nextPsoTargets));
+          }).catch(() => {});
+        } else {
+          const nextPoTargets = Object.fromEntries(pos.map((po) => [po.code, Number(po.target) || 2]));
+          const nextPsoTargets = Object.fromEntries(psos.map((pso) => [pso.code, Number(pso.target) || 2]));
+          setPoTargetDraft(nextPoTargets);
+          setPsoTargetDraft(nextPsoTargets);
+          setSavedTargetSignature(targetSignature(pos, psos, nextPoTargets, nextPsoTargets));
+        }
       })
       .catch(() => {});
 
     return () => { isCurrent = false; };
-  }, [batchId, currentStep, hasResolvedSelectedBatch, loadProgrammeBatchOutcomes, programmeId]);
+  }, [batchId, currentStep, hasResolvedSelectedBatch, loadProgrammeBatchOutcomes, loadProgrammeOutcomes, programmeId]);
 
   // ── Step handlers ────────────────────────────────────────────────────────
   const handleAddCourse = async (e) => {
@@ -661,7 +689,14 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     });
     loadIndirectAssessments(batchId);
     loadConsolidatedIndirectAttainment(batchId);
-  }, [batchId, currentStep, loadProgrammeIndirectAttainment, loadIndirectAssessments, loadConsolidatedIndirectAttainment]);
+    if (programmeId) {
+      loadProgrammeBatchOutcomes(programmeId, batchId).then(({ pos = [] } = {}) => {
+        if (pos.length === 0 && loadProgrammeOutcomes) {
+          loadProgrammeOutcomes(programmeId);
+        }
+      }).catch(() => {});
+    }
+  }, [batchId, currentStep, loadProgrammeIndirectAttainment, loadIndirectAssessments, loadConsolidatedIndirectAttainment, loadProgrammeBatchOutcomes, loadProgrammeOutcomes, programmeId]);
 
   const handleSaveAndNext = async () => {
     try {
@@ -1266,7 +1301,18 @@ export default function ProgrammeCoordinatorSetupWorkflow({
         {/* ── STEP 3: PROGRAMME-BATCH INDIRECT ATTAINMENT ────────────────── */}
         {currentStep === 3 && (() => {
           const surveyResult = programmeSurveyResult ?? programmeSurveyData;
+          const hasSurveyData = Boolean(
+            surveyResult &&
+            (
+              (Number(surveyResult.recordsProcessed) > 0) ||
+              (Array.isArray(surveyResult.studentSurveyResponses) && surveyResult.studentSurveyResponses.length > 0) ||
+              (Array.isArray(surveyResult.poIndirectAttainment) && surveyResult.poIndirectAttainment.some((item) => Number(item.indirectAttainment) > 0)) ||
+              (Array.isArray(surveyResult.psoIndirectAttainment) && surveyResult.psoIndirectAttainment.some((item) => Number(item.indirectAttainment) > 0))
+            )
+          );
+
           const toScoreRows = (scores, type) => {
+            if (!hasSurveyData) return [];
             if (Array.isArray(scores)) {
               return scores.map((item) => ({
                 code: type === 'PO' ? item.poCode : item.psoCode,
@@ -1276,18 +1322,162 @@ export default function ProgrammeCoordinatorSetupWorkflow({
             }
             return Object.entries(scores ?? {}).map(([code, score]) => ({ code, type, score }));
           };
-          const resultRows = [
+          const resultRows = hasSurveyData ? [
             ...toScoreRows(surveyResult?.poIndirectAttainment, 'PO'),
             ...toScoreRows(surveyResult?.psoIndirectAttainment, 'PSO'),
-          ];
+          ] : [];
 
           const consolidatedScores = consolidatedIndirectAttainment?.consolidatedIndirectAttainment || {};
           const evaluationCounts = consolidatedIndirectAttainment?.evaluationCounts || {};
 
+          const effectivePOs = activePOs.length > 0 ? activePOs : Array.from({ length: 12 }, (_, i) => ({
+            code: `PO${i + 1}`,
+            statement: `Programme Outcome ${i + 1}`,
+          }));
+
           const allOutcomes = [
-            ...activePOs.map((p) => ({ code: p.code, type: 'PO', statement: p.statement })),
+            ...effectivePOs.map((p) => ({ code: p.code, type: 'PO', statement: p.statement })),
             ...normPSOs.map((p) => ({ code: p.code, type: 'PSO', statement: p.statement })),
           ];
+
+          const indirectStudents = (
+            surveyResult?.studentSurveyResponses ??
+            surveyResult?.studentResponses ??
+            surveyResult?.students ??
+            []
+          );
+
+          const surveyPoMap = Object.fromEntries(
+            (Array.isArray(surveyResult?.poIndirectAttainment)
+              ? surveyResult.poIndirectAttainment.map((item) => [item.poCode, item.indirectAttainment])
+              : Object.entries(surveyResult?.poIndirectAttainment || {})
+            ).map(([code, val]) => [String(code || '').trim().toUpperCase().replace(/\s+/g, ''), val])
+          );
+
+          const surveyPsoMap = Object.fromEntries(
+            (Array.isArray(surveyResult?.psoIndirectAttainment)
+              ? surveyResult.psoIndirectAttainment.map((item) => [item.psoCode, item.indirectAttainment])
+              : Object.entries(surveyResult?.psoIndirectAttainment || {})
+            ).map(([code, val]) => [String(code || '').trim().toUpperCase().replace(/\s+/g, ''), val])
+          );
+
+          const responseValue = (student, code) => {
+            if (!student) return '—';
+            const norm = String(code || '').trim().toUpperCase().replace(/\s+/g, '');
+            const sources = [
+              student.poRatings,
+              student.psoRatings,
+              student.outcomeResponses,
+              student.ratings,
+              student.responses,
+              student.poValues,
+              student.psoValues,
+            ];
+            for (const src of sources) {
+              if (src && typeof src === 'object') {
+                if (src[code] !== undefined && src[code] !== null && src[code] !== '') return src[code];
+                const matchKey = Object.keys(src).find((k) => String(k || '').trim().toUpperCase().replace(/\s+/g, '') === norm);
+                if (matchKey !== undefined && src[matchKey] !== null && src[matchKey] !== '') return src[matchKey];
+              }
+            }
+            return '—';
+          };
+
+          const valueOrDash = (value) => {
+            if (value === null || value === undefined || value === '' || value === '—') return '—';
+            return Number.isFinite(Number(value)) ? Number(value).toFixed(2) : value;
+          };
+
+          const renderIndirectAttainmentTable = () => {
+            if (allOutcomes.length === 0 || (!indirectAssessments.length && !hasSurveyData)) {
+              return null;
+            }
+            return (
+              <div style={{ ...surface, overflow: 'hidden', padding: 0, marginTop: '8px' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>
+                    Indirect Attainment Table
+                  </span>
+                  <span style={{ fontSize: '11px', color: muted }}>Values range from 1.00 to 3.00</span>
+                </div>
+
+                <div className="report-table-scroll">
+                  <table className="audit-data-table" style={{ margin: 0, border: 'none', borderRadius: 0 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ minWidth: '180px' }}>Assessment Source</th>
+                        <th style={{ width: '90px', textAlign: 'center' }}>Type</th>
+                        {allOutcomes.map((out) => (
+                          <th key={out.code} style={{ textAlign: 'center', minWidth: '60px' }}>
+                            {out.code}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* 1. Programme End Survey Row (if exists) */}
+                      {hasSurveyData && (
+                        <tr>
+                          <td style={{ fontWeight: '700', color: ink }}>Programme End Survey (Excel)</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span style={{ fontSize: '10.5px', background: '#f0fdf4', color: '#166534', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>SURVEY</span>
+                          </td>
+                          {allOutcomes.map((out) => {
+                            const row = resultRows.find((r) => r.code === out.code);
+                            return (
+                              <td key={out.code} style={{ textAlign: 'center', fontWeight: row ? '700' : 'normal', color: row ? ink : '#94a3b8' }}>
+                                {row ? Number(row.score).toFixed(2) : '—'}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      )}
+
+                      {/* 2. Individual Events and Surveys */}
+                      {indirectAssessments.map((a) => (
+                        <tr key={a.id}>
+                          <td style={{ fontWeight: '600', color: ink }}>{a.name}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span style={{ fontSize: '10.5px', background: a.type === 'EVENT' ? '#eef2ff' : '#f5f3ff', color: a.type === 'EVENT' ? accent : '#7c3aed', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                              {a.type}
+                            </span>
+                          </td>
+                          {allOutcomes.map((out) => {
+                            const score = a.scores?.[out.code];
+                            const has = score !== undefined && score !== null;
+                            return (
+                              <td key={out.code} style={{ textAlign: 'center', fontWeight: has ? '700' : 'normal', color: has ? ink : '#94a3b8' }}>
+                                {has ? Number(score).toFixed(2) : '—'}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+
+                      {/* 3. Consolidated Average Row */}
+                      <tr style={{ background: '#eef2ff' }}>
+                        <td style={{ fontWeight: '800', color: '#3730a3' }}>
+                          Indirect Attainment (Average)
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span style={{ fontSize: '10.5px', background: '#c7d2fe', color: '#3730a3', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>TOTAL</span>
+                        </td>
+                        {allOutcomes.map((out) => {
+                          const score = consolidatedScores[out.code];
+                          const has = score !== undefined && score !== null;
+                          return (
+                            <td key={out.code} style={{ textAlign: 'center', fontWeight: '800', color: has ? accent : '#94a3b8', background: '#eef2ff' }}>
+                              {has ? Number(score).toFixed(2) : '—'}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          };
 
           return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1348,71 +1538,17 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   }}
                 >
                   <ClipboardList size={14} /> Programme End Survey
-                  {surveyResult && (
-                    <span style={{ fontSize: '10px', background: '#f0fdf4', color: '#15803d', padding: '1px 6px', borderRadius: '10px', fontWeight: '800' }}>
+                  {hasSurveyData ? (
+                    <span style={{ fontSize: '10px', background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', padding: '1.5px 7px', borderRadius: '10px', fontWeight: '800' }}>
                       ✓ Uploaded
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '10px', background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', padding: '1.5px 7px', borderRadius: '10px', fontWeight: '700' }}>
+                      Not Uploaded
                     </span>
                   )}
                 </button>
               </div>
-            </div>
-
-            {/* Consolidated Summary Banner */}
-            <div style={{ ...surface, padding: '16px 20px', background: '#ffffff', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Sparkles size={16} style={{ color: accent }} />
-                  <strong style={{ fontSize: '13.5px', color: ink, fontWeight: '800' }}>
-                    Consolidated Indirect Attainment Summary
-                  </strong>
-                  <span style={{ fontSize: '11px', color: muted }}>
-                    (Live arithmetic average of all evaluated events &amp; surveys)
-                  </span>
-                </div>
-                <div style={{ fontSize: '11px', color: muted }}>
-                  Direct Assessment Weight: <strong>80%</strong> · Indirect Assessment Weight: <strong>20%</strong>
-                </div>
-              </div>
-
-              {allOutcomes.length === 0 ? (
-                <div style={{ fontSize: '12px', color: muted }}>No POs or PSOs defined for this programme batch yet.</div>
-              ) : (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {allOutcomes.map((outcome) => {
-                    const score = consolidatedScores[outcome.code];
-                    const count = evaluationCounts[outcome.code] || 0;
-                    const hasScore = score !== undefined && score !== null;
-                    const isPso = outcome.type === 'PSO';
-
-                    return (
-                      <div
-                        key={outcome.code}
-                        style={{
-                          background: hasScore ? (isPso ? '#f0fdf4' : '#f5f3ff') : '#f8fafc',
-                          border: hasScore ? (isPso ? '1.5px solid #a7f3d0' : '1.5px solid #ddd6fe') : '1px solid #e2e8f0',
-                          borderRadius: '8px',
-                          padding: '6px 12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                        }}
-                      >
-                        <span style={{ fontSize: '12px', fontWeight: '800', color: isPso ? '#059669' : accent }}>
-                          {outcome.code}
-                        </span>
-                        <strong style={{ fontSize: '13px', fontWeight: '800', color: hasScore ? ink : '#94a3b8' }}>
-                          {hasScore ? Number(score).toFixed(2) : '—'}
-                        </strong>
-                        {count > 0 && (
-                          <span style={{ fontSize: '10px', background: isPso ? '#bbf7d0' : '#e0e7ff', color: isPso ? '#166534' : '#3730a3', padding: '1px 5px', borderRadius: '4px', fontWeight: '700' }}>
-                            {count} src
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
 
             {/* ── SUB-TAB 1: SURVEYS & CO-CURRICULAR EVENTS ─────────────────────── */}
@@ -1595,6 +1731,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: '4px',
+                                  fontFamily: 'inherit',
                                 }}>
                                   <span>{code}:</span>
                                   <strong style={{ color: ink }}>{Number(score).toFixed(2)}</strong>
@@ -1608,92 +1745,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   </div>
                 )}
 
-                {/* Multi-Assessment Matrix Comparison Table */}
-                {allOutcomes.length > 0 && (indirectAssessments.length > 0 || surveyResult) && (
-                  <div style={{ ...surface, overflow: 'hidden', padding: 0, marginTop: '8px' }}>
-                    <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>
-                        Multi-Source Indirect Attainment Matrix
-                      </span>
-                      <span style={{ fontSize: '11px', color: muted }}>Values range from 1.00 to 3.00</span>
-                    </div>
-
-                    <div className="report-table-scroll">
-                      <table className="audit-data-table" style={{ margin: 0, border: 'none', borderRadius: 0 }}>
-                        <thead>
-                          <tr>
-                            <th style={{ minWidth: '180px' }}>Assessment Source</th>
-                            <th style={{ width: '90px', textAlign: 'center' }}>Type</th>
-                            {allOutcomes.map((out) => (
-                              <th key={out.code} style={{ textAlign: 'center', minWidth: '60px' }}>
-                                {out.code}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {/* 1. Programme End Survey Row (if exists) */}
-                          {surveyResult && (
-                            <tr>
-                              <td style={{ fontWeight: '700', color: ink }}>Programme End Survey (Excel)</td>
-                              <td style={{ textAlign: 'center' }}>
-                                <span style={{ fontSize: '10.5px', background: '#f0fdf4', color: '#166534', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>SURVEY</span>
-                              </td>
-                              {allOutcomes.map((out) => {
-                                const row = resultRows.find((r) => r.code === out.code);
-                                return (
-                                  <td key={out.code} style={{ textAlign: 'center', fontWeight: row ? '700' : 'normal', color: row ? ink : '#94a3b8' }}>
-                                    {row ? Number(row.score).toFixed(2) : '—'}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          )}
-
-                          {/* 2. Individual Events and Surveys */}
-                          {indirectAssessments.map((a) => (
-                            <tr key={a.id}>
-                              <td style={{ fontWeight: '600', color: ink }}>{a.name}</td>
-                              <td style={{ textAlign: 'center' }}>
-                                <span style={{ fontSize: '10.5px', background: a.type === 'EVENT' ? '#eef2ff' : '#f5f3ff', color: a.type === 'EVENT' ? accent : '#7c3aed', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
-                                  {a.type}
-                                </span>
-                              </td>
-                              {allOutcomes.map((out) => {
-                                const score = a.scores?.[out.code];
-                                const has = score !== undefined && score !== null;
-                                return (
-                                  <td key={out.code} style={{ textAlign: 'center', fontWeight: has ? '700' : 'normal', color: has ? ink : '#94a3b8' }}>
-                                    {has ? Number(score).toFixed(2) : '—'}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-
-                          {/* 3. Consolidated Average Row */}
-                          <tr style={{ background: '#eef2ff' }}>
-                            <td style={{ fontWeight: '800', color: '#3730a3' }}>
-                              Consolidated Indirect Attainment (Average)
-                            </td>
-                            <td style={{ textAlign: 'center' }}>
-                              <span style={{ fontSize: '10.5px', background: '#c7d2fe', color: '#3730a3', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>TOTAL</span>
-                            </td>
-                            {allOutcomes.map((out) => {
-                              const score = consolidatedScores[out.code];
-                              const has = score !== undefined && score !== null;
-                              return (
-                                <td key={out.code} style={{ textAlign: 'center', fontWeight: '800', color: has ? accent : '#94a3b8', background: '#eef2ff' }}>
-                                  {has ? Number(score).toFixed(2) : '—'}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
+                {/* Indirect Attainment Table at bottom of Tab 1 */}
+                {renderIndirectAttainmentTable()}
               </div>
             )}
 
@@ -1711,7 +1764,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                     <a href={`${import.meta.env.BASE_URL}ProgrammeEnd-Survey.xlsx`} download="ProgrammeEnd-Survey.xlsx" style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
                       <Download size={14} /> Download Template
                     </a>
-                    {surveyResult && (
+                    {hasSurveyData && (
                       <button type="button" onClick={handleDeleteProgrammeSurvey} disabled={programmeSurveyUploading || isBatchFrozen} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', cursor: programmeSurveyUploading || isBatchFrozen ? 'not-allowed' : 'pointer', opacity: isBatchFrozen ? 0.55 : 1, fontFamily: 'inherit' }}>
                         Remove Survey Data
                       </button>
@@ -1720,7 +1773,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 </div>
 
                 {programmeSurveyError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#991b1b', fontSize: '13px' }}><AlertCircle size={18} />{programmeSurveyError}</div>}
-                {surveyResult && <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontSize: '13px' }}><CheckCircle2 size={18} />Programme end survey processed successfully.</div>}
+                {hasSurveyData && !programmeSurveyError && <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontSize: '13px' }}><CheckCircle2 size={18} />Programme end survey processed successfully.</div>}
 
                 <div style={{ ...surface, padding: '24px', textAlign: 'center', background: '#ffffff' }}>
                   <div style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '28px', background: '#f8fafc', maxWidth: '720px', margin: '0 auto' }}>
@@ -1736,12 +1789,79 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   </div>
                 </div>
 
+                {/* Student Response Matrix Table (matching Reports Hub Indirect Attainment) */}
                 <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
-                  <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0' }}><h4 style={{ margin: 0, fontSize: '14px', color: ink }}>Programme End Survey Indirect Attainment Breakdown</h4></div>
-                  <table className="audit-data-table"><thead><tr><th>Outcome</th><th>Type</th><th style={{ textAlign: 'center' }}>Indirect Attainment (0–3)</th></tr></thead><tbody>
-                    {resultRows.length === 0 ? <tr><td colSpan={3} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>No survey data uploaded yet. Upload the programme end survey to calculate PO/PSO indirect attainment.</td></tr> : resultRows.map((item) => <tr key={`${item.type}-${item.code}`}><td style={{ fontWeight: '700', color: accent }}>{item.code}</td><td style={{ color: muted }}>{item.type}</td><td style={{ textAlign: 'center', fontWeight: '800', color: accent }}>{Number(item.score).toFixed(2)}</td></tr>)}
-                  </tbody></table>
+                  <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: ink }}>Programme End Survey Student Responses</h4>
+                    {hasSurveyData && indirectStudents.length > 0 && (
+                      <span style={{ fontSize: '11px', color: muted, fontWeight: '600' }}>
+                        {indirectStudents.length} Students Processed
+                      </span>
+                    )}
+                  </div>
+                  <div className="report-table-scroll">
+                    <table className="audit-data-table" style={{ margin: 0 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ width: '80px', minWidth: '80px', textAlign: 'center' }}>Sr No</th>
+                          <th style={{ width: '140px', minWidth: '140px' }}>PRN</th>
+                          <th style={{ minWidth: '240px', width: '260px' }}>Name of the Student</th>
+                          {effectivePOs.map((po) => (
+                            <th key={po.code} style={{ textAlign: 'center', minWidth: '55px' }}>{po.code}</th>
+                          ))}
+                          {normPSOs.map((pso) => (
+                            <th key={pso.code} style={{ textAlign: 'center', background: '#ecfdf5', color: '#065f46', minWidth: '55px' }}>{pso.code}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {!hasSurveyData || indirectStudents.length === 0 ? (
+                          <tr>
+                            <td colSpan={3 + effectivePOs.length + normPSOs.length} style={{ textAlign: 'center', padding: '32px 20px', color: '#94a3b8' }}>
+                              No survey data uploaded yet. Upload the programme end survey Excel file to view student responses and calculate PO/PSO indirect attainment.
+                            </td>
+                          </tr>
+                        ) : (
+                          <>
+                            {indirectStudents.map((student, index) => (
+                              <tr key={`${student.prn ?? student.studentPrn ?? 'student'}-${student.srNo ?? index}`}>
+                                <td style={{ textAlign: 'center', fontWeight: '600' }}>{student.srNo ?? index + 1}</td>
+                                <td style={{ fontWeight: '600' }}>{student.prn ?? student.studentPrn ?? '—'}</td>
+                                <td style={{ fontSize: '12.5px', color: ink }}>{student.studentName ?? student.name ?? '—'}</td>
+                                {effectivePOs.map((po) => (
+                                  <td key={po.code} style={{ textAlign: 'center', fontWeight: '700' }}>
+                                    {valueOrDash(responseValue(student, po.code))}
+                                  </td>
+                                ))}
+                                {normPSOs.map((pso) => (
+                                  <td key={pso.code} style={{ textAlign: 'center', fontWeight: '700', color: '#047857', background: '#f0fdf4' }}>
+                                    {valueOrDash(responseValue(student, pso.code))}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                            <tr style={{ background: '#f1f5f9', fontWeight: '800' }}>
+                              <td colSpan={3} style={{ textAlign: 'right', paddingRight: '16px', color: ink }}>Average Attainment (Indirect)</td>
+                              {effectivePOs.map((po) => (
+                                <td key={po.code} style={{ textAlign: 'center', color: accent, fontWeight: '800' }}>
+                                  {valueOrDash(surveyPoMap[po.code])}
+                                </td>
+                              ))}
+                              {normPSOs.map((pso) => (
+                                <td key={pso.code} style={{ textAlign: 'center', color: '#047857', background: '#e6f4ea', fontWeight: '800' }}>
+                                  {valueOrDash(surveyPsoMap[pso.code])}
+                                </td>
+                              ))}
+                            </tr>
+                          </>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
+
+                {/* Indirect Attainment Table at bottom of Tab 2 */}
+                {renderIndirectAttainmentTable()}
               </div>
             )}
           </div>

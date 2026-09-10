@@ -17,18 +17,63 @@ const statusColor = (status) => {
   return ['#fffbeb', '#a16207'];
 };
 
-function ReadOnlySubmissionContent({ type, content }) {
+function ReadOnlySubmissionContent({ type, content, reviewCourseId = null }) {
   if (!content) return <div style={{ padding: '28px', color: '#64748b' }}>Loading submitted course content…</div>;
 
   if (['ATTAINMENT_SETTINGS', 'ATTAINMENT_CONFIGURATION'].includes(type)) {
-    const directLevels = content.directLevels ?? content.attainmentLevels ?? [];
-    const indirectLevels = content.indirectLevels ?? [];
-    const bands = (title, levels, tone) => <div style={{ ...surface, overflow: 'hidden', padding: 0 }}><div style={{ padding: '13px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 800, color: '#0f172a', fontSize: '13px' }}>{title}</div><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}><thead><tr style={{ color: '#64748b', textAlign: 'left' }}><th style={{ padding: '10px 14px' }}>Level</th><th>Minimum %</th><th>Maximum %</th><th>Attainment Score</th></tr></thead><tbody>{levels.map((level) => <tr key={level.level} style={{ borderTop: '1px solid #f1f5f9' }}><td style={{ padding: '11px 14px', fontWeight: 800, color: tone }}>Level {level.level}</td><td>{level.minPercentage}%</td><td>{level.maxPercentage}%</td><td>{level.level}.0 / 3.0</td></tr>)}</tbody></table></div>;
-    return <div style={{ display: 'grid', gap: '16px' }}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '12px' }}>{[['Direct Weight', `${content.directWeight ?? content.directWeightage ?? '—'}%`, '#4f46e5'], ['Indirect Weight', `${content.indirectWeight ?? content.indirectWeightage ?? '—'}%`, '#0284c7'], ['Internal Weight', `${content.internalWeight ?? content.internalWeightage ?? '—'}%`, '#059669']].map(([label, value, color]) => <div key={label} style={{ ...surface, padding: '16px 18px' }}><div style={{ color: '#64748b', fontSize: '11px', fontWeight: 700 }}>{label}</div><div style={{ color, fontSize: '25px', fontWeight: 800, marginTop: 5 }}>{value}</div></div>)}</div>{bands('Attainment Level Bands', directLevels, '#4f46e5')}{indirectLevels.length > 0 && bands('Indirect Assessment Level Bands', indirectLevels, '#0284c7')}</div>;
+    return (
+      <AttainmentConfig
+        hideHeader
+        readOnly
+        suppressPendingMessage
+        reviewCourseId={reviewCourseId}
+        initialConfig={content}
+      />
+    );
   }
 
   const outcomes = Array.isArray(content) ? content : (content.outcomes ?? content.courseOutcomes ?? content.items ?? []);
-  return <div style={{ ...surface, overflow: 'hidden', padding: 0 }}><div style={{ padding: '13px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 800, color: '#0f172a', fontSize: '13px' }}>{['COURSE_OUTCOMES_TARGETS', 'CO_DEFINITION'].includes(type) ? 'Course Outcomes & Targets' : 'Course Action Taken Report'}</div><div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}><thead><tr style={{ color: '#64748b', textAlign: 'left' }}><th style={{ padding: '10px 14px' }}>CO</th><th>Outcome Statement</th><th>Target</th>{!['COURSE_OUTCOMES_TARGETS', 'CO_DEFINITION'].includes(type) && <><th>Attainment</th><th>Observation</th><th>Actions Taken</th></>}</tr></thead><tbody>{outcomes.map((item, index) => <tr key={item.id ?? item.code ?? item.outcomeCode ?? index} style={{ borderTop: '1px solid #f1f5f9', verticalAlign: 'top' }}><td style={{ padding: '12px 14px', fontWeight: 800, color: '#4f46e5' }}>{item.code ?? item.outcomeCode ?? item.coCode ?? `CO${index + 1}`}</td><td style={{ padding: '12px 8px', minWidth: 240 }}>{item.description ?? item.statement ?? item.outcomeStatement ?? '—'}</td><td style={{ padding: '12px 8px' }}>{item.targetLevel ?? item.target ?? '—'}</td>{!['COURSE_OUTCOMES_TARGETS', 'CO_DEFINITION'].includes(type) && <><td style={{ padding: '12px 8px' }}>{item.attainedLevel ?? item.attainmentLevel ?? item.actual ?? '—'}</td><td style={{ padding: '12px 8px' }}>{item.observation ?? item.remark ?? '—'}</td><td style={{ padding: '12px 8px' }}>{Array.isArray(item.actions) ? item.actions.filter(Boolean).join('; ') || '—' : item.actions ?? item.actionProposed ?? '—'}</td></>}</tr>)}</tbody></table></div></div>;
+  return (
+    <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
+      <div style={{ padding: '13px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 800, color: '#0f172a', fontSize: '13px' }}>
+        {['COURSE_OUTCOMES_TARGETS', 'CO_DEFINITION'].includes(type) ? 'Course Outcomes & Targets' : 'Course Action Taken Report'}
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+          <thead>
+            <tr style={{ color: '#64748b', textAlign: 'left' }}>
+              <th style={{ padding: '10px 14px' }}>CO</th>
+              <th>Outcome Statement</th>
+              <th>Target</th>
+              {!['COURSE_OUTCOMES_TARGETS', 'CO_DEFINITION'].includes(type) && (
+                <>
+                  <th>Attainment</th>
+                  <th>Observation</th>
+                  <th>Actions Taken</th>
+                </>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {outcomes.map((item, index) => (
+              <tr key={item.id ?? item.code ?? item.outcomeCode ?? index} style={{ borderTop: '1px solid #f1f5f9', verticalAlign: 'top' }}>
+                <td style={{ padding: '12px 14px', fontWeight: 800, color: '#4f46e5' }}>{item.code ?? item.outcomeCode ?? item.coCode ?? `CO${index + 1}`}</td>
+                <td style={{ padding: '12px 8px', minWidth: 240 }}>{item.description ?? item.statement ?? item.outcomeStatement ?? '—'}</td>
+                <td style={{ padding: '12px 8px' }}>{item.targetLevel ?? item.target ?? '—'}</td>
+                {!['COURSE_OUTCOMES_TARGETS', 'CO_DEFINITION'].includes(type) && (
+                  <>
+                    <td style={{ padding: '12px 8px' }}>{item.attainedLevel ?? item.attainmentLevel ?? item.actual ?? '—'}</td>
+                    <td style={{ padding: '12px 8px' }}>{item.observation ?? item.remark ?? '—'}</td>
+                    <td style={{ padding: '12px 8px' }}>{Array.isArray(item.actions) ? item.actions.filter(Boolean).join('; ') || '—' : item.actions ?? item.actionProposed ?? '—'}</td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 export default function ProgrammeCoordinatorApprovals() {
@@ -349,11 +394,37 @@ export default function ProgrammeCoordinatorApprovals() {
         {['COURSE_ATR'].includes(selected.type) && ['APPROVED', 'VERIFIED'].includes(selected.status) && <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 10, padding: '14px 18px', marginBottom: 16, color: '#15803d' }}><strong style={{ fontSize: 13.5 }}>✓ Course ATR Approved by {selected.reviewedBy?.name ?? selected.reviewedBy ?? 'Programme Coordinator'}</strong><div style={{ marginTop: 4, fontSize: 12.5 }}>The Programme-Batch-Course ATR has been reviewed and approved.</div></div>}
         {['COURSE_ATR'].includes(selected.type) && ['REVISION_REQUESTED', 'REJECTED'].includes(selected.status) && <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: 10, padding: '14px 18px', marginBottom: 16, color: '#92400e' }}><strong style={{ fontSize: 13.5 }}>⚠ Revision Requested by {selected.reviewedBy?.name ?? selected.reviewedBy ?? 'Programme Coordinator'}</strong><div style={{ marginTop: 4, fontSize: 12.5 }}>{selected.revisionReason || 'Please revise the submitted content as per the coordinator feedback.'}</div></div>}
         <div style={{ marginBottom: 16 }}>
-          {selected.submissionContent !== undefined
-            ? <ReadOnlySubmissionContent type={selected.type} content={selected.submissionContent} />
-            : ['COURSE_OUTCOMES_TARGETS', 'CO_DEFINITION'].includes(selected.type) ? <OutcomesManagement hideHeader hideFooter readOnly suppressPendingMessage reviewCourseId={selected.programmeBatchCourseId} />
-              : ['ATTAINMENT_SETTINGS', 'ATTAINMENT_CONFIGURATION'].includes(selected.type) ? <AttainmentConfig hideHeader readOnly suppressPendingMessage reviewCourseId={selected.programmeBatchCourseId} />
-                : <CourseATR hideHeader hideFooter readOnly suppressPendingMessage courseId={selected.programmeBatchCourseId} />}
+          {['ATTAINMENT_SETTINGS', 'ATTAINMENT_CONFIGURATION'].includes(selected.type) ? (
+            <AttainmentConfig
+              hideHeader
+              readOnly
+              suppressPendingMessage
+              reviewCourseId={selected.programmeBatchCourseId}
+              initialConfig={selected.submissionContent}
+            />
+          ) : selected.submissionContent !== undefined ? (
+            <ReadOnlySubmissionContent
+              type={selected.type}
+              content={selected.submissionContent}
+              reviewCourseId={selected.programmeBatchCourseId}
+            />
+          ) : ['COURSE_OUTCOMES_TARGETS', 'CO_DEFINITION'].includes(selected.type) ? (
+            <OutcomesManagement
+              hideHeader
+              hideFooter
+              readOnly
+              suppressPendingMessage
+              reviewCourseId={selected.programmeBatchCourseId}
+            />
+          ) : (
+            <CourseATR
+              hideHeader
+              hideFooter
+              readOnly
+              suppressPendingMessage
+              courseId={selected.programmeBatchCourseId}
+            />
+          )}
         </div>
         <div style={{ ...surface, padding: '16px 18px', marginBottom: 16 }}><div style={{ fontSize: 12, color: '#64748b' }}>Submitted by: <strong>{selected.submittedBy || 'Course Coordinator'}</strong><br />Submitted on: {selected.submittedAt || selected.createdAt || '—'}</div>{(isPending(selected) || isApproved(selected) || isRevisionRequested(selected)) && <>{(isPending(selected) || isApproved(selected)) && <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Reason required when requesting a revision" style={{ width: '100%', minHeight: 78, padding: 10, marginTop: 14, border: '1px solid #cbd5e1', borderRadius: 8, boxSizing: 'border-box', fontFamily: 'inherit', fontSize: 13 }} />}<div style={{ display: 'flex', gap: 8, marginTop: 10 }}>{(isPending(selected) || isRevisionRequested(selected)) && <button type="button" disabled={actionLoading} onClick={() => applyAction('APPROVE')} style={{ padding: '8px 12px', background: '#16a34a', color: '#fff', border: 0, borderRadius: 6, fontWeight: 700, cursor: 'pointer' }}><Check size={14} /> {isRevisionRequested(selected) ? 'Approve Revision' : 'Approve'}</button>}{(isPending(selected) || isApproved(selected)) && <button type="button" disabled={actionLoading} onClick={() => applyAction('REQUEST_REVISION')} style={{ padding: '8px 12px', background: '#fff', color: '#b45309', border: '1px solid #f59e0b', borderRadius: 6, fontWeight: 700, cursor: 'pointer' }}><Send size={14} /> Request Revision</button>}</div></>}</div>
       </>

@@ -19,7 +19,13 @@ const configSignature = (config = {}) => JSON.stringify({
   indirectLevels: config.indirectLevels ?? [],
 });
 
-export default function AttainmentConfig({ hideHeader = false, readOnly = false, reviewCourseId = null, suppressPendingMessage = false }) {
+export default function AttainmentConfig({
+  hideHeader = false,
+  readOnly = false,
+  reviewCourseId = null,
+  suppressPendingMessage = false,
+  initialConfig = null,
+}) {
   const { role, user } = useAuth();
   const {
     academicYear,
@@ -145,17 +151,23 @@ export default function AttainmentConfig({ hideHeader = false, readOnly = false,
     // Approval reviews use the same API response as the Course Coordinator
     // screen, but are rendered read-only. They must still populate the local
     // display state instead of falling back to default values.
+    if (initialConfig) {
+      setLocalCourseConfig(initialConfig);
+      setSavedConfigSignature(configSignature(initialConfig));
+      return;
+    }
     if (!isCourseCoordinator && !reviewCourseId) return;
     const config = apiConfig || defaultConfig;
     setLocalCourseConfig(config);
     setSavedConfigSignature(apiConfig ? configSignature(config) : null);
-  }, [apiConfig, isCourseCoordinator, programmeBatchCourseId, reviewCourseId]);
+  }, [apiConfig, initialConfig, isCourseCoordinator, programmeBatchCourseId, reviewCourseId]);
 
-  const currentConfig = (isCourseCoordinator || reviewCourseId)
-    ? localCourseConfig
-    : safeAttainmentConfigs[activeCourseId] || defaultConfig;
-  const displayedCourseCode = selectedCourseCode || currentConfig.courseCode || 'Course';
-  const displayedCourseName = selectedCourseName || currentConfig.courseName || 'Title';
+  const currentConfig = initialConfig
+    || ((isCourseCoordinator || reviewCourseId)
+      ? localCourseConfig
+      : safeAttainmentConfigs[activeCourseId] || defaultConfig);
+  const displayedCourseCode = initialConfig?.courseCode || selectedCourseCode || currentConfig.courseCode || 'Course';
+  const displayedCourseName = initialConfig?.courseName || selectedCourseName || currentConfig.courseName || 'Title';
 
   const handleDirectWeightChange = (val) => {
     const direct = Math.min(100, Math.max(0, Number(val)));

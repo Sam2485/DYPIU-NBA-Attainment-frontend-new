@@ -307,11 +307,74 @@ export default function COAttainmentEngine({ hideFooter = false }) {
         </div>
       </div>
 
-      {/* Table 2: PO & PSO Attainment Values */}
+      {/* Table 2: CO-level attainment report */}
       <div className="card" style={{ marginBottom: '20px' }}>
+        <div className="card-header" style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+          <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
+            Table 2 : CO Attainment Report ({courseOutcomes.length} COs)
+          </h3>
+          {overallCOAttainment != null && (
+            <span style={{ padding: '6px 10px', borderRadius: 999, background: '#dcfce7', border: '1px solid #86efac', color: '#166534', fontSize: '12px', fontWeight: '800', whiteSpace: 'nowrap' }}>
+              Overall CO Attainment: {Number(overallCOAttainment).toFixed(2)}
+            </span>
+          )}
+        </div>
+        <div style={{ overflowX: 'auto', width: '100%' }}>
+          <table className="audit-data-table">
+            <thead>
+              <tr>
+                <th style={{ minWidth: '220px' }}>Attainment Measure</th>
+                {table3CoAttainments.map((item) => (
+                  <th key={item.coCode} style={{ textAlign: 'center', minWidth: '110px' }}>{item.coCode}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {table3CoAttainments.length === 0 ? (
+                <tr>
+                  <td colSpan={2} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                    No CO-attainment report is available for this programme-batch course yet.
+                  </td>
+                </tr>
+              ) : (
+                <>
+                  {[
+                    ['Direct Attainment %', (item) => item.directPercentage != null ? `${Number(item.directPercentage).toFixed(2)}%` : '—'],
+                    ['Direct Attainment', (item) => item.directLevel != null ? `${item.directLevel}` : '—'],
+                    ['Indirect Attainment %', (item) => item.indirectPercentage != null ? `${Number(item.indirectPercentage).toFixed(2)}%` : '—'],
+                    ['Indirect Attainment', (item) => item.indirectLevel != null ? `${item.indirectLevel}` : '—'],
+                    ['Final Attainment', (item) => item.finalAttainment != null ? Number(item.finalAttainment).toFixed(2) : '—'],
+                  ].map(([label, getValue]) => (
+                    <tr key={label} style={label === 'Final Attainment' ? { background: '#f1f5f9', fontWeight: '800', borderTop: '2px solid #cbd5e1' } : undefined}>
+                      <td style={{ fontWeight: '700', color: '#0f172a' }}>{label}</td>
+                      {table3CoAttainments.map((item) => (
+                        <td key={item.coCode} style={{ textAlign: 'center', fontWeight: label === 'Final Attainment' ? '800' : '600' }}>
+                          {getValue(item)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                  <tr style={{ background: '#eef2ff', fontWeight: '800', borderTop: '2px solid #c7d2fe' }}>
+                    <td style={{ fontWeight: '800', color: '#3730a3' }}>Overall CO Attainment</td>
+                    <td
+                      colSpan={table3CoAttainments.length}
+                      style={{ textAlign: 'center', fontWeight: '800', fontSize: '13.5px', color: '#3730a3' }}
+                    >
+                      {overallCOAttainment != null ? Number(overallCOAttainment).toFixed(2) : '—'}
+                    </td>
+                  </tr>
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Table 3: PO & PSO Attainment Values */}
+      <div className="card">
         <div className="card-header" style={{ marginBottom: '12px' }}>
           <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
-            Table 2 : PO &amp; PSO Attainment Values for {displayCourseCode} ({academicYear || 'Current Year'})
+            Table 3 : PO &amp; PSO Attainment Values for {displayCourseCode} ({academicYear || 'Current Year'})
           </h3>
         </div>
         <div style={{ overflowX: 'auto', width: '100%' }}>
@@ -362,7 +425,7 @@ export default function COAttainmentEngine({ hideFooter = false }) {
               </tr>
               <tr style={{ background: '#f1f5f9', fontWeight: '800' }}>
                 <td style={{ fontWeight: '800', color: '#0f172a' }}>{displayCourseCode}</td>
-                <td style={{ fontWeight: '800', color: '#0f172a' }}>Direct Attainment Contribution</td>
+                <td style={{ fontWeight: '800', color: '#0f172a' }}>Direct Attainment</td>
                 {displayPOs.map((po) => (
                   <td key={po} style={{ textAlign: 'center', fontSize: '13.5px', color: '#0f172a' }}>
                     {calculatePoPsoAttainment(po)}
@@ -374,56 +437,6 @@ export default function COAttainmentEngine({ hideFooter = false }) {
                   </td>
                 ))}
               </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Table 3: CO-level attainment report */}
-      <div className="card">
-        <div className="card-header" style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-          <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
-            Table 3 : CO Attainment Report ({courseOutcomes.length} COs)
-          </h3>
-          {overallCOAttainment != null && (
-            <span style={{ padding: '6px 10px', borderRadius: 999, background: '#dcfce7', border: '1px solid #86efac', color: '#166534', fontSize: '12px', fontWeight: '800', whiteSpace: 'nowrap' }}>
-              Overall CO Attainment: {Number(overallCOAttainment).toFixed(2)}
-            </span>
-          )}
-        </div>
-        <div style={{ overflowX: 'auto', width: '100%' }}>
-          <table className="audit-data-table">
-            <thead>
-              <tr>
-                <th style={{ minWidth: '220px' }}>Attainment Measure</th>
-                {table3CoAttainments.map((item) => (
-                  <th key={item.coCode} style={{ textAlign: 'center', minWidth: '110px' }}>{item.coCode}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {table3CoAttainments.length === 0 ? (
-                <tr>
-                  <td colSpan={2} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
-                    No CO-attainment report is available for this programme-batch course yet.
-                  </td>
-                </tr>
-              ) : [
-                ['Direct Attainment %', (item) => item.directPercentage != null ? `${Number(item.directPercentage).toFixed(2)}%` : '—'],
-                ['Direct Attainment', (item) => item.directLevel != null ? `${item.directLevel}` : '—'],
-                ['Indirect Attainment %', (item) => item.indirectPercentage != null ? `${Number(item.indirectPercentage).toFixed(2)}%` : '—'],
-                ['Indirect Attainment', (item) => item.indirectLevel != null ? `${item.indirectLevel}` : '—'],
-                ['Final Attainment', (item) => item.finalAttainment != null ? Number(item.finalAttainment).toFixed(2) : '—'],
-              ].map(([label, getValue], index) => (
-                <tr key={label} style={label === 'Final Attainment' ? { background: '#f1f5f9', fontWeight: '800', borderTop: '2px solid #cbd5e1' } : undefined}>
-                  <td style={{ fontWeight: '700', color: '#0f172a' }}>{label}</td>
-                  {table3CoAttainments.map((item) => (
-                    <td key={item.coCode} style={{ textAlign: 'center', fontWeight: label === 'Final Attainment' ? '800' : '600' }}>
-                      {getValue(item)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
             </tbody>
           </table>
         </div>

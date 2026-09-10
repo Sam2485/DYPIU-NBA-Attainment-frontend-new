@@ -61,6 +61,7 @@ const PROGRAMME_COORDINATOR_NAV = [
   { id: 'dashboard',          path: '/programme-coordinator/dashboard',          icon: 'dashboard', label: 'Dashboard' },
   { id: 'manage-courses',     path: '/programme-coordinator/manage-courses',     icon: 'academic',  label: 'Manage Courses' },
   { id: 'target-settings',    path: '/programme-coordinator/target-settings',    icon: 'config',    label: 'Target Settings' },
+  { id: 'indirect-attainment', path: '/programme-coordinator/indirect-attainment', icon: 'survey',  label: 'Indirect Attainment' },
   { id: 'programme-atr',      path: '/programme-atr',                            icon: 'atr',       label: 'Programme ATR' },
   { id: 'verification-panel', path: '/coordinator-review',                       icon: 'poa',       label: 'Approvals' },
   { id: 'reports',            path: '/reports',                                  icon: 'reports',   label: 'Reports' },
@@ -68,11 +69,12 @@ const PROGRAMME_COORDINATOR_NAV = [
 
 // ── Dropdown 1: Programme Setup & Management ───────────────────────────────────
 const PROGRAMME_SETUP_NAV = [
-  { id: 'dashboard',     path: '/programme-coordinator/dashboard', icon: 'dashboard', label: 'Dashboard' },
-  { id: 'manage-courses', path: '/programme-coordinator/manage-courses', icon: 'academic', label: 'Manage Courses' },
-  { id: 'outcomes',      path: '/programme-coordinator/target-settings', icon: 'outcomes',  label: 'Target Settings' },
-  { id: 'programme-atr', path: '/programme-atr', icon: 'atr',       label: 'Programme ATR' },
-  { id: 'reports',       path: '/reports',       icon: 'reports',   label: 'Reports' },
+  { id: 'dashboard',          path: '/programme-coordinator/dashboard',          icon: 'dashboard', label: 'Dashboard' },
+  { id: 'manage-courses',     path: '/programme-coordinator/manage-courses',     icon: 'academic',  label: 'Manage Courses' },
+  { id: 'outcomes',           path: '/programme-coordinator/target-settings',    icon: 'outcomes',  label: 'Target Settings' },
+  { id: 'indirect-attainment', path: '/programme-coordinator/indirect-attainment', icon: 'survey',  label: 'Indirect Attainment' },
+  { id: 'programme-atr',      path: '/programme-atr',                            icon: 'atr',       label: 'Programme ATR' },
+  { id: 'reports',            path: '/reports',                                  icon: 'reports',   label: 'Reports' },
 ];
 
 // ── Dropdown 2: Course Submissions Review ──────────────────────────────────────

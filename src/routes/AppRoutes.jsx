@@ -44,6 +44,7 @@ import ProgrammeCoordinatorDashboardPage from '../pages/programme-coordinator/Pr
 import ProgrammeCoordinatorSetupWorkflowPage from '../pages/programme-coordinator/ProgrammeCoordinatorSetupWorkflowPage';
 import ProgrammeCoordinatorManageCoursesPage from '../pages/programme-coordinator/ProgrammeCoordinatorManageCoursesPage';
 import ProgrammeTargetSettingsPage from '../pages/programme-coordinator/ProgrammeTargetSettingsPage';
+import ProgrammeIndirectAttainmentPage from '../pages/programme-coordinator/ProgrammeIndirectAttainmentPage';
 import IqacDashboardPage from '../pages/iqac/IqacDashboardPage';
 import IqacUsersPage from '../pages/iqac/IqacUsersPage';
 import ReportTemplatePage from '../pages/iqac/ReportTemplatePage';
@@ -249,6 +250,14 @@ export default function AppRoutes() {
         element={
           <RoleProtectedRoute allowedRoles={['IQAC', 'PROGRAMME_COORDINATOR']}>
             <ProgrammeTargetSettingsPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/programme-coordinator/indirect-attainment"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'PROGRAMME_COORDINATOR']}>
+            <ProgrammeIndirectAttainmentPage />
           </RoleProtectedRoute>
         }
       />

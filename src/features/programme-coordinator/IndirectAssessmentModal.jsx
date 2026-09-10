@@ -6,6 +6,21 @@ const ink = '#0f172a';
 const muted = '#64748b';
 const accent = '#4f46e5';
 
+const DEFAULT_POS = [
+  { code: 'PO1', statement: 'Engineering knowledge' },
+  { code: 'PO2', statement: 'Problem analysis' },
+  { code: 'PO3', statement: 'Design/development of solutions' },
+  { code: 'PO4', statement: 'Conduct investigations of complex problems' },
+  { code: 'PO5', statement: 'Modern tool usage' },
+  { code: 'PO6', statement: 'The engineer and society' },
+  { code: 'PO7', statement: 'Environment and sustainability' },
+  { code: 'PO8', statement: 'Ethics' },
+  { code: 'PO9', statement: 'Individual and team work' },
+  { code: 'PO10', statement: 'Communication' },
+  { code: 'PO11', statement: 'Project management and finance' },
+  { code: 'PO12', statement: 'Life-long learning' },
+];
+
 export default function IndirectAssessmentModal({
   isOpen,
   onClose,
@@ -15,6 +30,8 @@ export default function IndirectAssessmentModal({
   activePSOs = [],
   saving = false,
 }) {
+  const effectivePOs = (activePOs && activePOs.length > 0) ? activePOs : DEFAULT_POS;
+  const effectivePSOs = activePSOs || [];
   const [name, setName] = useState('');
   const [type, setType] = useState('EVENT');
   const [description, setDescription] = useState('');
@@ -339,7 +356,7 @@ export default function IndirectAssessmentModal({
               </div>
 
               {/* POs Section */}
-              {activePOs.length > 0 && (
+              {effectivePOs.length > 0 && (
                 <div style={{ marginBottom: '14px' }}>
                   <div style={{ fontSize: '11px', fontWeight: '700', color: accent, marginBottom: '6px', textTransform: 'uppercase' }}>
                     Programme Outcomes (POs)
@@ -362,7 +379,7 @@ export default function IndirectAssessmentModal({
                         </tr>
                       </thead>
                       <tbody>
-                        {activePOs.map((po) => {
+                        {effectivePOs.map((po) => {
                           const currentVal = scores[po.code] !== undefined ? scores[po.code] : '';
                           return (
                             <tr key={po.code}>
@@ -404,7 +421,7 @@ export default function IndirectAssessmentModal({
               )}
 
               {/* PSOs Section */}
-              {activePSOs.length > 0 && (
+              {effectivePSOs.length > 0 && (
                 <div>
                   <div style={{ fontSize: '11px', fontWeight: '700', color: '#059669', marginBottom: '6px', textTransform: 'uppercase' }}>
                     Programme Specific Outcomes (PSOs)
@@ -427,7 +444,7 @@ export default function IndirectAssessmentModal({
                         </tr>
                       </thead>
                       <tbody>
-                        {activePSOs.map((pso) => {
+                        {effectivePSOs.map((pso) => {
                           const currentVal = scores[pso.code] !== undefined ? scores[pso.code] : '';
                           return (
                             <tr key={pso.code}>
