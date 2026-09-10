@@ -88,6 +88,27 @@ export const attainmentApi = {
 
   deleteProgrammeIndirectAttainment: (programmeBatchId) =>
     apiClient.delete(`/programme-batches/${programmeBatchId}/survey`),
+
+  // ---------------------------------------------------------------------------
+  // Surveys & Co-Curricular Events (Indirect Assessments)
+  // ---------------------------------------------------------------------------
+  getIndirectAssessments: (programmeBatchId) =>
+    apiClient.get(`/programme-batches/${programmeBatchId}/indirect-assessments`),
+
+  getIndirectAssessmentById: (programmeBatchId, id) =>
+    apiClient.get(`/programme-batches/${programmeBatchId}/indirect-assessments/${id}`),
+
+  createIndirectAssessment: (programmeBatchId, payload) =>
+    apiClient.post(`/programme-batches/${programmeBatchId}/indirect-assessments`, payload),
+
+  updateIndirectAssessment: (programmeBatchId, id, payload) =>
+    apiClient.put(`/programme-batches/${programmeBatchId}/indirect-assessments/${id}`, payload),
+
+  deleteIndirectAssessment: (programmeBatchId, id) =>
+    apiClient.delete(`/programme-batches/${programmeBatchId}/indirect-assessments/${id}`),
+
+  getConsolidatedIndirectAttainment: (programmeBatchId) =>
+    apiClient.get(`/programme-batches/${programmeBatchId}/indirect-assessments/consolidated`),
 };
 
 export default attainmentApi;

@@ -4,6 +4,7 @@ import {
   BookOpen, Target, CheckCircle2,
   ArrowRight, ArrowLeft, Check, Plus, X,
   ChevronDown, AlertCircle, Save, Clock, Layers, Send, Lock, ClipboardList, Upload, Download, Loader2,
+  Award, Edit3, Trash2, HelpCircle, Sparkles, FileText,
 } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -12,6 +13,8 @@ import ErrorBoundary from '../../components/common/ErrorBoundary';
 import ProgrammeATR from '../atr/ProgrammeATR';
 import { useAttainment } from '../../context/attainment';
 import { approvalsApi } from '../../api/approvals';
+import IndirectAssessmentModal from './IndirectAssessmentModal';
+import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
 // ── Style tokens (identical to HodSetupWorkflow) ─────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -44,7 +47,7 @@ const targetSignature = (pos, psos, poTargets, psoTargets) => JSON.stringify({
 const STEPS = [
   { number: 1, key: 'courses', title: 'Add Courses',        desc: 'Add & allocate courses under programme',      path: '/programme-coordinator/courses',         icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
   { number: 2, key: 'po_pso_target', title: 'Set PO/PSO Targets', desc: 'Configure PO & PSO target levels (1.0 – 3.0)', path: '/programme-coordinator/target-settings', icon: Target,       color: '#7c3aed', bg: '#f5f3ff' },
-  { number: 3, key: 'indirect_attainment', title: 'Indirect Attainment', desc: 'Upload programme end survey', path: '/programme-coordinator/indirect-attainment', icon: ClipboardList, color: '#059669', bg: '#f0fdf4' },
+  { number: 3, key: 'indirect_attainment', title: 'Indirect Attainment', desc: 'Surveys & Co-Curricular Events & Exit Survey', path: '/programme-coordinator/indirect-attainment', icon: ClipboardList, color: '#059669', bg: '#f0fdf4' },
   { number: 4, key: 'programme_atr', title: 'Programme ATR',     desc: 'Fill & submit Programme Action Taken Report', path: '/programme-coordinator/programme-atr',   icon: Layers,       color: '#0284c7', bg: '#f0f9ff' },
   { number: 5, key: 'review', title: 'Review and Confirm', desc: 'Verify setup summary & finish',               path: '/programme-coordinator/reports',         icon: CheckCircle2, color: '#059669', bg: '#f0fdf4' },
 ];
@@ -63,6 +66,13 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     loadProgrammeIndirectAttainment = () => Promise.resolve(null),
     uploadProgrammeExitSurvey = () => Promise.resolve(null),
     deleteProgrammeIndirectAttainment = () => Promise.resolve(null),
+    indirectAssessments = [],
+    consolidatedIndirectAttainment = null,
+    loadIndirectAssessments = () => Promise.resolve([]),
+    loadConsolidatedIndirectAttainment = () => Promise.resolve(null),
+    createIndirectAssessment = () => Promise.resolve(null),
+    updateIndirectAssessment = () => Promise.resolve(null),
+    deleteIndirectAssessment = () => Promise.resolve(null),
   } = useAttainment();
   const {
     masterProgrammes = [],
@@ -159,6 +169,14 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const [programmeSurveyUploading, setProgrammeSurveyUploading] = useState(false);
   const [programmeSurveyResult, setProgrammeSurveyResult] = useState(null);
   const [programmeSurveyError, setProgrammeSurveyError] = useState(null);
+  const [indirectTab, setIndirectTab] = useState('events'); // 'events' (Tab 1) | 'exit_survey' (Tab 2)
+  const [isAssessmentModalOpen, setIsAssessmentModalOpen] = useState(false);
+  const [editingAssessment, setEditingAssessment] = useState(null);
+  const [isSavingAssessment, setIsSavingAssessment] = useState(false);
+  const [assessmentActionError, setAssessmentActionError] = useState(null);
+  const [assessmentActionSuccess, setAssessmentActionSuccess] = useState(null);
+  const [deletingAssessment, setDeletingAssessment] = useState(null);
+  const [isDeletingAssessment, setIsDeletingAssessment] = useState(false);
 
   const selectedProgramme =
     masterProgrammes.find((p) => p.id === programmeId) ||
@@ -570,6 +588,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     try {
       await deleteProgrammeIndirectAttainment(batchId);
       setProgrammeSurveyResult(null);
+      await loadConsolidatedIndirectAttainment(batchId);
     } catch (error) {
       console.error('Failed to remove programme end survey:', error);
       setProgrammeSurveyError(error?.customMessage || error?.message || 'Failed to remove the programme end survey.');
@@ -578,14 +597,71 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     }
   };
 
+  const handleOpenAddAssessment = () => {
+    setEditingAssessment(null);
+    setAssessmentActionError(null);
+    setAssessmentActionSuccess(null);
+    setIsAssessmentModalOpen(true);
+  };
+
+  const handleOpenEditAssessment = (assessment) => {
+    setEditingAssessment(assessment);
+    setAssessmentActionError(null);
+    setAssessmentActionSuccess(null);
+    setIsAssessmentModalOpen(true);
+  };
+
+  const handleSaveAssessment = async (payload) => {
+    if (isBatchFrozen || !batchId) return;
+    setIsSavingAssessment(true);
+    setAssessmentActionError(null);
+    setAssessmentActionSuccess(null);
+    try {
+      if (editingAssessment && editingAssessment.id) {
+        await updateIndirectAssessment(batchId, editingAssessment.id, payload);
+        setAssessmentActionSuccess(`"${payload.name}" updated successfully.`);
+      } else {
+        await createIndirectAssessment(batchId, payload);
+        setAssessmentActionSuccess(`"${payload.name}" added successfully.`);
+      }
+      setIsAssessmentModalOpen(false);
+      setEditingAssessment(null);
+    } catch (err) {
+      console.error('Failed to save indirect assessment:', err);
+      setAssessmentActionError(err?.customMessage || err?.message || 'Failed to save indirect assessment.');
+    } finally {
+      setIsSavingAssessment(false);
+    }
+  };
+
+  const handleConfirmDeleteAssessment = async () => {
+    if (!deletingAssessment || !batchId || isBatchFrozen) return;
+    setIsDeletingAssessment(true);
+    setAssessmentActionError(null);
+    try {
+      await deleteIndirectAssessment(batchId, deletingAssessment.id);
+      setAssessmentActionSuccess(`"${deletingAssessment.name}" removed successfully.`);
+      setDeletingAssessment(null);
+    } catch (err) {
+      console.error('Failed to delete indirect assessment:', err);
+      setAssessmentActionError(err?.customMessage || err?.message || 'Failed to delete indirect assessment.');
+    } finally {
+      setIsDeletingAssessment(false);
+    }
+  };
+
   useEffect(() => {
     if (currentStep !== 3 || !batchId) return;
     setProgrammeSurveyError(null);
     setProgrammeSurveyResult(null);
+    setAssessmentActionError(null);
+    setAssessmentActionSuccess(null);
     loadProgrammeIndirectAttainment(batchId).then((data) => {
       if (data) setProgrammeSurveyResult(data);
     });
-  }, [batchId, currentStep, loadProgrammeIndirectAttainment]);
+    loadIndirectAssessments(batchId);
+    loadConsolidatedIndirectAttainment(batchId);
+  }, [batchId, currentStep, loadProgrammeIndirectAttainment, loadIndirectAssessments, loadConsolidatedIndirectAttainment]);
 
   const handleSaveAndNext = async () => {
     try {
@@ -1204,48 +1280,470 @@ export default function ProgrammeCoordinatorSetupWorkflow({
             ...toScoreRows(surveyResult?.poIndirectAttainment, 'PO'),
             ...toScoreRows(surveyResult?.psoIndirectAttainment, 'PSO'),
           ];
+
+          const consolidatedScores = consolidatedIndirectAttainment?.consolidatedIndirectAttainment || {};
+          const evaluationCounts = consolidatedIndirectAttainment?.evaluationCounts || {};
+
+          const allOutcomes = [
+            ...activePOs.map((p) => ({ code: p.code, type: 'PO', statement: p.statement })),
+            ...normPSOs.map((p) => ({ code: p.code, type: 'PSO', statement: p.statement })),
+          ];
+
           return (
-          <div>
-            <div style={{ marginBottom: '16px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Top Step Header */}
+            <div style={{ paddingBottom: '14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>Indirect Programme Attainment</h3>
-                <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>Upload the programme end survey for <strong>{selectedProgramme.code} · {selectedBatch?.name ?? 'selected batch'}</strong>.</p>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: ink }}>Indirect Programme Attainment</h3>
+                <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>
+                  Evaluate student outcomes (PO1–PO12 &amp; PSOs) through multiple surveys and co-curricular events for <strong>{selectedProgramme.code} · {selectedBatch?.name ?? 'selected batch'}</strong>.
+                </p>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <a href={`${import.meta.env.BASE_URL}ProgrammeEnd-Survey.xlsx`} download="ProgrammeEnd-Survey.xlsx" style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
-                  <Download size={14} /> Download Template
-                </a>
-                {surveyResult && (
-                  <button type="button" onClick={handleDeleteProgrammeSurvey} disabled={programmeSurveyUploading || isBatchFrozen} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', cursor: programmeSurveyUploading || isBatchFrozen ? 'not-allowed' : 'pointer', opacity: isBatchFrozen ? 0.55 : 1, fontFamily: 'inherit' }}>
-                    Remove Survey Data
+
+              {/* Sub-Tab Navigation Switcher */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIndirectTab('events')}
+                  style={{
+                    padding: '7px 16px',
+                    borderRadius: '7px',
+                    border: 'none',
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    background: indirectTab === 'events' ? '#ffffff' : 'transparent',
+                    color: indirectTab === 'events' ? accent : muted,
+                    boxShadow: indirectTab === 'events' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                    fontFamily: 'inherit',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <Award size={14} /> Surveys &amp; Co-Curricular Events
+                  {indirectAssessments.length > 0 && (
+                    <span style={{ fontSize: '10px', background: indirectTab === 'events' ? '#eef2ff' : '#e2e8f0', color: indirectTab === 'events' ? accent : ink, padding: '1px 6px', borderRadius: '10px', fontWeight: '800' }}>
+                      {indirectAssessments.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIndirectTab('exit_survey')}
+                  style={{
+                    padding: '7px 16px',
+                    borderRadius: '7px',
+                    border: 'none',
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    background: indirectTab === 'exit_survey' ? '#ffffff' : 'transparent',
+                    color: indirectTab === 'exit_survey' ? accent : muted,
+                    boxShadow: indirectTab === 'exit_survey' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                    fontFamily: 'inherit',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <ClipboardList size={14} /> Programme End Survey
+                  {surveyResult && (
+                    <span style={{ fontSize: '10px', background: '#f0fdf4', color: '#15803d', padding: '1px 6px', borderRadius: '10px', fontWeight: '800' }}>
+                      ✓ Uploaded
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Consolidated Summary Banner */}
+            <div style={{ ...surface, padding: '16px 20px', background: '#ffffff', border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={16} style={{ color: accent }} />
+                  <strong style={{ fontSize: '13.5px', color: ink, fontWeight: '800' }}>
+                    Consolidated Indirect Attainment Summary
+                  </strong>
+                  <span style={{ fontSize: '11px', color: muted }}>
+                    (Live arithmetic average of all evaluated events &amp; surveys)
+                  </span>
+                </div>
+                <div style={{ fontSize: '11px', color: muted }}>
+                  Direct Assessment Weight: <strong>80%</strong> · Indirect Assessment Weight: <strong>20%</strong>
+                </div>
+              </div>
+
+              {allOutcomes.length === 0 ? (
+                <div style={{ fontSize: '12px', color: muted }}>No POs or PSOs defined for this programme batch yet.</div>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {allOutcomes.map((outcome) => {
+                    const score = consolidatedScores[outcome.code];
+                    const count = evaluationCounts[outcome.code] || 0;
+                    const hasScore = score !== undefined && score !== null;
+                    const isPso = outcome.type === 'PSO';
+
+                    return (
+                      <div
+                        key={outcome.code}
+                        style={{
+                          background: hasScore ? (isPso ? '#f0fdf4' : '#f5f3ff') : '#f8fafc',
+                          border: hasScore ? (isPso ? '1.5px solid #a7f3d0' : '1.5px solid #ddd6fe') : '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          padding: '6px 12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                      >
+                        <span style={{ fontSize: '12px', fontWeight: '800', color: isPso ? '#059669' : accent }}>
+                          {outcome.code}
+                        </span>
+                        <strong style={{ fontSize: '13px', fontWeight: '800', color: hasScore ? ink : '#94a3b8' }}>
+                          {hasScore ? Number(score).toFixed(2) : '—'}
+                        </strong>
+                        {count > 0 && (
+                          <span style={{ fontSize: '10px', background: isPso ? '#bbf7d0' : '#e0e7ff', color: isPso ? '#166534' : '#3730a3', padding: '1px 5px', borderRadius: '4px', fontWeight: '700' }}>
+                            {count} src
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ── SUB-TAB 1: SURVEYS & CO-CURRICULAR EVENTS ─────────────────────── */}
+            {indirectTab === 'events' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Action Feedback Messages */}
+                {assessmentActionSuccess && (
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontSize: '12.5px' }}>
+                    <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+                    <span>{assessmentActionSuccess}</span>
+                  </div>
+                )}
+                {assessmentActionError && (
+                  <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px', color: '#991b1b', fontSize: '12.5px' }}>
+                    <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                    <span>{assessmentActionError}</span>
+                  </div>
+                )}
+
+                {/* Section Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '14.5px', fontWeight: '800', color: ink }}>Surveys &amp; Co-Curricular Events List</h4>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: muted }}>
+                      Add hackathons, seminars, alumni surveys, or employer feedback with direct outcome ratings (1.00 – 3.00).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleOpenAddAssessment}
+                    disabled={isBatchFrozen}
+                    style={{
+                      height: '36px',
+                      padding: '0 16px',
+                      fontSize: '12.5px',
+                      fontWeight: '700',
+                      background: accent,
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: isBatchFrozen ? 'not-allowed' : 'pointer',
+                      opacity: isBatchFrozen ? 0.55 : 1,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontFamily: 'inherit',
+                      boxShadow: '0 2px 6px rgba(79, 70, 229, 0.2)',
+                    }}
+                  >
+                    <Plus size={15} /> Add Survey / Event
                   </button>
+                </div>
+
+                {/* Empty State */}
+                {indirectAssessments.length === 0 ? (
+                  <div style={{ ...surface, padding: '40px 24px', textAlign: 'center', background: '#ffffff', border: '1.5px dashed #cbd5e1', borderRadius: '12px' }}>
+                    <Award size={36} style={{ color: '#94a3b8', margin: '0 auto 10px' }} />
+                    <h4 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: '800', color: ink }}>No Surveys or Co-Curricular Events Added</h4>
+                    <p style={{ margin: '0 auto 16px', fontSize: '12.5px', color: muted, maxWidth: '540px', lineHeight: 1.5 }}>
+                      You can add co-curricular events (e.g. Smart India Hackathon, Technical Symposiums) or stakeholder surveys (e.g. Alumni Exit Survey, Employer Feedback). The system will compute the consolidated indirect attainment average across all entries.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleOpenAddAssessment}
+                      disabled={isBatchFrozen}
+                      style={{
+                        height: '36px',
+                        padding: '0 18px',
+                        fontSize: '12.5px',
+                        fontWeight: '700',
+                        background: accent,
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: isBatchFrozen ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      <Plus size={15} /> Add First Event or Survey
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {indirectAssessments.map((item) => {
+                      const isEvent = item.type === 'EVENT';
+                      const scoreEntries = Object.entries(item.scores || {});
+                      return (
+                        <div key={item.id} style={{ ...surface, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                              <span style={{
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: '800',
+                                background: isEvent ? '#eef2ff' : '#f5f3ff',
+                                color: isEvent ? accent : '#7c3aed',
+                                border: isEvent ? '1px solid #c7d2fe' : '1px solid #ddd6fe',
+                              }}>
+                                {isEvent ? 'EVENT' : 'SURVEY'}
+                              </span>
+                              <strong style={{ fontSize: '14.5px', color: ink }}>{item.name}</strong>
+                              {item.createdAt && (
+                                <span style={{ fontSize: '11px', color: muted }}>
+                                  Added on {new Date(item.createdAt).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditAssessment(item)}
+                                disabled={isBatchFrozen}
+                                style={{
+                                  height: '30px',
+                                  padding: '0 10px',
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  background: '#ffffff',
+                                  color: accent,
+                                  border: '1px solid #c7d2fe',
+                                  borderRadius: '6px',
+                                  cursor: isBatchFrozen ? 'not-allowed' : 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontFamily: 'inherit',
+                                }}
+                              >
+                                <Edit3 size={12} /> Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingAssessment(item)}
+                                disabled={isBatchFrozen}
+                                style={{
+                                  height: '30px',
+                                  padding: '0 10px',
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  background: '#ffffff',
+                                  color: '#dc2626',
+                                  border: '1px solid #fecaca',
+                                  borderRadius: '6px',
+                                  cursor: isBatchFrozen ? 'not-allowed' : 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontFamily: 'inherit',
+                                }}
+                              >
+                                <Trash2 size={12} /> Delete
+                              </button>
+                            </div>
+                          </div>
+
+                          {item.description && (
+                            <p style={{ margin: 0, fontSize: '12px', color: muted }}>{item.description}</p>
+                          )}
+
+                          {/* Outcome Scores Row */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', paddingTop: '4px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: muted, marginRight: '4px' }}>Attainment Scores:</span>
+                            {scoreEntries.length === 0 ? (
+                              <span style={{ fontSize: '11.5px', color: '#94a3b8', fontStyle: 'italic' }}>No outcome scores specified</span>
+                            ) : (
+                              scoreEntries.map(([code, score]) => (
+                                <span key={code} style={{
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '11.5px',
+                                  fontWeight: '700',
+                                  background: code.startsWith('PSO') ? '#ecfdf5' : '#f8fafc',
+                                  color: code.startsWith('PSO') ? '#059669' : accent,
+                                  border: code.startsWith('PSO') ? '1px solid #a7f3d0' : '1px solid #e2e8f0',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}>
+                                  <span>{code}:</span>
+                                  <strong style={{ color: ink }}>{Number(score).toFixed(2)}</strong>
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Multi-Assessment Matrix Comparison Table */}
+                {allOutcomes.length > 0 && (indirectAssessments.length > 0 || surveyResult) && (
+                  <div style={{ ...surface, overflow: 'hidden', padding: 0, marginTop: '8px' }}>
+                    <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>
+                        Multi-Source Indirect Attainment Matrix
+                      </span>
+                      <span style={{ fontSize: '11px', color: muted }}>Values range from 1.00 to 3.00</span>
+                    </div>
+
+                    <div className="report-table-scroll">
+                      <table className="audit-data-table" style={{ margin: 0, border: 'none', borderRadius: 0 }}>
+                        <thead>
+                          <tr>
+                            <th style={{ minWidth: '180px' }}>Assessment Source</th>
+                            <th style={{ width: '90px', textAlign: 'center' }}>Type</th>
+                            {allOutcomes.map((out) => (
+                              <th key={out.code} style={{ textAlign: 'center', minWidth: '60px' }}>
+                                {out.code}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {/* 1. Programme End Survey Row (if exists) */}
+                          {surveyResult && (
+                            <tr>
+                              <td style={{ fontWeight: '700', color: ink }}>Programme End Survey (Excel)</td>
+                              <td style={{ textAlign: 'center' }}>
+                                <span style={{ fontSize: '10.5px', background: '#f0fdf4', color: '#166534', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>SURVEY</span>
+                              </td>
+                              {allOutcomes.map((out) => {
+                                const row = resultRows.find((r) => r.code === out.code);
+                                return (
+                                  <td key={out.code} style={{ textAlign: 'center', fontWeight: row ? '700' : 'normal', color: row ? ink : '#94a3b8' }}>
+                                    {row ? Number(row.score).toFixed(2) : '—'}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          )}
+
+                          {/* 2. Individual Events and Surveys */}
+                          {indirectAssessments.map((a) => (
+                            <tr key={a.id}>
+                              <td style={{ fontWeight: '600', color: ink }}>{a.name}</td>
+                              <td style={{ textAlign: 'center' }}>
+                                <span style={{ fontSize: '10.5px', background: a.type === 'EVENT' ? '#eef2ff' : '#f5f3ff', color: a.type === 'EVENT' ? accent : '#7c3aed', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                                  {a.type}
+                                </span>
+                              </td>
+                              {allOutcomes.map((out) => {
+                                const score = a.scores?.[out.code];
+                                const has = score !== undefined && score !== null;
+                                return (
+                                  <td key={out.code} style={{ textAlign: 'center', fontWeight: has ? '700' : 'normal', color: has ? ink : '#94a3b8' }}>
+                                    {has ? Number(score).toFixed(2) : '—'}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+
+                          {/* 3. Consolidated Average Row */}
+                          <tr style={{ background: '#eef2ff' }}>
+                            <td style={{ fontWeight: '800', color: '#3730a3' }}>
+                              Consolidated Indirect Attainment (Average)
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <span style={{ fontSize: '10.5px', background: '#c7d2fe', color: '#3730a3', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>TOTAL</span>
+                            </td>
+                            {allOutcomes.map((out) => {
+                              const score = consolidatedScores[out.code];
+                              const has = score !== undefined && score !== null;
+                              return (
+                                <td key={out.code} style={{ textAlign: 'center', fontWeight: '800', color: has ? accent : '#94a3b8', background: '#eef2ff' }}>
+                                  {has ? Number(score).toFixed(2) : '—'}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 )}
               </div>
-            </div>
+            )}
 
-            {programmeSurveyError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#991b1b', fontSize: '13px' }}><AlertCircle size={18} />{programmeSurveyError}</div>}
-            {surveyResult && <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontSize: '13px' }}><CheckCircle2 size={18} />Programme end survey processed successfully.</div>}
+            {/* ── SUB-TAB 2: PROGRAMME END SURVEY (EXCEL) ────────────────────── */}
+            {indirectTab === 'exit_survey' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ paddingBottom: '12px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '14.5px', fontWeight: '800', color: ink }}>Programme End Survey Excel Upload</h4>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: muted }}>
+                      Upload the student exit survey spreadsheet to calculate indirect attainment based on graduate responses.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <a href={`${import.meta.env.BASE_URL}ProgrammeEnd-Survey.xlsx`} download="ProgrammeEnd-Survey.xlsx" style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
+                      <Download size={14} /> Download Template
+                    </a>
+                    {surveyResult && (
+                      <button type="button" onClick={handleDeleteProgrammeSurvey} disabled={programmeSurveyUploading || isBatchFrozen} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', cursor: programmeSurveyUploading || isBatchFrozen ? 'not-allowed' : 'pointer', opacity: isBatchFrozen ? 0.55 : 1, fontFamily: 'inherit' }}>
+                        Remove Survey Data
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-            <div style={{ ...surface, padding: '24px', textAlign: 'center', background: '#ffffff', marginBottom: '18px' }}>
-              <div style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '28px', background: '#f8fafc', maxWidth: '720px', margin: '0 auto' }}>
-                {programmeSurveyUploading ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}><Loader2 size={36} className="animate-spin" style={{ color: accent }} /><strong style={{ color: ink }}>Uploading and calculating programme attainment...</strong></div>
-                ) : <>
-                  <Upload size={36} style={{ color: accent, marginBottom: '8px' }} />
-                  <strong style={{ display: 'block', fontSize: '15px', color: ink }}>Upload Programme End Survey Excel File (.xlsx, .xls)</strong>
-                  <p style={{ margin: '4px 0 14px', fontSize: '12px', color: muted }}>Excel survey ratings mapped to the programme batch PO and PSO outcomes.</p>
-                  <input type="file" accept=".xlsx,.xls" id="programme-survey-file-input" style={{ display: 'none' }} onChange={handleProgrammeSurveyUpload} disabled={programmeSurveyUploading || !programmeId || !batchId || isBatchFrozen} />
-                  <label htmlFor="programme-survey-file-input" style={{ height: '38px', padding: '0 16px', background: accent, color: '#ffffff', borderRadius: '8px', fontWeight: '700', fontSize: '12.5px', cursor: programmeId && batchId && !isBatchFrozen ? 'pointer' : 'not-allowed', opacity: programmeId && batchId && !isBatchFrozen ? 1 : 0.5, display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Upload size={15} /> Select Survey Excel</label>
-                </>}
+                {programmeSurveyError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#991b1b', fontSize: '13px' }}><AlertCircle size={18} />{programmeSurveyError}</div>}
+                {surveyResult && <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontSize: '13px' }}><CheckCircle2 size={18} />Programme end survey processed successfully.</div>}
+
+                <div style={{ ...surface, padding: '24px', textAlign: 'center', background: '#ffffff' }}>
+                  <div style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '28px', background: '#f8fafc', maxWidth: '720px', margin: '0 auto' }}>
+                    {programmeSurveyUploading ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}><Loader2 size={36} className="animate-spin" style={{ color: accent }} /><strong style={{ color: ink }}>Uploading and calculating programme attainment...</strong></div>
+                    ) : <>
+                      <Upload size={36} style={{ color: accent, marginBottom: '8px' }} />
+                      <strong style={{ display: 'block', fontSize: '15px', color: ink }}>Upload Programme End Survey Excel File (.xlsx, .xls)</strong>
+                      <p style={{ margin: '4px 0 14px', fontSize: '12px', color: muted }}>Excel survey ratings mapped to the programme batch PO and PSO outcomes.</p>
+                      <input type="file" accept=".xlsx,.xls" id="programme-survey-file-input" style={{ display: 'none' }} onChange={handleProgrammeSurveyUpload} disabled={programmeSurveyUploading || !programmeId || !batchId || isBatchFrozen} />
+                      <label htmlFor="programme-survey-file-input" style={{ height: '38px', padding: '0 16px', background: accent, color: '#ffffff', borderRadius: '8px', fontWeight: '700', fontSize: '12.5px', cursor: programmeId && batchId && !isBatchFrozen ? 'pointer' : 'not-allowed', opacity: programmeId && batchId && !isBatchFrozen ? 1 : 0.5, display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Upload size={15} /> Select Survey Excel</label>
+                    </>}
+                  </div>
+                </div>
+
+                <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
+                  <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0' }}><h4 style={{ margin: 0, fontSize: '14px', color: ink }}>Programme End Survey Indirect Attainment Breakdown</h4></div>
+                  <table className="audit-data-table"><thead><tr><th>Outcome</th><th>Type</th><th style={{ textAlign: 'center' }}>Indirect Attainment (0–3)</th></tr></thead><tbody>
+                    {resultRows.length === 0 ? <tr><td colSpan={3} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>No survey data uploaded yet. Upload the programme end survey to calculate PO/PSO indirect attainment.</td></tr> : resultRows.map((item) => <tr key={`${item.type}-${item.code}`}><td style={{ fontWeight: '700', color: accent }}>{item.code}</td><td style={{ color: muted }}>{item.type}</td><td style={{ textAlign: 'center', fontWeight: '800', color: accent }}>{Number(item.score).toFixed(2)}</td></tr>)}
+                  </tbody></table>
+                </div>
               </div>
-            </div>
-
-            <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0' }}><h4 style={{ margin: 0, fontSize: '14px', color: ink }}>Indirect Programme Attainment Summary</h4></div>
-              <table className="audit-data-table"><thead><tr><th>Outcome</th><th>Type</th><th style={{ textAlign: 'center' }}>Indirect Attainment (0–3)</th></tr></thead><tbody>
-                {resultRows.length === 0 ? <tr><td colSpan={3} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>No survey data uploaded yet. Upload the programme end survey to calculate PO/PSO indirect attainment.</td></tr> : resultRows.map((item) => <tr key={`${item.type}-${item.code}`}><td style={{ fontWeight: '700', color: accent }}>{item.code}</td><td style={{ color: muted }}>{item.type}</td><td style={{ textAlign: 'center', fontWeight: '800', color: accent }}>{Number(item.score).toFixed(2)}</td></tr>)}
-              </tbody></table>
-            </div>
+            )}
           </div>
           );
         })()}
@@ -1438,6 +1936,34 @@ export default function ProgrammeCoordinatorSetupWorkflow({
         </div>
       </div>}
 
+      {/* Indirect Assessment Modal */}
+      <IndirectAssessmentModal
+        isOpen={isAssessmentModalOpen}
+        onClose={() => {
+          if (!isSavingAssessment) {
+            setIsAssessmentModalOpen(false);
+            setEditingAssessment(null);
+          }
+        }}
+        onSave={handleSaveAssessment}
+        assessment={editingAssessment}
+        activePOs={activePOs}
+        activePSOs={normPSOs}
+        saving={isSavingAssessment}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={Boolean(deletingAssessment)}
+        title="Delete Indirect Assessment?"
+        itemName={deletingAssessment?.name}
+        description={`Are you sure you want to remove "${deletingAssessment?.name}"? Its indirect scores will be excluded from the consolidated attainment calculation.`}
+        confirmText={isDeletingAssessment ? 'Deleting…' : 'Delete Assessment'}
+        onConfirm={handleConfirmDeleteAssessment}
+        onClose={() => {
+          if (!isDeletingAssessment) setDeletingAssessment(null);
+        }}
+      />
     </div>
   );
 }

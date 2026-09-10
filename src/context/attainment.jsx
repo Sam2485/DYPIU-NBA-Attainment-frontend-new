@@ -76,6 +76,8 @@ export function AttainmentProvider({ children }) {
   const [programmeAtrStore, setProgrammeAtrStore] = useState(null);
   const [programmeAttainmentStore, setProgrammeAttainmentStore] = useState(null);
   const [programmeSurveyData, setProgrammeSurveyData] = useState(null);
+  const [indirectAssessments, setIndirectAssessments] = useState([]);
+  const [consolidatedIndirectAttainment, setConsolidatedIndirectAttainment] = useState(null);
   const programmeAtrRequestsRef = useRef(new Map());
 
   const [loading, setLoading] = useState(false);
@@ -648,6 +650,91 @@ export function AttainmentProvider({ children }) {
   }, [batchId]);
 
   /* ======================================================================== */
+  /* 8. Surveys & Co-Curricular Events (Indirect Assessments)                 */
+  /* ======================================================================== */
+
+  const loadIndirectAssessments = useCallback(async (targetBatchId = batchId) => {
+    if (!targetBatchId) {
+      setIndirectAssessments([]);
+      return [];
+    }
+    try {
+      setError(null);
+      const response = await attainmentApi.getIndirectAssessments(targetBatchId);
+      const data = unwrapResponse(response) || [];
+      setIndirectAssessments(data);
+      return data;
+    } catch (err) {
+      console.warn(`loadIndirectAssessments(${targetBatchId}) failed:`, err);
+      setError(err?.customMessage || err?.message || 'Failed to load indirect assessments');
+      return [];
+    }
+  }, [batchId]);
+
+  const loadConsolidatedIndirectAttainment = useCallback(async (targetBatchId = batchId) => {
+    if (!targetBatchId) {
+      setConsolidatedIndirectAttainment(null);
+      return null;
+    }
+    try {
+      setError(null);
+      const response = await attainmentApi.getConsolidatedIndirectAttainment(targetBatchId);
+      const data = unwrapResponse(response);
+      setConsolidatedIndirectAttainment(data);
+      return data;
+    } catch (err) {
+      console.warn(`loadConsolidatedIndirectAttainment(${targetBatchId}) failed:`, err);
+      setError(err?.customMessage || err?.message || 'Failed to load consolidated indirect attainment');
+      return null;
+    }
+  }, [batchId]);
+
+  const createIndirectAssessment = useCallback(async (targetBatchId = batchId, payload = {}) => {
+    if (!targetBatchId) throw new Error('programmeBatchId is required');
+    try {
+      setError(null);
+      const response = await attainmentApi.createIndirectAssessment(targetBatchId, payload);
+      const created = unwrapResponse(response);
+      await loadIndirectAssessments(targetBatchId);
+      await loadConsolidatedIndirectAttainment(targetBatchId);
+      return created;
+    } catch (err) {
+      setError(err?.customMessage || err?.message || 'Failed to create indirect assessment');
+      throw err;
+    }
+  }, [batchId, loadIndirectAssessments, loadConsolidatedIndirectAttainment]);
+
+  const updateIndirectAssessment = useCallback(async (targetBatchId = batchId, id, payload = {}) => {
+    if (!targetBatchId) throw new Error('programmeBatchId is required');
+    if (!id) throw new Error('Assessment ID is required');
+    try {
+      setError(null);
+      const response = await attainmentApi.updateIndirectAssessment(targetBatchId, id, payload);
+      const updated = unwrapResponse(response);
+      await loadIndirectAssessments(targetBatchId);
+      await loadConsolidatedIndirectAttainment(targetBatchId);
+      return updated;
+    } catch (err) {
+      setError(err?.customMessage || err?.message || 'Failed to update indirect assessment');
+      throw err;
+    }
+  }, [batchId, loadIndirectAssessments, loadConsolidatedIndirectAttainment]);
+
+  const deleteIndirectAssessment = useCallback(async (targetBatchId = batchId, id) => {
+    if (!targetBatchId) throw new Error('programmeBatchId is required');
+    if (!id) throw new Error('Assessment ID is required');
+    try {
+      setError(null);
+      await attainmentApi.deleteIndirectAssessment(targetBatchId, id);
+      await loadIndirectAssessments(targetBatchId);
+      await loadConsolidatedIndirectAttainment(targetBatchId);
+    } catch (err) {
+      setError(err?.customMessage || err?.message || 'Failed to delete indirect assessment');
+      throw err;
+    }
+  }, [batchId, loadIndirectAssessments, loadConsolidatedIndirectAttainment]);
+
+  /* ======================================================================== */
   /* Context value with aliases for 100% backward compatibility               */
   /* ======================================================================== */
 
@@ -742,6 +829,15 @@ export function AttainmentProvider({ children }) {
     saveProgrammeIndirectAttainment,
     uploadProgrammeExitSurvey,
     deleteProgrammeIndirectAttainment,
+
+    /* 8. Surveys & Co-Curricular Events */
+    indirectAssessments,
+    consolidatedIndirectAttainment,
+    loadIndirectAssessments,
+    loadConsolidatedIndirectAttainment,
+    createIndirectAssessment,
+    updateIndirectAssessment,
+    deleteIndirectAssessment,
   };
 
   return (
