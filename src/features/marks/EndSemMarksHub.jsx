@@ -15,6 +15,8 @@ export default function EndSemMarksHub({ hideFooter = false }) {
   const {
     examinationData,
     loadExaminationData,
+    approvedAttainmentConfigs,
+    loadApprovedAttainmentConfig,
     uploadEndSemMarks,
     deleteExaminationMarks,
     loading: attainmentLoading,
@@ -32,8 +34,9 @@ export default function EndSemMarksHub({ hideFooter = false }) {
     if (courseOfferingId) {
       setUploadedFileName(sessionStorage.getItem(`examination-upload:${courseOfferingId}`));
       loadExaminationData(courseOfferingId).catch(() => {});
+      loadApprovedAttainmentConfig(courseOfferingId).catch(() => {});
     }
-  }, [courseOfferingId, loadExaminationData]);
+  }, [courseOfferingId, loadExaminationData, loadApprovedAttainmentConfig]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -96,7 +99,10 @@ export default function EndSemMarksHub({ hideFooter = false }) {
   const coPercentages = examinationData?.percentageAboveThreshold
     || Object.fromEntries(Object.entries(coAttainments).map(([code, value]) => [code, value?.percentage]));
   const coMaxMarks = examinationData?.coMaxMarks || {};
-  const thresholdPercentage = examinationData?.thresholdPercentage ?? 60;
+  const thresholdPercentage = approvedAttainmentConfigs?.approvedDirectThreshold
+    ?? approvedAttainmentConfigs?.directThreshold
+    ?? examinationData?.thresholdPercentage
+    ?? 60;
   const coThresholdMarks = examinationData?.coThresholdMarks
     || Object.fromEntries(Object.entries(coMaxMarks).map(([code, maxMarks]) => [code, Number(maxMarks) * Number(thresholdPercentage) / 100]));
   const studentsAboveThreshold = examinationData?.studentsAboveThreshold
@@ -331,8 +337,9 @@ export default function EndSemMarksHub({ hideFooter = false }) {
                             className={`badge ${
                               level >= 3 ? 'badge-level-3' : level === 2 ? 'badge-level-2' : 'badge-level-1'
                             }`}
+                            style={{ fontWeight: '800', minWidth: '28px', display: 'inline-block' }}
                           >
-                            Level {level}
+                            {level}
                           </span>
                         ) : (
                           '—'

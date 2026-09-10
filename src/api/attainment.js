@@ -7,6 +7,9 @@ export const attainmentApi = {
   getConfig: (programmeBatchCourseId) =>
     apiClient.get(`/attainment/config/${programmeBatchCourseId}`),
 
+  getApprovedConfig: (programmeBatchCourseId) =>
+    apiClient.get(`/attainment/config/${programmeBatchCourseId}/approved`),
+
   saveConfig: (programmeBatchCourseId, config) =>
     apiClient.put(`/attainment/config/${programmeBatchCourseId}`, config),
 

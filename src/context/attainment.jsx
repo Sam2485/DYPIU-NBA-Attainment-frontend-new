@@ -69,6 +69,7 @@ export function AttainmentProvider({ children }) {
   /* ------------------------------------------------------------------------ */
 
   const [attainmentConfigs, setAttainmentConfigs] = useState(null);
+  const [approvedAttainmentConfigs, setApprovedAttainmentConfigs] = useState(null);
   const [examinationData, setExaminationData] = useState(null);
   const [surveyData, setSurveyData] = useState(null);
   const [courseAttainmentStore, setCourseAttainmentStore] = useState(null);
@@ -105,6 +106,27 @@ export function AttainmentProvider({ children }) {
       } catch (err) {
         console.warn(`loadAttainmentConfig(${targetOfferingId}) failed:`, err);
         setError(err?.customMessage || err?.message || 'Failed to load attainment config');
+        return null;
+      }
+    },
+    [courseOfferingId]
+  );
+
+  const loadApprovedAttainmentConfig = useCallback(
+    async (targetOfferingId = courseOfferingId) => {
+      if (!targetOfferingId) {
+        setApprovedAttainmentConfigs(null);
+        return null;
+      }
+      try {
+        setError(null);
+        setApprovedAttainmentConfigs(null);
+        const response = await attainmentApi.getApprovedConfig(targetOfferingId);
+        const data = unwrapResponse(response);
+        setApprovedAttainmentConfigs(data);
+        return data;
+      } catch (err) {
+        console.warn(`loadApprovedAttainmentConfig(${targetOfferingId}) failed:`, err);
         return null;
       }
     },
@@ -751,9 +773,11 @@ export function AttainmentProvider({ children }) {
 
     /* 1. Attainment Settings */
     attainmentConfigs,
+    approvedAttainmentConfigs,
     activeAttainmentConfig: attainmentConfigs,
     attainmentSettings: attainmentConfigs,
     loadAttainmentConfig,
+    loadApprovedAttainmentConfig,
     loadAttainmentSettings: loadAttainmentConfig,
     updateCourseAttainmentConfig,
     saveAttainmentSettings: updateCourseAttainmentConfig,

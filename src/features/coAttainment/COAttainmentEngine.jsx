@@ -26,9 +26,9 @@ export default function COAttainmentEngine({ hideFooter = false }) {
   } = useAcademic();
 
   const {
-    attainmentConfigs,
+    approvedAttainmentConfigs,
     courseAttainmentStore,
-    loadAttainmentConfig,
+    loadApprovedAttainmentConfig,
     loadCourseCoAttainment,
   } = useAttainment();
 
@@ -49,17 +49,17 @@ export default function COAttainmentEngine({ hideFooter = false }) {
   useEffect(() => {
     if (courseOfferingId) {
       // Configuration is scoped to the programme-batch-course offering, not
-      // the master course. Load it together with the attainment calculation
-      // so the parameters always match the course currently being viewed.
-      loadAttainmentConfig(courseOfferingId).catch(() => {});
+      // the master course. Load approved configuration together with attainment calculation
+      // so parameters and calculations reflect the authoritative approved values.
+      loadApprovedAttainmentConfig(courseOfferingId).catch(() => {});
       loadCourseCoAttainment(courseOfferingId).catch(() => {});
     }
-  }, [courseOfferingId, loadAttainmentConfig, loadCourseCoAttainment]);
+  }, [courseOfferingId, loadApprovedAttainmentConfig, loadCourseCoAttainment]);
 
-  // Parameters from Attainment Configuration
-  const directWeight = attainmentConfigs?.directWeight ?? 80;
-  const indirectWeight = attainmentConfigs?.indirectWeight ?? 20;
-  const directThreshold = attainmentConfigs?.targetThresholdPercentage ?? attainmentConfigs?.directThreshold ?? 60;
+  // Parameters from Approved Attainment Configuration
+  const directWeight = approvedAttainmentConfigs?.approvedDirectWeight ?? approvedAttainmentConfigs?.directWeight ?? 80;
+  const indirectWeight = approvedAttainmentConfigs?.approvedIndirectWeight ?? approvedAttainmentConfigs?.indirectWeight ?? 20;
+  const directThreshold = approvedAttainmentConfigs?.approvedDirectThreshold ?? approvedAttainmentConfigs?.targetThresholdPercentage ?? approvedAttainmentConfigs?.directThreshold ?? 60;
   const thresholdPct = `${directThreshold}%`;
 
   const attainmentReport = courseAttainmentStore ?? {};
@@ -182,10 +182,14 @@ export default function COAttainmentEngine({ hideFooter = false }) {
 
       {/* Dynamic Weightage & Threshold Summary Card */}
       <div className="card" style={{ marginBottom: '20px' }}>
-        <div className="card-header" style={{ marginBottom: '12px' }}>
+        <div className="card-header" style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
           <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>
             Attainment Configuration Parameters ({displayCourseCode} • {academicYear || 'Current Year'})
           </h3>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '4px 10px', fontSize: '11.5px', fontWeight: '700' }}>
+            <CheckCircle2 size={13} style={{ color: '#16a34a' }} />
+            Attainment configs approved by Programme Coordinator
+          </span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
           <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
