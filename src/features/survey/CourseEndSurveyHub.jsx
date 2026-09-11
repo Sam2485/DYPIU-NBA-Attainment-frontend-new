@@ -24,6 +24,7 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
   const [statusMessage, setStatusMessage] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [uploadedFileName, setUploadedFileName] = useState(null);
+  const [showAllResponses, setShowAllResponses] = useState(false);
 
   useEffect(() => {
     setErrorMessage(null);
@@ -57,6 +58,7 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
       );
       setUploadedFileName(file.name);
       sessionStorage.setItem(`survey-upload:${courseOfferingId}`, file.name);
+      setShowAllResponses(false);
     } catch (err) {
       console.error('Survey upload failed:', err);
       setErrorMessage(
@@ -77,6 +79,7 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
       await deleteSurveyData(courseOfferingId);
       setUploadedFileName(null);
       sessionStorage.removeItem(`survey-upload:${courseOfferingId}`);
+      setShowAllResponses(false);
       setStatusMessage('Uploaded survey sheet and all associated responses were removed.');
     } catch (err) {
       console.error('Survey removal failed:', err);
@@ -95,6 +98,7 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
   const overallIndirectPercentages = surveyData?.overallIndirectPercentages || {};
   const coAttainmentLevels = surveyData?.coAttainmentLevels || {};
   const surveyResponses = Array.isArray(surveyData?.surveyResponses) ? surveyData.surveyResponses : [];
+  const visibleResponses = showAllResponses ? surveyResponses : surveyResponses.slice(0, 10);
   const totalResponses = surveyData?.totalStudents ?? surveyData?.totalResponses ?? surveyResponses.length;
   const uploadedSheetExists = Boolean(uploadedFileName || surveyData?.fileDetails?.fileName) && (
     Boolean(uploadedFileName) || surveyResponses.length > 0 || Object.keys(level1Counts).length > 0
@@ -296,9 +300,9 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
                     {coColumns.map((column) => {
                       const level = readCoValue(coAttainmentLevels, column);
                       return (
-                      <td key={column.id} style={{ textAlign: 'center', fontWeight: '700' }}>
-                        {level ?? '—'}
-                      </td>
+                        <td key={column.id} style={{ textAlign: 'center', fontWeight: '800', color: '#2563eb', fontSize: '13.5px' }}>
+                          {level ?? '—'}
+                        </td>
                       );
                     })}
                   </tr>
@@ -314,9 +318,20 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
           <div>
             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>Student Survey Feedback</h3>
             <span style={{ fontSize: '12px', color: '#64748b' }}>
-              {totalResponses > 0 ? `${totalResponses} student responses` : 'No survey responses uploaded yet'}
+              {surveyResponses.length > 0
+                ? `Showing ${visibleResponses.length} of ${surveyResponses.length} student responses`
+                : 'No survey responses uploaded yet'}
             </span>
           </div>
+          {surveyResponses.length > 10 && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setShowAllResponses((current) => !current)}
+            >
+              {showAllResponses ? 'Show first 10' : 'Show all'}
+            </button>
+          )}
         </div>
         <div style={{ overflowX: 'auto', width: '100%' }}>
           <table className="audit-data-table">
@@ -334,7 +349,7 @@ export default function CourseEndSurveyHub({ hideFooter = false }) {
                     No uploaded survey responses available.
                   </td>
                 </tr>
-              ) : surveyResponses.map((response, index) => (
+              ) : visibleResponses.map((response, index) => (
                 <tr key={`${response.prn ?? 'response'}-${response.srNo ?? index}`}>
                   <td style={{ textAlign: 'center', fontWeight: '600' }}>{response.srNo ?? index + 1}</td>
                   <td style={{ fontWeight: '600' }}>{response.prn ?? response.studentName ?? `Survey ${index + 1}`}</td>

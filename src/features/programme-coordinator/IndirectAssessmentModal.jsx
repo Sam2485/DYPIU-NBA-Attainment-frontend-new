@@ -296,7 +296,7 @@ export default function IndirectAssessmentModal({
                   }}
                 >
                   <option value="EVENT">Co-Curricular Event</option>
-                  <option value="SURVEY">Stakeholder Survey</option>
+                  <option value="SURVEY">Survey</option>
                 </select>
               </div>
             </div>
@@ -391,7 +391,7 @@ export default function IndirectAssessmentModal({
                                   min={1.0}
                                   max={3.0}
                                   step={0.01}
-                                  placeholder="—"
+                                  placeholder=""
                                   value={currentVal}
                                   onChange={(e) => handleScoreChange(po.code, e.target.value)}
                                   disabled={saving}
@@ -456,7 +456,7 @@ export default function IndirectAssessmentModal({
                                   min={1.0}
                                   max={3.0}
                                   step={0.01}
-                                  placeholder="—"
+                                  placeholder=""
                                   value={currentVal}
                                   onChange={(e) => handleScoreChange(pso.code, e.target.value)}
                                   disabled={saving}

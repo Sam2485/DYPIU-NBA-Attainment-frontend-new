@@ -1485,9 +1485,6 @@ export default function ProgrammeCoordinatorSetupWorkflow({
             <div style={{ paddingBottom: '14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: ink }}>Indirect Programme Attainment</h3>
-                <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>
-                  Evaluate student outcomes (PO1–PO12 &amp; PSOs) through multiple surveys and co-curricular events for <strong>{selectedProgramme.code} · {selectedBatch?.name ?? 'selected batch'}</strong>.
-                </p>
               </div>
 
               {/* Sub-Tab Navigation Switcher */}

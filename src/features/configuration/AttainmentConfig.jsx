@@ -603,7 +603,7 @@ export default function AttainmentConfig({
                     <th style={{ width: '140px', textAlign: 'center' }}>Min % Marks</th>
                     <th style={{ width: '140px', textAlign: 'center' }}>Max % Marks</th>
                     <th style={{ width: '130px', textAlign: 'center' }}>Attainment Score</th>
-                    <th>Description / Target Standard</th>
+                    <th>Description</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -647,8 +647,8 @@ export default function AttainmentConfig({
                           {lvl.level}.0 / 3.0
                         </span>
                       </td>
-                      <td style={{ fontSize: '12px', color: muted, fontWeight: '500' }}>
-                        {lvl.level === 1 ? 'Low Direct Attainment (Students scoring within minimum threshold)' : lvl.level === 2 ? 'Moderate Direct Attainment (Students scoring within target threshold)' : 'High Direct Attainment (Students exceeding target benchmark)'}
+                      <td style={{ fontSize: '12.5px', color: ink, fontWeight: '600' }}>
+                        {lvl.level === 1 ? 'Low Direct Attainment' : lvl.level === 2 ? 'Medium Direct Attainment' : 'High Direct Attainment'}
                       </td>
                     </tr>
                   ))}
@@ -677,7 +677,7 @@ export default function AttainmentConfig({
                     <th style={{ width: '140px', textAlign: 'center' }}>Min % Survey Rating</th>
                     <th style={{ width: '140px', textAlign: 'center' }}>Max % Survey Rating</th>
                     <th style={{ width: '130px', textAlign: 'center' }}>Attainment Score</th>
-                    <th>Description / Survey Standard</th>
+                    <th>Description</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -721,8 +721,8 @@ export default function AttainmentConfig({
                           {lvl.level}.0 / 3.0
                         </span>
                       </td>
-                      <td style={{ fontSize: '12px', color: muted, fontWeight: '500' }}>
-                        {lvl.level === 1 ? 'Low Indirect Rating (Below 50% positive survey feedback)' : lvl.level === 2 ? 'Moderate Indirect Rating (50% to 70% positive survey feedback)' : 'High Indirect Rating (Above 70% positive survey feedback)'}
+                      <td style={{ fontSize: '12.5px', color: ink, fontWeight: '600' }}>
+                        {lvl.level === 1 ? 'Low Indirect Attainment' : lvl.level === 2 ? 'Medium Indirect Attainment' : 'High Indirect Attainment'}
                       </td>
                     </tr>
                   ))}

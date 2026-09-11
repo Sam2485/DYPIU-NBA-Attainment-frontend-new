@@ -299,7 +299,7 @@ export default function EndSemMarksHub({ hideFooter = false }) {
                 <th style={{ textAlign: 'center' }}>Students ≥ Threshold</th>
                 <th style={{ textAlign: 'center' }}>% Scoring &ge; Threshold ({thresholdPercentage}%)</th>
                 <th style={{ textAlign: 'center' }}>Max / Threshold Marks</th>
-                <th style={{ textAlign: 'center' }}>Attainment Level</th>
+                <th style={{ textAlign: 'center' }}>Direct attainment</th>
               </tr>
             </thead>
             <tbody>
@@ -326,19 +326,14 @@ export default function EndSemMarksHub({ hideFooter = false }) {
                       <td style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>
                         {pct != null ? `${pct.toFixed(2)}%` : '—'}
                       </td>
-                      <td style={{ textAlign: 'center', fontWeight: '800', color: '#4f46e5' }}>
+                      <td style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a' }}>
                         {maxMarks != null || thresholdMarks != null
                           ? `${maxMarks ?? '—'} / ${thresholdMarks ?? '—'}`
                           : '—'}
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         {level != null ? (
-                          <span
-                            className={`badge ${
-                              level >= 3 ? 'badge-level-3' : level === 2 ? 'badge-level-2' : 'badge-level-1'
-                            }`}
-                            style={{ fontWeight: '800', minWidth: '28px', display: 'inline-block' }}
-                          >
+                          <span style={{ fontWeight: '800', color: '#2563eb', fontSize: '13.5px' }}>
                             {level}
                           </span>
                         ) : (

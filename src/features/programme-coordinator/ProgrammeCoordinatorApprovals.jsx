@@ -17,65 +17,6 @@ const statusColor = (status) => {
   return ['#fffbeb', '#a16207'];
 };
 
-function ReadOnlySubmissionContent({ type, content, reviewCourseId = null }) {
-  if (!content) return <div style={{ padding: '28px', color: '#64748b' }}>Loading submitted course content…</div>;
-
-  if (['ATTAINMENT_SETTINGS', 'ATTAINMENT_CONFIGURATION'].includes(type)) {
-    return (
-      <AttainmentConfig
-        hideHeader
-        readOnly
-        suppressPendingMessage
-        reviewCourseId={reviewCourseId}
-        initialConfig={content}
-      />
-    );
-  }
-
-  const outcomes = Array.isArray(content) ? content : (content.outcomes ?? content.courseOutcomes ?? content.items ?? []);
-  return (
-    <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
-      <div style={{ padding: '13px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 800, color: '#0f172a', fontSize: '13px' }}>
-        {['COURSE_OUTCOMES_TARGETS', 'CO_DEFINITION'].includes(type) ? 'Course Outcomes & Targets' : 'Course Action Taken Report'}
-      </div>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-          <thead>
-            <tr style={{ color: '#64748b', textAlign: 'left' }}>
-              <th style={{ padding: '10px 14px' }}>CO</th>
-              <th>Outcome Statement</th>
-              <th>Target</th>
-              {!['COURSE_OUTCOMES_TARGETS', 'CO_DEFINITION'].includes(type) && (
-                <>
-                  <th>Attainment</th>
-                  <th>Observation</th>
-                  <th>Actions Taken</th>
-                </>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {outcomes.map((item, index) => (
-              <tr key={item.id ?? item.code ?? item.outcomeCode ?? index} style={{ borderTop: '1px solid #f1f5f9', verticalAlign: 'top' }}>
-                <td style={{ padding: '12px 14px', fontWeight: 800, color: '#4f46e5' }}>{item.code ?? item.outcomeCode ?? item.coCode ?? `CO${index + 1}`}</td>
-                <td style={{ padding: '12px 8px', minWidth: 240 }}>{item.description ?? item.statement ?? item.outcomeStatement ?? '—'}</td>
-                <td style={{ padding: '12px 8px' }}>{item.targetLevel ?? item.target ?? '—'}</td>
-                {!['COURSE_OUTCOMES_TARGETS', 'CO_DEFINITION'].includes(type) && (
-                  <>
-                    <td style={{ padding: '12px 8px' }}>{item.attainedLevel ?? item.attainmentLevel ?? item.actual ?? '—'}</td>
-                    <td style={{ padding: '12px 8px' }}>{item.observation ?? item.remark ?? '—'}</td>
-                    <td style={{ padding: '12px 8px' }}>{Array.isArray(item.actions) ? item.actions.filter(Boolean).join('; ') || '—' : item.actions ?? item.actionProposed ?? '—'}</td>
-                  </>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 export default function ProgrammeCoordinatorApprovals() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, role } = useAuth();
@@ -401,12 +342,6 @@ export default function ProgrammeCoordinatorApprovals() {
               suppressPendingMessage
               reviewCourseId={selected.programmeBatchCourseId}
               initialConfig={selected.submissionContent}
-            />
-          ) : selected.submissionContent !== undefined ? (
-            <ReadOnlySubmissionContent
-              type={selected.type}
-              content={selected.submissionContent}
-              reviewCourseId={selected.programmeBatchCourseId}
             />
           ) : ['COURSE_OUTCOMES_TARGETS', 'CO_DEFINITION'].includes(selected.type) ? (
             <OutcomesManagement
