@@ -165,6 +165,9 @@ const normalizeBatch = (batch) => ({
     batch?.currentYear ??
     null,
   status: batch?.status ?? null,
+  editingWindowUntil: batch?.editingWindowUntil ?? null,
+  editingWindowOpenedAt: batch?.editingWindowOpenedAt ?? null,
+  editingWindowOpenedBy: batch?.editingWindowOpenedBy ?? null,
   createdAt: batch?.createdAt ?? null,
   updatedAt: batch?.updatedAt ?? null,
 });
@@ -1597,6 +1600,33 @@ export function AcademicProvider({ children }) {
     return item;
   }, []);
 
+  const reopenProgrammeBatch = useCallback(async (programmeBatchId, until, reason) => {
+    if (!String(reason ?? '').trim()) throw new Error('A reason is required to reopen a batch.');
+    if (!until) throw new Error('A valid expiration timestamp is required for reopening.');
+    const response = await apiClient.post(`/academic/programme-batches/${programmeBatchId}/reopen`, {
+      until: typeof until === 'string' ? until : until.toISOString(),
+      reason: String(reason).trim(),
+    });
+    academicCache.invalidate('batches');
+    const item = normalizeBatch(unwrap(response));
+    setBatches((previous) => previous.map((batch) =>
+      batch.id === programmeBatchId ? { ...batch, ...item } : batch
+    ));
+    return item;
+  }, []);
+
+  const closeProgrammeBatchReopening = useCallback(async (programmeBatchId, reason = '') => {
+    const response = await apiClient.post(`/academic/programme-batches/${programmeBatchId}/close-reopening`, {
+      reason: String(reason ?? '').trim() || 'Reopening window closed early by HOD',
+    });
+    academicCache.invalidate('batches');
+    const item = normalizeBatch(unwrap(response));
+    setBatches((previous) => previous.map((batch) =>
+      batch.id === programmeBatchId ? { ...batch, ...item } : batch
+    ));
+    return item;
+  }, []);
+
   /* --- Semester Lifecycle --- */
   const loadSemestersStatusOverview = useCallback(async (targetBatchId = batchId) => {
     if (!targetBatchId) return [];
@@ -2105,6 +2135,10 @@ export function AcademicProvider({ children }) {
     updateProgrammeBatch,
     deleteProgrammeBatch,
     updateProgrammeBatchStatus,
+    reopenProgrammeBatch,
+    closeProgrammeBatchReopening,
+    reopenBatch: reopenProgrammeBatch,
+    closeBatchReopening: closeProgrammeBatchReopening,
     assignProgrammeBatchCoordinator,
     activeSemester,
     setActiveSemester,

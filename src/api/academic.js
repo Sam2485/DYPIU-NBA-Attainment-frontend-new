@@ -135,6 +135,12 @@ export const academicApi = {
   updateProgrammeBatchStatus: (id, data) =>
     apiClient.post(`/academic/programme-batches/${id}/status`, data),
 
+  reopenProgrammeBatch: (id, { until, reason }) =>
+    apiClient.post(`/academic/programme-batches/${id}/reopen`, { until, reason }),
+
+  closeProgrammeBatchReopening: (id, { reason } = {}) =>
+    apiClient.post(`/academic/programme-batches/${id}/close-reopening`, { reason }),
+
   getBatchContext: (programmeBatchId) =>
     apiClient.get(`/academic/programme-batches/${programmeBatchId}/context`),
 

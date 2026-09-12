@@ -20,9 +20,58 @@ import {
   Sparkles,
   UserCheck,
   LockKeyhole,
+  Clock,
+  Unlock,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
+
+// ── Date & Time Helpers ──────────────────────────────────────────────────────
+const formatDateTime = (isoString) => {
+  if (!isoString) return '—';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return String(isoString);
+    return d.toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  } catch {
+    return String(isoString);
+  }
+};
+
+const getTomorrowDatetimeLocal = () => {
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}T${pad(tomorrow.getHours())}:${pad(tomorrow.getMinutes())}`;
+};
+
+const getMinDatetimeLocal = () => {
+  const now = new Date(Date.now() + 5 * 60 * 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+};
+
+const calculateExpirationDate = (option, customVal) => {
+  const now = Date.now();
+  if (option === '24h') {
+    return new Date(now + 24 * 60 * 60 * 1000).toISOString();
+  }
+  if (option === '48h') {
+    return new Date(now + 48 * 60 * 60 * 1000).toISOString();
+  }
+  if (option === '7d') {
+    return new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString();
+  }
+  if (option === 'custom' && customVal) {
+    const d = new Date(customVal);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString();
+    }
+  }
+  return new Date(now + 24 * 60 * 60 * 1000).toISOString();
+};
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -62,6 +111,8 @@ export default function HodBatchManagement() {
     createBatch = () => Promise.resolve(null),
     updateBatch = () => Promise.resolve(null),
     updateProgrammeBatchStatus = () => Promise.resolve(null),
+    reopenProgrammeBatch = () => Promise.resolve(null),
+    closeProgrammeBatchReopening = () => Promise.resolve(null),
     loadSemestersStatusOverview = () => Promise.resolve([]),
     loadSemesterReadiness = () => Promise.resolve(null),
     executeCompleteSemester = () => Promise.resolve(null),
@@ -158,6 +209,12 @@ export default function HodBatchManagement() {
   const [semesterReason, setSemesterReason] = useState('');
   const [semesterActionError, setSemesterActionError] = useState('');
   const [isUpdatingSemester, setIsUpdatingSemester] = useState(false);
+
+  // Time-bounded batch reopening dialog state
+  const [reopenBatchDialog, setReopenBatchDialog] = useState(null);
+  const [reopenBatchError, setReopenBatchError] = useState('');
+  const [isReopeningBatch, setIsReopeningBatch] = useState(false);
+  const [isClosingReopening, setIsClosingReopening] = useState(false);
 
   // Auto-recalc end year when programme or start year changes
   useEffect(() => {
@@ -371,16 +428,58 @@ export default function HodBatchManagement() {
     }
   };
 
-  const handleReopenBatch = async (batch) => {
-    const reason = window.prompt(`Reason for reopening ${batch.name}:`);
-    if (!reason?.trim()) return;
+  const handleOpenReopenDialog = (batch) => {
+    setReopenBatchDialog({
+      batch,
+      durationOption: '24h',
+      customUntil: getTomorrowDatetimeLocal(),
+      reason: '',
+    });
+    setReopenBatchError('');
+  };
+
+  const handleConfirmReopenBatch = async (event) => {
+    if (event) event.preventDefault();
+    if (!reopenBatchDialog?.batch) return;
+    const { batch, durationOption, customUntil, reason } = reopenBatchDialog;
+    if (!reason?.trim()) {
+      setReopenBatchError('An audited reason is required to reopen this batch.');
+      return;
+    }
+    const untilIso = calculateExpirationDate(durationOption, customUntil);
+    const untilDate = new Date(untilIso);
+    if (isNaN(untilDate.getTime()) || untilDate.getTime() <= Date.now()) {
+      setReopenBatchError('Please select a valid future date and time for the reopening window.');
+      return;
+    }
+
+    setIsReopeningBatch(true);
+    setReopenBatchError('');
     try {
-      await updateProgrammeBatchStatus(batch.id, 'ACTIVE', reason.trim());
-      setToastMessage(`${batch.name} reopened and set to active.`);
-      setTimeout(() => setToastMessage(null), 3000);
-    } catch (error) {
-      setToastMessage(error?.response?.data?.message || error?.message || 'Unable to reopen this batch.');
+      await reopenProgrammeBatch(batch.id, untilIso, reason.trim());
+      setToastMessage(`Batch "${batch.name}" reopened until ${formatDateTime(untilIso)}.`);
+      setReopenBatchDialog(null);
       setTimeout(() => setToastMessage(null), 4000);
+    } catch (error) {
+      setReopenBatchError(error?.response?.data?.message || error?.message || 'Unable to reopen this batch.');
+    } finally {
+      setIsReopeningBatch(false);
+    }
+  };
+
+  const handleCloseReopeningEarly = async (batch) => {
+    const reason = window.prompt(`Reason for closing the reopening window early for ${batch.name}:`, 'Reopening window closed early by HOD');
+    if (reason === null) return;
+    setIsClosingReopening(true);
+    try {
+      await closeProgrammeBatchReopening(batch.id, reason.trim() || 'Reopening window closed early by HOD');
+      setToastMessage(`Reopening window for "${batch.name}" has been closed.`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (error) {
+      setToastMessage(error?.response?.data?.message || error?.message || 'Unable to close reopening window.');
+      setTimeout(() => setToastMessage(null), 4000);
+    } finally {
+      setIsClosingReopening(false);
     }
   };
 
@@ -828,6 +927,7 @@ export default function HodBatchManagement() {
     const isActive = managedBatch.status === 'ACTIVE';
     const isCompleted = managedBatch.status === 'COMPLETED';
     const isGraduated = managedBatch.status === 'GRADUATED';
+    const isWindowActive = Boolean(managedBatch.editingWindowUntil && new Date(managedBatch.editingWindowUntil).getTime() > Date.now());
     const semesters = semesterStatusByBatch[managedBatch.id]
       ?? Array.from({ length: (managedBatch.durationYears ?? durationYears) * 2 }, (_, index) => ({ semester: index + 1, status: 'EMPTY', courseCount: 0 }));
     const completedSemesters = semesters.filter((semester) => semester.isCompleted || String(semester.status).toUpperCase() === 'COMPLETED').length;
@@ -843,6 +943,11 @@ export default function HodBatchManagement() {
             <div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '11px', fontWeight: '800', background: isActive ? '#dcfce7' : isCompleted ? '#eef2ff' : '#f1f5f9', color: isActive ? '#15803d' : isCompleted ? '#3730a3' : '#475569', borderRadius: '6px', padding: '3px 9px' }}>{managedBatch.status}</span>
+                {isWindowActive && (
+                  <span style={{ fontSize: '11px', fontWeight: '800', background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', borderRadius: '6px', padding: '3px 9px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Unlock size={11} /> Reopening Window Open (Until {formatDateTime(managedBatch.editingWindowUntil)})
+                  </span>
+                )}
                 <span style={{ fontSize: '11px', color: muted, fontWeight: '700' }}>{managedBatch.startYear}–{managedBatch.endYear}</span>
               </div>
               <h2 style={{ margin: '8px 0 4px', color: ink, fontSize: '21px', fontWeight: '900' }}>{managedBatch.name}</h2>
@@ -879,13 +984,240 @@ export default function HodBatchManagement() {
         {manageTab === 'lifecycle' && <div style={{ ...surface, overflow: 'hidden' }}><div style={{ padding: '18px 20px', borderBottom: '1px solid #e2e8f0' }}><h3 style={{ margin: 0, color: ink, fontSize: '15px' }}>Semester Lifecycle</h3><p style={{ margin: '5px 0 0', color: muted, fontSize: '12px' }}>Review readiness, complete a semester, or reopen a completed semester with an auditable reason.</p></div><div style={{ overflowX: 'auto' }}><table className="audit-data-table" style={{ margin: 0 }}><thead><tr><th>Semester</th><th>Status</th><th>Courses</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead><tbody>{semesters.map((semester) => { const completed = semester.isCompleted || String(semester.status).toUpperCase() === 'COMPLETED'; return <tr key={semester.semester}><td style={{ fontWeight: '800' }}>Semester {semester.semester}</td><td><span style={{ fontSize: '11px', fontWeight: '800', color: completed ? '#475569' : '#3730a3' }}>{String(semester.status ?? 'EMPTY').replaceAll('_', ' ')}</span></td><td>{semester.courseCount ?? 0}</td><td style={{ textAlign: 'right' }}><button type="button" onClick={() => openSemesterReadiness(managedBatch, semester)} style={{ height: '29px', padding: '0 9px', border: '1px solid #c7d2fe', borderRadius: '6px', background: '#fff', color: accent, cursor: 'pointer', fontWeight: '700', fontSize: '11px' }}>Inspect readiness</button>{completed && <button type="button" onClick={() => { setSemesterReason(''); setSemesterActionError(''); setReadinessDialog({ batch: managedBatch, semester, loading: false, readiness: null, mode: 'reopen' }); }} style={{ height: '29px', padding: '0 9px', marginLeft: '7px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: '700', fontSize: '11px' }}>Reopen</button>}</td></tr>; })}</tbody></table></div></div>}
 
         {manageTab === 'completion' && <div style={{ ...surface, padding: '22px', maxWidth: '760px' }}>
-          <h3 style={{ margin: 0, color: ink, fontSize: '16px' }}>Batch Completion</h3>
-          {isActive && <><p style={{ color: muted, fontSize: '12.5px', lineHeight: 1.55 }}>Complete this batch only after its academic work is finished. Completion unlocks Programme ATR for the Programme Coordinator.</p><div style={{ padding: '13px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', color: '#92400e', fontSize: '12px' }}>Semester completion: {completedSemesters} of {semesters.length}. Review lifecycle readiness before completing the batch.</div><button type="button" onClick={() => handleCompleteBatch(managedBatch)} style={{ marginTop: '16px', height: '37px', padding: '0 14px', border: 0, borderRadius: '8px', background: accent, color: '#fff', cursor: 'pointer', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><CheckCircle2 size={15} /> Complete Batch</button></>}
-          {isCompleted && <><p style={{ color: muted, fontSize: '12.5px', lineHeight: 1.55 }}>This batch is completed and its Programme ATR is available. Reopen it only when academic corrections are required.</p><div style={{ padding: '13px', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '8px', color: '#3730a3', fontSize: '12px' }}>Current state: COMPLETED · Programme ATR unlocked</div><button type="button" onClick={() => handleReopenBatch(managedBatch)} style={{ marginTop: '16px', height: '37px', padding: '0 14px', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: '800' }}>Reopen Batch</button></>}
-          {isGraduated && <><p style={{ color: muted, fontSize: '12.5px', lineHeight: 1.55 }}>This batch has graduated and is retained as a read-only academic record.</p><div style={{ padding: '13px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', color: '#475569', fontSize: '12px' }}>Current state: GRADUATED · no lifecycle actions are available.</div></>}
+          <h3 style={{ margin: 0, color: ink, fontSize: '16px', fontWeight: '800' }}>Batch Completion & Lifecycle</h3>
+          {isActive && (
+            <>
+              <p style={{ color: muted, fontSize: '12.5px', lineHeight: 1.55 }}>
+                Complete this batch only after its academic work is finished. Completion unlocks Programme ATR for the Programme Coordinator.
+              </p>
+              <div style={{ padding: '13px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', color: '#92400e', fontSize: '12px' }}>
+                Semester completion: {completedSemesters} of {semesters.length}. Review lifecycle readiness before completing the batch.
+              </div>
+              <button
+                type="button"
+                onClick={() => handleCompleteBatch(managedBatch)}
+                style={{ marginTop: '16px', height: '37px', padding: '0 14px', border: 0, borderRadius: '8px', background: accent, color: '#fff', cursor: 'pointer', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <CheckCircle2 size={15} /> Complete Batch
+              </button>
+            </>
+          )}
+          {(isCompleted || isGraduated) && (
+            <div style={{ display: 'grid', gap: '14px' }}>
+              {isWindowActive ? (
+                <div style={{ padding: '16px 18px', background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '10px', display: 'grid', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', fontWeight: '800', color: '#15803d', background: '#dcfce7', border: '1px solid #86efac', borderRadius: '6px', padding: '3px 10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        <Unlock size={13} /> Active Reopening Window
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCloseReopeningEarly(managedBatch)}
+                      disabled={isClosingReopening}
+                      style={{
+                        height: '32px',
+                        padding: '0 12px',
+                        border: '1px solid #fca5a5',
+                        background: '#fff',
+                        borderRadius: '7px',
+                        color: '#b91c1c',
+                        cursor: isClosingReopening ? 'not-allowed' : 'pointer',
+                        fontWeight: '700',
+                        fontSize: '12px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      <LockKeyhole size={13} /> {isClosingReopening ? 'Closing Window…' : 'Close Window Now'}
+                    </button>
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: '#166534', lineHeight: 1.6 }}>
+                    <div>🕒 <strong>Reopening window active until:</strong> {formatDateTime(managedBatch.editingWindowUntil)}</div>
+                    {managedBatch.editingWindowOpenedBy && <div>👤 <strong>Authorized by:</strong> {managedBatch.editingWindowOpenedBy}</div>}
+                    <div style={{ marginTop: '4px', fontSize: '12px', color: '#15803d' }}>
+                      Faculty members and course coordinators have permission to make outcome, assessment, and attainment updates during this active window.
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p style={{ margin: 0, color: muted, fontSize: '12.5px', lineHeight: 1.55 }}>
+                    {isGraduated
+                      ? 'This batch has graduated and is retained as a read-only academic record. Reopen it with a time-bounded window when administrative corrections are needed.'
+                      : 'This batch is completed and its Programme ATR is available. Reopen it with a time-bounded window only when academic corrections are required.'}
+                  </p>
+                  <div style={{ padding: '13px', background: isGraduated ? '#f1f5f9' : '#eef2ff', border: `1px solid ${isGraduated ? '#cbd5e1' : '#c7d2fe'}`, borderRadius: '8px', color: isGraduated ? '#475569' : '#3730a3', fontSize: '12px' }}>
+                    Current state: <strong>{managedBatch.status}</strong> · {isGraduated ? 'Graduated record' : 'Programme ATR unlocked'} (Editing locked)
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenReopenDialog(managedBatch)}
+                      style={{
+                        height: '37px',
+                        padding: '0 16px',
+                        border: '1px solid #c7d2fe',
+                        borderRadius: '8px',
+                        background: '#fff',
+                        color: accent,
+                        cursor: 'pointer',
+                        fontWeight: '800',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '7px',
+                        fontSize: '12.5px',
+                        fontFamily: 'inherit',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                      }}
+                    >
+                      <Unlock size={14} /> Reopen Batch (Time-Bounded)
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>}
 
         {readinessDialog && <div style={{ position: 'fixed', inset: 0, zIndex: 1001, display: 'grid', placeItems: 'center', padding: '20px', background: 'rgba(15,23,42,.58)' }}><div role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: '560px', background: '#fff', borderRadius: '14px', overflow: 'hidden' }}><div style={{ padding: '20px 22px' }}><h3 style={{ margin: 0, color: ink, fontSize: '16px' }}>{readinessDialog.mode === 'reopen' ? `Reopen Semester ${readinessDialog.semester.semester}` : `Semester ${readinessDialog.semester.semester} Readiness`}</h3>{readinessDialog.loading ? <p style={{ color: muted, fontSize: '13px' }}>Loading readiness checklist…</p> : readinessDialog.mode === 'reopen' ? <p style={{ color: muted, fontSize: '12.5px' }}>Reopening re-enables course work. An audited reason is required.</p> : <p style={{ color: muted, fontSize: '12.5px' }}>Ready courses: <strong>{readinessDialog.readiness?.readyCourseCount ?? 0} / {readinessDialog.readiness?.courseCount ?? 0}</strong></p>}<label style={labelStyle}>{readinessDialog.mode === 'reopen' ? 'Reason *' : 'Completion note (optional)'}</label><textarea value={semesterReason} onChange={(event) => { setSemesterReason(event.target.value); setSemesterActionError(''); }} rows={3} style={{ ...inputStyle, height: 'auto', padding: '9px 11px', resize: 'vertical' }} />{semesterActionError && <div style={{ marginTop: '8px', color: '#b91c1c', fontSize: '12px', fontWeight: '700' }}>{semesterActionError}</div>}</div><div style={{ padding: '14px 22px', display: 'flex', justifyContent: 'flex-end', gap: '8px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}><button type="button" onClick={() => setReadinessDialog(null)} disabled={isUpdatingSemester} style={{ height: '35px', padding: '0 13px', border: '1px solid #cbd5e1', background: '#fff', borderRadius: '7px', color: '#475569', fontWeight: '700', cursor: 'pointer' }}>Cancel</button>{!readinessDialog.loading && <button type="button" onClick={() => updateSemesterLifecycle(readinessDialog.mode === 'reopen' ? 'reopen' : 'complete')} disabled={isUpdatingSemester} style={{ height: '35px', padding: '0 13px', border: 0, background: accent, borderRadius: '7px', color: '#fff', fontWeight: '800', cursor: 'pointer' }}>{isUpdatingSemester ? 'Saving…' : readinessDialog.mode === 'reopen' ? 'Reopen Semester' : 'Complete Semester'}</button>}</div></div></div>}
+
+        {/* ── TIME-BOUNDED REOPEN BATCH MODAL (INSIDE MANAGED BATCH) ── */}
+        {reopenBatchDialog && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1001, display: 'grid', placeItems: 'center', padding: '20px', background: 'rgba(15,23,42,.58)', backdropFilter: 'blur(3px)' }}>
+            <div role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: '540px', background: '#fff', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
+              <form onSubmit={handleConfirmReopenBatch}>
+                <div style={{ padding: '22px 24px', display: 'grid', gap: '15px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <h3 style={{ margin: 0, color: ink, fontSize: '16px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Unlock size={18} style={{ color: accent }} /> Reopen Batch (Time-Bounded)
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setReopenBatchDialog(null)}
+                      style={{ border: 0, background: 'transparent', color: muted, cursor: 'pointer', padding: '4px' }}
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <p style={{ margin: 0, color: muted, fontSize: '12.5px', lineHeight: 1.5 }}>
+                    Reopening <strong style={{ color: ink }}>{reopenBatchDialog.batch.name}</strong> creates an audited, time-bounded editing window during which course outcomes, assessments, and attainment data can be updated.
+                  </p>
+
+                  <div>
+                    <label style={labelStyle}>Reopening Window Duration *</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '10px' }}>
+                      {[
+                        { id: '24h', label: '24 Hours', sub: '1 Day' },
+                        { id: '48h', label: '48 Hours', sub: '2 Days' },
+                        { id: '7d',  label: '7 Days',   sub: '1 Week' },
+                        { id: 'custom', label: 'Custom', sub: 'Date & Time' },
+                      ].map((opt) => {
+                        const isSelected = reopenBatchDialog.durationOption === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setReopenBatchDialog((prev) => ({ ...prev, durationOption: opt.id }))}
+                            style={{
+                              padding: '8px 6px',
+                              borderRadius: '8px',
+                              border: isSelected ? `2px solid ${accent}` : '1px solid #cbd5e1',
+                              background: isSelected ? '#eef2ff' : '#fff',
+                              color: isSelected ? accent : ink,
+                              cursor: 'pointer',
+                              textAlign: 'center',
+                              fontFamily: 'inherit',
+                            }}
+                          >
+                            <div style={{ fontSize: '12px', fontWeight: '800' }}>{opt.label}</div>
+                            <div style={{ fontSize: '10px', color: isSelected ? '#4338ca' : muted }}>{opt.sub}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {reopenBatchDialog.durationOption === 'custom' && (
+                      <div style={{ marginTop: '8px' }}>
+                        <label style={{ ...labelStyle, fontSize: '11px' }}>Custom Expiration Date & Time *</label>
+                        <input
+                          type="datetime-local"
+                          value={reopenBatchDialog.customUntil}
+                          min={getMinDatetimeLocal()}
+                          onChange={(e) => setReopenBatchDialog((prev) => ({ ...prev, customUntil: e.target.value }))}
+                          style={inputStyle}
+                          required
+                        />
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: '8px', padding: '10px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '7px', fontSize: '12px', color: '#334155' }}>
+                      <Clock size={13} style={{ verticalAlign: 'middle', marginRight: '5px', color: accent }} />
+                      <strong>Window will expire at:</strong>{' '}
+                      {formatDateTime(calculateExpirationDate(reopenBatchDialog.durationOption, reopenBatchDialog.customUntil))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>Reason for Reopening *</label>
+                    <textarea
+                      value={reopenBatchDialog.reason}
+                      onChange={(e) => {
+                        setReopenBatchDialog((prev) => ({ ...prev, reason: e.target.value }));
+                        setReopenBatchError('');
+                      }}
+                      placeholder="Specify the reason for reopening this batch (e.g. Updating semester 8 internal assessment records)..."
+                      rows={3}
+                      style={{ ...inputStyle, height: 'auto', padding: '9px 11px', resize: 'vertical' }}
+                      required
+                    />
+                  </div>
+
+                  {reopenBatchError && (
+                    <div style={{ color: '#b91c1c', fontSize: '12px', fontWeight: '700', padding: '8px 10px', background: '#fef2f2', borderRadius: '6px', border: '1px solid #fecaca' }}>
+                      {reopenBatchError}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ padding: '14px 24px', display: 'flex', justifyContent: 'flex-end', gap: '8px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+                  <button
+                    type="button"
+                    onClick={() => setReopenBatchDialog(null)}
+                    disabled={isReopeningBatch}
+                    style={{ height: '36px', padding: '0 14px', border: '1px solid #cbd5e1', background: '#fff', borderRadius: '7px', color: '#475569', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isReopeningBatch}
+                    style={{
+                      height: '36px',
+                      padding: '0 16px',
+                      border: 0,
+                      background: accent,
+                      borderRadius: '7px',
+                      color: '#fff',
+                      fontWeight: '800',
+                      cursor: isReopeningBatch ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {isReopeningBatch ? 'Reopening…' : 'Reopen Batch'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1083,6 +1415,12 @@ export default function HodBatchManagement() {
                       </span>
                     )}
 
+                    {batch.editingWindowUntil && new Date(batch.editingWindowUntil).getTime() > Date.now() && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '700', color: '#15803d', background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '6px', padding: '3px 10px' }}>
+                        <Unlock size={11} /> Reopened ({formatDateTime(batch.editingWindowUntil)})
+                      </span>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => { setManagedBatchId(batch.id); setSelectedBatchForRoster(batch); setManageTab('overview'); }}
@@ -1246,6 +1584,140 @@ export default function HodBatchManagement() {
                 <CheckCircle2 size={14} /> {isConcludingBatch ? 'Concluding…' : 'Mark as Completed'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TIME-BOUNDED REOPEN BATCH MODAL (MAIN SCREEN) ── */}
+      {reopenBatchDialog && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1001, display: 'grid', placeItems: 'center', padding: '20px', background: 'rgba(15,23,42,.58)', backdropFilter: 'blur(3px)' }}>
+          <div role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: '540px', background: '#fff', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
+            <form onSubmit={handleConfirmReopenBatch}>
+              <div style={{ padding: '22px 24px', display: 'grid', gap: '15px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h3 style={{ margin: 0, color: ink, fontSize: '16px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Unlock size={18} style={{ color: accent }} /> Reopen Batch (Time-Bounded)
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setReopenBatchDialog(null)}
+                    style={{ border: 0, background: 'transparent', color: muted, cursor: 'pointer', padding: '4px' }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <p style={{ margin: 0, color: muted, fontSize: '12.5px', lineHeight: 1.5 }}>
+                  Reopening <strong style={{ color: ink }}>{reopenBatchDialog.batch.name}</strong> creates an audited, time-bounded editing window during which course outcomes, assessments, and attainment data can be updated.
+                </p>
+
+                <div>
+                  <label style={labelStyle}>Reopening Window Duration *</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '10px' }}>
+                    {[
+                      { id: '24h', label: '24 Hours', sub: '1 Day' },
+                      { id: '48h', label: '48 Hours', sub: '2 Days' },
+                      { id: '7d',  label: '7 Days',   sub: '1 Week' },
+                      { id: 'custom', label: 'Custom', sub: 'Date & Time' },
+                    ].map((opt) => {
+                      const isSelected = reopenBatchDialog.durationOption === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setReopenBatchDialog((prev) => ({ ...prev, durationOption: opt.id }))}
+                          style={{
+                            padding: '8px 6px',
+                            borderRadius: '8px',
+                            border: isSelected ? `2px solid ${accent}` : '1px solid #cbd5e1',
+                            background: isSelected ? '#eef2ff' : '#fff',
+                            color: isSelected ? accent : ink,
+                            cursor: 'pointer',
+                            textAlign: 'center',
+                            fontFamily: 'inherit',
+                          }}
+                        >
+                          <div style={{ fontSize: '12px', fontWeight: '800' }}>{opt.label}</div>
+                          <div style={{ fontSize: '10px', color: isSelected ? '#4338ca' : muted }}>{opt.sub}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {reopenBatchDialog.durationOption === 'custom' && (
+                    <div style={{ marginTop: '8px' }}>
+                      <label style={{ ...labelStyle, fontSize: '11px' }}>Custom Expiration Date & Time *</label>
+                      <input
+                        type="datetime-local"
+                        value={reopenBatchDialog.customUntil}
+                        min={getMinDatetimeLocal()}
+                        onChange={(e) => setReopenBatchDialog((prev) => ({ ...prev, customUntil: e.target.value }))}
+                        style={inputStyle}
+                        required
+                      />
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: '8px', padding: '10px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '7px', fontSize: '12px', color: '#334155' }}>
+                    <Clock size={13} style={{ verticalAlign: 'middle', marginRight: '5px', color: accent }} />
+                    <strong>Window will expire at:</strong>{' '}
+                    {formatDateTime(calculateExpirationDate(reopenBatchDialog.durationOption, reopenBatchDialog.customUntil))}
+                  </div>
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Reason for Reopening *</label>
+                  <textarea
+                    value={reopenBatchDialog.reason}
+                    onChange={(e) => {
+                      setReopenBatchDialog((prev) => ({ ...prev, reason: e.target.value }));
+                      setReopenBatchError('');
+                    }}
+                    placeholder="Specify the reason for reopening this batch (e.g. Updating semester 8 internal assessment records)..."
+                    rows={3}
+                    style={{ ...inputStyle, height: 'auto', padding: '9px 11px', resize: 'vertical' }}
+                    required
+                  />
+                </div>
+
+                {reopenBatchError && (
+                  <div style={{ color: '#b91c1c', fontSize: '12px', fontWeight: '700', padding: '8px 10px', background: '#fef2f2', borderRadius: '6px', border: '1px solid #fecaca' }}>
+                    {reopenBatchError}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ padding: '14px 24px', display: 'flex', justifyContent: 'flex-end', gap: '8px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+                <button
+                  type="button"
+                  onClick={() => setReopenBatchDialog(null)}
+                  disabled={isReopeningBatch}
+                  style={{ height: '36px', padding: '0 14px', border: '1px solid #cbd5e1', background: '#fff', borderRadius: '7px', color: '#475569', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isReopeningBatch}
+                  style={{
+                    height: '36px',
+                    padding: '0 16px',
+                    border: 0,
+                    background: accent,
+                    borderRadius: '7px',
+                    color: '#fff',
+                    fontWeight: '800',
+                    cursor: isReopeningBatch ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {isReopeningBatch ? 'Reopening…' : 'Reopen Batch'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

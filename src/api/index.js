@@ -8,3 +8,5 @@ export { reportsApi } from './reports';
 export { reportAssetsApi } from './reportAssets';
 export { healthApi } from './health';
 export { dashboardApi } from './dashboard';
+export { auditApi } from './audit';
+export { recoveryApi } from './recovery';
