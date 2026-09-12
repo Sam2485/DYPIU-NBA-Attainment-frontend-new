@@ -33,11 +33,17 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
+            if (id.includes('three')) {
+              return 'vendor-three';
+            }
+            if (id.includes('html-to-image')) {
+              return 'vendor-html-to-image';
+            }
+            if (id.includes('xlsx') || id.includes('cpexcel') || id.includes('codepage') || id.includes('cfb') || id.includes('ssf') || id.includes('wmf') || id.includes('crc-32') || id.includes('adler-32')) {
+              return 'vendor-xlsx';
+            }
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
               return 'vendor-react';
-            }
-            if (id.includes('xlsx')) {
-              return 'vendor-xlsx';
             }
             if (id.includes('lucide-react')) {
               return 'vendor-icons';
@@ -45,7 +51,7 @@ export default defineConfig({
             if (id.includes('axios')) {
               return 'vendor-axios';
             }
-            return 'vendor';
+            return 'vendor-common';
           }
         },
       },

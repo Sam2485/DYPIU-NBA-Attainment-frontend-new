@@ -40,6 +40,35 @@ const unwrapList = (response) => {
 };
 
 /* ========================================================================== */
+/* In-Memory Client-Side Cache (SWR / 60s TTL) for Static Academic Metadata   */
+/* ========================================================================== */
+
+const academicCache = {
+  schools: { data: null, timestamp: 0 },
+  departments: new Map(),
+  programmes: new Map(),
+  batches: new Map(),
+  TTL: 60 * 1000, // 60 seconds
+
+  invalidate(key = 'all') {
+    if (key === 'all') {
+      academicCache.schools = { data: null, timestamp: 0 };
+      academicCache.departments.clear();
+      academicCache.programmes.clear();
+      academicCache.batches.clear();
+    } else if (key === 'schools') {
+      academicCache.schools = { data: null, timestamp: 0 };
+    } else if (key === 'departments') {
+      academicCache.departments.clear();
+    } else if (key === 'programmes') {
+      academicCache.programmes.clear();
+    } else if (key === 'batches') {
+      academicCache.batches.clear();
+    }
+  },
+};
+
+/* ========================================================================== */
 /* Normalizers                                                                */
 /* ========================================================================== */
 
@@ -489,7 +518,12 @@ export function AcademicProvider({ children }) {
   /* ======================================================================== */
 
   /* --- Schools --- */
-  const loadSchools = useCallback(async () => {
+  const loadSchools = useCallback(async (forceRefresh = false) => {
+    const now = Date.now();
+    if (!forceRefresh && academicCache.schools.data && (now - academicCache.schools.timestamp < academicCache.TTL)) {
+      setSchools(academicCache.schools.data);
+      return academicCache.schools.data;
+    }
     try {
       const response = await apiClient.get('/academic/schools');
       let data = unwrapList(response).map(normalizeSchool);
@@ -498,6 +532,7 @@ export function AcademicProvider({ children }) {
          data = data.filter(s => s.id === user?.schoolId);
       }
       
+      academicCache.schools = { data, timestamp: now };
       setSchools(data);
 
       if (data.length > 0) {
@@ -522,7 +557,14 @@ export function AcademicProvider({ children }) {
   }, [user?.schoolId, role]);
 
   /* --- Departments --- */
-  const loadDepartments = useCallback(async (targetSchoolId = null) => {
+  const loadDepartments = useCallback(async (targetSchoolId = null, forceRefresh = false) => {
+    const now = Date.now();
+    const cacheKey = `${role}:${targetSchoolId ?? '__all__'}`;
+    const cached = academicCache.departments.get(cacheKey);
+    if (!forceRefresh && cached && (now - cached.timestamp < academicCache.TTL)) {
+      setDepartments(cached.data);
+      return cached.data;
+    }
     try {
       // HOD department scope is derived by the backend from the authenticated
       // user's JWT. Passing a schoolId can conflict with that server-side
@@ -530,6 +572,7 @@ export function AcademicProvider({ children }) {
       const params = role === 'HOD' ? {} : (targetSchoolId ? { schoolId: targetSchoolId } : {});
       const response = await apiClient.get('/academic/departments', { params });
       const data = unwrapList(response).map(normalizeDepartment);
+      academicCache.departments.set(cacheKey, { data, timestamp: now });
       setDepartments(data);
       return data;
     } catch (err) {
@@ -539,12 +582,20 @@ export function AcademicProvider({ children }) {
   }, [role]);
 
   /* --- Programmes --- */
-  const loadProgrammes = useCallback(async (targetDepartmentId = null, coordinatorEmail = null) => {
+  const loadProgrammes = useCallback(async (targetDepartmentId = null, coordinatorEmail = null, forceRefresh = false) => {
+    const now = Date.now();
+    const cacheKey = `${targetDepartmentId ?? '__all__'}:${coordinatorEmail ?? '__all__'}`;
+    const cached = academicCache.programmes.get(cacheKey);
+    if (!forceRefresh && cached && (now - cached.timestamp < academicCache.TTL)) {
+      setProgrammes(cached.data);
+      return cached.data;
+    }
     try {
       const params = targetDepartmentId ? { departmentId: targetDepartmentId } : {};
       if (coordinatorEmail) params.coordinatorEmail = coordinatorEmail;
       const response = await apiClient.get('/academic/master-programmes', { params });
       const data = unwrapList(response).map(normalizeProgramme);
+      academicCache.programmes.set(cacheKey, { data, timestamp: now });
       setProgrammes(data);
       return data;
     } catch (err) {
@@ -556,9 +607,15 @@ export function AcademicProvider({ children }) {
   // Director views manage the permanent catalogue through the authoritative
   // master-programme API. Filtering by department is done client-side because
   // the contract defines no list query parameters for this endpoint.
-  const loadMasterProgrammes = useCallback(async (targetDepartmentId = null, coordinatorEmail = null) => {
-    const requestKey = `${targetDepartmentId ?? '__all__'}:${coordinatorEmail ?? '__all__'}`;
-    const inFlightRequest = masterProgrammeRequestsRef.current.get(requestKey);
+  const loadMasterProgrammes = useCallback(async (targetDepartmentId = null, coordinatorEmail = null, forceRefresh = false) => {
+    const now = Date.now();
+    const cacheKey = `${targetDepartmentId ?? '__all__'}:${coordinatorEmail ?? '__all__'}`;
+    const cached = academicCache.programmes.get(cacheKey);
+    if (!forceRefresh && cached && (now - cached.timestamp < academicCache.TTL)) {
+      setProgrammes(cached.data);
+      return cached.data;
+    }
+    const inFlightRequest = masterProgrammeRequestsRef.current.get(cacheKey);
     if (inFlightRequest) return inFlightRequest;
 
     const request = (async () => {
@@ -572,17 +629,18 @@ export function AcademicProvider({ children }) {
         (!targetDepartmentId || programme.departmentId === targetDepartmentId) &&
         (!coordinatorEmail || !programme.coordinatorEmail || programme.coordinatorEmail === coordinatorEmail)
       );
+      academicCache.programmes.set(cacheKey, { data, timestamp: now });
       setProgrammes(data);
       return data;
     } catch (err) {
       console.warn('loadMasterProgrammes failed:', err);
       return [];
     } finally {
-      masterProgrammeRequestsRef.current.delete(requestKey);
+      masterProgrammeRequestsRef.current.delete(cacheKey);
     }
     })();
 
-    masterProgrammeRequestsRef.current.set(requestKey, request);
+    masterProgrammeRequestsRef.current.set(cacheKey, request);
     return request;
   }, []);
 
@@ -629,13 +687,21 @@ export function AcademicProvider({ children }) {
     []
   );
 
-  const loadProgrammeBatches = useCallback(async (masterProgrammeId = null, hodEmail = null) => {
+  const loadProgrammeBatches = useCallback(async (masterProgrammeId = null, hodEmail = null, forceRefresh = false) => {
+    const now = Date.now();
+    const cacheKey = `${masterProgrammeId ?? '__all__'}:${hodEmail ?? '__all__'}`;
+    const cached = academicCache.batches.get(cacheKey);
+    if (!forceRefresh && cached && (now - cached.timestamp < academicCache.TTL)) {
+      setBatches(cached.data);
+      return cached.data;
+    }
     try {
       const params = {};
       if (masterProgrammeId) params.masterProgrammeId = masterProgrammeId;
       if (hodEmail) params.hodEmail = hodEmail;
       const response = await apiClient.get('/academic/programme-batches', { params });
       const data = unwrapList(response).map(normalizeBatch);
+      academicCache.batches.set(cacheKey, { data, timestamp: now });
       setBatches(data);
       return data;
     } catch (err) {
@@ -1385,6 +1451,7 @@ export function AcademicProvider({ children }) {
   const createSchool = useCallback(async (data) => {
     const res = await apiClient.post('/academic/schools', data);
     const item = normalizeSchool(unwrap(res));
+    academicCache.invalidate('schools');
     setSchools((prev) => [...prev.filter((s) => s.id !== item.id), item]);
     return item;
   }, []);
@@ -1392,6 +1459,7 @@ export function AcademicProvider({ children }) {
   const updateSchool = useCallback(async (id, data) => {
     const res = await apiClient.put(`/academic/schools/${id}`, data);
     const item = normalizeSchool(unwrap(res));
+    academicCache.invalidate('schools');
     setSchools((prev) => prev.map((s) => (s.id === id ? item : s)));
     return item;
   }, []);
@@ -1400,6 +1468,7 @@ export function AcademicProvider({ children }) {
   const createDepartment = useCallback(async (data) => {
     const res = await apiClient.post('/academic/departments', data);
     const item = normalizeDepartment(unwrap(res));
+    academicCache.invalidate('departments');
     setDepartments((prev) => [...prev.filter((d) => d.id !== item.id), item]);
     return item;
   }, []);
@@ -1407,12 +1476,14 @@ export function AcademicProvider({ children }) {
   const updateDepartment = useCallback(async (id, data) => {
     const res = await apiClient.put(`/academic/departments/${id}`, data);
     const item = normalizeDepartment(unwrap(res));
+    academicCache.invalidate('departments');
     setDepartments((prev) => prev.map((d) => (d.id === id ? item : d)));
     return item;
   }, []);
 
   const deleteDepartment = useCallback(async (id) => {
     await apiClient.delete(`/academic/departments/${id}`);
+    academicCache.invalidate('departments');
     setDepartments((prev) => prev.filter((d) => d.id !== id));
   }, []);
 
@@ -1420,6 +1491,7 @@ export function AcademicProvider({ children }) {
   const createProgramme = useCallback(async (data) => {
     const res = await apiClient.post('/academic/master-programmes', toMasterProgrammePayload(data));
     const item = normalizeProgramme(unwrap(res));
+    academicCache.invalidate('programmes');
     setProgrammes((prev) => [...prev.filter((p) => p.id !== item.id), item]);
     return item;
   }, []);
@@ -1427,18 +1499,21 @@ export function AcademicProvider({ children }) {
   const updateProgramme = useCallback(async (id, data) => {
     const res = await apiClient.put(`/academic/master-programmes/${id}`, toMasterProgrammePayload(data));
     const item = normalizeProgramme(unwrap(res));
+    academicCache.invalidate('programmes');
     setProgrammes((prev) => prev.map((p) => (p.id === id ? item : p)));
     return item;
   }, []);
 
   const deleteProgramme = useCallback(async (id) => {
     await apiClient.delete(`/academic/master-programmes/${id}`);
+    academicCache.invalidate('programmes');
     setProgrammes((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
   const createMasterProgramme = useCallback(async (data) => {
     const res = await apiClient.post('/academic/master-programmes', toMasterProgrammePayload(data));
     const item = normalizeProgramme(unwrap(res));
+    academicCache.invalidate('programmes');
     setProgrammes((prev) => [...prev.filter((programme) => programme.id !== item.id), item]);
     return item;
   }, []);
@@ -1449,6 +1524,7 @@ export function AcademicProvider({ children }) {
       toMasterProgrammePayload(data)
     );
     const item = normalizeProgramme(unwrap(res));
+    academicCache.invalidate('programmes');
     setProgrammes((prev) => prev.map((programme) => (
       programme.id === masterProgrammeId ? item : programme
     )));
@@ -1457,6 +1533,7 @@ export function AcademicProvider({ children }) {
 
   const deleteMasterProgramme = useCallback(async (masterProgrammeId) => {
     await apiClient.delete(`/academic/master-programmes/${masterProgrammeId}`);
+    academicCache.invalidate('programmes');
     setProgrammes((prev) => prev.filter((programme) => programme.id !== masterProgrammeId));
   }, []);
 
@@ -1464,6 +1541,7 @@ export function AcademicProvider({ children }) {
   const createBatch = useCallback(async (data) => {
     const res = await apiClient.post('/academic/programme-batches', toProgrammeBatchPayload(data));
     const item = normalizeBatch(unwrap(res));
+    academicCache.invalidate('batches');
     setBatches((prev) => [...prev.filter((b) => b.id !== item.id), item]);
     return item;
   }, []);
@@ -1471,18 +1549,21 @@ export function AcademicProvider({ children }) {
   const updateBatch = useCallback(async (id, data) => {
     const res = await apiClient.put(`/academic/programme-batches/${id}`, toProgrammeBatchPayload(data));
     const item = normalizeBatch(unwrap(res));
+    academicCache.invalidate('batches');
     setBatches((prev) => prev.map((b) => (b.id === id ? item : b)));
     return item;
   }, []);
 
   const deleteBatch = useCallback(async (id) => {
     await apiClient.delete(`/academic/programme-batches/${id}`);
+    academicCache.invalidate('batches');
     setBatches((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
   const createProgrammeBatch = useCallback(async (data) => {
     const response = await apiClient.post('/academic/programme-batches', toProgrammeBatchPayload(data));
     const item = normalizeBatch(unwrap(response));
+    academicCache.invalidate('batches');
     setBatches((previous) => [...previous.filter((batch) => batch.id !== item.id), item]);
     return item;
   }, []);
@@ -1493,12 +1574,14 @@ export function AcademicProvider({ children }) {
       toProgrammeBatchPayload(data)
     );
     const item = normalizeBatch(unwrap(response));
+    academicCache.invalidate('batches');
     setBatches((previous) => previous.map((batch) => batch.id === programmeBatchId ? item : batch));
     return item;
   }, []);
 
   const deleteProgrammeBatch = useCallback(async (programmeBatchId) => {
     await apiClient.delete(`/academic/programme-batches/${programmeBatchId}`);
+    academicCache.invalidate('batches');
     setBatches((previous) => previous.filter((batch) => batch.id !== programmeBatchId));
   }, []);
 
