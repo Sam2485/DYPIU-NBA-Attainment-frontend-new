@@ -270,12 +270,12 @@ export default function IqacAuditLogsPage() {
       if (toDate) params.to = new Date(toDate + 'T23:59:59').toISOString();
 
       const response = await auditApi.getAuditLogs(params);
-      const data = response?.data?.data || response?.data || {};
+      const data = response?.data?.data !== undefined ? response.data.data : (response?.data !== undefined ? response.data : (response || {}));
 
-      const content = Array.isArray(data.content) ? data.content : [];
+      const content = Array.isArray(data.content) ? data.content : (Array.isArray(data) ? data : []);
       setLogs(content);
       setTotalPages(data.totalPages || 1);
-      setTotalElements(data.totalElements || content.length);
+      setTotalElements(data.totalElements !== undefined ? data.totalElements : content.length);
     } catch (err) {
       console.error('Failed to load audit logs:', err);
       setErrorMessage(err?.response?.data?.message || err?.message || 'Unable to retrieve audit logs.');

@@ -390,11 +390,9 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const batchStatus = String(selectedBatch?.status ?? '').toUpperCase();
   const isBatchFrozen = batchStatus === 'COMPLETED' || batchStatus === 'GRADUATED';
   const hasResolvedSelectedBatch = Boolean(selectedBatch?.id) && String(selectedBatch.id) === String(batchId);
-  // The API is requested with role=COURSE_COORDINATOR. Some valid responses
-  // identify those users as FACULTY, so retain both documented role values.
-  const coordinatorOptions = courseCoordinators.filter((person) =>
-    person.isActive !== false
-      && ['COURSE_COORDINATOR', 'FACULTY'].includes(String(person.role ?? '').toUpperCase())
+  // Accept all active faculty/coordinators returned by loadCourseCoordinators
+  const coordinatorOptions = courseCoordinators.filter(
+    (person) => Boolean(person) && person.isActive !== false
   );
 
   // Courses belong directly to a programme batch; only the coordinator list
@@ -1077,9 +1075,9 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   )}
                   {programmeBatchCourses.map((offering) => {
                     const assignedCoordinator = coordinatorOptions.find(
-                      (faculty) => String(faculty.id) === String(offering.courseCoordinatorId)
-                        || faculty.email === offering.courseCoordinatorEmail
-                        || faculty.name === offering.courseCoordinatorName
+                      (faculty) => (faculty.id != null && String(faculty.id) === String(offering.courseCoordinatorId))
+                        || (offering.courseCoordinatorEmail && faculty.email && faculty.email.toLowerCase() === offering.courseCoordinatorEmail.toLowerCase())
+                        || (offering.courseCoordinatorName && faculty.name && faculty.name.toLowerCase() === offering.courseCoordinatorName.toLowerCase())
                     );
                     const coordinatorId = assignedCoordinator?.id ?? offering.courseCoordinatorId ?? '';
                     return (

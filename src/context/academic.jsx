@@ -768,6 +768,9 @@ export function AcademicProvider({ children }) {
       setCourseOfferings([]);
       return [];
     }
+    if ((role === 'FACULTY' || role === 'COURSE_COORDINATOR') && user?.email) {
+      return loadAssignedCourseOfferings(user, targetBatchId);
+    }
     try {
       const response = await apiClient.get(
         `/programme-batch-courses/batch/${targetBatchId}`
@@ -779,13 +782,15 @@ export function AcademicProvider({ children }) {
       console.warn('loadCourseOfferings failed:', err);
       return [];
     }
-  }, [batchId]);
+  }, [batchId, role, user]);
 
   // Course Coordinators work only with their assigned programme-batch courses.
   // The offering ID is the scope for every
   // downstream CO, mapping, attainment and ATR operation.
   const loadAssignedCourseOfferings = useCallback(async (coordinator = user, targetBatchId = batchId) => {
-    const coordinatorEmail = String(coordinator?.email ?? '').trim().toLowerCase();
+    const coordinatorEmail = String(coordinator?.email ?? user?.email ?? '').trim().toLowerCase();
+    const coordinatorId = coordinator?.id ?? user?.id ?? null;
+    const coordinatorName = String(coordinator?.name ?? user?.name ?? '').trim().toLowerCase();
 
     if (!coordinatorEmail || !targetBatchId) {
       // Route transitions can briefly run before the sidebar has restored
@@ -795,8 +800,33 @@ export function AcademicProvider({ children }) {
     }
 
     try {
-      const response = await apiClient.get(`/programme-batch-courses/batch/${targetBatchId}`);
-      const assigned = unwrapList(response).map(normalizeOffering);
+      const response = await apiClient.get(`/programme-batch-courses/batch/${targetBatchId}`, {
+        params: { coordinatorEmail },
+      });
+      let assigned = unwrapList(response).map(normalizeOffering);
+
+      // Client-side defense-in-depth filtering ensuring only user's assigned offerings are displayed
+      if (assigned.length > 0) {
+        assigned = assigned.filter((offering) => {
+          if (coordinatorId && offering.courseCoordinatorId && String(offering.courseCoordinatorId) === String(coordinatorId)) {
+            return true;
+          }
+          if (coordinatorName && offering.courseCoordinatorName && offering.courseCoordinatorName.toLowerCase() === coordinatorName) {
+            return true;
+          }
+          if (coordinatorEmail && offering.courseCoordinatorEmail && offering.courseCoordinatorEmail.toLowerCase() === coordinatorEmail) {
+            return true;
+          }
+          if (coordinatorEmail && offering.assignedFaculty && offering.assignedFaculty.toLowerCase().includes(coordinatorEmail)) {
+            return true;
+          }
+          if (coordinatorName && offering.assignedFaculty && offering.assignedFaculty.toLowerCase().includes(coordinatorName)) {
+            return true;
+          }
+          return false;
+        });
+      }
+
       setCourseOfferings(assigned);
       return assigned;
     } catch (err) {

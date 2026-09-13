@@ -114,23 +114,51 @@ const toAuthenticatedUser = (backendUser, fallbackEmail = null) => {
 
 const readStoredSession = () => {
   try {
-    const rawSession = sessionStorage.getItem(AUTH_SESSION_KEY);
+    let rawSession = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(AUTH_SESSION_KEY) : null;
+    if (!rawSession && typeof localStorage !== 'undefined') {
+      rawSession = localStorage.getItem(AUTH_SESSION_KEY);
+    }
     return rawSession ? JSON.parse(rawSession) : null;
   } catch {
-    sessionStorage.removeItem(AUTH_SESSION_KEY);
+    if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(AUTH_SESSION_KEY);
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(AUTH_SESSION_KEY);
     return null;
   }
 };
 
 const persistSession = (accessToken, refreshToken, user) => {
-  sessionStorage.setItem(
-    AUTH_SESSION_KEY,
-    JSON.stringify({ accessToken, refreshToken, user })
-  );
+  const sessionStr = JSON.stringify({ accessToken, refreshToken, user });
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(AUTH_SESSION_KEY, sessionStr);
+      sessionStorage.setItem('authToken', accessToken);
+      if (refreshToken) sessionStorage.setItem('refreshToken', refreshToken);
+    }
+  } catch {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(AUTH_SESSION_KEY, sessionStr);
+      localStorage.setItem('authToken', accessToken);
+      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+    }
+  } catch {}
 };
 
 const clearStoredSession = () => {
-  sessionStorage.removeItem(AUTH_SESSION_KEY);
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(AUTH_SESSION_KEY);
+      sessionStorage.removeItem('authToken');
+      sessionStorage.removeItem('refreshToken');
+    }
+  } catch {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(AUTH_SESSION_KEY);
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+    }
+  } catch {}
 };
 
 export function AuthProvider({ children }) {

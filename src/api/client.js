@@ -100,7 +100,25 @@ apiClient.interceptors.request.use(
     // Use the configured backend. Development defaults to localhost:8080.
     config.baseURL = currentActiveUrl;
 
-    const token = authToken;
+    let token = authToken;
+
+    // Synchronous storage fallback to prevent unauthenticated requests on cold-start or page reload
+    if (!token && typeof window !== 'undefined') {
+      try {
+        const raw = sessionStorage.getItem('nba_auth_session') || localStorage.getItem('nba_auth_session');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          token = parsed?.accessToken || parsed?.token || null;
+          if (token) authToken = token;
+        }
+        if (!token) {
+          token = sessionStorage.getItem('authToken') || localStorage.getItem('authToken') || null;
+          if (token) authToken = token;
+        }
+      } catch {
+        // Ignore storage access errors
+      }
+    }
 
     config.headers = config.headers || {};
 
@@ -127,7 +145,7 @@ apiClient.interceptors.request.use(
 
 apiClient.interceptors.response.use(
   (response) => {
-          console.log('[API RESPONSE]', {
+    console.log('[API RESPONSE]', {
       method: response.config?.method?.toUpperCase(),
       url: response.config?.url,
       status: response.status,
@@ -152,18 +170,22 @@ apiClient.interceptors.response.use(
       const requestUrl = String(request.url || '');
       const isAuthRequest = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/logout') || requestUrl.includes('/auth/refresh');
 
-      if (!request.__skipAuthRefresh && !request.__retriedWithFreshToken && !isAuthRequest && tokenRefreshHandler) {
-        try {
-          refreshInFlight ??= Promise.resolve(tokenRefreshHandler()).finally(() => {
-            refreshInFlight = null;
-          });
-          const refreshedToken = await refreshInFlight;
-          if (refreshedToken) {
-            request.__retriedWithFreshToken = true;
-            return apiClient(request);
+      if (!request.__skipAuthRefresh && !request.__retriedWithFreshToken && !isAuthRequest) {
+        if (tokenRefreshHandler) {
+          try {
+            refreshInFlight ??= Promise.resolve(tokenRefreshHandler()).finally(() => {
+              refreshInFlight = null;
+            });
+            const refreshedToken = await refreshInFlight;
+            if (refreshedToken) {
+              request.__retriedWithFreshToken = true;
+              request.headers = request.headers || {};
+              request.headers.Authorization = `Bearer ${refreshedToken}`;
+              return apiClient(request);
+            }
+          } catch {
+            // Fall through to clean signed-out state below
           }
-        } catch {
-          // Fall through to a clean signed-out state below.
         }
       }
 
@@ -178,9 +200,16 @@ apiClient.interceptors.response.use(
         sessionStorage.removeItem('user');
       }
 
-      if (typeof localStorage !== 'undefined') localStorage.removeItem('authToken');
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('nba_auth_session');
+        localStorage.removeItem('nba_user');
+        localStorage.removeItem('role');
+        localStorage.removeItem('user');
+      }
 
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && !isAuthRequest) {
         window.dispatchEvent(new Event('nba-auth-expired'));
       }
     }

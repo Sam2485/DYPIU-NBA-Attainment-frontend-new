@@ -102,8 +102,9 @@ export default function IqacRecoveryPage() {
     try {
       setSummaryLoading(true);
       const res = await recoveryApi.getSummary();
-      if (res?.data?.data) {
-        setSummary(res.data.data);
+      const payload = res?.data?.data !== undefined ? res.data.data : (res?.data !== undefined ? res.data : res);
+      if (payload && typeof payload === 'object') {
+        setSummary(payload);
       }
     } catch (err) {
       console.warn('Failed to fetch recovery summary metrics:', err);
@@ -126,8 +127,9 @@ export default function IqacRecoveryPage() {
       };
 
       const res = await recoveryApi.getDeletedItems(params);
-      if (res?.data?.data) {
-        setItems(res.data.data);
+      const payload = res?.data?.data !== undefined ? res.data.data : (res?.data !== undefined ? res.data : res);
+      if (Array.isArray(payload)) {
+        setItems(payload);
       } else {
         setItems([]);
       }
