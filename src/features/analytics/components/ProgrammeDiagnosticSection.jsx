@@ -219,40 +219,44 @@ export default function ProgrammeDiagnosticSection({
   }, [selectedOutcome, loadCourseEvidence]);
 
   // Derived evidence metrics
-  const poMetCount = poHealth.filter((p) => p.targetMet).length;
-  const poTotalCount = poHealth.length;
+  const poMetCount = Array.isArray(poHealth) ? poHealth.filter((p) => p.targetMet).length : 0;
+  const poTotalCount = Array.isArray(poHealth) ? poHealth.length : 0;
   const poDeficitCount = poTotalCount - poMetCount;
 
-  const psoMetCount = psoHealth.filter((p) => p.targetMet).length;
-  const psoTotalCount = psoHealth.length;
+  const psoMetCount = Array.isArray(psoHealth) ? psoHealth.filter((p) => p.targetMet).length : 0;
+  const psoTotalCount = Array.isArray(psoHealth) ? psoHealth.length : 0;
   const psoDeficitCount = psoTotalCount - psoMetCount;
 
   // Largest deficit outcome across POs and PSOs
   const largestDeficit = useMemo(() => {
     let worst = null;
-    poHealth.forEach((p) => {
-      if (p.gap !== null && p.gap < 0) {
-        if (!worst || p.gap < worst.gap) {
-          worst = { ...p, type: 'PO', code: p.poCode };
+    if (Array.isArray(poHealth)) {
+      poHealth.forEach((p) => {
+        if (p.gap !== null && p.gap < 0) {
+          if (!worst || p.gap < worst.gap) {
+            worst = { ...p, type: 'PO', code: p.poCode };
+          }
         }
-      }
-    });
-    psoHealth.forEach((p) => {
-      if (p.gap !== null && p.gap < 0) {
-        if (!worst || p.gap < worst.gap) {
-          worst = { ...p, type: 'PSO', code: p.psoCode };
+      });
+    }
+    if (Array.isArray(psoHealth)) {
+      psoHealth.forEach((p) => {
+        if (p.gap !== null && p.gap < 0) {
+          if (!worst || p.gap < worst.gap) {
+            worst = { ...p, type: 'PSO', code: p.psoCode };
+          }
         }
-      }
-    });
+      });
+    }
     return worst;
   }, [poHealth, psoHealth]);
 
   // Historical data points for selected outcome
   const outcomeHistoricalPoints = useMemo(() => {
-    if (!selectedOutcome || trends.length === 0) return [];
+    if (!selectedOutcome || !Array.isArray(trends) || trends.length === 0) return [];
     const code = (selectedOutcome.code || selectedOutcome.poCode || selectedOutcome.psoCode || '').toUpperCase().trim();
     const series = trends[0]; // Programme level series
-    if (!series || !series.cohortDataPoints) return [];
+    if (!series || !Array.isArray(series.cohortDataPoints)) return [];
 
     return series.cohortDataPoints
       .filter((p) => p.outcomeCode && p.outcomeCode.toUpperCase().trim() === code)

@@ -104,7 +104,7 @@ export default function HistoricalIntelligenceSection({
 
   // Available unique outcome codes in the active series
   const availableOutcomes = useMemo(() => {
-    if (!activeSeries || !Array.isArray(activeSeries.cohortDataPoints)) return [];
+    if (!activeSeries || !Array.isArray(activeSeries.cohortDataPoints)) return { pos: [], psos: [], all: [] };
     const codes = new Set();
     activeSeries.cohortDataPoints.forEach((p) => {
       if (p.outcomeCode) codes.add(p.outcomeCode);
@@ -131,7 +131,7 @@ export default function HistoricalIntelligenceSection({
 
   // Ensure selected outcome exists in active series
   useEffect(() => {
-    if (availableOutcomes.all.length > 0 && !availableOutcomes.all.includes(selectedOutcomeCode)) {
+    if (availableOutcomes?.all?.length > 0 && !availableOutcomes.all.includes(selectedOutcomeCode)) {
       setSelectedOutcomeCode(availableOutcomes.all[0]);
     }
   }, [availableOutcomes, selectedOutcomeCode]);
@@ -213,7 +213,7 @@ export default function HistoricalIntelligenceSection({
           )}
 
           {/* Outcome Code Selector */}
-          {availableOutcomes.all.length > 0 && (
+          {availableOutcomes?.all?.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>Outcome:</span>
               <select
@@ -222,7 +222,7 @@ export default function HistoricalIntelligenceSection({
                 style={selectStyle}
                 aria-label="Select Outcome Code"
               >
-                {availableOutcomes.pos.length > 0 && (
+                {availableOutcomes?.pos?.length > 0 && (
                   <optgroup label="Programme Outcomes (POs)">
                     {availableOutcomes.pos.map((code) => (
                       <option key={code} value={code}>
@@ -231,7 +231,7 @@ export default function HistoricalIntelligenceSection({
                     ))}
                   </optgroup>
                 )}
-                {availableOutcomes.psos.length > 0 && (
+                {availableOutcomes?.psos?.length > 0 && (
                   <optgroup label="Programme Specific Outcomes (PSOs)">
                     {availableOutcomes.psos.map((code) => (
                       <option key={code} value={code}>
