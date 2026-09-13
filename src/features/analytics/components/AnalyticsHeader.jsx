@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Sparkles, Activity } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 export default function AnalyticsHeader({ lastRefreshed = null }) {
   return (
@@ -22,15 +22,12 @@ export default function AnalyticsHeader({ lastRefreshed = null }) {
         </div>
       </div>
 
-      {/* Main Title & Subtitle */}
+      {/* Main Title */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ margin: 0, color: '#0f172a', fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8 }}>
             Outcome Attainment & Quality Assurance Intelligence
           </h1>
-          <p style={{ margin: '6px 0 0', color: '#475569', fontSize: 13.5, lineHeight: 1.5, maxWidth: 880 }}>
-            Unified institutional intelligence covering Program Outcomes (PO1–PO12), Program Specific Outcomes (PSOs), multi-programme cohort landscape, gap diagnostics, and closed-loop Action Taken Report (ATR) tracking.
-          </p>
         </div>
       </div>
     </div>

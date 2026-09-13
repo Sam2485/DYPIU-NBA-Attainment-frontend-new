@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useUser } from '../../context/user';
+import { analyticsApi } from '../../api';
 import AnalyticsHeader from './components/AnalyticsHeader';
 import AnalyticsFilterBar from './components/AnalyticsFilterBar';
 import ActiveScopeBanner from './components/ActiveScopeBanner';
 import KpiSummarySection from './components/KpiSummarySection';
 import PoPsoIntelligenceSection from './components/PoPsoIntelligenceSection';
 import ProgrammeLandscapeSection from './components/ProgrammeLandscapeSection';
+import ProgrammeDiagnosticSection from './components/ProgrammeDiagnosticSection';
 import AttentionAreasSection from './components/AttentionAreasSection';
 import HistoricalIntelligenceSection from './components/HistoricalIntelligenceSection';
 import AtrIntelligenceSection from './components/AtrIntelligenceSection';
@@ -37,6 +39,20 @@ export default function IqacAnalyticsDashboard() {
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
   const [metadataError, setMetadataError] = useState(null);
   const [lastRefreshed, setLastRefreshed] = useState(null);
+
+  // Real KPI Data State (Phase 2)
+  const [kpiData, setKpiData] = useState(null);
+  const [isLoadingKpis, setIsLoadingKpis] = useState(true);
+  const [kpiError, setKpiError] = useState(null);
+
+  // Real PO / PSO Health Data State (Phase 3)
+  const [poHealthData, setPoHealthData] = useState([]);
+  const [isLoadingPoHealth, setIsLoadingPoHealth] = useState(true);
+  const [poHealthError, setPoHealthError] = useState(null);
+
+  const [psoHealthData, setPsoHealthData] = useState([]);
+  const [isLoadingPsoHealth, setIsLoadingPsoHealth] = useState(true);
+  const [psoHealthError, setPsoHealthError] = useState(null);
 
   // Combined master programmes list
   const allProgrammes = useMemo(() => {
@@ -113,6 +129,164 @@ export default function IqacAnalyticsDashboard() {
     loadDepartments().catch(() => {});
     loadMasterProgrammes().catch(() => {});
   }, [loadDepartments, loadMasterProgrammes]);
+
+  // Programme Cohort Selection Handler for Landscape Drill-down
+  const handleSelectProgrammeCohort = useCallback(async ({ schoolId, departmentId, masterProgrammeId, programmeBatchId }) => {
+    if (schoolId) {
+      setSelectedSchoolId(schoolId);
+      await loadDepartments(schoolId).catch(() => {});
+    }
+    if (departmentId) {
+      setSelectedDepartmentId(departmentId);
+      await loadMasterProgrammes(departmentId).catch(() => {});
+    }
+    if (masterProgrammeId) {
+      setSelectedMasterProgrammeId(masterProgrammeId);
+      await loadProgrammeBatches(masterProgrammeId).catch(() => {});
+    }
+    if (programmeBatchId) {
+      setSelectedProgrammeBatchId(programmeBatchId);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [loadDepartments, loadMasterProgrammes, loadProgrammeBatches]);
+
+  // Scoped KPI Fetcher (Phase 2)
+  const loadKpis = useCallback(async (scope = {}) => {
+    setIsLoadingKpis(true);
+    setKpiError(null);
+    try {
+      const res = await analyticsApi.getKpis(scope);
+      const data = res?.data?.data ?? res?.data ?? null;
+      setKpiData(data);
+    } catch (err) {
+      console.error('Failed to load analytics KPIs:', err);
+      setKpiError('Unable to load analytics KPIs. Please try again.');
+    } finally {
+      setIsLoadingKpis(false);
+    }
+  }, []);
+
+  // Scoped PO Health Fetcher (Phase 3)
+  const loadPoHealth = useCallback(async (scope = {}) => {
+    setIsLoadingPoHealth(true);
+    setPoHealthError(null);
+    try {
+      const res = await analyticsApi.getPoHealth(scope);
+      const data = res?.data?.data ?? res?.data ?? [];
+      setPoHealthData(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load PO health for scope:', err);
+      setPoHealthError('Unable to load PO health metrics. Please try again.');
+    } finally {
+      setIsLoadingPoHealth(false);
+    }
+  }, []);
+
+  // Scoped PSO Health Fetcher (Phase 3)
+  const loadPsoHealth = useCallback(async (scope = {}) => {
+    setIsLoadingPsoHealth(true);
+    setPsoHealthError(null);
+    try {
+      const res = await analyticsApi.getPsoHealth(scope);
+      const data = res?.data?.data ?? res?.data ?? [];
+      setPsoHealthData(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load PSO health for scope:', err);
+      setPsoHealthError('Unable to load PSO health metrics. Please try again.');
+    } finally {
+      setIsLoadingPsoHealth(false);
+    }
+  }, []);
+
+  // React to Hierarchy Scope Changes with Stale Request Protection
+  useEffect(() => {
+    let isCurrent = true;
+    setIsLoadingKpis(true);
+    setKpiError(null);
+    setIsLoadingPoHealth(true);
+    setPoHealthError(null);
+    setIsLoadingPsoHealth(true);
+    setPsoHealthError(null);
+
+    const scope = {};
+    if (selectedSchoolId) scope.schoolId = selectedSchoolId;
+    if (selectedDepartmentId) scope.departmentId = selectedDepartmentId;
+    if (selectedMasterProgrammeId) scope.masterProgrammeId = selectedMasterProgrammeId;
+    if (selectedProgrammeBatchId) scope.programmeBatchId = selectedProgrammeBatchId;
+
+    analyticsApi.getKpis(scope)
+      .then((res) => {
+        if (!isCurrent) return;
+        const data = res?.data?.data ?? res?.data ?? null;
+        setKpiData(data);
+        setIsLoadingKpis(false);
+      })
+      .catch((err) => {
+        if (!isCurrent) return;
+        console.error('Failed to load analytics KPIs for scope:', err);
+        setKpiError('Unable to load analytics KPIs. Please try again.');
+        setIsLoadingKpis(false);
+      });
+
+    analyticsApi.getPoHealth(scope)
+      .then((res) => {
+        if (!isCurrent) return;
+        const data = res?.data?.data ?? res?.data ?? [];
+        setPoHealthData(Array.isArray(data) ? data : []);
+        setIsLoadingPoHealth(false);
+      })
+      .catch((err) => {
+        if (!isCurrent) return;
+        console.error('Failed to load PO health for scope:', err);
+        setPoHealthError('Unable to load PO health metrics. Please try again.');
+        setIsLoadingPoHealth(false);
+      });
+
+    analyticsApi.getPsoHealth(scope)
+      .then((res) => {
+        if (!isCurrent) return;
+        const data = res?.data?.data ?? res?.data ?? [];
+        setPsoHealthData(Array.isArray(data) ? data : []);
+        setIsLoadingPsoHealth(false);
+      })
+      .catch((err) => {
+        if (!isCurrent) return;
+        console.error('Failed to load PSO health for scope:', err);
+        setPsoHealthError('Unable to load PSO health metrics. Please try again.');
+        setIsLoadingPsoHealth(false);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [selectedSchoolId, selectedDepartmentId, selectedMasterProgrammeId, selectedProgrammeBatchId]);
+
+  const handleRetryKpis = useCallback(() => {
+    const scope = {};
+    if (selectedSchoolId) scope.schoolId = selectedSchoolId;
+    if (selectedDepartmentId) scope.departmentId = selectedDepartmentId;
+    if (selectedMasterProgrammeId) scope.masterProgrammeId = selectedMasterProgrammeId;
+    if (selectedProgrammeBatchId) scope.programmeBatchId = selectedProgrammeBatchId;
+    loadKpis(scope);
+  }, [loadKpis, selectedDepartmentId, selectedMasterProgrammeId, selectedProgrammeBatchId, selectedSchoolId]);
+
+  const handleRetryPoHealth = useCallback(() => {
+    const scope = {};
+    if (selectedSchoolId) scope.schoolId = selectedSchoolId;
+    if (selectedDepartmentId) scope.departmentId = selectedDepartmentId;
+    if (selectedMasterProgrammeId) scope.masterProgrammeId = selectedMasterProgrammeId;
+    if (selectedProgrammeBatchId) scope.programmeBatchId = selectedProgrammeBatchId;
+    loadPoHealth(scope);
+  }, [loadPoHealth, selectedDepartmentId, selectedMasterProgrammeId, selectedProgrammeBatchId, selectedSchoolId]);
+
+  const handleRetryPsoHealth = useCallback(() => {
+    const scope = {};
+    if (selectedSchoolId) scope.schoolId = selectedSchoolId;
+    if (selectedDepartmentId) scope.departmentId = selectedDepartmentId;
+    if (selectedMasterProgrammeId) scope.masterProgrammeId = selectedMasterProgrammeId;
+    if (selectedProgrammeBatchId) scope.programmeBatchId = selectedProgrammeBatchId;
+    loadPsoHealth(scope);
+  }, [loadPsoHealth, selectedDepartmentId, selectedMasterProgrammeId, selectedProgrammeBatchId, selectedSchoolId]);
 
   // Derived Filtered Lists for Selectors
   const filteredDepartments = useMemo(() => {
@@ -243,26 +417,71 @@ export default function IqacAnalyticsDashboard() {
       />
 
       {/* 4. Section 1: Institutional KPI Area */}
-      <KpiSummarySection isLoading={isLoadingMetadata} />
+      <KpiSummarySection
+        kpiData={kpiData}
+        isLoading={isLoadingKpis}
+        error={kpiError}
+        onRetry={handleRetryKpis}
+      />
 
       {/* 5. Section 2: PO & PSO Attainment Intelligence */}
-      <PoPsoIntelligenceSection isLoading={isLoadingMetadata} />
+      <PoPsoIntelligenceSection
+        poHealthData={poHealthData}
+        psoHealthData={psoHealthData}
+        isLoadingPo={isLoadingPoHealth}
+        isLoadingPso={isLoadingPsoHealth}
+        poError={poHealthError}
+        psoError={psoHealthError}
+        onRetryPo={handleRetryPoHealth}
+        onRetryPso={handleRetryPsoHealth}
+      />
 
       {/* 6. Section 3: Programme Cohort Attainment Landscape */}
       <ProgrammeLandscapeSection
-        programmes={filteredProgrammes}
-        batches={filteredBatches}
-        isLoading={isLoadingMetadata}
+        selectedSchoolId={selectedSchoolId}
+        selectedDepartmentId={selectedDepartmentId}
+        selectedMasterProgrammeId={selectedMasterProgrammeId}
+        selectedProgrammeBatchId={selectedProgrammeBatchId}
+        onSelectProgrammeCohort={handleSelectProgrammeCohort}
       />
 
-      {/* 7. Section 4: Prioritized Attention Areas & Deficit Diagnostics */}
-      <AttentionAreasSection isLoading={isLoadingMetadata} />
+      {/* 7. Section 4: Programme Diagnostic Analytics (Phase 8) */}
+      <ProgrammeDiagnosticSection
+        selectedSchoolId={selectedSchoolId}
+        selectedDepartmentId={selectedDepartmentId}
+        selectedMasterProgrammeId={selectedMasterProgrammeId}
+        selectedProgrammeBatchId={selectedProgrammeBatchId}
+        programmeBatches={batches}
+        activeProgramme={activeProgramme}
+        activeDepartment={activeDepartment}
+        activeSchool={activeSchool}
+        onSelectBatch={handleSelectBatch}
+        onClearProgramme={() => setSelectedMasterProgrammeId(null)}
+      />
+
+      {/* 8. Section 5: Prioritized Attention Areas & Deficit Diagnostics */}
+      <AttentionAreasSection
+        selectedSchoolId={selectedSchoolId}
+        selectedDepartmentId={selectedDepartmentId}
+        selectedMasterProgrammeId={selectedMasterProgrammeId}
+        selectedProgrammeBatchId={selectedProgrammeBatchId}
+      />
 
       {/* 8. Section 5: Historical Multi-Cohort Longitudinal Intelligence */}
-      <HistoricalIntelligenceSection isLoading={isLoadingMetadata} />
+      <HistoricalIntelligenceSection
+        selectedSchoolId={selectedSchoolId}
+        selectedDepartmentId={selectedDepartmentId}
+        selectedMasterProgrammeId={selectedMasterProgrammeId}
+        selectedProgrammeBatchId={selectedProgrammeBatchId}
+      />
 
-      {/* 9. Section 6: Action Taken Report (ATR) Closed-Loop Governance */}
-      <AtrIntelligenceSection isLoading={isLoadingMetadata} />
+      {/* 9. Section 6: Action Taken Report (ATR) Detailed Intelligence */}
+      <AtrIntelligenceSection
+        selectedSchoolId={selectedSchoolId}
+        selectedDepartmentId={selectedDepartmentId}
+        selectedMasterProgrammeId={selectedMasterProgrammeId}
+        selectedProgrammeBatchId={selectedProgrammeBatchId}
+      />
     </div>
   );
 }

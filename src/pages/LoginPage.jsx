@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, Loader2, KeyRound, CheckCircle2, X, MapPin, ShieldAlert } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, Loader2, KeyRound, CheckCircle2, X } from 'lucide-react';
 import apiClient from '../api/client';
 
 import bgImage from '../assets/dyp.jpeg';
@@ -22,10 +22,8 @@ export default function LoginPage() {
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
-  const [forgotStatusText, setForgotStatusText] = useState('');
   const [forgotMessage, setForgotMessage] = useState('');
   const [forgotError, setForgotError] = useState('');
-  const [userLocation, setUserLocation] = useState(null);
 
   // If already authenticated, redirect to appropriate role dashboard
   useEffect(() => {
@@ -80,44 +78,6 @@ export default function LoginPage() {
     }
   };
 
-  const getUserGeolocation = () => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error('Geolocation is not supported by your browser. Location verification is mandatory to initiate a password reset.'));
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          const acc = position.coords.accuracy;
-          resolve({
-            latitude: lat,
-            longitude: lng,
-            accuracy: acc,
-            location: `${lat.toFixed(6)}, ${lng.toFixed(6)} (Accuracy: ±${Math.round(acc)}m)`,
-          });
-        },
-        (error) => {
-          let msg = 'Location permission is required for security verification before initiating password reset.';
-          if (error.code === error.PERMISSION_DENIED) {
-            msg = 'Location permission was denied. You MUST allow browser location access to initiate a password reset as per institutional security policy.';
-          } else if (error.code === error.POSITION_UNAVAILABLE) {
-            msg = 'Location information is unavailable. Please ensure location services are enabled on your device.';
-          } else if (error.code === error.TIMEOUT) {
-            msg = 'Location request timed out. Please check your network and GPS settings and try again.';
-          }
-          reject(new Error(msg));
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 12000,
-          maximumAge: 0,
-        }
-      );
-    });
-  };
-
   const handleForgotPassword = async (e) => {
     if (e) e.preventDefault();
     if (!forgotEmail.trim()) {
@@ -128,27 +88,13 @@ export default function LoginPage() {
     setForgotError('');
     setForgotMessage('');
     setForgotLoading(true);
-    setForgotStatusText('Verifying browser location & security permissions...');
 
     try {
-      // 1. Mandatory Geolocation Verification
-      let geo = userLocation;
-      if (!geo) {
-        geo = await getUserGeolocation();
-        setUserLocation(geo);
-      }
-
-      setForgotStatusText('Dispatching secure reset email...');
       const res = await apiClient.post('/auth/forgot-password', {
         email: forgotEmail.trim(),
-        latitude: geo.latitude,
-        longitude: geo.longitude,
-        accuracy: geo.accuracy,
-        location: geo.location,
       });
 
       setForgotLoading(false);
-      setForgotStatusText('');
       setForgotMessage(
         res?.data?.message ||
         res?.data ||
@@ -156,13 +102,12 @@ export default function LoginPage() {
       );
     } catch (err) {
       setForgotLoading(false);
-      setForgotStatusText('');
       setForgotError(
         err?.response?.data?.message ||
         err?.response?.data?.error ||
         err?.customMessage ||
         err?.message ||
-        'Unable to process password reset request. Please check location permissions and try again.'
+        'Unable to process password reset request. Please check the email address and try again.'
       );
     }
   };
@@ -781,34 +726,7 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                {/* Institutional Security Notice: Mandatory Geolocation & IP */}
-                <div
-                  style={{
-                    background: 'rgba(59, 130, 246, 0.1)',
-                    border: '1px solid rgba(96, 165, 250, 0.25)',
-                    borderRadius: '10px',
-                    padding: '11px 13px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', color: '#93c5fd', fontSize: '12px', fontWeight: '700' }}>
-                    <MapPin size={14} style={{ color: '#60a5fa', flexShrink: 0 }} />
-                    <span>Mandatory Security Verification</span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: '11.5px', color: '#cbd5e1', lineHeight: 1.45 }}>
-                    Institutional policy requires client geolocation & IP capture for every password reset. If location access is denied or disabled, the reset request is restricted.
-                  </p>
-                  {userLocation && (
-                    <div style={{ marginTop: '4px', fontSize: '11px', color: '#34d399', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <CheckCircle2 size={13} />
-                      <span>GPS Coordinates Acquired: {userLocation.location}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
                   <button
                     type="button"
                     onClick={() => setShowForgotModal(false)}
@@ -850,10 +768,10 @@ export default function LoginPage() {
                     {forgotLoading ? (
                       <>
                         <Loader2 size={15} className="animate-spin" />
-                        <span>{forgotStatusText || 'Verifying Location...'}</span>
+                        <span>Sending Reset Link...</span>
                       </>
                     ) : (
-                      'Verify & Send Reset Link'
+                      'Send Reset Link'
                     )}
                   </button>
                 </div>

@@ -71,9 +71,6 @@ export default function AnalyticsFilterBar({
           </div>
           <div>
             <strong style={{ fontSize: 13, color: '#0f172a', fontWeight: 700 }}>Institutional Scope Filters</strong>
-            <span style={{ fontSize: 11.5, color: '#64748b', marginLeft: 8 }}>
-              Filter analytics by School, Department, Master Programme, or specific Batch Cohort
-            </span>
           </div>
         </div>
 
@@ -138,6 +135,8 @@ export default function AnalyticsFilterBar({
             <span>1. School</span>
           </label>
           <select
+            id="analytics-filter-school"
+            aria-label="1. Filter by School"
             value={selectedSchoolId || ''}
             onChange={(e) => onSelectSchool(e.target.value || null)}
             disabled={isLoadingMetadata}
@@ -159,6 +158,8 @@ export default function AnalyticsFilterBar({
             <span>2. Department</span>
           </label>
           <select
+            id="analytics-filter-department"
+            aria-label="2. Filter by Department"
             value={selectedDepartmentId || ''}
             onChange={(e) => onSelectDepartment(e.target.value || null)}
             disabled={isLoadingMetadata}
@@ -180,6 +181,8 @@ export default function AnalyticsFilterBar({
             <span>3. Master Programme</span>
           </label>
           <select
+            id="analytics-filter-programme"
+            aria-label="3. Filter by Master Programme"
             value={selectedMasterProgrammeId || ''}
             onChange={(e) => onSelectProgramme(e.target.value || null)}
             disabled={isLoadingMetadata}
@@ -201,6 +204,8 @@ export default function AnalyticsFilterBar({
             <span>4. Cohort Batch</span>
           </label>
           <select
+            id="analytics-filter-batch"
+            aria-label="4. Filter by Cohort Batch"
             value={selectedProgrammeBatchId || ''}
             onChange={(e) => onSelectBatch(e.target.value || null)}
             disabled={isLoadingMetadata || !selectedMasterProgrammeId}

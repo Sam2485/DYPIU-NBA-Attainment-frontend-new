@@ -1,8 +1,8 @@
 import React from 'react';
-import { Layers, ChevronRight, Landmark, Building2, GraduationCap, Calendar, Globe2 } from 'lucide-react';
+import { ChevronRight, Landmark, Building2, GraduationCap, Calendar, Globe2 } from 'lucide-react';
 
 export default function ActiveScopeBanner({
-  scopeName = 'Institution-wide (All Schools & Programmes)',
+  _scopeName = 'Institution-wide (All Schools & Programmes)',
   school = null,
   department = null,
   programme = null,
@@ -112,11 +112,6 @@ export default function ActiveScopeBanner({
               </>
             )}
           </div>
-        </div>
-
-        {/* Right Side: Scope Summary Text */}
-        <div style={{ fontSize: 11.5, color: '#64748b' }}>
-          Showing calculated finalized outcome attainments for current filtered scope
         </div>
       </div>
     </div>

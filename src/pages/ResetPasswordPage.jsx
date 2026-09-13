@@ -38,31 +38,10 @@ export default function ResetPasswordPage() {
     setError('');
     setIsLoading(true);
 
-    let locationPayload = {};
     try {
-      if (navigator.geolocation) {
-        const pos = await new Promise((resolve) => {
-          navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), {
-            timeout: 5000,
-            enableHighAccuracy: true,
-          });
-        });
-        if (pos && pos.coords) {
-          locationPayload = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            accuracy: pos.coords.accuracy,
-            location: `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)} (Accuracy: ±${Math.round(pos.coords.accuracy)}m)`,
-          };
-        }
-      }
-    } catch (ignored) {}
-
-    try {
-      const res = await apiClient.post('/auth/reset-password', {
+      await apiClient.post('/auth/reset-password', {
         token: token.trim(),
         newPassword: password.trim(),
-        ...locationPayload,
       });
 
       setIsLoading(false);
