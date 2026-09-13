@@ -17,6 +17,7 @@ import { ScreenLoadingState } from '../components/common/ScreenState';
 
 // Core Pages
 const LoginPage = lazy(() => import('../pages/LoginPage'));
+const ResetPasswordPage = lazy(() => import('../pages/ResetPasswordPage'));
 const DashboardPage = lazy(() => import('../pages/DashboardPage'));
 const AcademicPage = lazy(() => import('../pages/AcademicPage'));
 const UsersPage = lazy(() => import('../pages/UsersPage'));
@@ -113,6 +114,7 @@ export default function AppRoutes() {
       <Routes>
         {/* Public Authentication Route */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       {/* Protected Routes */}
       <Route

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, Loader2, KeyRound, CheckCircle2, X, MapPin, ShieldAlert } from 'lucide-react';
+import apiClient from '../api/client';
 
 import bgImage from '../assets/dyp.jpeg';
 import dypLogo from '../assets/image.png';
@@ -16,6 +17,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Forgot password modal state
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotStatusText, setForgotStatusText] = useState('');
+  const [forgotMessage, setForgotMessage] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [userLocation, setUserLocation] = useState(null);
 
   // If already authenticated, redirect to appropriate role dashboard
   useEffect(() => {
@@ -66,6 +76,93 @@ export default function LoginPage() {
         err?.response?.data?.error ||
         err?.message ||
         'Authentication failed. Please verify your credentials and try again.'
+      );
+    }
+  };
+
+  const getUserGeolocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation is not supported by your browser. Location verification is mandatory to initiate a password reset.'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          const acc = position.coords.accuracy;
+          resolve({
+            latitude: lat,
+            longitude: lng,
+            accuracy: acc,
+            location: `${lat.toFixed(6)}, ${lng.toFixed(6)} (Accuracy: ±${Math.round(acc)}m)`,
+          });
+        },
+        (error) => {
+          let msg = 'Location permission is required for security verification before initiating password reset.';
+          if (error.code === error.PERMISSION_DENIED) {
+            msg = 'Location permission was denied. You MUST allow browser location access to initiate a password reset as per institutional security policy.';
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            msg = 'Location information is unavailable. Please ensure location services are enabled on your device.';
+          } else if (error.code === error.TIMEOUT) {
+            msg = 'Location request timed out. Please check your network and GPS settings and try again.';
+          }
+          reject(new Error(msg));
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 0,
+        }
+      );
+    });
+  };
+
+  const handleForgotPassword = async (e) => {
+    if (e) e.preventDefault();
+    if (!forgotEmail.trim()) {
+      setForgotError('Please enter your registered institutional email address.');
+      return;
+    }
+
+    setForgotError('');
+    setForgotMessage('');
+    setForgotLoading(true);
+    setForgotStatusText('Verifying browser location & security permissions...');
+
+    try {
+      // 1. Mandatory Geolocation Verification
+      let geo = userLocation;
+      if (!geo) {
+        geo = await getUserGeolocation();
+        setUserLocation(geo);
+      }
+
+      setForgotStatusText('Dispatching secure reset email...');
+      const res = await apiClient.post('/auth/forgot-password', {
+        email: forgotEmail.trim(),
+        latitude: geo.latitude,
+        longitude: geo.longitude,
+        accuracy: geo.accuracy,
+        location: geo.location,
+      });
+
+      setForgotLoading(false);
+      setForgotStatusText('');
+      setForgotMessage(
+        res?.data?.message ||
+        res?.data ||
+        'If an account with that email exists, a password reset link has been dispatched to your inbox.'
+      );
+    } catch (err) {
+      setForgotLoading(false);
+      setForgotStatusText('');
+      setForgotError(
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.customMessage ||
+        err?.message ||
+        'Unable to process password reset request. Please check location permissions and try again.'
       );
     }
   };
@@ -310,18 +407,44 @@ export default function LoginPage() {
 
             {/* Password Input */}
             <div>
-              <label
-                htmlFor="password-input"
-                style={{
-                  display: 'block',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  color: '#cbd5e1',
-                  marginBottom: '8px',
-                }}
-              >
-                Password
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <label
+                  htmlFor="password-input"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    color: '#cbd5e1',
+                    margin: 0,
+                  }}
+                >
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotModal(true);
+                    setForgotError('');
+                    setForgotMessage('');
+                    setForgotEmail(email || '');
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#818cf8',
+                    fontSize: '12.5px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    padding: 0,
+                    textDecoration: 'none',
+                    transition: 'color 0.2s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#a5b4fc')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = '#818cf8')}
+                >
+                  Forgot password?
+                </button>
+              </div>
               <div style={{ position: 'relative' }}>
                 <div
                   style={{
@@ -487,6 +610,258 @@ export default function LoginPage() {
       >
         © {new Date().getFullYear()} DYPIU. All rights reserved. • Internal Quality Assurance Cell (IQAC)
       </footer>
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            background: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={() => setShowForgotModal(false)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '440px',
+              background: '#0f172a',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '18px',
+              padding: '28px 26px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              position: 'relative',
+              boxSizing: 'border-box',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowForgotModal(false)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '6px',
+              }}
+            >
+              <X size={18} />
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: 'rgba(79, 70, 229, 0.2)',
+                  border: '1px solid rgba(129, 140, 248, 0.3)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: '#818cf8',
+                }}
+              >
+                <KeyRound size={18} />
+              </div>
+              <h3 style={{ margin: 0, color: '#ffffff', fontSize: '18px', fontWeight: '800' }}>
+                Reset Your Password
+              </h3>
+            </div>
+
+            <p style={{ margin: '0 0 20px', color: '#94a3b8', fontSize: '13px', lineHeight: 1.5 }}>
+              Enter your registered institutional email. We will dispatch a secure, single-use password reset link.
+            </p>
+
+            {forgotError && (
+              <div
+                style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  borderRadius: '8px',
+                  padding: '10px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '16px',
+                }}
+              >
+                <AlertCircle size={15} style={{ color: '#f87171', flexShrink: 0 }} />
+                <span style={{ color: '#fca5a5', fontSize: '12px' }}>{forgotError}</span>
+              </div>
+            )}
+
+            {forgotMessage ? (
+              <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                <div
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                    borderRadius: '50%',
+                    display: 'grid',
+                    placeItems: 'center',
+                    margin: '0 auto 14px',
+                    color: '#10b981',
+                  }}
+                >
+                  <CheckCircle2 size={26} />
+                </div>
+                <h4 style={{ margin: '0 0 8px', color: '#ffffff', fontSize: '16px', fontWeight: '700' }}>
+                  Reset Link Dispatched
+                </h4>
+                <p style={{ margin: '0 0 20px', color: '#cbd5e1', fontSize: '13px', lineHeight: 1.5 }}>
+                  {forgotMessage}
+                </p>
+                <p style={{ margin: '0 0 20px', color: '#94a3b8', fontSize: '11.5px' }}>
+                  Please check your inbox (and spam/junk folder). The link will expire in 15 minutes.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotModal(false)}
+                  style={{
+                    width: '100%',
+                    padding: '11px 18px',
+                    background: '#4f46e5',
+                    border: 'none',
+                    borderRadius: '10px',
+                    color: '#ffffff',
+                    fontSize: '13.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#cbd5e1', marginBottom: '6px' }}>
+                    Email Address
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', display: 'flex' }}>
+                      <Mail size={16} />
+                    </div>
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder="e.g. user@dypiu.ac.in"
+                      required
+                      disabled={forgotLoading}
+                      style={{
+                        width: '100%',
+                        padding: '11px 14px 11px 38px',
+                        background: 'rgba(30, 41, 59, 0.7)',
+                        border: '1px solid rgba(148, 163, 184, 0.25)',
+                        borderRadius: '10px',
+                        color: '#ffffff',
+                        fontSize: '13.5px',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Institutional Security Notice: Mandatory Geolocation & IP */}
+                <div
+                  style={{
+                    background: 'rgba(59, 130, 246, 0.1)',
+                    border: '1px solid rgba(96, 165, 250, 0.25)',
+                    borderRadius: '10px',
+                    padding: '11px 13px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', color: '#93c5fd', fontSize: '12px', fontWeight: '700' }}>
+                    <MapPin size={14} style={{ color: '#60a5fa', flexShrink: 0 }} />
+                    <span>Mandatory Security Verification</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '11.5px', color: '#cbd5e1', lineHeight: 1.45 }}>
+                    Institutional policy requires client geolocation & IP capture for every password reset. If location access is denied or disabled, the reset request is restricted.
+                  </p>
+                  {userLocation && (
+                    <div style={{ marginTop: '4px', fontSize: '11px', color: '#34d399', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <CheckCircle2 size={13} />
+                      <span>GPS Coordinates Acquired: {userLocation.location}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotModal(false)}
+                    disabled={forgotLoading}
+                    style={{
+                      flex: 1,
+                      padding: '11px 16px',
+                      background: 'rgba(51, 65, 85, 0.6)',
+                      border: '1px solid rgba(148, 163, 184, 0.2)',
+                      borderRadius: '10px',
+                      color: '#cbd5e1',
+                      fontSize: '13.5px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    style={{
+                      flex: 1.6,
+                      padding: '11px 16px',
+                      background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+                      border: '1px solid rgba(129, 140, 248, 0.3)',
+                      borderRadius: '10px',
+                      color: '#ffffff',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      cursor: forgotLoading ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      opacity: forgotLoading ? 0.75 : 1,
+                    }}
+                  >
+                    {forgotLoading ? (
+                      <>
+                        <Loader2 size={15} className="animate-spin" />
+                        <span>{forgotStatusText || 'Verifying Location...'}</span>
+                      </>
+                    ) : (
+                      'Verify & Send Reset Link'
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Global Inline Keyframe for Spinner */}
       <style>

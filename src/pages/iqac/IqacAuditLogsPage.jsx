@@ -21,6 +21,7 @@ import {
   Check,
   Sparkles,
   Download,
+  MapPin,
 } from 'lucide-react';
 import AppHeader from '../../components/layout/AppHeader';
 import AppSidebar from '../../components/layout/AppSidebar';
@@ -124,6 +125,8 @@ const ACTION_TYPES = [
   { value: 'ALLOCATE_COURSES', label: 'Allocate Courses' },
   { value: 'UPLOAD_MARKS', label: 'Upload Marks' },
   { value: 'UPLOAD_SURVEY', label: 'Upload Survey' },
+  { value: 'PASSWORD_RESET_REQUEST', label: 'Password Reset Request' },
+  { value: 'PASSWORD_RESET', label: 'Password Reset Completed' },
   { value: 'LOGIN', label: 'Login' },
   { value: 'LOGOUT', label: 'Logout' },
 ];
@@ -195,7 +198,10 @@ const getActionBadgeStyle = (action) => {
       return { bg: '#e0f2fe', color: '#0369a1', border: '#7dd3fc' };
     case 'REQUEST_REVISION':
     case 'DELETE_REQUESTED':
+    case 'PASSWORD_RESET_REQUEST':
       return { bg: '#fef3c7', color: '#92400e', border: '#fcd34d' };
+    case 'PASSWORD_RESET':
+      return { bg: '#ecfdf5', color: '#047857', border: '#6ee7b7' };
     case 'DELETE':
     case 'DELETE_REJECTED':
     case 'DELETE_EXECUTED':
@@ -1027,16 +1033,53 @@ export default function IqacAuditLogsPage() {
                 )}
 
                 {/* Network & Provenance Context */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#475569', marginBottom: '6px', textTransform: 'uppercase' }}>
-                    Network & Security Provenance
-                  </label>
-                  <div style={{ padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', display: 'grid', gap: '6px', fontSize: '12px', color: '#334155' }}>
-                    <div>🌐 <strong>IP Address:</strong> {selectedLog.ipAddress || 'Internal / Proxy Resolved'}</div>
-                    <div style={{ wordBreak: 'break-all' }}>💻 <strong>Client User Agent:</strong> {selectedLog.userAgent || '—'}</div>
-                    <div>🕒 <strong>Created At (UTC/ISO):</strong> {selectedLog.createdAt}</div>
-                  </div>
-                </div>
+                {(() => {
+                  let parsedMeta = null;
+                  try {
+                    parsedMeta = selectedLog.metadata ? (typeof selectedLog.metadata === 'string' ? JSON.parse(selectedLog.metadata) : selectedLog.metadata) : null;
+                  } catch {
+                    parsedMeta = null;
+                  }
+                  const loc = parsedMeta?.location || (parsedMeta?.latitude && parsedMeta?.longitude ? `${parsedMeta.latitude}, ${parsedMeta.longitude} (Accuracy: ±${parsedMeta.accuracyMeters || parsedMeta.accuracy || 0}m)` : null);
+                  const lat = parsedMeta?.latitude;
+                  const lng = parsedMeta?.longitude;
+                  const mapsUrl = (lat && lng) ? `https://www.google.com/maps?q=${lat},${lng}` : null;
+
+                  return (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#475569', marginBottom: '6px', textTransform: 'uppercase' }}>
+                        Network & Security Provenance
+                      </label>
+                      <div style={{ padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', display: 'grid', gap: '8px', fontSize: '12px', color: '#334155' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                          <div>🌐 <strong>IP Address:</strong> <span style={{ fontFamily: 'monospace', fontWeight: '700', color: '#0f172a', background: '#e2e8f0', padding: '2px 6px', borderRadius: '4px', marginLeft: '4px' }}>{selectedLog.ipAddress || 'Internal / Proxy Resolved'}</span></div>
+                        </div>
+
+                        {loc && (
+                          <div style={{ background: '#eff6ff', padding: '8px 12px', borderRadius: '6px', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#1e40af', fontSize: '12px', fontWeight: '700' }}>
+                              <MapPin size={15} style={{ color: '#2563eb', flexShrink: 0 }} />
+                              <span>Verified Location: <strong style={{ fontFamily: 'monospace', color: '#1d4ed8' }}>{loc}</strong></span>
+                            </div>
+                            {mapsUrl && (
+                              <a
+                                href={mapsUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ fontSize: '11.5px', color: '#2563eb', fontWeight: '700', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                              >
+                                View on Map ↗
+                              </a>
+                            )}
+                          </div>
+                        )}
+
+                        <div style={{ wordBreak: 'break-all' }}>💻 <strong>Client User Agent:</strong> {selectedLog.userAgent || '—'}</div>
+                        <div>🕒 <strong>Created At (UTC/ISO):</strong> {selectedLog.createdAt}</div>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Metadata JSON Viewer */}
                 {selectedLog.metadata && (
