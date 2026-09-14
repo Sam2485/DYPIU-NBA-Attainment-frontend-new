@@ -786,19 +786,16 @@ export default function PoPsoIntelligenceSection({
         )}
       </div>
 
-      {/* DETAIL DRAWER / MODAL FOR DEEP-DIVE (PRESERVES ALL DETAILED DATA) */}
+      {/* DETAIL SLIDE-OVER DRAWER FOR DEEP-DIVE (PRESERVES ALL DETAILED DATA) */}
       {selectedOutcome && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(15, 23, 42, 0.45)',
-            backdropFilter: 'blur(2px)',
+            background: 'rgba(15, 23, 42, 0.35)',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            justifyContent: 'flex-end',
             zIndex: 1050,
-            padding: 16,
           }}
           onClick={handleCloseDrawer}
           role="dialog"
@@ -808,23 +805,24 @@ export default function PoPsoIntelligenceSection({
           <div
             style={{
               background: '#ffffff',
-              borderRadius: 14,
               width: '100%',
-              maxWidth: 540,
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-              border: '1px solid #e2e8f0',
-              overflow: 'hidden',
-              animation: 'scaleIn 0.15s ease-out',
+              maxWidth: 500,
+              height: '100%',
+              boxShadow: '-8px 0 25px rgba(15, 23, 42, 0.15)',
+              borderLeft: '1px solid #e2e8f0',
+              display: 'flex',
+              flexDirection: 'column',
+              animation: 'slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
+            {/* Drawer Header */}
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '16px 20px',
+                padding: '18px 20px',
                 borderBottom: '1px solid #f1f5f9',
                 background: '#f8fafc',
               }}
@@ -860,8 +858,8 @@ export default function PoPsoIntelligenceSection({
                 onClick={handleCloseDrawer}
                 aria-label="Close details"
                 style={{
-                  width: 30,
-                  height: 30,
+                  width: 32,
+                  height: 32,
                   borderRadius: 6,
                   border: '1px solid #e2e8f0',
                   background: '#ffffff',
@@ -869,14 +867,15 @@ export default function PoPsoIntelligenceSection({
                   display: 'grid',
                   placeItems: 'center',
                   cursor: 'pointer',
+                  transition: 'background 0.15s ease',
                 }}
               >
                 <X size={16} />
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div style={{ padding: '20px', maxHeight: '75vh', overflowY: 'auto' }}>
+            {/* Drawer Body */}
+            <div style={{ padding: '20px', flex: 1, overflowY: 'auto' }}>
               {selectedOutcome.data && selectedOutcome.data.evaluatedInstanceCount > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {/* Performance Summary Cards */}
@@ -1034,10 +1033,10 @@ export default function PoPsoIntelligenceSection({
               )}
             </div>
 
-            {/* Modal Footer */}
+            {/* Drawer Footer */}
             <div
               style={{
-                padding: '12px 20px',
+                padding: '14px 20px',
                 borderTop: '1px solid #f1f5f9',
                 background: '#f8fafc',
                 display: 'flex',
@@ -1048,7 +1047,7 @@ export default function PoPsoIntelligenceSection({
                 type="button"
                 onClick={handleCloseDrawer}
                 style={{
-                  padding: '6px 16px',
+                  padding: '7px 18px',
                   borderRadius: 6,
                   border: '1px solid #cbd5e1',
                   background: '#ffffff',

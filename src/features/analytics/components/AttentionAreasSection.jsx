@@ -5,11 +5,12 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
-  FileText,
   BookOpen,
   RefreshCw,
   AlertCircle,
   CheckCircle2,
+  Circle,
+  MinusCircle,
 } from 'lucide-react';
 
 const selectStyle = {
@@ -34,35 +35,179 @@ function formatNumber(val) {
 }
 
 /**
- * Safely parse ATR observation content (which may be JSON or plain string).
+ * Resolves outcome-specific ATR intelligence for a given attention area item.
+ * Extracts only the corrective actions and observation matching the specific outcomeCode.
+ *
+ * @param {Object} item AttentionAreaItemDto
+ * @returns {Object} {
+ *   state: 'ACTION_PLANNED' | 'NO_ACTION_PLANNED' | 'NO_ATR_RECORDED',
+ *   actions: string[],
+ *   observation: string | null,
+ *   atrStatus: string | null,
+ *   hasRecordedAtr: boolean
+ * }
  */
-function renderAtrObservation(rawObservation) {
-  if (!rawObservation || typeof rawObservation !== 'string' || !rawObservation.trim()) {
-    return 'No specific ATR observation notes recorded.';
+function resolveOutcomeAtr(item) {
+  if (!item) {
+    return {
+      state: 'NO_ATR_RECORDED',
+      actions: [],
+      observation: null,
+      atrStatus: null,
+      hasRecordedAtr: false,
+    };
   }
 
-  const trimmed = rawObservation.trim();
-  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        return parsed.map((item) => {
-          if (typeof item === 'string') return item;
-          if (typeof item === 'object' && item !== null) {
-            return item.observation || item.action || item.statement || JSON.stringify(item);
-          }
-          return String(item);
-        }).join('; ');
+  const targetCode = (item.outcomeCode || '').toUpperCase().trim();
+  const rawAtr = item.recordedAtrObservations;
+  const hasAtr = Boolean(item.hasRecordedAtr);
+  const atrStatus = item.atrStatus || null;
+
+  if (!hasAtr && !rawAtr) {
+    return {
+      state: 'NO_ATR_RECORDED',
+      actions: [],
+      observation: null,
+      atrStatus: null,
+      hasRecordedAtr: false,
+    };
+  }
+
+  let matchedRecord = null;
+
+  if (rawAtr) {
+    if (typeof rawAtr === 'object') {
+      matchedRecord = extractOutcomeFromObject(rawAtr, targetCode);
+    } else if (typeof rawAtr === 'string' && rawAtr.trim()) {
+      const trimmed = rawAtr.trim();
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          matchedRecord = extractOutcomeFromObject(parsed, targetCode);
+        } catch {
+          // If JSON parse fails, treated as plain text observation
+          matchedRecord = { observation: trimmed, actions: [] };
+        }
+      } else {
+        matchedRecord = { observation: trimmed, actions: [] };
       }
-      if (typeof parsed === 'object' && parsed !== null) {
-        return parsed.observation || parsed.action || parsed.comment || parsed.summary || trimmed;
-      }
-    } catch {
-      // Fallback to direct string if parse fails
     }
   }
 
-  return trimmed;
+  // If no matching outcome record was found in the ATR payload and hasAtr is false
+  if (!matchedRecord && !hasAtr) {
+    return {
+      state: 'NO_ATR_RECORDED',
+      actions: [],
+      observation: null,
+      atrStatus: null,
+      hasRecordedAtr: false,
+    };
+  }
+
+  // Clean and filter actions
+  let rawActions = [];
+  if (Array.isArray(matchedRecord?.actions)) {
+    rawActions = matchedRecord.actions;
+  } else if (typeof matchedRecord?.action === 'string' && matchedRecord.action.trim()) {
+    rawActions = [matchedRecord.action];
+  } else if (typeof matchedRecord?.actions === 'string' && matchedRecord.actions.trim()) {
+    rawActions = [matchedRecord.actions];
+  }
+
+  const cleanActions = rawActions
+    .map((act) => {
+      if (typeof act === 'string') return act.trim();
+      if (typeof act === 'object' && act !== null) {
+        return (act.action || act.text || act.statement || JSON.stringify(act)).trim();
+      }
+      return String(act || '').trim();
+    })
+    .filter((act) => Boolean(act && act.length > 0));
+
+  // Extract observation
+  let observation = null;
+  if (matchedRecord?.observation && typeof matchedRecord.observation === 'string' && matchedRecord.observation.trim()) {
+    observation = matchedRecord.observation.trim();
+  } else if (matchedRecord?.remark && typeof matchedRecord.remark === 'string' && matchedRecord.remark.trim()) {
+    observation = matchedRecord.remark.trim();
+  } else if (matchedRecord?.observations && typeof matchedRecord.observations === 'string' && matchedRecord.observations.trim()) {
+    observation = matchedRecord.observations.trim();
+  }
+
+  if (cleanActions.length > 0) {
+    return {
+      state: 'ACTION_PLANNED',
+      actions: cleanActions,
+      observation,
+      atrStatus: atrStatus || matchedRecord?.status || 'RECORDED',
+      hasRecordedAtr: true,
+    };
+  }
+
+  // If ATR exists for this batch/outcome, but actions are empty
+  if (hasAtr || matchedRecord) {
+    return {
+      state: 'NO_ACTION_PLANNED',
+      actions: [],
+      observation,
+      atrStatus: atrStatus || matchedRecord?.status || 'RECORDED',
+      hasRecordedAtr: true,
+    };
+  }
+
+  return {
+    state: 'NO_ATR_RECORDED',
+    actions: [],
+    observation: null,
+    atrStatus: null,
+    hasRecordedAtr: false,
+  };
+}
+
+function extractOutcomeFromObject(obj, targetCode) {
+  if (!obj || typeof obj !== 'object') return null;
+
+  // Case 1: Array of outcome items
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      if (!item || typeof item !== 'object') continue;
+      const code = (item.outcomeCode || item.code || item.poCode || item.psoCode || '').toUpperCase().trim();
+      if (code === targetCode) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  // Case 2: Object with poOutcomes and psoOutcomes arrays
+  const allOutcomes = [
+    ...(Array.isArray(obj.poOutcomes) ? obj.poOutcomes : []),
+    ...(Array.isArray(obj.psoOutcomes) ? obj.psoOutcomes : []),
+    ...(Array.isArray(obj.outcomes) ? obj.outcomes : []),
+    ...(Array.isArray(obj.items) ? obj.items : []),
+  ];
+
+  for (const item of allOutcomes) {
+    if (!item || typeof item !== 'object') continue;
+    const code = (item.outcomeCode || item.code || item.poCode || item.psoCode || '').toUpperCase().trim();
+    if (code === targetCode) {
+      return item;
+    }
+  }
+
+  // Case 3: Keyed by outcome code { "PO1": { ... }, "PO2": { ... } }
+  if (obj[targetCode] && typeof obj[targetCode] === 'object') {
+    return obj[targetCode];
+  }
+
+  // Case 4: Top-level outcome matching target code
+  const topCode = (obj.outcomeCode || obj.code || obj.poCode || obj.psoCode || '').toUpperCase().trim();
+  if (topCode === targetCode) {
+    return obj;
+  }
+
+  return null;
 }
 
 export default function AttentionAreasSection({
@@ -341,6 +486,7 @@ export default function AttentionAreasSection({
             const itemId = item.id || `${item.programmeBatchId}_${item.outcomeCode}_${index}`;
             const isExpanded = expandedItemIds.has(itemId);
             const evidenceCount = item.contributingCourseEvidence?.length ?? 0;
+            const atr = resolveOutcomeAtr(item);
 
             return (
               <div
@@ -363,17 +509,17 @@ export default function AttentionAreasSection({
                       justifyContent: 'space-between',
                       flexWrap: 'wrap',
                       gap: 10,
-                      marginBottom: 10,
+                      marginBottom: 12,
                     }}
                   >
-                    {/* Left: Outcome Identification & Context */}
+                    {/* Left: Outcome Identification & Context (No statements rendered here) */}
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <span
                           style={{
                             padding: '3px 8px',
                             borderRadius: 6,
-                            fontSize: 12,
+                            fontSize: 12.5,
                             fontWeight: 800,
                             letterSpacing: '0.02em',
                             background: isPo ? '#eff6ff' : '#f5f3ff',
@@ -396,23 +542,9 @@ export default function AttentionAreasSection({
                           {item.outcomeType === 'PO' ? 'Programme Outcome' : 'Programme Specific Outcome'}
                         </span>
                         <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
-                          {item.programmeName} ({item.programmeCode}) • {item.batchName}
+                          {item.programmeName} {item.programmeCode ? `(${item.programmeCode})` : ''} • {item.batchName}
                         </span>
                       </div>
-
-                      {/* Outcome Statement */}
-                      {item.outcomeStatement && (
-                        <p
-                          style={{
-                            margin: '8px 0 0',
-                            fontSize: 12.5,
-                            color: '#334155',
-                            lineHeight: 1.45,
-                          }}
-                        >
-                          {item.outcomeStatement}
-                        </p>
-                      )}
                     </div>
 
                     {/* Right: Observed Gap Pill */}
@@ -448,7 +580,6 @@ export default function AttentionAreasSection({
                       display: 'grid',
                       gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
                       gap: 10,
-                      marginTop: 14,
                       padding: '12px 14px',
                       background: '#f8fafc',
                       borderRadius: 10,
@@ -477,9 +608,9 @@ export default function AttentionAreasSection({
                     </div>
 
                     <div>
-                      <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>ATR Governance</div>
+                      <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>ATR Workflow Status</div>
                       <div style={{ marginTop: 2 }}>
-                        {item.hasRecordedAtr ? (
+                        {atr.atrStatus ? (
                           <span
                             style={{
                               padding: '2px 7px',
@@ -492,7 +623,7 @@ export default function AttentionAreasSection({
                               textTransform: 'uppercase',
                             }}
                           >
-                            {item.atrStatus || 'Recorded'}
+                            {atr.atrStatus.replace(/_/g, ' ')}
                           </span>
                         ) : (
                           <span
@@ -512,27 +643,84 @@ export default function AttentionAreasSection({
                     </div>
                   </div>
 
-                  {/* Recorded ATR Observation Snippet */}
-                  {item.hasRecordedAtr && item.recordedAtrObservations && (
-                    <div
-                      style={{
-                        marginTop: 12,
-                        padding: '10px 12px',
-                        borderRadius: 8,
-                        background: '#fdf8f6',
-                        border: '1px solid #fed7aa',
-                        fontSize: 12,
-                        color: '#7c2d12',
-                        lineHeight: 1.45,
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontWeight: 700, marginBottom: 3 }}>
-                        <FileText size={13} color="#ea580c" />
-                        <span>Recorded ATR Observation:</span>
-                      </div>
-                      <div>{renderAtrObservation(item.recordedAtrObservations)}</div>
+                  {/* Structured Outcome-Specific Corrective Action & Intelligence Section */}
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding: '12px 14px',
+                      borderRadius: 8,
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Corrective Action
+                      </span>
+
+                      {/* State Badge */}
+                      {atr.state === 'ACTION_PLANNED' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#047857', fontWeight: 700, fontSize: 11.5 }}>
+                          <CheckCircle2 size={14} color="#059669" />
+                          <span>✓ Action Planned</span>
+                        </div>
+                      )}
+                      {atr.state === 'NO_ACTION_PLANNED' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#64748b', fontWeight: 700, fontSize: 11.5 }}>
+                          <Circle size={14} color="#94a3b8" />
+                          <span>○ No Action Planned</span>
+                        </div>
+                      )}
+                      {atr.state === 'NO_ATR_RECORDED' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#64748b', fontWeight: 700, fontSize: 11.5 }}>
+                          <MinusCircle size={14} color="#94a3b8" />
+                          <span>— No ATR Recorded</span>
+                        </div>
+                      )}
                     </div>
-                  )}
+
+                    {/* Actions Content */}
+                    {atr.state === 'ACTION_PLANNED' && (
+                      <ul style={{ margin: '6px 0 0', paddingLeft: 18, color: '#334155', fontSize: 12, lineHeight: 1.5 }}>
+                        {atr.actions.map((actionText, actIdx) => (
+                          <li key={actIdx} style={{ marginBottom: 4 }}>
+                            {actionText}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {atr.state === 'NO_ACTION_PLANNED' && (
+                      <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b', lineHeight: 1.45 }}>
+                        No corrective action has been recorded for this outcome.
+                      </p>
+                    )}
+
+                    {atr.state === 'NO_ATR_RECORDED' && (
+                      <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b', lineHeight: 1.45 }}>
+                        No ATR record is currently associated with this deficit.
+                      </p>
+                    )}
+
+                    {/* Recorded Observation (Only if meaningful text exists for this outcome) */}
+                    {atr.observation && (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          padding: '8px 10px',
+                          borderRadius: 6,
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          fontSize: 11.5,
+                          color: '#475569',
+                          lineHeight: 1.45,
+                        }}
+                      >
+                        <strong style={{ color: '#0f172a' }}>Recorded Observation: </strong>
+                        <span>{atr.observation}</span>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Evidence Chain Expand / Collapse Action */}
                   <div
@@ -719,4 +907,3 @@ export default function AttentionAreasSection({
     </div>
   );
 }
-

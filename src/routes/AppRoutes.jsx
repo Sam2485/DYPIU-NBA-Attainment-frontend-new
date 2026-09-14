@@ -51,6 +51,7 @@ const ProgrammeCoordinatorManageCoursesPage = lazy(() => import('../pages/progra
 const ProgrammeTargetSettingsPage = lazy(() => import('../pages/programme-coordinator/ProgrammeTargetSettingsPage'));
 const ProgrammeIndirectAttainmentPage = lazy(() => import('../pages/programme-coordinator/ProgrammeIndirectAttainmentPage'));
 const IqacDashboardPage = lazy(() => import('../pages/iqac/IqacDashboardPage'));
+const IqacAnalyticsPage = lazy(() => import('../pages/iqac/IqacAnalyticsPage'));
 const IqacSchoolsPage = lazy(() => import('../pages/iqac/IqacSchoolsPage'));
 const IqacUsersPage = lazy(() => import('../pages/iqac/IqacUsersPage'));
 const ReportTemplatePage = lazy(() => import('../pages/iqac/ReportTemplatePage'));
@@ -146,9 +147,23 @@ export default function AppRoutes() {
         path="/admin/dashboard"
         element={
           <RoleProtectedRoute allowedRoles={['IQAC']}>
-            
-              <IqacDashboardPage />
-            
+            <IqacDashboardPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/analytics"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <IqacAnalyticsPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <IqacAnalyticsPage />
           </RoleProtectedRoute>
         }
       />

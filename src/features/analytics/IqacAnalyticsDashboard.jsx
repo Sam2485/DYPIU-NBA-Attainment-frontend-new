@@ -12,7 +12,48 @@ import ProgrammeDiagnosticSection from './components/ProgrammeDiagnosticSection'
 import AttentionAreasSection from './components/AttentionAreasSection';
 import HistoricalIntelligenceSection from './components/HistoricalIntelligenceSection';
 import AtrIntelligenceSection from './components/AtrIntelligenceSection';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import {
+  AlertCircle,
+  RefreshCw,
+  LayoutDashboard,
+  Layers,
+  AlertTriangle,
+  TrendingUp,
+  FileCheck,
+} from 'lucide-react';
+
+const ANALYTICS_TABS = [
+  {
+    id: 'overview',
+    label: 'Overview',
+    subtitle: 'Institutional quality snapshot',
+    icon: LayoutDashboard,
+  },
+  {
+    id: 'cohorts',
+    label: 'Cohorts',
+    subtitle: 'Programme and cohort performance',
+    icon: Layers,
+  },
+  {
+    id: 'attention',
+    label: 'Attention',
+    subtitle: 'Observed outcome deficits requiring quality review',
+    icon: AlertTriangle,
+  },
+  {
+    id: 'history',
+    label: 'History',
+    subtitle: 'Multi-cohort attainment trends',
+    icon: TrendingUp,
+  },
+  {
+    id: 'atr',
+    label: 'ATR',
+    subtitle: 'Action and governance intelligence',
+    icon: FileCheck,
+  },
+];
 
 export default function IqacAnalyticsDashboard() {
   const {
@@ -28,6 +69,9 @@ export default function IqacAnalyticsDashboard() {
   } = useAcademic();
 
   const { refreshUsers = () => Promise.resolve([]) } = useUser();
+
+  // Active Tab State (Default: overview)
+  const [activeTab, setActiveTab] = useState('overview');
 
   // Primary Cascading Filter State
   const [selectedSchoolId, setSelectedSchoolId] = useState(null);
@@ -390,7 +434,7 @@ export default function IqacAnalyticsDashboard() {
         </div>
       )}
 
-      {/* 2. Primary Cascading Scope Filters */}
+      {/* 2. Primary Cascading Scope Filters (Preserved globally across tabs) */}
       <AnalyticsFilterBar
         schools={schools}
         departments={filteredDepartments}
@@ -408,7 +452,7 @@ export default function IqacAnalyticsDashboard() {
         isLoadingMetadata={isLoadingMetadata}
       />
 
-      {/* 3. Active Scope Breadcrumb Banner */}
+      {/* 3. Active Scope Breadcrumb Banner (Preserved globally across tabs) */}
       <ActiveScopeBanner
         school={activeSchool}
         department={activeDepartment}
@@ -416,72 +460,186 @@ export default function IqacAnalyticsDashboard() {
         batch={activeBatch}
       />
 
-      {/* 4. Section 1: Institutional KPI Area */}
-      <KpiSummarySection
-        kpiData={kpiData}
-        isLoading={isLoadingKpis}
-        error={kpiError}
-        onRetry={handleRetryKpis}
-      />
+      {/* 4. Tab Navigation Workspace Strip */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 10,
+          marginBottom: 20,
+          background: '#f8fafc',
+          padding: '8px',
+          borderRadius: 12,
+          border: '1px solid #e2e8f0',
+        }}
+        role="tablist"
+        aria-label="Analytics Workspace Tabs"
+      >
+        {ANALYTICS_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                justifyContent: 'center',
+                padding: '10px 14px',
+                borderRadius: 8,
+                border: isActive ? '1px solid #6366f1' : '1px solid #e2e8f0',
+                background: '#ffffff',
+                boxShadow: isActive ? '0 2px 8px rgba(99, 102, 241, 0.15)' : 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                position: 'relative',
+                overflow: 'hidden',
+                textAlign: 'left',
+              }}
+            >
+              {isActive && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    bottom: 0,
+                    width: 4,
+                    background: '#4f46e5',
+                  }}
+                />
+              )}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 2,
+                  paddingLeft: isActive ? 6 : 0,
+                }}
+              >
+                <Icon size={16} color={isActive ? '#4f46e5' : '#64748b'} />
+                <span
+                  style={{
+                    fontSize: 13.5,
+                    fontWeight: isActive ? 800 : 600,
+                    color: isActive ? '#1e1b4b' : '#334155',
+                  }}
+                >
+                  {tab.label}
+                </span>
+              </div>
+              <span
+                style={{
+                  fontSize: 11,
+                  color: isActive ? '#4f46e5' : '#64748b',
+                  fontWeight: isActive ? 600 : 400,
+                  paddingLeft: isActive ? 6 : 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: '100%',
+                }}
+              >
+                {tab.subtitle}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-      {/* 5. Section 2: PO & PSO Attainment Intelligence */}
-      <PoPsoIntelligenceSection
-        poHealthData={poHealthData}
-        psoHealthData={psoHealthData}
-        isLoadingPo={isLoadingPoHealth}
-        isLoadingPso={isLoadingPsoHealth}
-        poError={poHealthError}
-        psoError={psoHealthError}
-        onRetryPo={handleRetryPoHealth}
-        onRetryPso={handleRetryPsoHealth}
-      />
+      {/* 5. Active Tab Analytical View */}
+      {activeTab === 'overview' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Institutional KPI Area */}
+          <KpiSummarySection
+            kpiData={kpiData}
+            isLoading={isLoadingKpis}
+            error={kpiError}
+            onRetry={handleRetryKpis}
+          />
 
-      {/* 6. Section 3: Programme Cohort Attainment Landscape */}
-      <ProgrammeLandscapeSection
-        selectedSchoolId={selectedSchoolId}
-        selectedDepartmentId={selectedDepartmentId}
-        selectedMasterProgrammeId={selectedMasterProgrammeId}
-        selectedProgrammeBatchId={selectedProgrammeBatchId}
-        onSelectProgrammeCohort={handleSelectProgrammeCohort}
-      />
+          {/* PO & PSO Attainment Intelligence */}
+          <PoPsoIntelligenceSection
+            poHealthData={poHealthData}
+            psoHealthData={psoHealthData}
+            isLoadingPo={isLoadingPoHealth}
+            isLoadingPso={isLoadingPsoHealth}
+            poError={poHealthError}
+            psoError={psoHealthError}
+            onRetryPo={handleRetryPoHealth}
+            onRetryPso={handleRetryPsoHealth}
+          />
+        </div>
+      )}
 
-      {/* 7. Section 4: Programme Diagnostic Analytics (Phase 8) */}
-      <ProgrammeDiagnosticSection
-        selectedSchoolId={selectedSchoolId}
-        selectedDepartmentId={selectedDepartmentId}
-        selectedMasterProgrammeId={selectedMasterProgrammeId}
-        selectedProgrammeBatchId={selectedProgrammeBatchId}
-        programmeBatches={batches}
-        activeProgramme={activeProgramme}
-        activeDepartment={activeDepartment}
-        activeSchool={activeSchool}
-        onSelectBatch={handleSelectBatch}
-        onClearProgramme={() => setSelectedMasterProgrammeId(null)}
-      />
+      {activeTab === 'cohorts' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Programme Cohort Attainment Landscape */}
+          <ProgrammeLandscapeSection
+            selectedSchoolId={selectedSchoolId}
+            selectedDepartmentId={selectedDepartmentId}
+            selectedMasterProgrammeId={selectedMasterProgrammeId}
+            selectedProgrammeBatchId={selectedProgrammeBatchId}
+            onSelectProgrammeCohort={handleSelectProgrammeCohort}
+          />
 
-      {/* 8. Section 5: Prioritized Attention Areas & Deficit Diagnostics */}
-      <AttentionAreasSection
-        selectedSchoolId={selectedSchoolId}
-        selectedDepartmentId={selectedDepartmentId}
-        selectedMasterProgrammeId={selectedMasterProgrammeId}
-        selectedProgrammeBatchId={selectedProgrammeBatchId}
-      />
+          {/* Programme Diagnostic Analytics */}
+          <ProgrammeDiagnosticSection
+            selectedSchoolId={selectedSchoolId}
+            selectedDepartmentId={selectedDepartmentId}
+            selectedMasterProgrammeId={selectedMasterProgrammeId}
+            selectedProgrammeBatchId={selectedProgrammeBatchId}
+            programmeBatches={batches}
+            activeProgramme={activeProgramme}
+            activeDepartment={activeDepartment}
+            activeSchool={activeSchool}
+            onSelectBatch={handleSelectBatch}
+            onClearProgramme={() => setSelectedMasterProgrammeId(null)}
+          />
+        </div>
+      )}
 
-      {/* 8. Section 5: Historical Multi-Cohort Longitudinal Intelligence */}
-      <HistoricalIntelligenceSection
-        selectedSchoolId={selectedSchoolId}
-        selectedDepartmentId={selectedDepartmentId}
-        selectedMasterProgrammeId={selectedMasterProgrammeId}
-        selectedProgrammeBatchId={selectedProgrammeBatchId}
-      />
+      {activeTab === 'attention' && (
+        <div>
+          {/* Prioritized Attention Areas & Deficit Diagnostics */}
+          <AttentionAreasSection
+            selectedSchoolId={selectedSchoolId}
+            selectedDepartmentId={selectedDepartmentId}
+            selectedMasterProgrammeId={selectedMasterProgrammeId}
+            selectedProgrammeBatchId={selectedProgrammeBatchId}
+          />
+        </div>
+      )}
 
-      {/* 9. Section 6: Action Taken Report (ATR) Detailed Intelligence */}
-      <AtrIntelligenceSection
-        selectedSchoolId={selectedSchoolId}
-        selectedDepartmentId={selectedDepartmentId}
-        selectedMasterProgrammeId={selectedMasterProgrammeId}
-        selectedProgrammeBatchId={selectedProgrammeBatchId}
-      />
+      {activeTab === 'history' && (
+        <div>
+          {/* Historical Multi-Cohort Longitudinal Intelligence */}
+          <HistoricalIntelligenceSection
+            selectedSchoolId={selectedSchoolId}
+            selectedDepartmentId={selectedDepartmentId}
+            selectedMasterProgrammeId={selectedMasterProgrammeId}
+            selectedProgrammeBatchId={selectedProgrammeBatchId}
+          />
+        </div>
+      )}
+
+      {activeTab === 'atr' && (
+        <div>
+          {/* Action Taken Report (ATR) Detailed Intelligence */}
+          <AtrIntelligenceSection
+            selectedSchoolId={selectedSchoolId}
+            selectedDepartmentId={selectedDepartmentId}
+            selectedMasterProgrammeId={selectedMasterProgrammeId}
+            selectedProgrammeBatchId={selectedProgrammeBatchId}
+          />
+        </div>
+      )}
     </div>
   );
 }

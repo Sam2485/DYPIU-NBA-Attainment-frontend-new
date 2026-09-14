@@ -47,6 +47,7 @@ export default function CourseCoordinatorWorkflow() {
     loadCourseOutcomes        = () => Promise.resolve([]),
     batchId                   = null,
     courseOfferingId          = null,
+    workflowProgressStore     = {},
   } = useAcademic();
   const {
     ccWorkflowProgress = null,
