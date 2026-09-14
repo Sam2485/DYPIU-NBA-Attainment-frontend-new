@@ -3,7 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import AppHeader from '../components/layout/AppHeader';
 import AppSidebar from '../components/layout/AppSidebar';
 
-import InstitutionalOperationalDashboard from '../features/dashboard/InstitutionalOperationalDashboard';
+import DashboardOverview from '../features/dashboard/DashboardOverview';
+import DirectorDashboard from '../features/director/DirectorDashboard';
+import HodDashboard from '../features/hod/HodDashboard';
+import ProgrammeCoordinatorDashboard from '../features/programme-coordinator/ProgrammeCoordinatorDashboard';
 
 import UserProfileModal from '../components/profile/UserProfileModal';
 import GenieAnimation from '../components/profile/GenieAnimation';
@@ -141,21 +144,27 @@ export default function DashboardPage() {
       >
         <AppHeader
           title={
-            role === 'IQAC'
-              ? 'Institutional Operational Dashboard'
-              : role === 'DIRECTOR'
-                ? 'Director Overview & Operational Status'
-                : role === 'HOD'
-                  ? 'HOD Overview & Department Status'
-                  : role === 'PROGRAMME_COORDINATOR'
-                    ? 'Programme Coordinator Operational Dashboard'
-                    : 'Course Coordinator Operational Dashboard'
+            role === 'DIRECTOR'
+              ? 'Director Overview & Actions'
+              : role === 'HOD'
+                ? 'HOD Overview & Actions'
+                : role === 'PROGRAMME_COORDINATOR'
+                  ? 'Programme Coordinator Overview & Actions'
+                  : 'NBA Attainment Overview'
           }
           subtitle="D. Y. Patil International University"
         />
 
         <div className="page-container">
-          <InstitutionalOperationalDashboard />
+          {role === 'DIRECTOR' ? (
+            <DirectorDashboard />
+          ) : role === 'HOD' ? (
+            <HodDashboard />
+          ) : role === 'PROGRAMME_COORDINATOR' ? (
+            <ProgrammeCoordinatorDashboard />
+          ) : (
+            <DashboardOverview />
+          )}
         </div>
 
         {/* ====================================================
