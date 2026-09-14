@@ -373,6 +373,7 @@ export default function AppSidebar({
   };
 
   // Dropdown States
+  const [navOpenIqac, setNavOpenIqac] = useState(false);
   const [navOpenDirector, setNavOpenDirector] = useState(false);
   const [navOpenHod, setNavOpenHod] = useState(false);
   const [navOpenPc, setNavOpenPc] = useState(false);
@@ -688,23 +689,67 @@ export default function AppSidebar({
       {/* ── MAIN NAVIGATION AREA ─────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', paddingRight: 2 }}>
         {role === 'IQAC' ? (
-          <nav style={{ display: 'grid', gap: 4 }} aria-label="IQAC navigation">
-            {IQAC_NAV.map((item) => {
-              const isActive = location.pathname === item.path;
+          <nav style={{ position: 'relative' }}>
+            {(() => {
+              const activeIqacItem = IQAC_NAV.find((item) => location.pathname === item.path);
               return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => navigate(item.path)}
-                  style={{ minHeight: 42, border: isActive ? '1px solid rgba(165,180,252,0.30)' : '1px solid transparent', borderRadius: 10, background: isActive ? 'rgba(99,102,241,0.22)' : 'transparent', boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none', color: '#f8fafc', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', textAlign: 'left', fontFamily: 'inherit' }}
-                >
-                  <span style={{ width: 26, height: 26, borderRadius: 7, background: isActive ? 'rgba(99,102,241,0.20)' : 'rgba(148,163,184,0.08)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                    <Icon name={item.icon} active={isActive} size={14} />
-                  </span>
-                  <span style={{ fontSize: 12.5, fontWeight: 800 }}>{item.label}</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    aria-expanded={navOpenIqac}
+                    onClick={() => setNavOpenIqac((prev) => !prev)}
+                    style={{
+                      width: '100%',
+                      minHeight: 42,
+                      border: navOpenIqac ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(148,163,184,0.20)',
+                      borderRadius: 12,
+                      background: 'rgba(30,41,59,0.72)',
+                      color: '#f8fafc',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '7px 10px',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <span style={{ width: 24, height: 24, borderRadius: 7, background: 'rgba(99,102,241,0.20)', border: '1px solid rgba(165,180,252,0.25)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      <Icon name={activeIqacItem?.icon || 'dashboard'} active size={13} />
+                    </span>
+                    <span style={{ flex: 1, textAlign: 'left', fontSize: 12, fontWeight: 800, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {activeIqacItem ? activeIqacItem.label : 'IQAC Menu'}
+                    </span>
+                    <span style={{ display: 'grid', placeItems: 'center', transition: 'transform 0.2s', transform: navOpenIqac ? 'rotate(180deg)' : 'rotate(0deg)', color: '#64748b' }}>
+                      <Icon name="chevron" size={14} />
+                    </span>
+                  </button>
+
+                  {navOpenIqac && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6, padding: 5, background: '#1f2937', border: '1px solid rgba(148,163,184,0.22)', borderRadius: 12, boxShadow: '0 18px 34px rgba(2,6,23,0.32)', display: 'grid', gap: 2, maxHeight: '340px', overflowY: 'auto', zIndex: 50 }}>
+                      {IQAC_NAV.map((item) => {
+                        const isActive = location.pathname === item.path;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => { navigate(item.path); setNavOpenIqac(false); }}
+                            style={{ minHeight: 40, border: isActive ? '1px solid rgba(165,180,252,0.24)' : '1px solid transparent', borderRadius: 9, background: isActive ? 'rgba(99,102,241,0.18)' : 'transparent', color: '#f8fafc', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9, padding: '6px 9px', textAlign: 'left', boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none', fontFamily: 'inherit' }}
+                          >
+                            <span style={{ width: 24, height: 24, borderRadius: 6, background: isActive ? 'rgba(99,102,241,0.16)' : 'rgba(148,163,184,0.08)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                              <Icon name={item.icon} active={isActive} size={13} />
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, fontSize: 12.5, lineHeight: 1.1, color: '#f8fafc' }}>{item.label}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
               );
-            })}
+            })()}
           </nav>
         ) : role === 'DIRECTOR' ? (
           <nav style={{ position: 'relative' }}>
