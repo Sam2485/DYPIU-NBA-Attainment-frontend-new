@@ -16,6 +16,7 @@ function Icon({ name, active = false, size = 16 }) {
     style: { display: 'block' },
     'aria-hidden': 'true',
   };
+  if (name === 'school' || name === 'schools') return <svg {...p}><path d="M4 21V9l8-5 8 5v12"/><path d="M9 21v-6h6v6"/><path d="M9 9h1M14 9h1M9 13h1M14 13h1"/></svg>;
   if (name === 'dashboard')  return <svg {...p}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>;
   if (name === 'users')      return <svg {...p}><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/><path d="M19 8v5"/><path d="M21.5 10.5h-5"/></svg>;
   if (name === 'config')     return <svg {...p}><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>;
@@ -100,7 +101,8 @@ const FACULTY_NAV = [
 // ── IQAC Nav Items ───────────────────────────────────────────────────────────
 const IQAC_NAV = [
   { id: 'analytics',  path: '/admin/dashboard',       icon: 'dashboard', label: 'Analytics' },
-  { id: 'users',      path: '/admin/users',           icon: 'users',     label: 'Add Users' },
+  { id: 'schools',    path: '/admin/schools',         icon: 'school',    label: 'Manage Schools' },
+  { id: 'users',      path: '/admin/users',           icon: 'users',     label: 'Manage Users' },
   { id: 'reports',    path: '/admin/reports',         icon: 'reports',   label: 'Reports' },
   { id: 'template',   path: '/admin/report-template', icon: 'atr',       label: 'Report Template' },
   { id: 'audit-logs', path: '/admin/audit-logs',      icon: 'shield',    label: 'Audit Logs' },

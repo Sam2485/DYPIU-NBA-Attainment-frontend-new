@@ -51,6 +51,7 @@ const ProgrammeCoordinatorManageCoursesPage = lazy(() => import('../pages/progra
 const ProgrammeTargetSettingsPage = lazy(() => import('../pages/programme-coordinator/ProgrammeTargetSettingsPage'));
 const ProgrammeIndirectAttainmentPage = lazy(() => import('../pages/programme-coordinator/ProgrammeIndirectAttainmentPage'));
 const IqacDashboardPage = lazy(() => import('../pages/iqac/IqacDashboardPage'));
+const IqacSchoolsPage = lazy(() => import('../pages/iqac/IqacSchoolsPage'));
 const IqacUsersPage = lazy(() => import('../pages/iqac/IqacUsersPage'));
 const ReportTemplatePage = lazy(() => import('../pages/iqac/ReportTemplatePage'));
 const GeneratedReportsPage = lazy(() => import('../pages/iqac/GeneratedReportsPage'));
@@ -148,6 +149,15 @@ export default function AppRoutes() {
             
               <IqacDashboardPage />
             
+          </RoleProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/schools"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC']}>
+            <IqacSchoolsPage />
           </RoleProtectedRoute>
         }
       />
