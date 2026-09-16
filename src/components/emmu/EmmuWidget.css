@@ -1,0 +1,552 @@
+/* =========================================================
+   EMMU WIDGET
+   ========================================================= */
+
+.emmu-widget {
+  position: fixed;
+  width: 120px;
+  height: 120px;
+  z-index: 100005;
+  cursor: grab;
+  user-select: none;
+  isolation: isolate;
+  touch-action: none;
+}
+
+.emmu-widget:active,
+.emmu-widget.dragging {
+  cursor: grabbing;
+}
+
+/* =========================================================
+   CIRCULAR EMMU WINDOW
+   ========================================================= */
+
+.emmu-portal {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(
+    circle at 50% 30%,
+    #465366 0%,
+    #303a4a 48%,
+    #202733 78%,
+    #171c24 100%
+  );
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 14px 35px rgba(15, 23, 42, 0.20),
+    inset 0 1px 3px rgba(255, 255, 255, 0.12);
+  transition:
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.3s ease;
+}
+
+.emmu-widget:hover .emmu-portal {
+  transform: scale(1.035);
+  box-shadow:
+    0 18px 45px rgba(15, 23, 42, 0.25),
+    inset 0 1px 3px rgba(255, 255, 255, 0.16);
+}
+
+/* =========================================================
+   EMMU CHARACTER
+   ========================================================= */
+
+.emmu {
+  position: absolute;
+  left: 50%;
+  width: 120px;
+  height: 120px;
+  bottom: -66px;
+  transform: translateX(-50%);
+  transform-origin: center bottom;
+  z-index: 5;
+  transition:
+    bottom 0.48s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.emmu-widget:hover .emmu,
+.emmu-widget.peek .emmu,
+.emmu-widget.chat-open .emmu {
+  bottom: -8px;
+  transform: translateX(-50%);
+}
+
+.emmu-widget.chat-open .speech,
+.emmu-widget.chat-open .ask-label,
+.emmu-widget.chat-open .notification {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* =========================================================
+   EMMU PNG
+   ========================================================= */
+
+.emmu-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+}
+
+/* =========================================================
+   EMMU EYES CONTAINER
+   ========================================================= */
+
+.emmu-eyes {
+  --eyes-top: 45%;
+  --eyes-left: 50%;
+  --eyes-width: 45%;
+  --eyes-height: 23%;
+  --eye-color: #63d9ff;
+
+  position: absolute;
+  top: var(--eyes-top);
+  left: var(--eyes-left);
+  width: var(--eyes-width);
+  height: var(--eyes-height);
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 20;
+  pointer-events: none;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* =========================================================
+   INDIVIDUAL SVG EYE
+   ========================================================= */
+
+.emmu-eye {
+  display: block;
+  width: 36%;
+  height: 100%;
+  overflow: visible;
+  flex-shrink: 0;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* =========================================================
+   NORMAL EYE PATH (12px thickness = 1.5x of 8px)
+   ========================================================= */
+
+.normal-path {
+  fill: none;
+  stroke: var(--eye-color);
+  stroke-width: 12;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px var(--eye-color));
+}
+
+/* =========================================================
+   SUCCESS PATH (Green checkmark of correct size for both eyes)
+   ========================================================= */
+
+.success-path {
+  display: none;
+  fill: none;
+  stroke: var(--eye-color);
+  stroke-width: 12;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 3px var(--eye-color));
+}
+
+/* =========================================================
+   ERROR PATH (Red X of correct size for both eyes)
+   ========================================================= */
+
+.error-path {
+  display: none;
+  fill: none;
+  stroke: var(--eye-color);
+  stroke-width: 12;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 3px var(--eye-color));
+}
+
+/* =========================================================
+   LOADING RING (Rotating eyes for thinking state)
+   ========================================================= */
+
+.loading-ring {
+  display: none;
+  fill: none;
+  stroke: var(--eye-color);
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-dasharray: 65 60;
+  transform-origin: 50px 30px;
+  filter: drop-shadow(0 0 3px var(--eye-color));
+}
+
+/* =========================================================
+   STATE EYE COLORS
+   ========================================================= */
+
+.emmu-widget.normal .emmu-eyes {
+  --eye-color: #63d9ff;
+}
+
+.emmu-widget.happy .emmu-eyes {
+  --eye-color: #ffd447;
+}
+
+.emmu-widget.pending .emmu-eyes {
+  --eye-color: #ff9f2f;
+}
+
+.emmu-widget.success .emmu-eyes {
+  --eye-color: #22c55e;
+}
+
+.emmu-widget.thinking .emmu-eyes,
+.emmu-widget.loading .emmu-eyes {
+  --eye-color: #38bdf8;
+}
+
+.emmu-widget.error .emmu-eyes {
+  --eye-color: #ef4444;
+}
+
+/* =========================================================
+   STATE EYE DISPLAY RULES
+   ========================================================= */
+
+/* SUCCESS: Green Checkmarks */
+.emmu-widget.success .normal-path,
+.emmu-widget.success .error-path,
+.emmu-widget.success .loading-ring {
+  display: none !important;
+}
+
+.emmu-widget.success .success-path {
+  display: block !important;
+  animation: emmu-success-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes emmu-success-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ERROR: Red X Eyes */
+.emmu-widget.error .normal-path,
+.emmu-widget.error .success-path,
+.emmu-widget.error .loading-ring {
+  display: none !important;
+}
+
+.emmu-widget.error .error-path {
+  display: block !important;
+  animation: emmu-error-shake 0.35s ease-in-out both;
+}
+
+@keyframes emmu-error-shake {
+  0%, 100% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.12) rotate(-4deg);
+  }
+  75% {
+    transform: scale(1.12) rotate(4deg);
+  }
+}
+
+/* THINKING & LOADING: Rotating Loading Eyes */
+.emmu-widget.thinking .normal-path,
+.emmu-widget.loading .normal-path,
+.emmu-widget.thinking .success-path,
+.emmu-widget.loading .success-path,
+.emmu-widget.thinking .error-path,
+.emmu-widget.loading .error-path {
+  display: none !important;
+}
+
+.emmu-widget.thinking .loading-ring,
+.emmu-widget.loading .loading-ring {
+  display: block !important;
+  animation: emmu-loading 0.85s linear infinite;
+  transform-origin: 50px 30px;
+}
+
+@keyframes emmu-loading {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================================
+   BLINK (Exclude specialized eye states)
+   ========================================================= */
+
+.emmu-widget:not(.error):not(.loading):not(.thinking):not(.success) .emmu-eye {
+  animation: emmu-blink 5.2s infinite;
+}
+
+.emmu-widget:not(.error):not(.loading):not(.thinking):not(.success) .eye-right {
+  animation-delay: 0.08s;
+}
+
+@keyframes emmu-blink {
+  0%,
+  91%,
+  100% {
+    transform: scaleY(1);
+  }
+  94% {
+    transform: scaleY(0.06);
+  }
+}
+
+.emmu-eyes.blink .emmu-eye {
+  animation: none;
+  transform: scaleY(0.06);
+}
+
+/* Eye Directions */
+.emmu-widget.look-left .emmu-eyes {
+  transform: translate(-50%, -50%) translateX(-6px);
+}
+
+.emmu-widget.look-right .emmu-eyes {
+  transform: translate(-50%, -50%) translateX(6px);
+}
+
+.emmu-widget.look-up .emmu-eyes {
+  transform: translate(-50%, -50%) translateY(-4px);
+}
+
+.emmu-widget.look-down .emmu-eyes {
+  transform: translate(-50%, -50%) translateY(4px);
+}
+
+.emmu-widget.sad .normal-path {
+  transform: rotate(180deg);
+}
+
+.emmu-widget.surprised .normal-path {
+  transform: scaleY(1.25);
+}
+
+.emmu-widget.wink-left .eye-left {
+  animation: none;
+  transform: scaleY(0.08);
+}
+
+.emmu-widget.wink-right .eye-right {
+  animation: none;
+  transform: scaleY(0.08);
+}
+
+.emmu-widget.pending-pulse .emmu-eyes {
+  animation: pending-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pending-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+.emmu-widget.error-flash .emmu-eyes {
+  animation: error-flash 0.65s ease-in-out 3;
+}
+
+@keyframes error-flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* =========================================================
+   NOTIFICATION BADGE
+   ========================================================= */
+
+.notification {
+  position: absolute;
+  right: -3px;
+  top: -5px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #ff3b30;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1;
+  box-shadow: 0 4px 12px rgba(255, 59, 48, 0.35);
+  z-index: 100;
+  opacity: 0;
+  transform: scale(0.5);
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.emmu-widget.notification-active .notification {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* =========================================================
+   SPEECH BUBBLE
+   ========================================================= */
+
+.speech {
+  position: absolute;
+  right: 95px;
+  bottom: 75px;
+  width: 210px;
+  padding: 14px 17px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 17px;
+  color: #263247;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 500;
+  box-shadow: 0 14px 35px rgba(15, 23, 42, 0.13);
+  opacity: 0;
+  transform: translateY(8px) scale(0.95);
+  pointer-events: none;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 200;
+}
+
+.speech::after {
+  content: "";
+  position: absolute;
+  right: -7px;
+  bottom: 16px;
+  width: 15px;
+  height: 15px;
+  background: #ffffff;
+  transform: rotate(45deg);
+}
+
+.emmu-widget.notification-active .speech {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Flip speech bubble to right side when near left edge */
+.emmu-widget.flip-speech .speech {
+  right: auto;
+  left: 95px;
+}
+
+.emmu-widget.flip-speech .speech::after {
+  right: auto;
+  left: -7px;
+}
+
+/* =========================================================
+   ASK EMMU LABEL
+   ========================================================= */
+
+.ask-label {
+  position: absolute;
+  right: 0;
+  bottom: 126px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.98);
+  color: #263247;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.10);
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+  z-index: 300;
+}
+
+.ask-label::after {
+  content: "";
+  position: absolute;
+  right: 22px;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  background: #ffffff;
+  transform: rotate(45deg);
+}
+
+.emmu-widget:hover .ask-label {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Flip ask-label below widget when near top edge */
+.emmu-widget.flip-label-bottom .ask-label {
+  bottom: auto;
+  top: 126px;
+}
+
+.emmu-widget.flip-label-bottom .ask-label::after {
+  bottom: auto;
+  top: -5px;
+}
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 600px) {
+  .emmu-widget {
+    width: 110px;
+    height: 110px;
+  }
+
+  .emmu {
+    width: 110px;
+    height: 110px;
+  }
+
+  .speech {
+    right: 75px;
+    width: 175px;
+  }
+}
