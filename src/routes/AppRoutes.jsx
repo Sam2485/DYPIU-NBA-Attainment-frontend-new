@@ -150,6 +150,26 @@ export default function AppRoutes() {
           </RoleProtectedRoute>
         }
       />
+      <Route
+        path="/admin/analytics/batch/:programmeBatchId"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <div style={{ padding: 32 }}>
+              <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>Batch Analytics</h1>
+            </div>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics/batch/:programmeBatchId"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <div style={{ padding: 32 }}>
+              <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>Batch Analytics</h1>
+            </div>
+          </RoleProtectedRoute>
+        }
+      />
 
       <Route
         path="/admin/schools"

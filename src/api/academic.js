@@ -78,9 +78,10 @@ export const academicApi = {
   // =========================
   // Programme Batches
   // =========================
-  getBatches: ({ masterProgrammeId, userEmail, role } = {}) => {
+  getBatches: ({ masterProgrammeId, userEmail, role, status } = {}) => {
     const params = {};
     if (masterProgrammeId) params.masterProgrammeId = masterProgrammeId;
+    if (status) params.status = status;
     if (userEmail) params.userEmail = userEmail;
     if (role) params.role = role;
 

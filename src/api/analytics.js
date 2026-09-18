@@ -10,12 +10,13 @@ export const analyticsApi = {
    * @param {string} [params.programmeBatchId]
    * @returns {Promise<import('axios').AxiosResponse>}
    */
-  getKpis: ({ schoolId, departmentId, masterProgrammeId, programmeBatchId } = {}) => {
+  getKpis: ({ schoolId, departmentId, masterProgrammeId, programmeBatchId, batchStatus } = {}) => {
     const params = {};
     if (schoolId) params.schoolId = schoolId;
     if (departmentId) params.departmentId = departmentId;
     if (masterProgrammeId) params.masterProgrammeId = masterProgrammeId;
     if (programmeBatchId) params.programmeBatchId = programmeBatchId;
+    if (batchStatus) params.batchStatus = batchStatus;
 
     return apiClient.get('/analytics/kpis', { params });
   },
@@ -69,6 +70,8 @@ export const analyticsApi = {
    * @param {number} [params.size=10]
    * @param {string} [params.query]
    * @param {string} [params.statusFilter='ALL']
+   * @param {string} [params.batchStatus]
+   * @param {boolean} [params.attentionOnly]
    * @param {string} [params.sortBy='programmeName']
    * @param {string} [params.direction='ASC']
    * @returns {Promise<import('axios').AxiosResponse>}
@@ -82,6 +85,8 @@ export const analyticsApi = {
     size = 10,
     query,
     statusFilter = 'ALL',
+    batchStatus,
+    attentionOnly,
     sortBy = 'programmeName',
     direction = 'ASC',
   } = {}) => {
@@ -90,6 +95,8 @@ export const analyticsApi = {
     if (departmentId) params.departmentId = departmentId;
     if (masterProgrammeId) params.masterProgrammeId = masterProgrammeId;
     if (programmeBatchId) params.programmeBatchId = programmeBatchId;
+    if (batchStatus) params.batchStatus = batchStatus;
+    if (attentionOnly !== undefined && attentionOnly !== null) params.attentionOnly = attentionOnly;
     if (query && query.trim()) params.query = query.trim();
 
     return apiClient.get('/analytics/programmes', { params });
