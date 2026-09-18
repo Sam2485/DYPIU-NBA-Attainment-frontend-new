@@ -57,6 +57,7 @@ const ReportTemplatePage = lazy(() => import('../pages/iqac/ReportTemplatePage')
 const GeneratedReportsPage = lazy(() => import('../pages/iqac/GeneratedReportsPage'));
 const IqacAuditLogsPage = lazy(() => import('../pages/iqac/IqacAuditLogsPage'));
 const IqacRecoveryPage = lazy(() => import('../pages/iqac/IqacRecoveryPage'));
+const BatchAnalyticsPage = lazy(() => import('../pages/analytics/BatchAnalyticsPage'));
 
 // HOD Pages
 const HodBatchManagementPage = lazy(() => import('../pages/hod/HodBatchManagementPage'));
@@ -154,9 +155,7 @@ export default function AppRoutes() {
         path="/admin/analytics/batch/:programmeBatchId"
         element={
           <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
-            <div style={{ padding: 32 }}>
-              <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>Batch Analytics</h1>
-            </div>
+            <BatchAnalyticsPage />
           </RoleProtectedRoute>
         }
       />
@@ -164,9 +163,7 @@ export default function AppRoutes() {
         path="/analytics/batch/:programmeBatchId"
         element={
           <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
-            <div style={{ padding: 32 }}>
-              <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>Batch Analytics</h1>
-            </div>
+            <BatchAnalyticsPage />
           </RoleProtectedRoute>
         }
       />

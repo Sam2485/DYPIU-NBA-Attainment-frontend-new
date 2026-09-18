@@ -220,6 +220,17 @@ export const analyticsApi = {
   updateStudentEvidenceThreshold: ({ thresholdPercentage } = {}) => {
     return apiClient.put('/analytics/config/student-evidence-threshold', { thresholdPercentage });
   },
+
+  /**
+   * Fetch complete health and attention overview for a single programme batch.
+   * @param {string} programmeBatchId
+   * @returns {Promise<import('axios').AxiosResponse>}
+   */
+  getBatchOverview: (programmeBatchId) => {
+    return apiClient.get('/analytics/batch-overview', {
+      params: { programmeBatchId },
+    });
+  },
 };
 
 export default analyticsApi;

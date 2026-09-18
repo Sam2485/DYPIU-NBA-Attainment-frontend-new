@@ -8,7 +8,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-const COLORS = ['#ef4444', '#f59e0b'];
+const PO_COLOR = '#0284c7';   // Sky Blue
+const PSO_COLOR = '#16a34a';  // Light Green
 
 export default function AttentionDistributionChart({
   poDeficitCount = 0,
@@ -17,9 +18,11 @@ export default function AttentionDistributionChart({
   const totalDeficits = poDeficitCount + psoDeficitCount;
 
   const data = [
-    { name: 'PO Below Target', value: poDeficitCount },
-    { name: 'PSO Below Target', value: psoDeficitCount },
-  ].filter((item) => item.value > 0);
+    { name: 'PO Below Target', value: poDeficitCount, color: PO_COLOR },
+    { name: 'PSO Below Target', value: psoDeficitCount, color: PSO_COLOR },
+  ];
+
+  const activeData = data.filter((item) => item.value > 0);
 
   if (totalDeficits === 0) {
     return (
@@ -30,7 +33,7 @@ export default function AttentionDistributionChart({
           borderRadius: 12,
           padding: 24,
           boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)',
-          height: 340,
+          height: 380,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -53,7 +56,7 @@ export default function AttentionDistributionChart({
         <div
           style={{
             textAlign: 'center',
-            color: '#10b981',
+            color: '#16a34a',
             fontWeight: 700,
             fontSize: 14,
           }}
@@ -72,7 +75,7 @@ export default function AttentionDistributionChart({
         borderRadius: 12,
         padding: 24,
         boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)',
-        height: 340,
+        height: 380,
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -99,11 +102,11 @@ export default function AttentionDistributionChart({
         </h3>
         <span
           style={{
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: 700,
-            color: '#ef4444',
-            background: '#fee2e2',
-            padding: '2px 8px',
+            color: '#0f172a',
+            background: '#f1f5f9',
+            padding: '3px 10px',
             borderRadius: 999,
           }}
         >
@@ -111,28 +114,25 @@ export default function AttentionDistributionChart({
         </span>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0 }}>
+      <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={data}
+              data={activeData}
               cx="50%"
-              cy="50%"
-              innerRadius={55}
-              outerRadius={85}
-              paddingAngle={4}
+              cy="45%"
+              innerRadius={65}
+              outerRadius={95}
+              paddingAngle={activeData.length > 1 ? 4 : 0}
               dataKey="value"
             >
-              {data.map((entry) => (
-                <Cell
-                  key={`cell-${entry.name}`}
-                  fill={entry.name.startsWith('PO') ? COLORS[0] : COLORS[1]}
-                />
+              {activeData.map((entry) => (
+                <Cell key={`cell-${entry.name}`} fill={entry.color} />
               ))}
             </Pie>
             <Tooltip
               formatter={(value, name) => [
-                `${value} (${Math.round((value / totalDeficits) * 100)}%)`,
+                `${value} deficit${value === 1 ? '' : 's'} (${Math.round((value / totalDeficits) * 100)}%)`,
                 name,
               ]}
               contentStyle={{
@@ -141,20 +141,59 @@ export default function AttentionDistributionChart({
                 borderRadius: 8,
                 fontSize: 12,
                 fontWeight: 600,
+                boxShadow: '0 4px 12px rgba(15, 23, 42, 0.08)',
               }}
             />
             <Legend
               verticalAlign="bottom"
               height={36}
-              formatter={(value) => (
-                <span style={{ color: '#334155', fontWeight: 600, fontSize: 12 }}>
-                  {value}
-                </span>
-              )}
+              formatter={(value) => {
+                const count = value.startsWith('PO') ? poDeficitCount : psoDeficitCount;
+                return (
+                  <span style={{ color: '#334155', fontWeight: 600, fontSize: 12, marginRight: 8 }}>
+                    {value}: <strong>{count}</strong>
+                  </span>
+                );
+              }}
             />
           </PieChart>
         </ResponsiveContainer>
+
+        {/* Center label displaying Total Deficits */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '45%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            textAlign: 'center',
+            pointerEvents: 'none',
+          }}
+        >
+          <div
+            style={{
+              fontSize: 28,
+              fontWeight: 800,
+              color: '#0f172a',
+              lineHeight: 1.1,
+            }}
+          >
+            {totalDeficits}
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: '#64748b',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            }}
+          >
+            Deficits
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+

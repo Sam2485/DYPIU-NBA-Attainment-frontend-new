@@ -108,7 +108,7 @@ export default function BatchAttentionCard({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Target size={16} color="#ef4444" />
+          <Target size={16} color="#0284c7" />
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>
               PO
@@ -120,7 +120,7 @@ export default function BatchAttentionCard({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <AlertTriangle size={16} color="#f59e0b" />
+          <AlertTriangle size={16} color="#16a34a" />
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>
               PSO
