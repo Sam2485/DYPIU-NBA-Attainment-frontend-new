@@ -32,6 +32,56 @@ export default function CourseAnalyticsHeader({
   const isPo = outcomeType === 'PO';
   const themeColor = isPo ? PO_COLOR : PSO_COLOR;
 
+  // Natural ascending sorting for outcomes: PO1..PO12, then PSO1..PSO4
+  const sortedOutcomes = React.useMemo(() => {
+    const list = [...availableOutcomes];
+    if (outcomeCode) {
+      const exists = list.some(
+        (o) => (o.code || o.poCode || o.psoCode || o.outcomeCode) === outcomeCode
+      );
+      if (!exists) {
+        list.push({ code: outcomeCode, type: outcomeType });
+      }
+    }
+
+    const poList = [];
+    const psoList = [];
+    const otherList = [];
+
+    list.forEach((item) => {
+      const code = (item.code || item.outcomeCode || item.poCode || item.psoCode || '').toUpperCase();
+      const type = (item.type || item.outcomeType || (code.startsWith('PSO') ? 'PSO' : 'PO')).toUpperCase();
+      if (type === 'PO' || (code.startsWith('PO') && !code.startsWith('PSO'))) {
+        poList.push(item);
+      } else if (type === 'PSO' || code.startsWith('PSO')) {
+        psoList.push(item);
+      } else {
+        otherList.push(item);
+      }
+    });
+
+    const naturalSort = (a, b) => {
+      const codeA = a.code || a.outcomeCode || a.poCode || a.psoCode || '';
+      const codeB = b.code || b.outcomeCode || b.poCode || b.psoCode || '';
+      return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+    };
+
+    poList.sort(naturalSort);
+    psoList.sort(naturalSort);
+    otherList.sort(naturalSort);
+
+    return [...poList, ...psoList, ...otherList];
+  }, [availableOutcomes, outcomeCode, outcomeType]);
+
+  const sortedCourses = React.useMemo(() => {
+    return [...availableCourses].sort((a, b) => {
+      if (a.semester !== b.semester) {
+        return (a.semester || 0) - (b.semester || 0);
+      }
+      return (a.courseCode || '').localeCompare(b.courseCode || '');
+    });
+  }, [availableCourses]);
+
   // Back button destination: back to direct drilldown if outcome was specified, else back to batch
   const handleBack = () => {
     if (outcomeCode) {
@@ -154,7 +204,7 @@ export default function CourseAnalyticsHeader({
                 cursor: 'pointer',
               }}
             >
-              {availableCourses.map((c) => (
+              {sortedCourses.map((c) => (
                 <option key={c.programmeBatchCourseId || c.id} value={c.programmeBatchCourseId || c.id}>
                   {c.courseCode} - {c.courseName} {c.semester ? `(Sem ${c.semester})` : ''}
                 </option>
@@ -296,9 +346,9 @@ export default function CourseAnalyticsHeader({
                 cursor: 'pointer',
               }}
             >
-              {availableOutcomes.map((o) => {
-                const code = o.code || o.poCode || o.psoCode;
-                const type = o.type || (code.startsWith('PSO') ? 'PSO' : 'PO');
+              {sortedOutcomes.map((o) => {
+                const code = o.code || o.poCode || o.psoCode || o.outcomeCode;
+                const type = o.type || o.outcomeType || (code.startsWith('PSO') ? 'PSO' : 'PO');
                 return (
                   <option key={`${type}:${code}`} value={`${type}:${code}`}>
                     {code} {o.statement ? `— ${o.statement.slice(0, 30)}...` : ''}

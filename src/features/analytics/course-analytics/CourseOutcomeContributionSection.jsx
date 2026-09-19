@@ -20,6 +20,36 @@ function formatVal(val, decimals = 2) {
   return isNaN(num) ? '—' : num.toFixed(decimals);
 }
 
+function sortOutcomesAscending(outcomes = []) {
+  const poList = [];
+  const psoList = [];
+  const otherList = [];
+
+  outcomes.forEach((item) => {
+    const code = (item.code || item.outcomeCode || item.poCode || item.psoCode || '').toUpperCase();
+    const type = (item.type || item.outcomeType || (code.startsWith('PSO') ? 'PSO' : 'PO')).toUpperCase();
+    if (type === 'PO' || (code.startsWith('PO') && !code.startsWith('PSO'))) {
+      poList.push(item);
+    } else if (type === 'PSO' || code.startsWith('PSO')) {
+      psoList.push(item);
+    } else {
+      otherList.push(item);
+    }
+  });
+
+  const naturalSort = (a, b) => {
+    const codeA = a.code || a.outcomeCode || a.poCode || a.psoCode || '';
+    const codeB = b.code || b.outcomeCode || b.poCode || b.psoCode || '';
+    return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+  };
+
+  poList.sort(naturalSort);
+  psoList.sort(naturalSort);
+  otherList.sort(naturalSort);
+
+  return [...poList, ...psoList, ...otherList];
+}
+
 function OutcomeContributionTooltip({ active, payload }) {
   if (!active || !payload || !payload.length) return null;
   const item = payload[0]?.payload;
@@ -354,12 +384,14 @@ export default function CourseOutcomeContributionSection({
     activeList = outcomes && outcomes.length > 0 ? outcomes : [...(poContributions || []), ...(psoContributions || [])];
   }
 
-  // Only keep mapped outcomes (mappingStrength > 0 or mapped === true)
-  const mappedList = activeList.filter((item) => {
+  // Only keep mapped outcomes (mappingStrength > 0 or mapped === true) and sort ascending
+  const rawMappedList = activeList.filter((item) => {
     if (item.mapped === false) return false;
     if (item.mappingStrength != null && Number(item.mappingStrength) <= 0) return false;
     return true;
   });
+
+  const mappedList = sortOutcomesAscending(rawMappedList);
 
   const chartData = mappedList.map((item) => ({
     outcomeCode: item.outcomeCode,

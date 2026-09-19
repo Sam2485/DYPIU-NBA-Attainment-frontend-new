@@ -19,6 +19,14 @@ function formatVal(val, decimals = 2) {
   return isNaN(num) ? '—' : num.toFixed(decimals);
 }
 
+function sortCosAscending(cos = []) {
+  return [...cos].sort((a, b) => {
+    const codeA = a.coCode || a.code || '';
+    const codeB = b.coCode || b.code || '';
+    return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+  });
+}
+
 function CoAttainmentTooltip({ active, payload }) {
   if (!active || !payload || !payload.length) return null;
   const item = payload[0]?.payload;
@@ -100,7 +108,12 @@ export default function CourseCoAttainmentSection({
     );
   };
 
-  if (!courseOutcomes || courseOutcomes.length === 0) {
+  // Sort COs in ascending order (CO1, CO2, CO3...)
+  const sortedCourseOutcomes = React.useMemo(() => {
+    return sortCosAscending(courseOutcomes);
+  }, [courseOutcomes]);
+
+  if (!sortedCourseOutcomes || sortedCourseOutcomes.length === 0) {
     return (
       <div
         style={{
@@ -119,7 +132,7 @@ export default function CourseCoAttainmentSection({
     );
   }
 
-  const chartData = courseOutcomes.map((co) => ({
+  const chartData = sortedCourseOutcomes.map((co) => ({
     coCode: co.coCode,
     statement: co.statement,
     overallAttainment: Number(co.overallAttainment != null ? co.overallAttainment : 0),
@@ -197,8 +210,10 @@ export default function CourseCoAttainmentSection({
               data={chartData}
               margin={{ top: 15, right: 20, left: -20, bottom: 25 }}
               onClick={(state) => {
-                if (state?.activePayload?.[0]?.payload?.coCode) {
-                  handleNavigateToCo(state.activePayload[0].payload.coCode);
+                const clickedCo = state?.activePayload?.[0]?.payload?.coCode
+                  || (state?.activeTooltipIndex != null ? chartData[state.activeTooltipIndex]?.coCode : null);
+                if (clickedCo) {
+                  handleNavigateToCo(clickedCo);
                 }
               }}
             >
@@ -224,12 +239,21 @@ export default function CourseCoAttainmentSection({
                 fill="#7c3aed"
                 radius={[4, 4, 0, 0]}
                 barSize={28}
+                cursor="pointer"
+                onClick={(entry) => {
+                  const clickedCo = entry?.coCode || entry?.payload?.coCode;
+                  if (clickedCo) handleNavigateToCo(clickedCo);
+                }}
               >
                 {chartData.map((entry) => (
                   <Cell
                     key={`co-cell-${entry.coCode}`}
                     fill={entry.targetMet === false ? '#e11d48' : '#7c3aed'}
                     cursor="pointer"
+                    onClick={(e) => {
+                      e?.stopPropagation?.();
+                      handleNavigateToCo(entry.coCode);
+                    }}
                   />
                 ))}
               </Bar>
@@ -258,7 +282,7 @@ export default function CourseCoAttainmentSection({
             </tr>
           </thead>
           <tbody>
-            {courseOutcomes.map((co) => {
+            {sortedCourseOutcomes.map((co) => {
               const isTargetMet = co.targetMet === true;
               return (
                 <tr
@@ -266,7 +290,9 @@ export default function CourseCoAttainmentSection({
                   style={{
                     borderBottom: '1px solid #f1f5f9',
                     transition: 'background 0.15s ease',
+                    cursor: 'pointer',
                   }}
+                  onClick={() => handleNavigateToCo(co.coCode)}
                   onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
                 >

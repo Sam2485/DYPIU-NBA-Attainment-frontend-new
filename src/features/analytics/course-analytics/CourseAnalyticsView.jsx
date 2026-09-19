@@ -36,6 +36,36 @@ function CourseAnalyticsSkeleton() {
   );
 }
 
+function sortOutcomesAscending(outcomes = []) {
+  const poList = [];
+  const psoList = [];
+  const otherList = [];
+
+  outcomes.forEach((item) => {
+    const code = (item.code || item.outcomeCode || item.poCode || item.psoCode || '').toUpperCase();
+    const type = (item.type || item.outcomeType || (code.startsWith('PSO') ? 'PSO' : 'PO')).toUpperCase();
+    if (type === 'PO' || (code.startsWith('PO') && !code.startsWith('PSO'))) {
+      poList.push(item);
+    } else if (type === 'PSO' || code.startsWith('PSO')) {
+      psoList.push(item);
+    } else {
+      otherList.push(item);
+    }
+  });
+
+  const naturalSort = (a, b) => {
+    const codeA = a.code || a.outcomeCode || a.poCode || a.psoCode || '';
+    const codeB = b.code || b.outcomeCode || b.poCode || b.psoCode || '';
+    return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+  };
+
+  poList.sort(naturalSort);
+  psoList.sort(naturalSort);
+  otherList.sort(naturalSort);
+
+  return [...poList, ...psoList, ...otherList];
+}
+
 export default function CourseAnalyticsView() {
   const { programmeBatchId, programmeBatchCourseId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -74,7 +104,7 @@ export default function CourseAnalyticsView() {
             type: 'PSO',
             statement: p.psoStatement,
           }));
-          setAvailableOutcomes([...poList, ...psoList]);
+          setAvailableOutcomes(sortOutcomesAscending([...poList, ...psoList]));
 
           // Collect courses in this batch
           if (payload.courses) {
@@ -256,14 +286,16 @@ export default function CourseAnalyticsView() {
 
   if (!data) return null;
 
-  // Prepare combined outcomes list for selector
-  const catalogOutcomes = availableOutcomes.length > 0
-    ? availableOutcomes
-    : (data.outcomes || []).map((o) => ({
-        code: o.outcomeCode,
-        type: o.outcomeType,
-        statement: o.outcomeStatement,
-      }));
+  // Prepare combined outcomes list for selector (strictly sorted ascending)
+  const catalogOutcomes = sortOutcomesAscending(
+    availableOutcomes.length > 0
+      ? availableOutcomes
+      : (data.outcomes || []).map((o) => ({
+          code: o.outcomeCode,
+          type: o.outcomeType,
+          statement: o.outcomeStatement,
+        }))
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>

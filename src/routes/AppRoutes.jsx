@@ -62,6 +62,8 @@ const OutcomeDirectDrilldownPage = lazy(() => import('../pages/analytics/Outcome
 const OutcomeIndirectDrilldownPage = lazy(() => import('../pages/analytics/OutcomeIndirectDrilldownPage'));
 const CourseAnalyticsPage = lazy(() => import('../pages/analytics/CourseAnalyticsPage'));
 const CoAnalyticsPage = lazy(() => import('../pages/analytics/CoAnalyticsPage'));
+const CoDirectAttainmentPage = lazy(() => import('../pages/analytics/CoDirectAttainmentPage'));
+const CoIndirectAttainmentPage = lazy(() => import('../pages/analytics/CoIndirectAttainmentPage'));
 
 // HOD Pages
 const HodBatchManagementPage = lazy(() => import('../pages/hod/HodBatchManagementPage'));
@@ -248,6 +250,74 @@ export default function AppRoutes() {
         element={
           <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CoAnalyticsPage />
+          </RoleProtectedRoute>
+        }
+      />
+
+      {/* CO Direct Attainment Evidence Screen */}
+      <Route
+        path="/admin/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/co/:coCode/direct"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+            <CoDirectAttainmentPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/co/:coCode/direct"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+            <CoDirectAttainmentPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/direct"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+            <CoDirectAttainmentPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/direct"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+            <CoDirectAttainmentPage />
+          </RoleProtectedRoute>
+        }
+      />
+
+      {/* CO Indirect Attainment Evidence Screen */}
+      <Route
+        path="/admin/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/co/:coCode/indirect"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+            <CoIndirectAttainmentPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/co/:coCode/indirect"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+            <CoIndirectAttainmentPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/indirect"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+            <CoIndirectAttainmentPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/indirect"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+            <CoIndirectAttainmentPage />
           </RoleProtectedRoute>
         }
       />
