@@ -1,20 +1,53 @@
 import React from 'react';
 import {
-  BarChart,
+  ComposedChart,
   Bar,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
-  Legend,
+  Cell,
 } from 'recharts';
-import { CheckCircle2, AlertCircle } from 'lucide-react';
 
-const PO_ATTAINMENT_COLOR = '#0284c7'; // Sky Blue
-const PO_TARGET_COLOR = '#94a3b8';     // Slate Target Marker
-const PSO_ATTAINMENT_COLOR = '#16a34a'; // Light Green
-const PSO_TARGET_COLOR = '#94a3b8';    // Slate Target Marker
+const PO_COLOR = '#0284c7';   // Sky Blue
+const PSO_COLOR = '#16a34a';  // Light Green
+const TARGET_MARKER_COLOR = '#334155'; // Neutral Slate
+
+/**
+ * Custom horizontal target marker line that crosses the vertical attainment bar track.
+ */
+function TargetMarker(props) {
+  const { cx, cy } = props;
+  if (cx == null || cy == null) return null;
+  const markerWidth = 28;
+
+  return (
+    <g>
+      {/* Background shadow/halo for high contrast when bar passes through */}
+      <line
+        x1={cx - markerWidth / 2}
+        y1={cy}
+        x2={cx + markerWidth / 2}
+        y2={cy}
+        stroke="#ffffff"
+        strokeWidth={4.5}
+        strokeLinecap="round"
+      />
+      {/* Crisp horizontal target line crossing the vertical bar track */}
+      <line
+        x1={cx - markerWidth / 2}
+        y1={cy}
+        x2={cx + markerWidth / 2}
+        y2={cy}
+        stroke={TARGET_MARKER_COLOR}
+        strokeWidth={2.5}
+        strokeLinecap="round"
+      />
+    </g>
+  );
+}
 
 function OutcomeTooltip({ active, payload, outcomeType }) {
   if (!active || !payload || !payload.length) return null;
@@ -22,7 +55,7 @@ function OutcomeTooltip({ active, payload, outcomeType }) {
   if (!data) return null;
 
   const isPo = outcomeType === 'PO';
-  const themeColor = isPo ? PO_ATTAINMENT_COLOR : PSO_ATTAINMENT_COLOR;
+  const themeColor = isPo ? PO_COLOR : PSO_COLOR;
 
   return (
     <div
@@ -33,8 +66,8 @@ function OutcomeTooltip({ active, payload, outcomeType }) {
         padding: '12px 16px',
         boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
         fontSize: 12,
-        minWidth: 220,
-        maxWidth: 280,
+        minWidth: 230,
+        maxWidth: 290,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -45,7 +78,7 @@ function OutcomeTooltip({ active, payload, outcomeType }) {
           style={{
             fontSize: 11,
             fontWeight: 700,
-            padding: '2px 6px',
+            padding: '2px 7px',
             borderRadius: 4,
             background: data.targetMet ? '#dcfce7' : '#fee2e2',
             color: data.targetMet ? '#15803d' : '#b91c1c',
@@ -68,7 +101,7 @@ function OutcomeTooltip({ active, payload, outcomeType }) {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: '#64748b' }}>Configured Target:</span>
-          <strong style={{ color: '#334155' }}>{data.target.toFixed(2)}</strong>
+          <strong style={{ color: TARGET_MARKER_COLOR }}>{data.target.toFixed(2)}</strong>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: '#64748b' }}>Gap:</span>
@@ -79,33 +112,47 @@ function OutcomeTooltip({ active, payload, outcomeType }) {
         {data.directAttainment != null && (
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#94a3b8' }}>
             <span>Direct / Indirect:</span>
-            <span>{data.directAttainment.toFixed(2)} / {data.indirectAttainment.toFixed(2)}</span>
+            <span>
+              {Number(data.directAttainment).toFixed(2)} / {Number(data.indirectAttainment).toFixed(2)}
+            </span>
           </div>
         )}
       </div>
 
       <div style={{ marginTop: 8, fontSize: 10, color: '#94a3b8', fontStyle: 'italic', textAlign: 'center' }}>
-        Click to view outcome diagnostic
+        Click bar to select for deep-dive investigation
       </div>
     </div>
   );
+}
+
+function sortOutcomesAscending(outcomes = []) {
+  return [...outcomes].sort((a, b) => {
+    const codeA = a.poCode || a.psoCode || '';
+    const codeB = b.poCode || b.psoCode || '';
+    return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+  });
 }
 
 export default function PoPsoHealthSection({
   poHealth = [],
   psoHealth = [],
   summary = {},
+  selectedOutcomeCode = '',
   onSelectOutcome = () => {},
 }) {
-  const poEvaluated = summary.poEvaluated ?? poHealth.length;
-  const poMet = summary.poMet ?? poHealth.filter((p) => p.targetMet).length;
+  const sortedPo = sortOutcomesAscending(poHealth);
+  const sortedPso = sortOutcomesAscending(psoHealth);
+
+  const poEvaluated = summary.poEvaluated ?? sortedPo.length;
+  const poMet = summary.poMet ?? sortedPo.filter((p) => p.targetMet).length;
   const poBelow = summary.poBelowTarget ?? Math.max(0, poEvaluated - poMet);
 
-  const psoEvaluated = summary.psoEvaluated ?? psoHealth.length;
-  const psoMet = summary.psoMet ?? psoHealth.filter((p) => p.targetMet).length;
+  const psoEvaluated = summary.psoEvaluated ?? sortedPso.length;
+  const psoMet = summary.psoMet ?? sortedPso.filter((p) => p.targetMet).length;
   const psoBelow = summary.psoBelowTarget ?? Math.max(0, psoEvaluated - psoMet);
 
-  const poData = poHealth.map((item) => ({
+  const poData = sortedPo.map((item) => ({
     code: item.poCode,
     statement: item.poStatement,
     attainment: Number(item.attainment != null ? item.attainment : 0),
@@ -116,7 +163,7 @@ export default function PoPsoHealthSection({
     indirectAttainment: item.indirectAttainment != null ? Number(item.indirectAttainment) : null,
   }));
 
-  const psoData = psoHealth.map((item) => ({
+  const psoData = sortedPso.map((item) => ({
     code: item.psoCode,
     statement: item.psoStatement,
     attainment: Number(item.attainment != null ? item.attainment : 0),
@@ -126,10 +173,6 @@ export default function PoPsoHealthSection({
     directAttainment: item.directAttainment != null ? Number(item.directAttainment) : null,
     indirectAttainment: item.indirectAttainment != null ? Number(item.indirectAttainment) : null,
   }));
-
-  // Dynamic heights for horizontal bar charts
-  const poChartHeight = Math.max(280, poData.length * 36 + 40);
-  const psoChartHeight = Math.max(200, psoData.length * 44 + 40);
 
   return (
     <div style={{ marginBottom: 28 }}>
@@ -152,7 +195,7 @@ export default function PoPsoHealthSection({
             flexDirection: 'column',
           }}
         >
-          {/* Section Header */}
+          {/* Header */}
           <div
             style={{
               display: 'flex',
@@ -167,7 +210,7 @@ export default function PoPsoHealthSection({
                   width: 10,
                   height: 10,
                   borderRadius: 2,
-                  background: PO_ATTAINMENT_COLOR,
+                  background: PO_COLOR,
                   display: 'inline-block',
                 }}
               />
@@ -188,7 +231,7 @@ export default function PoPsoHealthSection({
               style={{
                 fontSize: 11.5,
                 fontWeight: 700,
-                color: '#0284c7',
+                color: PO_COLOR,
                 background: '#f0f9ff',
                 border: '1px solid #bae6fd',
                 padding: '2px 8px',
@@ -205,7 +248,7 @@ export default function PoPsoHealthSection({
               fontSize: 12.5,
               fontWeight: 600,
               color: '#64748b',
-              marginBottom: 16,
+              marginBottom: 14,
               paddingBottom: 10,
               borderBottom: '1px solid #f1f5f9',
             }}
@@ -215,19 +258,18 @@ export default function PoPsoHealthSection({
             <strong style={{ color: poBelow > 0 ? '#dc2626' : '#64748b' }}>{poBelow}</strong> below target
           </div>
 
+          {/* Recharts Vertical Bar Visualization with Crossing Target Marker */}
           {poData.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: 13 }}>
               No Program Outcomes evaluated for this batch.
             </div>
           ) : (
-            <>
-              {/* Recharts Horizontal Bar Chart */}
-              <div style={{ height: poChartHeight, width: '100%' }}>
+            <div>
+              <div style={{ height: 260, width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    layout="vertical"
+                  <ComposedChart
                     data={poData}
-                    margin={{ top: 10, right: 30, left: -10, bottom: 5 }}
+                    margin={{ top: 15, right: 10, left: -22, bottom: 5 }}
                     onClick={(state) => {
                       if (state?.activePayload?.[0]?.payload?.code) {
                         onSelectOutcome(state.activePayload[0].payload.code, 'PO');
@@ -235,106 +277,95 @@ export default function PoPsoHealthSection({
                     }}
                     style={{ cursor: 'pointer' }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis
-                      type="number"
-                      domain={[0, 3.0]}
-                      ticks={[0, 0.75, 1.5, 2.25, 3.0]}
-                      tick={{ fill: '#64748b', fontSize: 11 }}
+                      dataKey="code"
+                      tick={{ fontSize: 11, fontWeight: 700, fill: '#334155' }}
                       axisLine={{ stroke: '#cbd5e1' }}
                       tickLine={false}
                     />
                     <YAxis
-                      dataKey="code"
-                      type="category"
-                      width={50}
-                      tick={{ fill: '#0f172a', fontSize: 12, fontWeight: 700 }}
+                      domain={[0, 3.0]}
+                      ticks={[0, 1.0, 2.0, 3.0]}
+                      tick={{ fill: '#64748b', fontSize: 11 }}
                       axisLine={{ stroke: '#cbd5e1' }}
                       tickLine={false}
                     />
                     <Tooltip content={<OutcomeTooltip outcomeType="PO" />} />
-                    <Legend
-                      verticalAlign="top"
-                      align="right"
-                      wrapperStyle={{ paddingBottom: 8 }}
-                      formatter={(val) => (
-                        <span style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', marginRight: 6 }}>
-                          {val}
-                        </span>
-                      )}
-                    />
                     <Bar
                       dataKey="attainment"
                       name="Attainment"
-                      fill={PO_ATTAINMENT_COLOR}
-                      radius={[0, 4, 4, 0]}
-                      barSize={12}
-                    />
-                    <Bar
+                      fill={PO_COLOR}
+                      radius={[4, 4, 0, 0]}
+                      barSize={20}
+                      onClick={(entry) => {
+                        if (entry?.code) onSelectOutcome(entry.code, 'PO');
+                      }}
+                    >
+                      {poData.map((entry) => {
+                        const isSelected = entry.code === selectedOutcomeCode;
+                        return (
+                          <Cell
+                            key={`po-cell-${entry.code}`}
+                            fill={isSelected ? '#0369a1' : PO_COLOR}
+                            stroke={isSelected ? '#0f172a' : 'none'}
+                            strokeWidth={isSelected ? 2 : 0}
+                          />
+                        );
+                      })}
+                    </Bar>
+                    <Line
                       dataKey="target"
-                      name="Target"
-                      fill={PO_TARGET_COLOR}
-                      radius={[0, 4, 4, 0]}
-                      barSize={6}
+                      name="Target Marker"
+                      stroke="transparent"
+                      strokeWidth={0}
+                      dot={<TargetMarker />}
+                      activeDot={false}
+                      isAnimationActive={false}
                     />
-                  </BarChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
 
-              {/* Compact Outcome Rows for 10-second Quick Glance */}
+              {/* Chart Legend / Guide */}
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-                  gap: 8,
-                  marginTop: 14,
-                  paddingTop: 14,
-                  borderTop: '1px solid #f1f5f9',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 18,
+                  marginTop: 6,
+                  fontSize: 11,
+                  color: '#64748b',
+                  fontWeight: 600,
                 }}
               >
-                {poData.map((item) => (
-                  <button
-                    key={item.code}
-                    type="button"
-                    onClick={() => onSelectOutcome(item.code, 'PO')}
-                    title={`${item.code}: ${item.attainment.toFixed(2)} vs target ${item.target.toFixed(2)}`}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '6px 8px',
-                      background: item.targetMet ? '#f8fafc' : '#fef2f2',
-                      border: `1px solid ${item.targetMet ? '#e2e8f0' : '#fecaca'}`,
-                      borderRadius: 6,
-                      fontSize: 11.5,
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'all 0.15s ease',
+                      width: 12,
+                      height: 12,
+                      borderRadius: 2,
+                      background: PO_COLOR,
+                      display: 'inline-block',
                     }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = PO_ATTAINMENT_COLOR;
-                      e.currentTarget.style.transform = 'translateY(-1px)';
+                  />
+                  <span>Attainment Bar</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span
+                    style={{
+                      width: 14,
+                      height: 3,
+                      borderRadius: 1,
+                      background: TARGET_MARKER_COLOR,
+                      display: 'inline-block',
                     }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = item.targetMet ? '#e2e8f0' : '#fecaca';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                    }}
-                  >
-                    <span style={{ fontWeight: 800, color: '#0f172a' }}>{item.code}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ fontWeight: 700, color: item.targetMet ? '#334155' : '#dc2626' }}>
-                        {item.attainment.toFixed(2)}
-                      </span>
-                      {item.targetMet ? (
-                        <CheckCircle2 size={13} color="#16a34a" />
-                      ) : (
-                        <AlertCircle size={13} color="#dc2626" />
-                      )}
-                    </div>
-                  </button>
-                ))}
+                  />
+                  <span>Target Marker (Crossing Line)</span>
+                </div>
               </div>
-            </>
+            </div>
           )}
         </div>
 
@@ -350,7 +381,7 @@ export default function PoPsoHealthSection({
             flexDirection: 'column',
           }}
         >
-          {/* Section Header */}
+          {/* Header */}
           <div
             style={{
               display: 'flex',
@@ -365,7 +396,7 @@ export default function PoPsoHealthSection({
                   width: 10,
                   height: 10,
                   borderRadius: 2,
-                  background: PSO_ATTAINMENT_COLOR,
+                  background: PSO_COLOR,
                   display: 'inline-block',
                 }}
               />
@@ -386,7 +417,7 @@ export default function PoPsoHealthSection({
               style={{
                 fontSize: 11.5,
                 fontWeight: 700,
-                color: '#16a34a',
+                color: PSO_COLOR,
                 background: '#f0fdf4',
                 border: '1px solid #bbf7d0',
                 padding: '2px 8px',
@@ -403,7 +434,7 @@ export default function PoPsoHealthSection({
               fontSize: 12.5,
               fontWeight: 600,
               color: '#64748b',
-              marginBottom: 16,
+              marginBottom: 14,
               paddingBottom: 10,
               borderBottom: '1px solid #f1f5f9',
             }}
@@ -413,19 +444,18 @@ export default function PoPsoHealthSection({
             <strong style={{ color: psoBelow > 0 ? '#dc2626' : '#64748b' }}>{psoBelow}</strong> below target
           </div>
 
+          {/* Recharts Vertical Bar Visualization with Crossing Target Marker */}
           {psoData.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: 13 }}>
               No Program Specific Outcomes evaluated for this batch.
             </div>
           ) : (
-            <>
-              {/* Recharts Horizontal Bar Chart */}
-              <div style={{ height: psoChartHeight, width: '100%' }}>
+            <div>
+              <div style={{ height: 260, width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    layout="vertical"
+                  <ComposedChart
                     data={psoData}
-                    margin={{ top: 10, right: 30, left: -10, bottom: 5 }}
+                    margin={{ top: 15, right: 10, left: -22, bottom: 5 }}
                     onClick={(state) => {
                       if (state?.activePayload?.[0]?.payload?.code) {
                         onSelectOutcome(state.activePayload[0].payload.code, 'PSO');
@@ -433,106 +463,95 @@ export default function PoPsoHealthSection({
                     }}
                     style={{ cursor: 'pointer' }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis
-                      type="number"
-                      domain={[0, 3.0]}
-                      ticks={[0, 0.75, 1.5, 2.25, 3.0]}
-                      tick={{ fill: '#64748b', fontSize: 11 }}
+                      dataKey="code"
+                      tick={{ fontSize: 11, fontWeight: 700, fill: '#334155' }}
                       axisLine={{ stroke: '#cbd5e1' }}
                       tickLine={false}
                     />
                     <YAxis
-                      dataKey="code"
-                      type="category"
-                      width={55}
-                      tick={{ fill: '#0f172a', fontSize: 12, fontWeight: 700 }}
+                      domain={[0, 3.0]}
+                      ticks={[0, 1.0, 2.0, 3.0]}
+                      tick={{ fill: '#64748b', fontSize: 11 }}
                       axisLine={{ stroke: '#cbd5e1' }}
                       tickLine={false}
                     />
                     <Tooltip content={<OutcomeTooltip outcomeType="PSO" />} />
-                    <Legend
-                      verticalAlign="top"
-                      align="right"
-                      wrapperStyle={{ paddingBottom: 8 }}
-                      formatter={(val) => (
-                        <span style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', marginRight: 6 }}>
-                          {val}
-                        </span>
-                      )}
-                    />
                     <Bar
                       dataKey="attainment"
                       name="Attainment"
-                      fill={PSO_ATTAINMENT_COLOR}
-                      radius={[0, 4, 4, 0]}
-                      barSize={14}
-                    />
-                    <Bar
+                      fill={PSO_COLOR}
+                      radius={[4, 4, 0, 0]}
+                      barSize={28}
+                      onClick={(entry) => {
+                        if (entry?.code) onSelectOutcome(entry.code, 'PSO');
+                      }}
+                    >
+                      {psoData.map((entry) => {
+                        const isSelected = entry.code === selectedOutcomeCode;
+                        return (
+                          <Cell
+                            key={`pso-cell-${entry.code}`}
+                            fill={isSelected ? '#15803d' : PSO_COLOR}
+                            stroke={isSelected ? '#0f172a' : 'none'}
+                            strokeWidth={isSelected ? 2 : 0}
+                          />
+                        );
+                      })}
+                    </Bar>
+                    <Line
                       dataKey="target"
-                      name="Target"
-                      fill={PSO_TARGET_COLOR}
-                      radius={[0, 4, 4, 0]}
-                      barSize={6}
+                      name="Target Marker"
+                      stroke="transparent"
+                      strokeWidth={0}
+                      dot={<TargetMarker />}
+                      activeDot={false}
+                      isAnimationActive={false}
                     />
-                  </BarChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
 
-              {/* Compact Outcome Rows for 10-second Quick Glance */}
+              {/* Chart Legend / Guide */}
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-                  gap: 8,
-                  marginTop: 14,
-                  paddingTop: 14,
-                  borderTop: '1px solid #f1f5f9',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 18,
+                  marginTop: 6,
+                  fontSize: 11,
+                  color: '#64748b',
+                  fontWeight: 600,
                 }}
               >
-                {psoData.map((item) => (
-                  <button
-                    key={item.code}
-                    type="button"
-                    onClick={() => onSelectOutcome(item.code, 'PSO')}
-                    title={`${item.code}: ${item.attainment.toFixed(2)} vs target ${item.target.toFixed(2)}`}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '6px 8px',
-                      background: item.targetMet ? '#f8fafc' : '#fef2f2',
-                      border: `1px solid ${item.targetMet ? '#e2e8f0' : '#fecaca'}`,
-                      borderRadius: 6,
-                      fontSize: 11.5,
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'all 0.15s ease',
+                      width: 12,
+                      height: 12,
+                      borderRadius: 2,
+                      background: PSO_COLOR,
+                      display: 'inline-block',
                     }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = PSO_ATTAINMENT_COLOR;
-                      e.currentTarget.style.transform = 'translateY(-1px)';
+                  />
+                  <span>Attainment Bar</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span
+                    style={{
+                      width: 14,
+                      height: 3,
+                      borderRadius: 1,
+                      background: TARGET_MARKER_COLOR,
+                      display: 'inline-block',
                     }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = item.targetMet ? '#e2e8f0' : '#fecaca';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                    }}
-                  >
-                    <span style={{ fontWeight: 800, color: '#0f172a' }}>{item.code}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ fontWeight: 700, color: item.targetMet ? '#334155' : '#dc2626' }}>
-                        {item.attainment.toFixed(2)}
-                      </span>
-                      {item.targetMet ? (
-                        <CheckCircle2 size={13} color="#16a34a" />
-                      ) : (
-                        <AlertCircle size={13} color="#dc2626" />
-                      )}
-                    </div>
-                  </button>
-                ))}
+                  />
+                  <span>Target Marker (Crossing Line)</span>
+                </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>

@@ -3,9 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { analyticsApi } from '../../../api';
 import BatchContextBlock from './BatchContextBlock';
 import PoPsoHealthSection from './PoPsoHealthSection';
-import AttentionAreasCard from './AttentionAreasCard';
 import AttainmentSourcesSection from './AttainmentSourcesSection';
-import CourseContributionsCard from './CourseContributionsCard';
 import InvestigationActionsTiles from './InvestigationActionsTiles';
 import { AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 
@@ -15,6 +13,14 @@ const skeletonItem = {
   animation: 'skeleton-loading 1.5s infinite ease-in-out',
   borderRadius: 10,
 };
+
+function sortOutcomesAscending(outcomes = []) {
+  return [...outcomes].sort((a, b) => {
+    const codeA = a.poCode || a.psoCode || '';
+    const codeB = b.poCode || b.psoCode || '';
+    return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+  });
+}
 
 function BatchOverviewSkeleton() {
   return (
@@ -51,7 +57,7 @@ function BatchOverviewSkeleton() {
             background: '#ffffff',
             border: '1px solid #e2e8f0',
             borderRadius: 14,
-            height: 380,
+            height: 340,
             ...skeletonItem,
           }}
         />
@@ -60,41 +66,19 @@ function BatchOverviewSkeleton() {
             background: '#ffffff',
             border: '1px solid #e2e8f0',
             borderRadius: 14,
-            height: 380,
+            height: 340,
             ...skeletonItem,
           }}
         />
       </div>
 
-      {/* Attention Areas Skeleton */}
+      {/* Programme Attainment Sources Skeleton */}
       <div
         style={{
           background: '#ffffff',
           border: '1px solid #e2e8f0',
           borderRadius: 14,
-          height: 220,
-          ...skeletonItem,
-        }}
-      />
-
-      {/* Attainment Sources Skeleton */}
-      <div
-        style={{
-          background: '#ffffff',
-          border: '1px solid #e2e8f0',
-          borderRadius: 14,
-          height: 240,
-          ...skeletonItem,
-        }}
-      />
-
-      {/* Course Contributions Skeleton */}
-      <div
-        style={{
-          background: '#ffffff',
-          border: '1px solid #e2e8f0',
-          borderRadius: 14,
-          height: 200,
+          height: 260,
           ...skeletonItem,
         }}
       />
@@ -103,11 +87,11 @@ function BatchOverviewSkeleton() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: 16,
         }}
       >
-        {[1, 2, 3, 4].map((i) => (
+        {[1, 2, 3].map((i) => (
           <div
             key={i}
             style={{
@@ -132,6 +116,10 @@ export default function BatchAnalyticsOverview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Active selected outcome for deep-dive investigation across sections
+  const [selectedOutcomeCode, setSelectedOutcomeCode] = useState('');
+  const [selectedOutcomeType, setSelectedOutcomeType] = useState('PO');
+
   const fetchOverview = useCallback(async () => {
     if (!programmeBatchId) {
       setError('No Programme Batch identifier provided.');
@@ -146,7 +134,24 @@ export default function BatchAnalyticsOverview() {
       const res = await analyticsApi.getBatchOverview(programmeBatchId);
       const payload = res?.data ?? res;
       if (payload) {
-        setData(payload);
+        // Enforce clean ascending order on POs and PSOs
+        const sortedPo = sortOutcomesAscending(payload.poHealth || []);
+        const sortedPso = sortOutcomesAscending(payload.psoHealth || []);
+
+        setData({
+          ...payload,
+          poHealth: sortedPo,
+          psoHealth: sortedPso,
+        });
+
+        // Auto-select initial outcome: first PO in natural ascending order (e.g. PO1), or first PSO
+        if (sortedPo.length > 0) {
+          setSelectedOutcomeCode(sortedPo[0].poCode);
+          setSelectedOutcomeType('PO');
+        } else if (sortedPso.length > 0) {
+          setSelectedOutcomeCode(sortedPso[0].psoCode);
+          setSelectedOutcomeType('PSO');
+        }
       } else {
         setError('Batch analytics data is currently unavailable.');
       }
@@ -167,9 +172,8 @@ export default function BatchAnalyticsOverview() {
   }, [fetchOverview]);
 
   const handleSelectOutcome = (outcomeCode, outcomeType = 'PO') => {
-    navigate(
-      `/po-pso-attainment?programmeBatchId=${programmeBatchId}&outcomeCode=${outcomeCode}&outcomeType=${outcomeType}`
-    );
+    setSelectedOutcomeCode(outcomeCode);
+    setSelectedOutcomeType(outcomeType);
   };
 
   if (loading) {
@@ -270,38 +274,30 @@ export default function BatchAnalyticsOverview() {
       {/* 1. Header — Batch Context */}
       <BatchContextBlock batch={data.batch} />
 
-      {/* 2. PO / PSO Health — Primary Visual Section */}
+      {/* 2. PO / PSO Health — Primary Visual Section (Vertical Bars with Crossing Target Markers in Ascending Order) */}
       <PoPsoHealthSection
         poHealth={data.poHealth || []}
         psoHealth={data.psoHealth || []}
         summary={data.summary || {}}
+        selectedOutcomeCode={selectedOutcomeCode}
         onSelectOutcome={handleSelectOutcome}
       />
 
-      {/* 3. Attention Areas */}
-      <AttentionAreasCard
-        attentionAreas={data.attentionAreas || []}
-        programmeBatchId={programmeBatchId}
-        onSelectOutcome={handleSelectOutcome}
-      />
-
-      {/* 4. Attainment Sources (Direct vs Indirect) */}
+      {/* 3. Programme Attainment Sources (PO/PSO Selector in Ascending Order + Outcome-Specific Direct/Indirect Cards) */}
       <AttainmentSourcesSection
+        poHealth={data.poHealth || []}
+        psoHealth={data.psoHealth || []}
         directIndirect={data.directIndirect || {}}
+        selectedOutcomeCode={selectedOutcomeCode}
+        selectedOutcomeType={selectedOutcomeType}
+        onSelectOutcome={handleSelectOutcome}
         programmeBatchId={programmeBatchId}
       />
 
-      {/* 5. Course Contribution Overview */}
-      <CourseContributionsCard
-        courseContributions={data.courseContributions || []}
-        programmeBatchId={programmeBatchId}
-      />
-
-      {/* 6. Investigation & Actions */}
+      {/* 4. Investigation & Actions (Programme Indirect, Programme ATR, Historical Comparison) */}
       <InvestigationActionsTiles
         programmeIndirect={data.programmeIndirect || {}}
         programmeAtr={data.programmeAtr || {}}
-        courseAtr={data.courseAtr || {}}
         historical={data.historical || {}}
         programmeBatchId={programmeBatchId}
       />
