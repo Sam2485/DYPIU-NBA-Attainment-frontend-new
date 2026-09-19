@@ -21,7 +21,7 @@ const inputStyle = {
 };
 
 const TARGET_INPUT = {
-  type: 'number', min: 1, max: 3, step: 0.1,
+  type: 'number', min: 0, max: 3, step: 0.1,
   style: { height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: accent, background: '#ffffff' },
 };
 
@@ -110,7 +110,7 @@ function LegacyProgrammeTargetSettings() {
             PO &amp; PSO Target Levels
           </h2>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
-            Set benchmark target levels (1.0 – 3.0 scale).
+            Set benchmark target levels (0.0 – 3.0 scale).
           </p>
         </div>
 
@@ -216,7 +216,7 @@ function LegacyProgrammeTargetSettings() {
                 <tr>
                   <th style={{ width: '80px', textAlign: 'center' }}>PO</th>
                   <th>Statement</th>
-                  <th style={{ width: '160px', textAlign: 'center' }}>Target Level (1.0 – 3.0)</th>
+                  <th style={{ width: '160px', textAlign: 'center' }}>Target Level (0.0 – 3.0)</th>
                 </tr>
               </thead>
               <tbody>
@@ -241,8 +241,12 @@ function LegacyProgrammeTargetSettings() {
                           if (!isNaN(v)) setPoTargetDraft((prev) => ({ ...prev, [po.code]: v }));
                         }}
                         onBlur={(e) => {
-                          const v = Math.min(3, Math.max(1, parseFloat(e.target.value) || 1));
+                          const num = parseFloat(e.target.value);
+                          const v = isNaN(num) ? 2.0 : Math.min(3, Math.max(0, num));
                           setPoTargetDraft((prev) => ({ ...prev, [po.code]: Math.round(v * 10) / 10 }));
+                        }}
+                        onKeyDown={(e) => {
+                          if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
                         }}
                       />
                     </td>
@@ -266,7 +270,7 @@ function LegacyProgrammeTargetSettings() {
                 <tr>
                   <th style={{ width: '80px', textAlign: 'center' }}>PSO</th>
                   <th>Statement</th>
-                  <th style={{ width: '160px', textAlign: 'center' }}>Target Level (1.0 – 3.0)</th>
+                  <th style={{ width: '160px', textAlign: 'center' }}>Target Level (0.0 – 3.0)</th>
                 </tr>
               </thead>
               <tbody>
@@ -291,8 +295,12 @@ function LegacyProgrammeTargetSettings() {
                           if (!isNaN(v)) setPsoTargetDraft((prev) => ({ ...prev, [pso.code]: v }));
                         }}
                         onBlur={(e) => {
-                          const v = Math.min(3, Math.max(1, parseFloat(e.target.value) || 1));
+                          const num = parseFloat(e.target.value);
+                          const v = isNaN(num) ? 2.0 : Math.min(3, Math.max(0, num));
                           setPsoTargetDraft((prev) => ({ ...prev, [pso.code]: Math.round(v * 10) / 10 }));
+                        }}
+                        onKeyDown={(e) => {
+                          if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
                         }}
                       />
                     </td>

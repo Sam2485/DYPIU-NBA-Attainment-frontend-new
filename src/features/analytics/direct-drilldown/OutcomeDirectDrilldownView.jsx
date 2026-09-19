@@ -313,6 +313,16 @@ export default function OutcomeDirectDrilldownView() {
   const batchDisplayName = data.batchName || batchContext?.batchName || '';
   const schoolName = batchContext?.school?.name || '';
 
+  // Handle navigation to Course Analytics from chart bar click
+  const handleSelectCourse = (course) => {
+    const courseId = course?.programmeBatchCourseId || course?.courseOfferingId || course?.id;
+    if (!courseId) return;
+    const basePath = window.location.pathname.startsWith('/admin') ? '/admin' : '';
+    navigate(
+      `${basePath}/analytics/batch/${programmeBatchId}/course/${courseId}?outcomeType=${currentType}&outcomeCode=${currentCode}`
+    );
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
       {/* 1. Header with Breadcrumbs, Outcome Dropdown & Definition */}
@@ -355,6 +365,7 @@ export default function OutcomeDirectDrilldownView() {
         outcomeCode={data.outcomeCode || currentCode}
         outcomeType={data.outcomeType || currentType}
         programmeBatchId={programmeBatchId}
+        onSelectCourse={handleSelectCourse}
       />
 
       {/* 5. Course Contributions List / Table with Show All & View Details */}

@@ -27,8 +27,9 @@ export default function CourseContributionTable({
     if (!courseId) return;
 
     // Navigate to Course Diagnostic screen preserving the full analytical lineage
+    const basePath = window.location.pathname.startsWith('/admin') ? '/admin' : '';
     navigate(
-      `/analytics/batch/${programmeBatchId}/course/${courseId}?outcomeType=${outcomeType}&outcomeCode=${outcomeCode}`
+      `${basePath}/analytics/batch/${programmeBatchId}/course/${courseId}?outcomeType=${outcomeType}&outcomeCode=${outcomeCode}`
     );
   };
 

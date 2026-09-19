@@ -25,17 +25,27 @@ export default function COTargetSettingHub({ hideFooter = false }) {
     } else if (activeCOs && activeCOs.length > 0) {
       const initial = {};
       activeCOs.forEach((co) => {
-        initial[co.code] = co.targetLevel || 2.5;
+        initial[co.code] = co.targetLevel != null ? co.targetLevel : 2.5;
       });
       setLocalCoTargets(initial);
     }
   }, [selectedCourse, coTargets, activeCOs]);
 
   const handleTargetChange = (coCode, val) => {
+    if (val === '' || val === null || val === undefined) {
+      setLocalCoTargets((prev) => ({
+        ...prev,
+        [coCode]: '',
+      }));
+      return;
+    }
     const num = parseFloat(val);
+    if (!isNaN(num) && (num < 0 || num > 3.0)) {
+      return;
+    }
     setLocalCoTargets((prev) => ({
       ...prev,
-      [coCode]: isNaN(num) ? 1.0 : Math.min(3.0, Math.max(1.0, num)),
+      [coCode]: val,
     }));
   };
 
@@ -43,7 +53,18 @@ export default function COTargetSettingHub({ hideFooter = false }) {
 
   const handleSaveCoTargets = () => {
     if (selectedCourse?.id) {
-      updateCourseCoTargets(selectedCourse.id, localCoTargets);
+      const sanitized = {};
+      for (const [code, val] of Object.entries(localCoTargets)) {
+        if (val !== '' && val !== null && val !== undefined) {
+          const num = parseFloat(val);
+          if (isNaN(num) || num < 0 || num > 3.0) {
+            alert(`Target level for ${code} must be between 0.00 and 3.00.`);
+            return;
+          }
+          sanitized[code] = Number(num.toFixed(2));
+        }
+      }
+      updateCourseCoTargets(selectedCourse.id, sanitized);
       updateCourseVerificationStatus(targetCourseId, 'coStatus', 'SUBMITTED', '', user?.name || 'Course Coordinator');
       alert(`CO Target Levels for ${selectedCourse?.code} submitted for Programme Coordinator review!`);
     }
@@ -97,7 +118,7 @@ export default function COTargetSettingHub({ hideFooter = false }) {
               ✓ ALL CO TARGET LEVELS VERIFIED &amp; APPROVED BY PROGRAMME COORDINATOR
             </strong>
             <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#166534' }}>
-              Target attainment levels (1.00 to 3.00 scale) for {selectedCourse?.code || 'CS301'} - {selectedCourse?.name || 'Data Structures & Algorithms'} have been set and verified. Benchmarks are now locked.
+              Target attainment levels (0.00 to 3.00 scale) for {selectedCourse?.code || 'CS301'} - {selectedCourse?.name || 'Data Structures & Algorithms'} have been set and verified. Benchmarks are now locked.
             </p>
           </div>
         </div>
@@ -111,12 +132,12 @@ export default function COTargetSettingHub({ hideFooter = false }) {
               Step 2: Course Outcome Target Benchmarks ({selectedCourse?.code})
             </h3>
             <p style={{ margin: '3px 0 0', fontSize: '12px', color: '#64748b' }}>
-              Course Coordinator defines the expected target attainment benchmark (1.00 to 3.00) for gap identification in Course ATR.
+              Course Coordinator defines the expected target attainment benchmark (0.00 to 3.00) for gap identification in Course ATR.
             </p>
           </div>
 
           <span className="badge badge-active" style={{ background: '#eef2ff', color: '#4f46e5', padding: '6px 14px', fontSize: '12px', fontWeight: '800' }}>
-            Scale: 1.00 (Low) to 3.00 (High)
+            Scale: 0.00 (Low) to 3.00 (High)
           </span>
         </div>
 
@@ -126,14 +147,14 @@ export default function COTargetSettingHub({ hideFooter = false }) {
               <tr>
                 <th style={{ width: '110px' }}>CO Code</th>
                 <th>Course Outcome Statement</th>
-                <th style={{ width: '180px', textAlign: 'center' }}>Target Level (1.00 - 3.00)</th>
+                <th style={{ width: '180px', textAlign: 'center' }}>Target Level (0.00 - 3.00)</th>
                 <th style={{ width: '140px', textAlign: 'center' }}>Benchmark Level</th>
               </tr>
             </thead>
             <tbody>
               {activeCOs && activeCOs.length > 0 ? (
                 activeCOs.map((co) => {
-                  const currentVal = localCoTargets[co.code] !== undefined ? localCoTargets[co.code] : (co.targetLevel || 2.5);
+                  const currentVal = localCoTargets[co.code] !== undefined ? localCoTargets[co.code] : (co.targetLevel != null ? co.targetLevel : 2.5);
                   return (
                     <tr key={co.id || co.code}>
                       <td style={{ fontWeight: '800', color: '#4f46e5' }}>{co.code}</td>
@@ -143,7 +164,7 @@ export default function COTargetSettingHub({ hideFooter = false }) {
                           <input
                             type="number"
                             step="0.1"
-                            min="1.0"
+                            min="0.0"
                             max="3.0"
                             disabled={isLocked}
                             className="form-control"
@@ -158,6 +179,9 @@ export default function COTargetSettingHub({ hideFooter = false }) {
                             }}
                             value={currentVal}
                             onChange={(e) => handleTargetChange(co.code, e.target.value)}
+                            onKeyDown={(e) => {
+                              if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                            }}
                           />
                         </div>
                       </td>

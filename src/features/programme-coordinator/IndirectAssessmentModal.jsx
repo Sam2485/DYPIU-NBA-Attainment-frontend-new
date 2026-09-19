@@ -59,6 +59,7 @@ export default function IndirectAssessmentModal({
 
   const handleScoreChange = (code, valStr) => {
     if (valStr === '' || valStr === null || valStr === undefined) {
+      setError(null);
       setScores((prev) => {
         const next = { ...prev };
         delete next[code];
@@ -67,9 +68,14 @@ export default function IndirectAssessmentModal({
       return;
     }
     const num = parseFloat(valStr);
+    if (!isNaN(num) && (num < 0 || num > 3.0)) {
+      setError(`Attainment score for ${code} must be between 0.00 and 3.00.`);
+      return;
+    }
+    setError(null);
     setScores((prev) => ({
       ...prev,
-      [code]: isNaN(num) ? '' : num,
+      [code]: valStr,
     }));
   };
 
@@ -80,16 +86,16 @@ export default function IndirectAssessmentModal({
       return;
     }
 
-    // Validate scores are within 1.00 to 3.00 if provided
+    // Validate scores are strictly within 0.00 to 3.00 if provided
     const sanitizedScores = {};
     for (const [code, val] of Object.entries(scores)) {
       if (val !== '' && val !== null && val !== undefined) {
         const num = parseFloat(val);
         if (isNaN(num) || num < 0 || num > 3.0) {
-          setError(`Attainment score for ${code} must be between 1.00 and 3.00 (or leave blank).`);
+          setError(`Attainment score for ${code} must be between 0.00 and 3.00 (or leave blank).`);
           return;
         }
-        if (num > 0) {
+        if (num >= 0) {
           sanitizedScores[code.toUpperCase()] = Number(num.toFixed(2));
         }
       }
@@ -172,7 +178,7 @@ export default function IndirectAssessmentModal({
                 {isEdit ? 'Edit Assessment' : 'Add Survey or Co-Curricular Event'}
               </h3>
               <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: muted }}>
-                Directly enter indirect attainment scores (1.00 – 3.00) for evaluated POs &amp; PSOs.
+                Directly enter indirect attainment scores (0.00 – 3.00) for evaluated POs &amp; PSOs.
               </p>
             </div>
           </div>
@@ -348,7 +354,7 @@ export default function IndirectAssessmentModal({
                     letterSpacing: '0.04em',
                   }}
                 >
-                  Outcome Indirect Attainment (1.00 – 3.00)
+                  Outcome Indirect Attainment (0.00 – 3.00)
                 </label>
                 <span style={{ fontSize: '11px', color: muted }}>
                   Leave blank for outcomes not assessed in this event/survey.
@@ -375,7 +381,7 @@ export default function IndirectAssessmentModal({
                         <tr>
                           <th style={{ width: '70px', textAlign: 'center' }}>PO</th>
                           <th>Statement</th>
-                          <th style={{ width: '140px', textAlign: 'center' }}>Attainment (1.00 – 3.00)</th>
+                          <th style={{ width: '140px', textAlign: 'center' }}>Attainment (0.00 – 3.00)</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -388,12 +394,15 @@ export default function IndirectAssessmentModal({
                               <td style={{ textAlign: 'center' }}>
                                 <input
                                   type="number"
-                                  min={1.0}
+                                  min={0.0}
                                   max={3.0}
                                   step={0.01}
                                   placeholder=""
                                   value={currentVal}
                                   onChange={(e) => handleScoreChange(po.code, e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                                  }}
                                   disabled={saving}
                                   style={{
                                     height: '32px',
@@ -440,7 +449,7 @@ export default function IndirectAssessmentModal({
                         <tr>
                           <th style={{ width: '70px', textAlign: 'center' }}>PSO</th>
                           <th>Statement</th>
-                          <th style={{ width: '140px', textAlign: 'center' }}>Attainment (1.00 – 3.00)</th>
+                          <th style={{ width: '140px', textAlign: 'center' }}>Attainment (0.00 – 3.00)</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -453,12 +462,15 @@ export default function IndirectAssessmentModal({
                               <td style={{ textAlign: 'center' }}>
                                 <input
                                   type="number"
-                                  min={1.0}
+                                  min={0.0}
                                   max={3.0}
                                   step={0.01}
                                   placeholder=""
                                   value={currentVal}
                                   onChange={(e) => handleScoreChange(pso.code, e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                                  }}
                                   disabled={saving}
                                   style={{
                                     height: '32px',

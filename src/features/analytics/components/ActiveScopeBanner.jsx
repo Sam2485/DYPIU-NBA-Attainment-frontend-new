@@ -15,7 +15,7 @@ export default function ActiveScopeBanner({
   let badgeBorder = '#c7d2fe';
 
   if (batch) {
-    scopeLevel = 'COHORT BATCH SCOPE';
+    scopeLevel = 'BATCH SCOPE';
     badgeColor = '#7c3aed';
     badgeBg = '#f5f3ff';
     badgeBorder = '#ddd6fe';

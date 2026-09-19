@@ -259,6 +259,35 @@ export const analyticsApi = {
       params: { programmeBatchId, outcomeCode, outcomeType },
     });
   },
+
+  /**
+   * Fetch Course Analytics for a course offering and optionally a selected PO/PSO.
+   * @param {Object} params
+   * @param {string} params.programmeBatchCourseId
+   * @param {string} [params.outcomeCode]
+   * @param {string} [params.outcomeType='PO']
+   * @returns {Promise<import('axios').AxiosResponse>}
+   */
+  getCourseAnalytics: ({ programmeBatchCourseId, outcomeCode, outcomeType = 'PO' } = {}) => {
+    const params = { programmeBatchCourseId };
+    if (outcomeCode) {
+      params.outcomeCode = outcomeCode;
+      params.outcomeType = outcomeType;
+    }
+    return apiClient.get('/analytics/course-analytics', { params });
+  },
+
+  /**
+   * Fetch CO Analytics drill-down for a course offering and a specific CO.
+   * @param {Object} params
+   * @param {string} params.programmeBatchCourseId
+   * @param {string} params.coCode
+   * @returns {Promise<import('axios').AxiosResponse>}
+   */
+  getCoAnalytics: ({ programmeBatchCourseId, coCode } = {}) => {
+    const params = { programmeBatchCourseId, coCode };
+    return apiClient.get('/analytics/co-analytics', { params });
+  },
 };
 
 export default analyticsApi;

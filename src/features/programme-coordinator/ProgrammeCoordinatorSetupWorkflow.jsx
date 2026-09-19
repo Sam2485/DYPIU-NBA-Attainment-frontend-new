@@ -31,7 +31,7 @@ const labelStyle = {
   color: muted, marginBottom: '5px',
 };
 
-const TARGET_LEVELS = [1.0, 1.5, 2.0, 2.5, 3.0];
+const TARGET_LEVELS = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
 
 const semesterNumber = (value) => {
   const romanValues = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12 };
@@ -46,7 +46,7 @@ const targetSignature = (pos, psos, poTargets, psoTargets) => JSON.stringify({
 
 const STEPS = [
   { number: 1, key: 'courses', title: 'Add Courses',        desc: 'Add & allocate courses under programme',      path: '/programme-coordinator/courses',         icon: BookOpen,     color: '#4f46e5', bg: '#eef2ff' },
-  { number: 2, key: 'po_pso_target', title: 'Set PO/PSO Targets', desc: 'Configure PO & PSO target levels (1.0 – 3.0)', path: '/programme-coordinator/target-settings', icon: Target,       color: '#7c3aed', bg: '#f5f3ff' },
+  { number: 2, key: 'po_pso_target', title: 'Set PO/PSO Targets', desc: 'Configure PO & PSO target levels (0.0 – 3.0)', path: '/programme-coordinator/target-settings', icon: Target,       color: '#7c3aed', bg: '#f5f3ff' },
   { number: 3, key: 'indirect_attainment', title: 'Indirect Attainment', desc: 'Surveys & Co-Curricular Events & Exit Survey', path: '/programme-coordinator/indirect-attainment', icon: ClipboardList, color: '#059669', bg: '#f0fdf4' },
   { number: 4, key: 'programme_atr', title: 'Programme ATR',     desc: 'Fill & submit Programme Action Taken Report', path: '/programme-coordinator/programme-atr',   icon: Layers,       color: '#0284c7', bg: '#f0f9ff' },
   { number: 5, key: 'review', title: 'Review and Confirm', desc: 'Verify setup summary & finish',               path: '/programme-coordinator/reports',         icon: CheckCircle2, color: '#059669', bg: '#f0fdf4' },
@@ -440,15 +440,15 @@ export default function ProgrammeCoordinatorSetupWorkflow({
             if (!isCurrent) return;
             const pList = progOutcomes?.pos || [];
             const psoList = progOutcomes?.psos || [];
-            const nextPoTargets = Object.fromEntries(pList.map((po) => [po.code, Number(po.target) || 2]));
-            const nextPsoTargets = Object.fromEntries(psoList.map((pso) => [pso.code, Number(pso.target) || 2]));
+            const nextPoTargets = Object.fromEntries(pList.map((po) => [po.code, (po.target != null && !isNaN(Number(po.target))) ? Number(po.target) : 2]));
+            const nextPsoTargets = Object.fromEntries(psoList.map((pso) => [pso.code, (pso.target != null && !isNaN(Number(pso.target))) ? Number(pso.target) : 2]));
             setPoTargetDraft(nextPoTargets);
             setPsoTargetDraft(nextPsoTargets);
             setSavedTargetSignature(targetSignature(pList, psoList, nextPoTargets, nextPsoTargets));
           }).catch(() => {});
         } else {
-          const nextPoTargets = Object.fromEntries(pos.map((po) => [po.code, Number(po.target) || 2]));
-          const nextPsoTargets = Object.fromEntries(psos.map((pso) => [pso.code, Number(pso.target) || 2]));
+          const nextPoTargets = Object.fromEntries(pos.map((po) => [po.code, (po.target != null && !isNaN(Number(po.target))) ? Number(po.target) : 2]));
+          const nextPsoTargets = Object.fromEntries(psos.map((pso) => [pso.code, (pso.target != null && !isNaN(Number(pso.target))) ? Number(pso.target) : 2]));
           setPoTargetDraft(nextPoTargets);
           setPsoTargetDraft(nextPsoTargets);
           setSavedTargetSignature(targetSignature(pos, psos, nextPoTargets, nextPsoTargets));
@@ -1135,7 +1135,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
               <div>
                 <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>PO &amp; PSO Target Levels</h3>
                 <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>
-                  Set benchmark target levels (1.0 – 3.0 scale) for each PO and PSO.
+                  Set benchmark target levels (0.0 – 3.0 scale) for each PO and PSO.
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1221,7 +1221,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                       <tr>
                         <th style={{ width: '80px', textAlign: 'center' }}>PO</th>
                         <th>Statement</th>
-                        <th style={{ width: '160px', textAlign: 'center' }}>Target Level (1.0 – 3.0)</th>
+                        <th style={{ width: '160px', textAlign: 'center' }}>Target Level (0.0 – 3.0)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1231,11 +1231,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                           <td style={{ fontSize: '12.5px', color: ink }}>{po.statement}</td>
                           <td style={{ textAlign: 'center' }}>
                             <input
-                              type="number" min={1} max={3} step={0.1}
+                              type="number" min={0} max={3} step={0.1}
                               disabled={isTargetsReviewLocked || isBatchFrozen}
                               value={poTargetDraft[po.code] ?? 2.0}
                               onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) setPoTargetDraft((prev) => ({ ...prev, [po.code]: v })); }}
-                              onBlur={(e) => { const v = Math.min(3, Math.max(1, parseFloat(e.target.value) || 1)); setPoTargetDraft((prev) => ({ ...prev, [po.code]: Math.round(v * 10) / 10 })); }}
+                              onBlur={(e) => { const num = parseFloat(e.target.value); const v = isNaN(num) ? 2.0 : Math.min(3, Math.max(0, num)); setPoTargetDraft((prev) => ({ ...prev, [po.code]: Math.round(v * 10) / 10 })); }}
+                              onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                               style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: accent, background: isTargetsReviewLocked || isBatchFrozen ? '#f8fafc' : '#ffffff', cursor: isTargetsReviewLocked || isBatchFrozen ? 'not-allowed' : 'text' }}
                             />
                           </td>
@@ -1259,7 +1260,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                       <tr>
                         <th style={{ width: '80px', textAlign: 'center' }}>PSO</th>
                         <th>Statement</th>
-                        <th style={{ width: '160px', textAlign: 'center' }}>Target Level (1.0 – 3.0)</th>
+                        <th style={{ width: '160px', textAlign: 'center' }}>Target Level (0.0 – 3.0)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1269,11 +1270,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                           <td style={{ fontSize: '12.5px', color: ink }}>{pso.statement}</td>
                           <td style={{ textAlign: 'center' }}>
                             <input
-                              type="number" min={1} max={3} step={0.1}
+                              type="number" min={0} max={3} step={0.1}
                               disabled={isTargetsReviewLocked || isBatchFrozen}
                               value={psoTargetDraft[pso.code] ?? 2.0}
                               onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) setPsoTargetDraft((prev) => ({ ...prev, [pso.code]: v })); }}
-                              onBlur={(e) => { const v = Math.min(3, Math.max(1, parseFloat(e.target.value) || 1)); setPsoTargetDraft((prev) => ({ ...prev, [pso.code]: Math.round(v * 10) / 10 })); }}
+                              onBlur={(e) => { const num = parseFloat(e.target.value); const v = isNaN(num) ? 2.0 : Math.min(3, Math.max(0, num)); setPsoTargetDraft((prev) => ({ ...prev, [pso.code]: Math.round(v * 10) / 10 })); }}
+                              onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                               style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: '#059669', background: isTargetsReviewLocked || isBatchFrozen ? '#f8fafc' : '#ffffff', cursor: isTargetsReviewLocked || isBatchFrozen ? 'not-allowed' : 'text' }}
                             />
                           </td>
@@ -1568,7 +1570,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   <div>
                     <h4 style={{ margin: 0, fontSize: '14.5px', fontWeight: '800', color: ink }}>Surveys &amp; Co-Curricular Events List</h4>
                     <p style={{ margin: '2px 0 0', fontSize: '12px', color: muted }}>
-                      Add hackathons, seminars, alumni surveys, or employer feedback with direct outcome ratings (1.00 – 3.00).
+                      Add hackathons, seminars, alumni surveys, or employer feedback with direct outcome ratings (0.00 – 3.00).
                     </p>
                   </div>
                   <button

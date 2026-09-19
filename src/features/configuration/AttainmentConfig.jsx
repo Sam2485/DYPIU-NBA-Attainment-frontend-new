@@ -95,7 +95,7 @@ export default function AttainmentConfig({
     }).catch(() => {});
   }, [batchId, courseOfferingId, isCourseCoordinator, loadAssignedCourseOfferings, selectCourseOffering, user]);
 
-  // Step 5: PO & PSO Target Levels state for active Programme (Scale 1.0 - 3.0)
+  // Step 5: PO & PSO Target Levels state for active Programme (Scale 0.0 - 3.0)
   const currentProgTargets = (programmeId && safePoPsoTargets[programmeId]) || {
     poTargets: {},
     psoTargets: {},

@@ -195,7 +195,7 @@ export default function ProgrammeCoordinatorDashboard() {
     {
       id: 'targets',
       title: 'Target Settings',
-      desc: 'Set PO and PSO benchmark target levels (1.0 – 3.0 scale).',
+      desc: 'Set PO and PSO benchmark target levels (0.0 – 3.0 scale).',
       path: '/programme-coordinator/target-settings',
       icon: Target,
       iconColor: '#7c3aed',

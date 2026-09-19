@@ -60,6 +60,8 @@ const IqacRecoveryPage = lazy(() => import('../pages/iqac/IqacRecoveryPage'));
 const BatchAnalyticsPage = lazy(() => import('../pages/analytics/BatchAnalyticsPage'));
 const OutcomeDirectDrilldownPage = lazy(() => import('../pages/analytics/OutcomeDirectDrilldownPage'));
 const OutcomeIndirectDrilldownPage = lazy(() => import('../pages/analytics/OutcomeIndirectDrilldownPage'));
+const CourseAnalyticsPage = lazy(() => import('../pages/analytics/CourseAnalyticsPage'));
+const CoAnalyticsPage = lazy(() => import('../pages/analytics/CoAnalyticsPage'));
 
 // HOD Pages
 const HodBatchManagementPage = lazy(() => import('../pages/hod/HodBatchManagementPage'));
@@ -220,16 +222,32 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
-            <AttainmentOverviewPage />
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+            <CourseAnalyticsPage />
           </RoleProtectedRoute>
         }
       />
       <Route
         path="/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
-            <AttainmentOverviewPage />
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+            <CourseAnalyticsPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/co/:coCode"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+            <CoAnalyticsPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/co/:coCode"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+            <CoAnalyticsPage />
           </RoleProtectedRoute>
         }
       />
