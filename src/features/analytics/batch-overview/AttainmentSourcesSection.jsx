@@ -348,9 +348,7 @@ export default function AttainmentSourcesSection({
             type="button"
             onClick={() =>
               navigate(
-                `/co-attainment?programmeBatchId=${programmeBatchId}&outcomeCode=${currentCode}&outcomeType=${
-                  isPo ? 'PO' : 'PSO'
-                }`
+                `/analytics/batch/${programmeBatchId}/direct/${isPo ? 'PO' : 'PSO'}/${currentCode}`
               )
             }
             style={{
@@ -478,9 +476,7 @@ export default function AttainmentSourcesSection({
             type="button"
             onClick={() =>
               navigate(
-                `/programme-coordinator/indirect-attainment?programmeBatchId=${programmeBatchId}&outcomeCode=${currentCode}&outcomeType=${
-                  isPo ? 'PO' : 'PSO'
-                }`
+                `/analytics/batch/${programmeBatchId}/indirect/${isPo ? 'PO' : 'PSO'}/${currentCode}`
               )
             }
             style={{

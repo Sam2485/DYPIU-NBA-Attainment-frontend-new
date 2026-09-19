@@ -231,6 +231,34 @@ export const analyticsApi = {
       params: { programmeBatchId },
     });
   },
+
+  /**
+   * Fetch direct attainment drill-down for a selected PO/PSO in a programme batch.
+   * @param {Object} params
+   * @param {string} params.programmeBatchId
+   * @param {string} params.outcomeCode
+   * @param {string} [params.outcomeType='PO']
+   * @returns {Promise<import('axios').AxiosResponse>}
+   */
+  getOutcomeDirectDrilldown: ({ programmeBatchId, outcomeCode, outcomeType = 'PO' } = {}) => {
+    return apiClient.get('/analytics/outcome-direct-drilldown', {
+      params: { programmeBatchId, outcomeCode, outcomeType },
+    });
+  },
+
+  /**
+   * Fetch indirect attainment drill-down for a selected PO/PSO in a programme batch.
+   * @param {Object} params
+   * @param {string} params.programmeBatchId
+   * @param {string} params.outcomeCode
+   * @param {string} [params.outcomeType='PO']
+   * @returns {Promise<import('axios').AxiosResponse>}
+   */
+  getOutcomeIndirectDrilldown: ({ programmeBatchId, outcomeCode, outcomeType = 'PO' } = {}) => {
+    return apiClient.get('/analytics/outcome-indirect-drilldown', {
+      params: { programmeBatchId, outcomeCode, outcomeType },
+    });
+  },
 };
 
 export default analyticsApi;

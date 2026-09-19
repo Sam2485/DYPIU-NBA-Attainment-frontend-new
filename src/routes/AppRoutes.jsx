@@ -58,6 +58,8 @@ const GeneratedReportsPage = lazy(() => import('../pages/iqac/GeneratedReportsPa
 const IqacAuditLogsPage = lazy(() => import('../pages/iqac/IqacAuditLogsPage'));
 const IqacRecoveryPage = lazy(() => import('../pages/iqac/IqacRecoveryPage'));
 const BatchAnalyticsPage = lazy(() => import('../pages/analytics/BatchAnalyticsPage'));
+const OutcomeDirectDrilldownPage = lazy(() => import('../pages/analytics/OutcomeDirectDrilldownPage'));
+const OutcomeIndirectDrilldownPage = lazy(() => import('../pages/analytics/OutcomeIndirectDrilldownPage'));
 
 // HOD Pages
 const HodBatchManagementPage = lazy(() => import('../pages/hod/HodBatchManagementPage'));
@@ -164,6 +166,70 @@ export default function AppRoutes() {
         element={
           <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <BatchAnalyticsPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/analytics/batch/:programmeBatchId/direct/:outcomeType/:outcomeCode"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <OutcomeDirectDrilldownPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics/batch/:programmeBatchId/direct/:outcomeType/:outcomeCode"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <OutcomeDirectDrilldownPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/analytics/batch/:programmeBatchId/indirect/:outcomeType/:outcomeCode"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <OutcomeIndirectDrilldownPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics/batch/:programmeBatchId/indirect/:outcomeType/:outcomeCode"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <OutcomeIndirectDrilldownPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/analytics/batch/:programmeBatchId/indirect"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <OutcomeIndirectDrilldownPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics/batch/:programmeBatchId/indirect"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <OutcomeIndirectDrilldownPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
+            <AttainmentOverviewPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
+            <AttainmentOverviewPage />
           </RoleProtectedRoute>
         }
       />
