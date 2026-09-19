@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Award, FileText, History, ArrowRight, AlertTriangle } from 'lucide-react';
 
 export default function InvestigationActionsTiles({
@@ -9,6 +9,21 @@ export default function InvestigationActionsTiles({
   programmeBatchId = '',
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isAdmin = location.pathname.startsWith('/admin');
+  const historicalCount = historical.batchCount ?? 0;
+  const masterProgrammeId = historical.masterProgrammeId || '';
+
+  const indirectPath = isAdmin
+    ? `/admin/analytics/batch/${programmeBatchId}/indirect`
+    : `/analytics/batch/${programmeBatchId}/indirect`;
+  const atrPath = isAdmin
+    ? `/admin/analytics/batch/${programmeBatchId}/atr`
+    : `/analytics/batch/${programmeBatchId}/atr`;
+  const historicalPath = masterProgrammeId
+    ? (isAdmin ? `/admin/analytics/programme/${masterProgrammeId}/historical` : `/analytics/programme/${masterProgrammeId}/historical`)
+    : (isAdmin ? '/admin/analytics/compare-batches' : '/analytics/compare-batches');
 
   const indirectCount = programmeIndirect.assessmentCount ?? 0;
   const hasExitSurvey = Boolean(programmeIndirect.hasExitSurvey);
@@ -16,9 +31,6 @@ export default function InvestigationActionsTiles({
   const atrExists = Boolean(programmeAtr.exists);
   const atrStatus = programmeAtr.status || (atrExists ? 'RECORDED' : 'No ATR available');
   const atrRevisionRequired = Boolean(programmeAtr.revisionRequired);
-
-  const historicalCount = historical.batchCount ?? 0;
-  const masterProgrammeId = historical.masterProgrammeId || '';
 
   return (
     <div style={{ marginBottom: 28 }}>
@@ -51,7 +63,7 @@ export default function InvestigationActionsTiles({
       >
         {/* TILE 1: PROGRAMME INDIRECT */}
         <div
-          onClick={() => navigate(`/programme-coordinator/indirect-attainment?programmeBatchId=${programmeBatchId}`)}
+          onClick={() => navigate(indirectPath)}
           style={{
             background: '#ffffff',
             border: '1px solid #e2e8f0',
@@ -134,7 +146,7 @@ export default function InvestigationActionsTiles({
 
         {/* TILE 2: PROGRAMME ATR */}
         <div
-          onClick={() => navigate(`/programme-atr?programmeBatchId=${programmeBatchId}`)}
+          onClick={() => navigate(atrPath)}
           style={{
             background: '#ffffff',
             border: '1px solid #e2e8f0',
@@ -243,8 +255,8 @@ export default function InvestigationActionsTiles({
           onClick={() =>
             navigate(
               masterProgrammeId
-                ? `/admin/dashboard?masterProgrammeId=${masterProgrammeId}&tab=trends`
-                : '/admin/dashboard'
+                ? `/analytics/programme/${masterProgrammeId}/historical`
+                : '/analytics/compare-batches'
             )
           }
           style={{

@@ -64,6 +64,9 @@ const CourseAnalyticsPage = lazy(() => import('../pages/analytics/CourseAnalytic
 const CoAnalyticsPage = lazy(() => import('../pages/analytics/CoAnalyticsPage'));
 const CoDirectAttainmentPage = lazy(() => import('../pages/analytics/CoDirectAttainmentPage'));
 const CoIndirectAttainmentPage = lazy(() => import('../pages/analytics/CoIndirectAttainmentPage'));
+const HistoricalProgrammeAttainmentPage = lazy(() => import('../pages/analytics/HistoricalProgrammeAttainmentPage'));
+const CompareBatchesPage = lazy(() => import('../pages/analytics/CompareBatchesPage'));
+const BatchProgrammeAtrPage = lazy(() => import('../pages/analytics/BatchProgrammeAtrPage'));
 
 // HOD Pages
 const HodBatchManagementPage = lazy(() => import('../pages/hod/HodBatchManagementPage'));
@@ -318,6 +321,68 @@ export default function AppRoutes() {
         element={
           <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CoIndirectAttainmentPage />
+          </RoleProtectedRoute>
+        }
+      />
+
+      {/* Historical Programme Attainment Analytics */}
+      <Route
+        path="/admin/analytics/programme/:masterProgrammeId/historical"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <HistoricalProgrammeAttainmentPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics/programme/:masterProgrammeId/historical"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <HistoricalProgrammeAttainmentPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics/programme/historical"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <HistoricalProgrammeAttainmentPage />
+          </RoleProtectedRoute>
+        }
+      />
+
+      {/* Compare Batches Analytics */}
+      <Route
+        path="/admin/analytics/compare-batches"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <CompareBatchesPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics/compare-batches"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <CompareBatchesPage />
+          </RoleProtectedRoute>
+        }
+      />
+
+      {/* Batch Programme ATR Screen */}
+      <Route
+        path="/admin/analytics/batch/:programmeBatchId/atr"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <BatchProgrammeAtrPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics/batch/:programmeBatchId/atr"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <BatchProgrammeAtrPage />
           </RoleProtectedRoute>
         }
       />

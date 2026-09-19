@@ -129,17 +129,17 @@ export default function CoDirectVsIndirectSection({
       return sorted.map((co) => {
         const dWeight = co.directWeight != null ? Number(co.directWeight) : 80;
         const iWeight = co.indirectWeight != null ? Number(co.indirectWeight) : 20;
-        const dAtt = co.directAttainment != null ? Number(co.directAttainment) : 0;
-        const iAtt = co.indirectAttainment != null ? Number(co.indirectAttainment) : 0;
+        const dAtt = co.directAttainment != null ? Number(co.directAttainment) : (co.directLevel != null ? Number(co.directLevel) : 0);
+        const iAtt = co.indirectAttainment != null ? Number(co.indirectAttainment) : (co.indirectLevel != null ? Number(co.indirectLevel) : 0);
         const dPart = Number(((dWeight / 100) * dAtt).toFixed(4));
         const iPart = Number(((iWeight / 100) * iAtt).toFixed(4));
 
         return {
           coCode: co.coCode,
           statement: co.statement,
-          directAttainment: co.directAttainment,
-          indirectAttainment: co.indirectAttainment,
-          overallAttainment: co.overallAttainment,
+          directAttainment: dAtt,
+          indirectAttainment: iAtt,
+          overallAttainment: co.overallAttainment != null ? co.overallAttainment : Number((dPart + iPart).toFixed(2)),
           directPart: dPart,
           indirectPart: iPart,
           target: co.target != null ? Number(co.target) : null,
@@ -153,17 +153,17 @@ export default function CoDirectVsIndirectSection({
     // Single CO mode: 1 stacked bar for selected CO
     const dWeight = directWeight != null ? Number(directWeight) : 80;
     const iWeight = indirectWeight != null ? Number(indirectWeight) : 20;
-    const dAtt = directAttainment != null ? Number(directAttainment) : 0;
-    const iAtt = indirectAttainment != null ? Number(indirectAttainment) : 0;
+    const dAtt = directAttainment != null ? Number(directAttainment) : (directEvidenceSummary?.directAttainment != null ? Number(directEvidenceSummary.directAttainment) : (directEvidenceSummary?.directLevel != null ? Number(directEvidenceSummary.directLevel) : 0));
+    const iAtt = indirectAttainment != null ? Number(indirectAttainment) : (indirectEvidenceSummary?.indirectScore != null ? Number(indirectEvidenceSummary.indirectScore) : (indirectEvidenceSummary?.indirectLevel != null ? Number(indirectEvidenceSummary.indirectLevel) : 0));
     const dPart = Number(((dWeight / 100) * dAtt).toFixed(4));
     const iPart = Number(((iWeight / 100) * iAtt).toFixed(4));
 
     return [
       {
         coCode: coCode || 'CO',
-        directAttainment,
-        indirectAttainment,
-        overallAttainment,
+        directAttainment: dAtt,
+        indirectAttainment: iAtt,
+        overallAttainment: overallAttainment != null ? overallAttainment : Number((dPart + iPart).toFixed(2)),
         directPart: dPart,
         indirectPart: iPart,
         target: target != null ? Number(target) : null,

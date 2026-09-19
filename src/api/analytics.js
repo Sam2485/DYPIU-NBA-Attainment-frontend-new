@@ -288,6 +288,31 @@ export const analyticsApi = {
     const params = { programmeBatchCourseId, coCode };
     return apiClient.get('/analytics/co-analytics', { params });
   },
+
+  /**
+   * Fetch historical programme PO/PSO attainment across concluded batches.
+   * @param {Object} params
+   * @param {string} params.masterProgrammeId
+   * @param {string} [params.outcomeCode]
+   * @returns {Promise<import('axios').AxiosResponse>}
+   */
+  getHistoricalProgrammeAttainment: ({ masterProgrammeId, outcomeCode } = {}) => {
+    const params = { masterProgrammeId };
+    if (outcomeCode) params.outcomeCode = outcomeCode;
+    return apiClient.get('/analytics/historical-programme-attainment', { params });
+  },
+
+  /**
+   * Fetch PO/PSO attainment comparison between any two programme batches.
+   * @param {Object} params
+   * @param {string} params.programmeBatchId1
+   * @param {string} params.programmeBatchId2
+   * @returns {Promise<import('axios').AxiosResponse>}
+   */
+  compareBatches: ({ programmeBatchId1, programmeBatchId2 } = {}) => {
+    const params = { programmeBatchId1, programmeBatchId2 };
+    return apiClient.get('/analytics/compare-batches', { params });
+  },
 };
 
 export default analyticsApi;

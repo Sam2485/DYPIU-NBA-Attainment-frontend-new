@@ -37,6 +37,17 @@ function CoIndirectSkeleton() {
   );
 }
 
+function unwrapResponseData(res) {
+  if (!res) return null;
+  if (res.data !== undefined && res.data !== null) {
+    if (typeof res.data === 'object' && res.data.data !== undefined && res.data.data !== null) {
+      return res.data.data;
+    }
+    return res.data;
+  }
+  return res;
+}
+
 function sortCosAscending(cos = []) {
   return [...cos].sort((a, b) => {
     const codeA = a.coCode || a.code || '';
@@ -76,7 +87,7 @@ export default function CoIndirectAttainmentView() {
       .getCourseAnalytics({ programmeBatchCourseId })
       .then((res) => {
         if (!isMounted) return;
-        const data = res?.data?.data || res?.data;
+        const data = unwrapResponseData(res);
         if (data) {
           setCourseData(data);
           const rawCos = data.courseOutcomes || [];
@@ -112,7 +123,7 @@ export default function CoIndirectAttainmentView() {
     try {
       if (coScope === 'ALL') {
         const courseRes = await analyticsApi.getCourseAnalytics({ programmeBatchCourseId });
-        const cData = courseRes?.data?.data || courseRes?.data;
+        const cData = unwrapResponseData(courseRes);
         setCourseData(cData);
         if (cData?.courseOutcomes) {
           setAvailableCos(sortCosAscending(cData.courseOutcomes));
@@ -123,7 +134,7 @@ export default function CoIndirectAttainmentView() {
           programmeBatchCourseId,
           coCode: targetCo,
         });
-        setCoData(coRes?.data?.data || coRes?.data || null);
+        setCoData(unwrapResponseData(coRes));
       }
     } catch (err) {
       console.error('Failed to load CO Indirect Attainment evidence:', err);

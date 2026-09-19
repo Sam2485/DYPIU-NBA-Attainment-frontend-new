@@ -46,6 +46,17 @@ function sortCosAscending(cos = []) {
   });
 }
 
+function unwrapResponseData(res) {
+  if (!res) return null;
+  if (res.data !== undefined && res.data !== null) {
+    if (typeof res.data === 'object' && res.data.data !== undefined && res.data.data !== null) {
+      return res.data.data;
+    }
+    return res.data;
+  }
+  return res;
+}
+
 function sortOutcomesAscending(outcomes = []) {
   const poList = [];
   const psoList = [];
@@ -150,7 +161,7 @@ export default function CoAnalyticsView() {
       })
       .then((res) => {
         if (!isMounted) return;
-        const payload = res?.data ?? res;
+        const payload = unwrapResponseData(res);
         if (payload) {
           setCourseData(payload);
 
@@ -195,8 +206,8 @@ export default function CoAnalyticsView() {
         coCode: activeCo,
       });
 
-      const payload = res?.data ?? res;
-      if (payload) {
+      const payload = unwrapResponseData(res);
+      if (payload && (payload.coCode || payload.target !== undefined)) {
         setCoData(payload);
       } else {
         setError('CO analytics details are currently unavailable.');
@@ -496,8 +507,8 @@ export default function CoAnalyticsView() {
               coCode={coData.coCode}
               target={coData.target}
               targetMet={coData.targetMet}
-              directAttainment={coData.directAttainment}
-              indirectAttainment={coData.indirectAttainment}
+              directAttainment={coData.directAttainment ?? coData.directEvidenceSummary?.directAttainment ?? coData.directEvidenceSummary?.directLevel}
+              indirectAttainment={coData.indirectAttainment ?? coData.indirectEvidenceSummary?.indirectScore ?? coData.indirectEvidenceSummary?.indirectLevel}
               overallAttainment={coData.overallAttainment}
               directWeight={coData.directWeight}
               indirectWeight={coData.indirectWeight}
@@ -510,8 +521,8 @@ export default function CoAnalyticsView() {
             <CoDirectVsIndirectSection
               coScope="SELECTED"
               coCode={coData.coCode}
-              directAttainment={coData.directAttainment}
-              indirectAttainment={coData.indirectAttainment}
+              directAttainment={coData.directAttainment ?? coData.directEvidenceSummary?.directAttainment ?? coData.directEvidenceSummary?.directLevel}
+              indirectAttainment={coData.indirectAttainment ?? coData.indirectEvidenceSummary?.indirectScore ?? coData.indirectEvidenceSummary?.indirectLevel}
               overallAttainment={coData.overallAttainment}
               target={coData.target}
               targetMet={coData.targetMet}

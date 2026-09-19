@@ -40,6 +40,17 @@ function CoDirectSkeleton() {
   );
 }
 
+function unwrapResponseData(res) {
+  if (!res) return null;
+  if (res.data !== undefined && res.data !== null) {
+    if (typeof res.data === 'object' && res.data.data !== undefined && res.data.data !== null) {
+      return res.data.data;
+    }
+    return res.data;
+  }
+  return res;
+}
+
 function sortCosAscending(cos = []) {
   return [...cos].sort((a, b) => {
     const codeA = a.coCode || a.code || '';
@@ -81,7 +92,7 @@ export default function CoDirectAttainmentView() {
       .getCourseAnalytics({ programmeBatchCourseId })
       .then((res) => {
         if (!isMounted) return;
-        const data = res?.data?.data || res?.data;
+        const data = unwrapResponseData(res);
         if (data) {
           setCourseData(data);
           const rawCos = data.courseOutcomes || [];
@@ -117,7 +128,7 @@ export default function CoDirectAttainmentView() {
     try {
       if (coScope === 'ALL') {
         const courseRes = await analyticsApi.getCourseAnalytics({ programmeBatchCourseId });
-        const cData = courseRes?.data?.data || courseRes?.data;
+        const cData = unwrapResponseData(courseRes);
         setCourseData(cData);
         if (cData?.courseOutcomes) {
           setAvailableCos(sortCosAscending(cData.courseOutcomes));
@@ -139,7 +150,7 @@ export default function CoDirectAttainmentView() {
 
         // Process CO Analytics
         if (coRes.status === 'fulfilled') {
-          setCoData(coRes.value?.data?.data || coRes.value?.data || null);
+          setCoData(unwrapResponseData(coRes.value));
         } else {
           const status = coRes.reason?.response?.status;
           if (status === 403) {
@@ -152,7 +163,7 @@ export default function CoDirectAttainmentView() {
         // Process Student Evidence
         let evidencePayload = null;
         if (evidenceRes.status === 'fulfilled') {
-          evidencePayload = evidenceRes.value?.data?.data || evidenceRes.value?.data || null;
+          evidencePayload = unwrapResponseData(evidenceRes.value);
           setStudentEvidenceData(evidencePayload);
         } else {
           console.warn('Student evidence fetch failed:', evidenceRes.reason);
@@ -161,7 +172,7 @@ export default function CoDirectAttainmentView() {
         // Process Full Examination Marks Table
         let rows = [];
         if (examRes.status === 'fulfilled') {
-          const examPayload = examRes.value?.data?.data || examRes.value?.data || null;
+          const examPayload = unwrapResponseData(examRes.value);
           const studentMarks = examPayload?.studentMarks || [];
           const coMaxMarks = examPayload?.coMaxMarks || {};
           const coThresholdMarks = examPayload?.coThresholdMarks || {};
