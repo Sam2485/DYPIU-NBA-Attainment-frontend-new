@@ -156,8 +156,10 @@ export default function IqacAnalyticsDashboard() {
   }, [selectedSchoolId, selectedMasterProgrammeId]);
 
   useEffect(() => {
-    fetchAnalyticsData();
-  }, [fetchAnalyticsData]);
+    if (!isLoadingMetadata) {
+      fetchAnalyticsData();
+    }
+  }, [fetchAnalyticsData, isLoadingMetadata]);
 
   // Handler for Selecting a Batch -> Transitions to Batch Analytics
   const handleNavigateToBatch = useCallback(

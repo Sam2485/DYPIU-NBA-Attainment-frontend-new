@@ -2104,7 +2104,7 @@ export function AcademicProvider({ children }) {
   /* Context value                                                            */
   /* ======================================================================== */
 
-  const value = {
+  const value = useMemo(() => ({
     loading,
     role,
     user,
@@ -2297,9 +2297,31 @@ export function AcademicProvider({ children }) {
     students,
     setStudents,
     loadStudents,
+    getStudentsByBatch,
+    addStudentToBatch,
+    updateStudentInBatch,
+    deleteStudentFromBatch,
     createStudent,
     deleteStudent,
-  };
+  }), [
+    loading, role, user,
+    schools, selectedSchool, selectedSchoolId, setSelectedSchoolId, loadSchools, createSchool, updateSchool,
+    departments, selectedDepartment, selectedDepartmentId, setSelectedDepartmentId, loadDepartments, createDepartment, updateDepartment, deleteDepartment,
+    programmes, selectedProgramme, programmeId, setProgrammeId, loadProgrammes, loadMasterProgrammes, loadCoordinatorMasterProgrammes, createProgramme, updateProgramme, deleteProgramme, createMasterProgramme, updateMasterProgramme, deleteMasterProgramme,
+    batches, batchId, setBatchId, selectedBatch, loadBatches, loadProgrammeBatches, loadCoordinatorProgrammeBatches, loadCourseCoordinatorProgrammeBatches, createBatch, updateBatch, deleteBatch, createProgrammeBatch, updateProgrammeBatch, deleteProgrammeBatch, updateProgrammeBatchStatus, reopenProgrammeBatch, closeProgrammeBatchReopening, assignProgrammeBatchCoordinator, activeSemester, semestersStatusOverview, loadSemestersStatusOverview, loadSemesterReadiness, executeCompleteSemester, executeReopenSemester,
+    academicYear, courses, availableCourses, selectedCourse, courseId, setCourseId, loadCourses, createCourse, updateCourse, deleteCourse,
+    courseOfferings, availableCourseOfferings, selectedCourseOffering, courseOfferingId, setCourseOfferingId, selectCourseOffering, loadCourseOfferings, loadAssignedCourseOfferings, loadCourseOffering, addCourseOffering, updateCourseOffering, addProgrammeBatchCourse, updateProgrammeBatchCourse, deleteProgrammeBatchCourse, assignCourseCoordinator, allocateCourses,
+    courseCoordinators, facultyList, loadCourseCoordinators, hods, loadHods, programmeCoordinators, loadProgrammeCoordinators, hodCoordinatorAssignments, loadHodCoordinators, assignHodCoordinator,
+    students, loadStudents, getStudentsByBatch, addStudentToBatch, updateStudentInBatch, deleteStudentFromBatch,
+    activePOs, activePSOs, activePEOs, poPsoTargets, loadProgrammeOutcomes, loadProgrammeBatchOutcomes, updateProgrammePOs, updateProgrammePSOs, updateProgrammePEOs, saveProgrammeOutcomeDefinitions, saveProgrammeBatchOutcomeDefinitions, loadProgrammeTargets, updatePoPsoTargets, updateProgrammeOutcomeTargets,
+    activeCOs, coTargets, loadCourseOutcomes, updateCourseCOs,
+    coMapping, loadCourseMapping, updateCourseMapping,
+    attainmentSettings, loadAttainmentSettings, updateAttainmentSettings, coAttainment, loadCOAttainment,
+    programmeATR, loadProgrammeATR, saveProgrammeATR, submitProgrammeATR, courseATR, loadCourseATR,
+    directorDashboard, hodDashboard, programmeCoordinatorDashboard, courseCoordinatorDashboard, loadDirectorDashboard, loadHodDashboard, loadProgrammeCoordinatorDashboard, loadCourseCoordinatorDashboard,
+    setupProgress, loadSetupProgress, saveSetupProgress, completeProgrammeCoordinatorSetupProgress,
+    createStudent, deleteStudent,
+  ]);
 
   return (
     <AcademicContext.Provider value={value}>

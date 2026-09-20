@@ -108,49 +108,92 @@ function BatchOverviewSkeleton() {
   );
 }
 
+// Client-side in-memory cache for Batch Analytics Overview (60s TTL, SWR pattern)
+const batchOverviewCache = new Map(); // programmeBatchId -> { data, timestamp }
+const inFlightBatchRequests = new Map(); // programmeBatchId -> Promise
+const BATCH_OVERVIEW_TTL = 60 * 1000;
+
 export default function BatchAnalyticsOverview() {
   const { programmeBatchId } = useParams();
   const navigate = useNavigate();
 
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const cachedEntry = programmeBatchId ? batchOverviewCache.get(programmeBatchId) : null;
+  const isFresh = cachedEntry && (Date.now() - cachedEntry.timestamp < BATCH_OVERVIEW_TTL);
+
+  const [data, setData] = useState(() => cachedEntry?.data ?? null);
+  const [loading, setLoading] = useState(() => !cachedEntry?.data);
   const [error, setError] = useState(null);
 
   // Active selected outcome for deep-dive investigation across sections
-  const [selectedOutcomeCode, setSelectedOutcomeCode] = useState('');
-  const [selectedOutcomeType, setSelectedOutcomeType] = useState('PO');
+  const [selectedOutcomeCode, setSelectedOutcomeCode] = useState(() => {
+    if (cachedEntry?.data?.poHealth?.length > 0) return cachedEntry.data.poHealth[0].poCode;
+    if (cachedEntry?.data?.psoHealth?.length > 0) return cachedEntry.data.psoHealth[0].psoCode;
+    return '';
+  });
+  const [selectedOutcomeType, setSelectedOutcomeType] = useState(() => {
+    if (cachedEntry?.data?.poHealth?.length > 0) return 'PO';
+    if (cachedEntry?.data?.psoHealth?.length > 0) return 'PSO';
+    return 'PO';
+  });
 
-  const fetchOverview = useCallback(async () => {
+  const fetchOverview = useCallback(async (forceRefresh = false) => {
     if (!programmeBatchId) {
       setError('No Programme Batch identifier provided.');
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    const cached = batchOverviewCache.get(programmeBatchId);
+    const hasFreshData = cached && (Date.now() - cached.timestamp < BATCH_OVERVIEW_TTL);
+
+    if (!forceRefresh && hasFreshData) {
+      setData(cached.data);
+      setLoading(false);
+      return;
+    }
+
+    // Only display full-screen skeleton if we have no prior data to show
+    if (!cached?.data) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
-      const res = await analyticsApi.getBatchOverview(programmeBatchId);
+      let requestPromise = inFlightBatchRequests.get(programmeBatchId);
+      if (!requestPromise) {
+        requestPromise = analyticsApi.getBatchOverview(programmeBatchId);
+        inFlightBatchRequests.set(programmeBatchId, requestPromise);
+      }
+
+      const res = await requestPromise;
       const payload = res?.data ?? res;
       if (payload) {
         // Enforce clean ascending order on POs and PSOs
         const sortedPo = sortOutcomesAscending(payload.poHealth || []);
         const sortedPso = sortOutcomesAscending(payload.psoHealth || []);
 
-        setData({
+        const formatted = {
           ...payload,
           poHealth: sortedPo,
           psoHealth: sortedPso,
+        };
+
+        batchOverviewCache.set(programmeBatchId, {
+          data: formatted,
+          timestamp: Date.now(),
         });
 
-        // Auto-select initial outcome: first PO in natural ascending order (e.g. PO1), or first PSO
-        if (sortedPo.length > 0) {
-          setSelectedOutcomeCode(sortedPo[0].poCode);
-          setSelectedOutcomeType('PO');
-        } else if (sortedPso.length > 0) {
-          setSelectedOutcomeCode(sortedPso[0].psoCode);
-          setSelectedOutcomeType('PSO');
+        setData(formatted);
+
+        // Auto-select initial outcome if none selected
+        if (!selectedOutcomeCode) {
+          if (sortedPo.length > 0) {
+            setSelectedOutcomeCode(sortedPo[0].poCode);
+            setSelectedOutcomeType('PO');
+          } else if (sortedPso.length > 0) {
+            setSelectedOutcomeCode(sortedPso[0].psoCode);
+            setSelectedOutcomeType('PSO');
+          }
         }
       } else {
         setError('Batch analytics data is currently unavailable.');
@@ -163,9 +206,10 @@ export default function BatchAnalyticsOverview() {
         'Unable to load batch analytics overview. Please check network connection or verify authorization.'
       );
     } finally {
+      inFlightBatchRequests.delete(programmeBatchId);
       setLoading(false);
     }
-  }, [programmeBatchId]);
+  }, [programmeBatchId, selectedOutcomeCode]);
 
   useEffect(() => {
     fetchOverview();
@@ -221,7 +265,7 @@ export default function BatchAnalyticsOverview() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
           <button
             type="button"
-            onClick={fetchOverview}
+            onClick={() => fetchOverview(true)}
             style={{
               display: 'inline-flex',
               alignItems: 'center',

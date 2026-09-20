@@ -134,15 +134,15 @@ function sortOutcomesAscending(outcomes = []) {
   });
 }
 
-export default function PoPsoHealthSection({
+function PoPsoHealthSection({
   poHealth = [],
   psoHealth = [],
   summary = {},
   selectedOutcomeCode = '',
   onSelectOutcome = () => {},
 }) {
-  const sortedPo = sortOutcomesAscending(poHealth);
-  const sortedPso = sortOutcomesAscending(psoHealth);
+  const sortedPo = React.useMemo(() => sortOutcomesAscending(poHealth), [poHealth]);
+  const sortedPso = React.useMemo(() => sortOutcomesAscending(psoHealth), [psoHealth]);
 
   const poEvaluated = summary.poEvaluated ?? sortedPo.length;
   const poMet = summary.poMet ?? sortedPo.filter((p) => p.targetMet).length;
@@ -152,7 +152,7 @@ export default function PoPsoHealthSection({
   const psoMet = summary.psoMet ?? sortedPso.filter((p) => p.targetMet).length;
   const psoBelow = summary.psoBelowTarget ?? Math.max(0, psoEvaluated - psoMet);
 
-  const poData = sortedPo.map((item) => ({
+  const poData = React.useMemo(() => sortedPo.map((item) => ({
     code: item.poCode,
     statement: item.poStatement,
     attainment: Number(item.attainment != null ? item.attainment : 0),
@@ -161,9 +161,9 @@ export default function PoPsoHealthSection({
     targetMet: Boolean(item.targetMet),
     directAttainment: item.directAttainment != null ? Number(item.directAttainment) : null,
     indirectAttainment: item.indirectAttainment != null ? Number(item.indirectAttainment) : null,
-  }));
+  })), [sortedPo]);
 
-  const psoData = sortedPso.map((item) => ({
+  const psoData = React.useMemo(() => sortedPso.map((item) => ({
     code: item.psoCode,
     statement: item.psoStatement,
     attainment: Number(item.attainment != null ? item.attainment : 0),
@@ -172,7 +172,7 @@ export default function PoPsoHealthSection({
     targetMet: Boolean(item.targetMet),
     directAttainment: item.directAttainment != null ? Number(item.directAttainment) : null,
     indirectAttainment: item.indirectAttainment != null ? Number(item.indirectAttainment) : null,
-  }));
+  })), [sortedPso]);
 
   return (
     <div style={{ marginBottom: 28 }}>
@@ -558,3 +558,5 @@ export default function PoPsoHealthSection({
     </div>
   );
 }
+
+export default React.memo(PoPsoHealthSection);

@@ -40,6 +40,8 @@ export const reportsApi = {
     apiClient.get(`/reports/programme-attainment/${programmeBatchId}/master/pdf`, { params: masterProgrammeId ? { masterProgrammeId } : {}, responseType: 'blob' }),
   downloadProgrammeAttainmentMasterExcel: (programmeBatchId, masterProgrammeId = null) =>
     apiClient.get(`/reports/programme-attainment/${programmeBatchId}/master/excel`, { params: masterProgrammeId ? { masterProgrammeId } : {}, responseType: 'blob' }),
+  downloadProgrammeAttainmentExcel: (programmeBatchId, masterProgrammeId = null) =>
+    apiClient.get(`/reports/programme-attainment/${programmeBatchId}/excel`, { params: masterProgrammeId ? { masterProgrammeId } : {}, responseType: 'blob' }),
   downloadProgrammeAttainmentSectionPdf: (programmeBatchId, section) =>
     apiClient.get(`/reports/programme-attainment/${programmeBatchId}/section/${section}/pdf`, { responseType: 'blob' }),
   downloadProgrammeAttainmentSectionExcel: (programmeBatchId, section) =>
@@ -77,8 +79,15 @@ export const reportsApi = {
       params: schoolId ? { schoolId } : {},
     }),
 
-  getProgrammeBatchesByMasterProgramme: (masterProgrammeId) =>
-    apiClient.get(`/master-programmes/${masterProgrammeId}/programme-batches`),
+  getProgrammeBatchesByMasterProgramme: async (masterProgrammeId) => {
+    try {
+      return await apiClient.get(`/master-programmes/${masterProgrammeId}/programme-batches`);
+    } catch (err) {
+      return await apiClient.get(`/academic/programme-batches`, {
+        params: { masterProgrammeId, status: 'ALL' },
+      });
+    }
+  },
 
   // -----------------------------------------------------------------------
   // General Reports Summary

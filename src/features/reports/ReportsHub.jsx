@@ -27,12 +27,18 @@ import { approvalsApi } from '../../api/approvals';
 import { downloadReportBlob, openReportPdf } from '../../utils/reportDownload';
 
 const unwrapReportData = (response) => response?.data?.data ?? response?.data ?? response;
+const normalizeReportSchool = (school) => ({
+  ...school,
+  id: school?.id ?? school?.schoolId ?? '',
+  schoolId: school?.schoolId ?? school?.id ?? '',
+});
 const normalizeReportProgramme = (programme) => ({
   ...programme,
   // Depending on the report-filter endpoint, the primary key may be named
   // `id` or `masterProgrammeId`. The hierarchy needs one canonical ID.
   id: programme?.id ?? programme?.masterProgrammeId ?? null,
   masterProgrammeId: programme?.masterProgrammeId ?? programme?.id ?? null,
+  code: programme?.code ?? programme?.degreeAwarded ?? '—',
 });
 const normalizeReportBatch = (batch) => ({
   ...batch,
@@ -65,6 +71,9 @@ const scoreMap = (scores, codeKey) => Object.fromEntries(
     : Object.entries(scores || {}).map(([code, value]) => [normalizeOutcomeCode(code), value])
   ).filter(([code]) => Boolean(code))
 );
+
+const programmeReportCache = new Map();
+const REPORT_CACHE_TTL = 60000;
 
 export default function ReportsHub() {
   const { user, role } = useAuth();
@@ -175,13 +184,13 @@ export default function ReportsHub() {
   })();
 
   // Current Programme
-  const currentProgId = roleProgrammes.some((p) => p.id === programmeId)
+  const currentProgId = roleProgrammes.some((p) => String(p.id) === String(programmeId))
     ? programmeId
     : roleProgrammes[0]?.id || '';
 
   const currentProgramme =
-    roleProgrammes.find((p) => p.id === currentProgId) ||
-    masterProgrammes.find((p) => p.id === currentProgId) ||
+    roleProgrammes.find((p) => String(p.id) === String(currentProgId)) ||
+    masterProgrammes.find((p) => String(p.id) === String(currentProgId)) ||
     roleProgrammes[0] ||
     selectedProgramme ||
     { id: '', code: '—', name: 'No master programme selected' };
@@ -377,6 +386,9 @@ export default function ReportsHub() {
 
   // IQAC Reports: Oversees the entire university.
   // Loads Schools → Programmes for selected School → Batches → Courses.
+  const programmeIdRef = useRef(programmeId);
+  programmeIdRef.current = programmeId;
+
   useEffect(() => {
     if (!isIqac) return;
     let cancelled = false;
@@ -385,7 +397,7 @@ export default function ReportsHub() {
       .then((response) => {
         if (cancelled) return;
         const data = unwrapReportData(response) ?? [];
-        const list = Array.isArray(data) ? data : [];
+        const list = (Array.isArray(data) ? data : []).map(normalizeReportSchool);
         setSchools(list);
         if (list.length > 0) {
           setSelectedSchoolId((prev) => {
@@ -413,7 +425,8 @@ export default function ReportsHub() {
         const programmes = unwrapReportData(response) ?? [];
         const list = Array.isArray(programmes) ? programmes.map(normalizeReportProgramme) : [];
         setIqacProgrammes(list);
-        const selectedStillAvailable = list.some((p) => String(p.id) === String(programmeId));
+        const currentSelectedId = programmeIdRef.current;
+        const selectedStillAvailable = list.some((p) => String(p.id) === String(currentSelectedId));
         if (!selectedStillAvailable) {
           setProgrammeId(list[0]?.id ?? null);
         }
@@ -425,7 +438,7 @@ export default function ReportsHub() {
         }
       });
     return () => { cancelled = true; };
-  }, [isIqac, selectedSchoolId, setProgrammeId, programmeId]);
+  }, [isIqac, selectedSchoolId, setProgrammeId]);
 
   useEffect(() => {
     if (!isHod || !currentProgId) {
@@ -443,22 +456,12 @@ export default function ReportsHub() {
           ? selectedBatchId
           : (list[0]?.id ?? '');
         setSelectedBatchId(nextBatchId);
-        // Fetch offerings immediately after a batch has been resolved. This
-        // guarantees the Course selector has data on the first report render.
-        if (nextBatchId) {
-          loadedReportOfferingsBatchRef.current = String(nextBatchId);
-          loadCourseOfferings(nextBatchId).catch(() => {
-            if (loadedReportOfferingsBatchRef.current === String(nextBatchId)) {
-              loadedReportOfferingsBatchRef.current = '';
-            }
-          });
-        }
       })
       .catch(() => {
         if (!cancelled) setHodBatches([]);
       });
     return () => { cancelled = true; };
-  }, [currentProgId, isHod, loadCourseOfferings]);
+  }, [currentProgId, isHod]);
 
   useEffect(() => {
     if (!isDirector || !currentProgId) {
@@ -476,20 +479,12 @@ export default function ReportsHub() {
           ? selectedBatchId
           : (list[0]?.id ?? '');
         setSelectedBatchId(nextBatchId);
-        if (nextBatchId) {
-          loadedReportOfferingsBatchRef.current = String(nextBatchId);
-          loadCourseOfferings(nextBatchId).catch(() => {
-            if (loadedReportOfferingsBatchRef.current === String(nextBatchId)) {
-              loadedReportOfferingsBatchRef.current = '';
-            }
-          });
-        }
       })
       .catch(() => {
         if (!cancelled) setDirectorBatches([]);
       });
     return () => { cancelled = true; };
-  }, [currentProgId, isDirector, loadCourseOfferings]);
+  }, [currentProgId, isDirector]);
 
   useEffect(() => {
     if (!isIqac || !currentProgId) {
@@ -507,20 +502,12 @@ export default function ReportsHub() {
           ? selectedBatchId
           : (list[0]?.id ?? '');
         setSelectedBatchId(nextBatchId);
-        if (nextBatchId) {
-          loadedReportOfferingsBatchRef.current = String(nextBatchId);
-          loadCourseOfferings(nextBatchId).catch(() => {
-            if (loadedReportOfferingsBatchRef.current === String(nextBatchId)) {
-              loadedReportOfferingsBatchRef.current = '';
-            }
-          });
-        }
       })
       .catch(() => {
         if (!cancelled) setIqacBatches([]);
       });
     return () => { cancelled = true; };
-  }, [currentProgId, isIqac, loadCourseOfferings]);
+  }, [currentProgId, isIqac]);
 
   useEffect(() => {
     if (!isProgrammeCoordinator || !currentProgId) {
@@ -540,20 +527,12 @@ export default function ReportsHub() {
           ? selectedBatchId
           : (list[0]?.id ?? '');
         setSelectedBatchId(nextBatchId);
-        if (nextBatchId) {
-          loadedReportOfferingsBatchRef.current = String(nextBatchId);
-          loadCourseOfferings(nextBatchId).catch(() => {
-            if (loadedReportOfferingsBatchRef.current === String(nextBatchId)) {
-              loadedReportOfferingsBatchRef.current = '';
-            }
-          });
-        }
       })
       .catch(() => {
         if (!cancelled) setCoordinatorBatches([]);
       });
     return () => { cancelled = true; };
-  }, [currentProgId, isProgrammeCoordinator, loadCourseOfferings]);
+  }, [currentProgId, isProgrammeCoordinator]);
 
   const reportCourseOfferings = useMemo(
     () => courseOfferings.filter((offering) =>
@@ -606,6 +585,17 @@ export default function ReportsHub() {
     }
 
     let cancelled = false;
+    const cacheKey = `${effectiveBatchId}:${batchReportType}`;
+    const cached = programmeReportCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < REPORT_CACHE_TTL)) {
+      setProgrammeBatchReports(cached.reports);
+      setProgrammeBatchReportErrors(cached.errors);
+      setIndirectAssessments(cached.indirectAssessments);
+      setConsolidatedIndirectAttainment(cached.consolidatedIndirectAttainment);
+      setProgrammeBatchReportsLoading(false);
+      return;
+    }
+
     setProgrammeBatchReportsLoading(true);
     setProgrammeBatchReports({ mapping: null, direct: null, indirect: null });
     setIndirectAssessments([]);
@@ -660,17 +650,29 @@ export default function ReportsHub() {
           setProgrammeBatchReports(nextReports);
           setProgrammeBatchReportErrors(nextErrors);
 
+          let finalIndirectAssessments = [];
+          let finalConsolidatedIndirectAttainment = null;
           if (fetchAdditionalIndirect && Array.isArray(extraIndirectResults) && extraIndirectResults.length === 2) {
             const [assessmentsRes, consolidatedRes] = extraIndirectResults;
             if (assessmentsRes.status === 'fulfilled') {
               const data = unwrapReportData(assessmentsRes.value);
-              setIndirectAssessments(Array.isArray(data) ? data : []);
+              finalIndirectAssessments = Array.isArray(data) ? data : [];
+              setIndirectAssessments(finalIndirectAssessments);
             }
             if (consolidatedRes.status === 'fulfilled') {
               const data = unwrapReportData(consolidatedRes.value);
+              finalConsolidatedIndirectAttainment = data;
               setConsolidatedIndirectAttainment(data);
             }
           }
+
+          programmeReportCache.set(cacheKey, {
+            reports: nextReports,
+            errors: nextErrors,
+            indirectAssessments: finalIndirectAssessments,
+            consolidatedIndirectAttainment: finalConsolidatedIndirectAttainment,
+            timestamp: Date.now(),
+          });
         }
       })
       .finally(() => {
@@ -820,7 +822,17 @@ export default function ReportsHub() {
   // Effective Attainment View Mode (Force Course Coordinator to 'course-attainment')
   const effectiveAttainmentViewMode = isCourseCoordinator ? 'course-attainment' : attainmentViewMode;
 
-  const requestOfficialReport = (format) => {
+  const currentSectionLabel = useMemo(() => {
+    switch (batchReportType) {
+      case 'average-mapping': return 'Average Mapping';
+      case 'average-attainment-direct': return 'Average Direct Attainment';
+      case 'average-attainment-indirect': return 'Average Indirect Attainment';
+      case 'overall-attainment': return 'Overall Programme Attainment';
+      default: return 'Section';
+    }
+  }, [batchReportType]);
+
+  const requestOfficialReport = (format, specificSection = null) => {
     const programmeBatchCourseId = selectedReportCourseOfferingId || courseOfferingId || selectedCourseOffering?.id || currentCourseObj?.id;
     const programmeBatchId = effectiveBatchId;
     if (activeMainTab === 'atr-reports') {
@@ -836,20 +848,31 @@ export default function ReportsHub() {
       return format === 'pdf' ? reportsApi.downloadCourseAttainmentPdf(programmeBatchCourseId) : reportsApi.downloadCourseAttainmentExcel(programmeBatchCourseId);
     }
     if (!programmeBatchId) throw new Error('Select a programme batch before downloading the Programme Attainment report.');
-    const section = { 'average-mapping': 'AVERAGE_MAPPING', 'average-attainment-direct': 'AVERAGE_DIRECT', 'average-attainment-indirect': 'AVERAGE_INDIRECT', 'overall-attainment': 'OVERALL' }[batchReportType] || 'AVERAGE_MAPPING';
+    if (format === 'excel-master') {
+      return reportsApi.downloadProgrammeAttainmentMasterExcel(programmeBatchId, currentProgId);
+    }
+    const activeSectionKey = specificSection || batchReportType;
+    const section = { 'average-mapping': 'AVERAGE_MAPPING', 'average-attainment-direct': 'AVERAGE_DIRECT', 'average-attainment-indirect': 'AVERAGE_INDIRECT', 'overall-attainment': 'OVERALL' }[activeSectionKey] || 'AVERAGE_MAPPING';
     return format === 'pdf' ? reportsApi.downloadProgrammeAttainmentSectionPdf(programmeBatchId, section) : reportsApi.downloadProgrammeAttainmentSectionExcel(programmeBatchId, section);
   };
 
-  const handleOfficialDownload = async (format) => {
-    setOfficialReportAction(format); setOfficialReportError('');
+  const handleOfficialDownload = async (format, specificSection = null) => {
+    const actionKey = specificSection ? `excel-${specificSection}` : format;
+    setOfficialReportAction(actionKey); setOfficialReportError('');
     try {
-      const response = await requestOfficialReport(format);
+      const response = await requestOfficialReport(format, specificSection);
       if (format === 'pdf') {
         openReportPdf(response);
       } else {
-        const fallbackName = effectiveAttainmentViewMode === 'course-attainment'
-          ? `COURSE_ATTAINMENT_${currentCourseObj?.code || 'COURSE'}.xlsx`
-          : 'official-obe-report.xlsx';
+        let fallbackName = 'official-obe-report.xlsx';
+        if (format === 'excel-master') {
+          fallbackName = `PROGRAMME_ATTAINMENT_MASTER_${currentProgramme?.code || 'PROG'}_${currentBatchName || 'BATCH'}.xlsx`;
+        } else if (effectiveAttainmentViewMode === 'course-attainment') {
+          fallbackName = `COURSE_ATTAINMENT_${currentCourseObj?.code || 'COURSE'}.xlsx`;
+        } else if (effectiveAttainmentViewMode === 'programme-attainment') {
+          const typeKey = specificSection || batchReportType;
+          fallbackName = `PROGRAMME_ATTAINMENT_${typeKey.toUpperCase().replace(/-/g, '_')}_${currentProgramme?.code || 'PROG'}.xlsx`;
+        }
         downloadReportBlob(response, fallbackName);
       }
     } catch (error) {
@@ -1094,10 +1117,38 @@ export default function ReportsHub() {
               </button>
             )}
 
+            {effectiveAttainmentViewMode === 'programme-attainment' && (
+              <button
+                type="button"
+                onClick={() => handleOfficialDownload('excel-master')}
+                disabled={Boolean(officialReportAction)}
+                title="Download complete Programme Attainment workbook containing all 4 sheets"
+                style={{
+                  height: '38px',
+                  padding: '0 16px',
+                  fontSize: '12.5px',
+                  fontWeight: '700',
+                  background: '#059669',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontFamily: 'inherit',
+                  boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)',
+                }}
+              >
+                <FileSpreadsheet size={15} /> {officialReportAction === 'excel-master' ? 'Downloading…' : 'Download Programme Attainment Excel'}
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => handleOfficialDownload('excel')}
               disabled={Boolean(officialReportAction)}
+              title={effectiveAttainmentViewMode === 'programme-attainment' ? `Download individual ${currentSectionLabel} Excel` : 'Download Course Attainment Excel'}
               style={{
                 height: '38px',
                 padding: '0 16px',
@@ -1115,7 +1166,7 @@ export default function ReportsHub() {
                 boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)',
               }}
             >
-              <FileSpreadsheet size={15} /> {officialReportAction === 'excel' ? 'Downloading…' : 'Download Excel'}
+              <FileSpreadsheet size={15} /> {officialReportAction === 'excel' ? 'Downloading…' : (effectiveAttainmentViewMode === 'programme-attainment' ? `Download ${currentSectionLabel} Excel` : 'Download Excel')}
             </button>
 
             <button
@@ -1180,7 +1231,7 @@ export default function ReportsHub() {
                 >
                   <option value="">All Schools</option>
                   {schools.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name} {s.code ? `(${s.code})` : ''}</option>
+                    <option key={s.id || s.schoolId} value={s.id || s.schoolId}>{s.name} {s.code ? `(${s.code})` : ''}</option>
                   ))}
                 </select>
                 <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
@@ -1762,10 +1813,31 @@ export default function ReportsHub() {
               {/* 1. AVERAGE MAPPING */}
               {batchReportType === 'average-mapping' && (
                 <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-                  <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
+                  <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                     <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
                       Average Mapping Strength — {currentBatchName} (All Semesters)
                     </h4>
+                    <button
+                      type="button"
+                      onClick={() => handleOfficialDownload('excel', 'average-mapping')}
+                      disabled={Boolean(officialReportAction)}
+                      style={{
+                        padding: '6px 14px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        color: '#059669',
+                        background: '#ecfdf5',
+                        border: '1px solid #a7f3d0',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      <FileSpreadsheet size={13} /> {officialReportAction === 'excel-average-mapping' ? 'Downloading…' : 'Download Average Mapping Excel'}
+                    </button>
                   </div>
                   <div className="report-table-scroll">
                     <table className="audit-data-table" style={{ margin: 0 }}>
@@ -1789,10 +1861,31 @@ export default function ReportsHub() {
               {/* 2. AVERAGE ATTAINMENT DIRECT */}
               {batchReportType === 'average-attainment-direct' && (
                 <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-                  <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
+                  <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                     <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
                       Average Attainment (Direct) — {currentBatchName} (All Semesters)
                     </h4>
+                    <button
+                      type="button"
+                      onClick={() => handleOfficialDownload('excel', 'average-attainment-direct')}
+                      disabled={Boolean(officialReportAction)}
+                      style={{
+                        padding: '6px 14px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        color: '#059669',
+                        background: '#ecfdf5',
+                        border: '1px solid #a7f3d0',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      <FileSpreadsheet size={13} /> {officialReportAction === 'excel-average-attainment-direct' ? 'Downloading…' : 'Download Average Direct Attainment Excel'}
+                    </button>
                   </div>
                   <div className="report-table-scroll">
                     <table className="audit-data-table" style={{ margin: 0 }}>
@@ -1820,7 +1913,30 @@ export default function ReportsHub() {
                     <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
                       Indirect Attainment Table — {currentBatchName}
                     </h4>
-                    <span style={{ fontSize: '11px', color: '#64748b' }}>Values range from 1.00 to 3.00</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{ fontSize: '11px', color: '#64748b' }}>Values range from 1.00 to 3.00</span>
+                      <button
+                        type="button"
+                        onClick={() => handleOfficialDownload('excel', 'average-attainment-indirect')}
+                        disabled={Boolean(officialReportAction)}
+                        style={{
+                          padding: '6px 14px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          color: '#059669',
+                          background: '#ecfdf5',
+                          border: '1px solid #a7f3d0',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        <FileSpreadsheet size={13} /> {officialReportAction === 'excel-average-attainment-indirect' ? 'Downloading…' : 'Download Average Indirect Attainment Excel'}
+                      </button>
+                    </div>
                   </div>
                   {programmeBatchReportErrors.indirect ? (
                     <div style={{ padding: '28px', textAlign: 'center', color: '#b91c1c' }}>
@@ -1925,10 +2041,31 @@ export default function ReportsHub() {
               {/* 4. OVERALL ATTAINMENT */}
               {batchReportType === 'overall-attainment' && (
                 <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-                  <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px' }}>
+                  <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                     <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
                       Overall Attainment — {currentBatchName}
                     </h4>
+                    <button
+                      type="button"
+                      onClick={() => handleOfficialDownload('excel', 'overall-attainment')}
+                      disabled={Boolean(officialReportAction)}
+                      style={{
+                        padding: '6px 14px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        color: '#059669',
+                        background: '#ecfdf5',
+                        border: '1px solid #a7f3d0',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      <FileSpreadsheet size={13} /> {officialReportAction === 'excel-overall-attainment' ? 'Downloading…' : 'Download Overall Programme Attainment Excel'}
+                    </button>
                   </div>
                   {programmeBatchReportErrors.indirect ? (
                     <div style={{ padding: '28px', textAlign: 'center', color: '#b91c1c' }}>
