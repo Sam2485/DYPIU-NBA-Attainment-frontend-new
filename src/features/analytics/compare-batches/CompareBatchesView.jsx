@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { analyticsApi, academicApi } from '../../../api';
 import ComparisonSlotSelector from './ComparisonSlotSelector';
@@ -29,6 +29,7 @@ export default function CompareBatchesView() {
   const [error, setError] = useState(null);
   const [comparisonData, setComparisonData] = useState(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(true);
+  const lastFetchedPairRef = useRef('');
 
   // Fetch comparison from backend
   const fetchComparison = useCallback(async (id1, id2) => {
@@ -52,10 +53,20 @@ export default function CompareBatchesView() {
         setComparisonData(payload);
         // Populate slots from backend authoritative metadata
         if (payload.batch1) {
-          setSlot1(payload.batch1);
+          setSlot1({
+            ...payload.batch1,
+            batchId: payload.batch1.batchId || payload.batch1.programmeBatchId,
+            programmeBatchId: payload.batch1.batchId || payload.batch1.programmeBatchId,
+            id: payload.batch1.batchId || payload.batch1.programmeBatchId,
+          });
         }
         if (payload.batch2) {
-          setSlot2(payload.batch2);
+          setSlot2({
+            ...payload.batch2,
+            batchId: payload.batch2.batchId || payload.batch2.programmeBatchId,
+            programmeBatchId: payload.batch2.batchId || payload.batch2.programmeBatchId,
+            id: payload.batch2.batchId || payload.batch2.programmeBatchId,
+          });
         }
         setIsSelectorOpen(false); // collapse selector after comparison loads
       } else {
@@ -76,22 +87,29 @@ export default function CompareBatchesView() {
   // Pre-fill Slot 1 by default with the current investigating batch if present
   useEffect(() => {
     if (paramBatch1 && paramBatch2) {
-      fetchComparison(paramBatch1, paramBatch2);
+      const pairKey = `${paramBatch1}::${paramBatch2}`;
+      if (lastFetchedPairRef.current !== pairKey) {
+        lastFetchedPairRef.current = pairKey;
+        fetchComparison(paramBatch1, paramBatch2);
+      }
       return;
     }
+    lastFetchedPairRef.current = '';
 
     const defaultBatchId = currentBatchId || paramBatch1;
-    if (defaultBatchId && !slot1) {
+    if (defaultBatchId) {
       academicApi
         .getBatchById(defaultBatchId)
         .then((res) => {
           const payload = res?.data?.data ?? res?.data ?? res;
           if (payload) {
             const batchId = payload.programmeBatchId || payload.id;
-            setSlot1({
+            setSlot1((prev) => prev || {
               programmeId: payload.masterProgrammeId,
               programmeName: payload.programmeName || payload.name || 'Programme',
               batchId: batchId,
+              programmeBatchId: batchId,
+              id: batchId,
               batchName: payload.name || `Batch ${payload.startYear}-${payload.endYear}`,
               startYear: payload.startYear,
               endYear: payload.endYear,
@@ -103,7 +121,7 @@ export default function CompareBatchesView() {
           console.warn('[CompareBatchesView] Could not load current batch for Slot 1:', err);
         });
     }
-  }, [paramBatch1, paramBatch2, currentBatchId, fetchComparison, slot1]);
+  }, [paramBatch1, paramBatch2, currentBatchId, fetchComparison]);
 
   const handleAddSlot = (slotOrNumber, maybeSlotData) => {
     if (typeof slotOrNumber === 'number') {
@@ -130,6 +148,7 @@ export default function CompareBatchesView() {
     }
     setComparisonData(null);
     setIsSelectorOpen(true);
+    lastFetchedPairRef.current = '';
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -148,9 +167,13 @@ export default function CompareBatchesView() {
 
   const handleCompareClick = () => {
     if (!slot1 || !slot2) return;
-    const id1 = slot1.batchId || slot1.programmeBatchId || slot1.id;
-    const id2 = slot2.batchId || slot2.programmeBatchId || slot2.id;
-    if (!id1 || !id2) return;
+    const id1 = slot1.programmeBatchId || slot1.batchId || slot1.id;
+    const id2 = slot2.programmeBatchId || slot2.batchId || slot2.id;
+    if (id1 === id2) {
+      setError('Cannot compare a batch to itself. Please select two different batches.');
+      return;
+    }
+    lastFetchedPairRef.current = `${id1}::${id2}`;
     setSearchParams(
       { programmeBatchId1: id1, programmeBatchId2: id2 },
       { replace: true }

@@ -55,7 +55,7 @@ export default function CourseComparisonSlotSelector({
         const list = Array.isArray(payload) ? payload : (payload?.content || []);
         setProgrammes(list);
         if (list.length > 0) {
-          setSelectedProgrammeId((prev) => prev || list[0].id);
+          setSelectedProgrammeId((prev) => prev || list[0].masterProgrammeId || list[0].id);
         }
       })
       .catch((err) => {
@@ -144,7 +144,7 @@ export default function CourseComparisonSlotSelector({
 
     const courseObj = courses.find((c) => (c.programmeBatchCourseId || c.id) === selectedCourseId);
     const batchObj = batches.find((b) => (b.programmeBatchId || b.id) === selectedBatchId);
-    const progObj = programmes.find((p) => p.id === selectedProgrammeId);
+    const progObj = programmes.find((p) => (p.masterProgrammeId || p.id) === selectedProgrammeId);
 
     const slotPayload = {
       programmeBatchCourseId: selectedCourseId,
@@ -389,11 +389,14 @@ export default function CourseComparisonSlotSelector({
               {loadingProgrammes ? (
                 <option>Loading programmes...</option>
               ) : (
-                programmes.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.code || p.degreeAwarded || 'Prog'})
-                  </option>
-                ))
+                programmes.map((p) => {
+                  const pId = p.masterProgrammeId || p.id;
+                  return (
+                    <option key={pId} value={pId}>
+                      {p.name} ({p.code || p.degreeAwarded || 'Prog'})
+                    </option>
+                  );
+                })
               )}
             </select>
           </div>

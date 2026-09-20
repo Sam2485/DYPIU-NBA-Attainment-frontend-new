@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { analyticsApi } from '../../../api';
 import CourseComparisonSlotSelector from './CourseComparisonSlotSelector';
@@ -42,6 +42,7 @@ export default function CompareCoursesView() {
   const [error, setError] = useState(null);
   const [comparisonData, setComparisonData] = useState(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(true);
+  const lastFetchedPairRef = useRef('');
 
   // Fetch comparison from backend
   const fetchComparison = useCallback(async (id1, id2) => {
@@ -88,24 +89,29 @@ export default function CompareCoursesView() {
   // Pre-fill Slot 1 if paramC1 is provided or from location state
   useEffect(() => {
     if (paramC1 && paramC2) {
-      fetchComparison(paramC1, paramC2);
+      const pairKey = `${paramC1}::${paramC2}`;
+      if (lastFetchedPairRef.current !== pairKey) {
+        lastFetchedPairRef.current = pairKey;
+        fetchComparison(paramC1, paramC2);
+      }
       return;
     }
+    lastFetchedPairRef.current = '';
 
     // Check if slot 1 passed via router state
-    if (location.state?.slot1Course && !slot1) {
-      setSlot1(location.state.slot1Course);
+    if (location.state?.slot1Course) {
+      setSlot1((prev) => prev || location.state.slot1Course);
       return;
     }
 
     // Otherwise if paramC1 is provided in URL, load its metadata
-    if (paramC1 && !slot1) {
+    if (paramC1) {
       analyticsApi
         .getHistoricalCourseAttainment({ programmeBatchCourseId: paramC1 })
         .then((res) => {
           const payload = res?.data?.data ?? res?.data ?? res;
           if (payload) {
-            setSlot1({
+            setSlot1((prev) => prev || {
               programmeBatchCourseId: payload.currentProgrammeBatchCourseId || payload.course?.programmeBatchCourseId || paramC1,
               programmeBatchId: payload.currentBatchId || payload.course?.programmeBatchId,
               batchName: payload.currentBatchName || payload.course?.batchName,
@@ -122,7 +128,7 @@ export default function CompareCoursesView() {
           console.warn('[CompareCoursesView] Could not load course for Slot 1:', err);
         });
     }
-  }, [paramC1, paramC2, fetchComparison, slot1, location.state]);
+  }, [paramC1, paramC2, fetchComparison, location.state]);
 
   const handleAddSlot = (slotOrNumber, maybeSlotData) => {
     if (typeof slotOrNumber === 'number') {
@@ -149,6 +155,7 @@ export default function CompareCoursesView() {
     }
     setComparisonData(null);
     setIsSelectorOpen(true);
+    lastFetchedPairRef.current = '';
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -170,6 +177,11 @@ export default function CompareCoursesView() {
     if (!slot1 || !slot2) return;
     const id1 = slot1.programmeBatchCourseId || slot1.id;
     const id2 = slot2.programmeBatchCourseId || slot2.id;
+    if (id1 === id2) {
+      setError('Cannot compare a course offering to itself. Please select two different course offerings.');
+      return;
+    }
+    lastFetchedPairRef.current = `${id1}::${id2}`;
     setSearchParams(
       { programmeBatchCourseId1: id1, programmeBatchCourseId2: id2 },
       { replace: true }

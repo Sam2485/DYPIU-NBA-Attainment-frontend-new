@@ -9,6 +9,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { CheckCircle2, XCircle, Compass } from 'lucide-react';
+import { normalizeCoCode } from './CourseOutcomeHeatmapMatrix';
 
 const DIRECT_CO_COLOR = '#0284c7';   // Sky Blue
 const INDIRECT_CO_COLOR = '#38bdf8'; // Light Sky Blue
@@ -110,12 +111,40 @@ export default function SelectedCoHistoricalSection({
   directWeight = 70,
   indirectWeight = 30,
 }) {
+  const normSelected = normalizeCoCode(selectedCoCode);
+
+  const normalizedOutcomes = React.useMemo(() => {
+    const seen = new Set();
+    const result = [];
+    (courseOutcomes || []).forEach((c) => {
+      const norm = normalizeCoCode(c);
+      if (!seen.has(norm)) {
+        seen.add(norm);
+        result.push(norm);
+      }
+    });
+    (coDataPoints || []).forEach((dp) => {
+      if (dp.coCode) {
+        const norm = normalizeCoCode(dp.coCode);
+        if (!seen.has(norm)) {
+          seen.add(norm);
+          result.push(norm);
+        }
+      }
+    });
+    return result.sort((a, b) => {
+      const nA = parseInt(a.replace(/\D+/g, ''), 10) || 0;
+      const nB = parseInt(b.replace(/\D+/g, ''), 10) || 0;
+      return nA - nB;
+    });
+  }, [courseOutcomes, coDataPoints]);
+
   // Filter data points for the selected CO
   const pointsForCo = React.useMemo(() => {
     return coDataPoints.filter(
-      (dp) => (dp.coCode || '').toUpperCase() === selectedCoCode.toUpperCase()
+      (dp) => normalizeCoCode(dp.coCode) === normSelected
     );
-  }, [coDataPoints, selectedCoCode]);
+  }, [coDataPoints, normSelected]);
 
   const coStatement = pointsForCo[0]?.statement || '';
 
@@ -195,10 +224,10 @@ export default function SelectedCoHistoricalSection({
                 fontWeight: 800,
               }}
             >
-              {selectedCoCode}
+              {normSelected}
             </span>
             <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: 0 }}>
-              {selectedCoCode} Attainment Across Batches
+              {normSelected} Attainment Across Batches
             </h3>
           </div>
           {coStatement && (
@@ -214,7 +243,7 @@ export default function SelectedCoHistoricalSection({
             Select CO:
           </label>
           <select
-            value={selectedCoCode}
+            value={normSelected}
             onChange={(e) => onSelectCo(e.target.value)}
             style={{
               fontSize: 13,
@@ -228,7 +257,7 @@ export default function SelectedCoHistoricalSection({
               cursor: 'pointer',
             }}
           >
-            {courseOutcomes.map((code) => (
+            {normalizedOutcomes.map((code) => (
               <option key={code} value={code}>
                 {code}
               </option>

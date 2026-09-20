@@ -62,8 +62,8 @@ export default function ComparisonSlotSelector({
         setProgrammes(list);
         if (list.length > 0) {
           // If initialProgrammeId matches one of the programmes, select it, else first
-          const match = initialProgrammeId && list.find((p) => p.id === initialProgrammeId);
-          setSelectedProgrammeId((prev) => (prev ? prev : (match ? match.id : list[0].id)));
+          const match = initialProgrammeId && list.find((p) => (p.masterProgrammeId || p.id) === initialProgrammeId);
+          setSelectedProgrammeId((prev) => (prev ? prev : (match ? (match.masterProgrammeId || match.id) : (list[0].masterProgrammeId || list[0].id))));
         }
       })
       .catch((err) => {
@@ -94,9 +94,11 @@ export default function ComparisonSlotSelector({
         setBatches(sorted);
 
         // Pre-select first batch not already present in slot1 or slot2
+        const s1Id = slot1?.programmeBatchId || slot1?.batchId || slot1?.id;
+        const s2Id = slot2?.programmeBatchId || slot2?.batchId || slot2?.id;
         const available = sorted.find((b) => {
           const bId = b.programmeBatchId || b.id;
-          return bId !== slot1?.batchId && bId !== slot2?.batchId;
+          return bId !== s1Id && bId !== s2Id;
         });
         if (available) {
           setSelectedBatchId(available.programmeBatchId || available.id);
@@ -118,37 +120,46 @@ export default function ComparisonSlotSelector({
     if (batches.length === 0) return;
     const exists = batches.some((b) => (b.programmeBatchId || b.id) === selectedBatchId);
     if (!selectedBatchId || !exists) {
+      const s1Id = slot1?.programmeBatchId || slot1?.batchId || slot1?.id;
+      const s2Id = slot2?.programmeBatchId || slot2?.batchId || slot2?.id;
       const available = batches.find((b) => {
         const bId = b.programmeBatchId || b.id;
-        return bId !== slot1?.batchId && bId !== slot2?.batchId;
+        return bId !== s1Id && bId !== s2Id;
       });
       const chosen = available || batches[0];
       setSelectedBatchId(chosen.programmeBatchId || chosen.id);
     }
-  }, [batches, slot1?.batchId, slot2?.batchId, selectedBatchId]);
+  }, [batches, slot1?.programmeBatchId, slot1?.batchId, slot2?.programmeBatchId, slot2?.batchId, selectedBatchId]);
 
   const handleAddBatch = (targetSlotNumber) => {
     setValidationError(null);
     if (!selectedProgrammeId || !selectedBatchId) return;
 
-    const prog = programmes.find((p) => p.id === selectedProgrammeId);
+    const prog = programmes.find((p) => (p.masterProgrammeId || p.id) === selectedProgrammeId);
     const batch = batches.find((b) => (b.programmeBatchId || b.id) === selectedBatchId);
     if (!prog || !batch) return;
 
     const batchId = batch.programmeBatchId || batch.id;
+    const progId = prog.masterProgrammeId || prog.id;
     const targetSlot = targetSlotNumber || (!slot1 ? 1 : 2);
 
+    const s1Id = slot1?.programmeBatchId || slot1?.batchId || slot1?.id;
+    const s2Id = slot2?.programmeBatchId || slot2?.batchId || slot2?.id;
+
     // Validate that this exact batch is not already in the other slot
-    if ((targetSlot === 1 && slot2 && slot2.batchId === batchId) ||
-        (targetSlot === 2 && slot1 && slot1.batchId === batchId)) {
+    if ((targetSlot === 1 && s2Id && s2Id === batchId) ||
+        (targetSlot === 2 && s1Id && s1Id === batchId)) {
       setValidationError('Cannot compare a batch to itself. Please choose a different batch.');
       return;
     }
 
     const slotPayload = {
-      programmeId: prog.id,
+      programmeId: progId,
+      masterProgrammeId: progId,
       programmeName: prog.name,
       batchId: batchId,
+      programmeBatchId: batchId,
+      id: batchId,
       batchName: batch.name || `Batch ${batch.startYear}-${batch.endYear}`,
       startYear: batch.startYear,
       endYear: batch.endYear,
@@ -223,11 +234,14 @@ export default function ComparisonSlotSelector({
             disabled={loadingProgrammes}
             style={selectStyle}
           >
-            {programmes.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} {p.code ? `(${p.code})` : ''}
-              </option>
-            ))}
+            {programmes.map((p) => {
+              const pId = p.masterProgrammeId || p.id;
+              return (
+                <option key={pId} value={pId}>
+                  {p.name} {p.code ? `(${p.code})` : ''}
+                </option>
+              );
+            })}
           </select>
         </div>
 

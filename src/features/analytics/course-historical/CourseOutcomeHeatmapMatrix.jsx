@@ -14,6 +14,33 @@ function getCellColor(finalAtt) {
   }
 }
 
+export function normalizeCoCode(code) {
+  if (!code) return 'CO1';
+  const trimmed = String(code).trim().toUpperCase();
+  if (trimmed.includes('.')) {
+    const afterDot = trimmed.substring(trimmed.lastIndexOf('.') + 1);
+    const digits = afterDot.replace(/\D+/g, '');
+    if (digits) return `CO${parseInt(digits, 10)}`;
+  }
+  if (trimmed.includes('-') || trimmed.includes('_')) {
+    const afterSep = trimmed.split(/[-_]/).pop();
+    const digits = afterSep.replace(/\D+/g, '');
+    if (digits) return `CO${parseInt(digits, 10)}`;
+  }
+  const coMatch = trimmed.match(/^CO\s*(\d+)$/i);
+  if (coMatch) {
+    return `CO${parseInt(coMatch[1], 10)}`;
+  }
+  const trailingMatch = trimmed.match(/(\d+)$/);
+  if (trailingMatch) {
+    const num = parseInt(trailingMatch[1], 10);
+    if (num > 0 && num <= 50) {
+      return `CO${num}`;
+    }
+  }
+  return trimmed;
+}
+
 export default function CourseOutcomeHeatmapMatrix({
   batches = [],
   courseOutcomes = [],
@@ -23,17 +50,45 @@ export default function CourseOutcomeHeatmapMatrix({
 }) {
   const [hoveredCell, setHoveredCell] = useState(null);
 
-  // Create lookup map: `${batchId}::${coCode}` -> dataPoint (Hook called unconditionally)
+  // Normalize outcomes and unify variations like CS321.1 and CO1 into canonical CO1
+  const normalizedOutcomes = useMemo(() => {
+    const seen = new Set();
+    const result = [];
+    (courseOutcomes || []).forEach((c) => {
+      const norm = normalizeCoCode(c);
+      if (!seen.has(norm)) {
+        seen.add(norm);
+        result.push(norm);
+      }
+    });
+    (coDataPoints || []).forEach((dp) => {
+      if (dp.coCode) {
+        const norm = normalizeCoCode(dp.coCode);
+        if (!seen.has(norm)) {
+          seen.add(norm);
+          result.push(norm);
+        }
+      }
+    });
+    return result.sort((a, b) => {
+      const nA = parseInt(a.replace(/\D+/g, ''), 10) || 0;
+      const nB = parseInt(b.replace(/\D+/g, ''), 10) || 0;
+      return nA - nB;
+    });
+  }, [courseOutcomes, coDataPoints]);
+
+  // Create lookup map: `${batchId}::${normalizedCoCode}` -> dataPoint
   const dataMap = useMemo(() => {
     const map = new Map();
     (coDataPoints || []).forEach((dp) => {
-      const key = `${dp.programmeBatchId}::${(dp.coCode || '').toUpperCase()}`;
+      const norm = normalizeCoCode(dp.coCode);
+      const key = `${dp.programmeBatchId}::${norm}`;
       map.set(key, dp);
     });
     return map;
   }, [coDataPoints]);
 
-  if (!batches || batches.length === 0 || !courseOutcomes || courseOutcomes.length === 0) {
+  if (!batches || batches.length === 0 || normalizedOutcomes.length === 0) {
     return null;
   }
 
@@ -131,11 +186,12 @@ export default function CourseOutcomeHeatmapMatrix({
             </tr>
           </thead>
           <tbody onMouseLeave={() => setHoveredCell(null)}>
-            {courseOutcomes.map((coCode, rowIndex) => {
-              const isRowSelected = selectedCoCode?.toUpperCase() === coCode?.toUpperCase();
+            {normalizedOutcomes.map((coCode, rowIndex) => {
+              const isRowSelected = normalizeCoCode(selectedCoCode) === coCode;
+              const isRowHovered = batches.some((b) => hoveredCell === `${b.programmeBatchId}::${coCode}`);
 
               return (
-                <tr key={coCode}>
+                <tr key={coCode} style={{ position: 'relative', zIndex: isRowHovered ? 60 : 1 }}>
                   {/* CO Label Cell */}
                   <td
                     onClick={() => onSelectCo(coCode)}
@@ -162,7 +218,7 @@ export default function CourseOutcomeHeatmapMatrix({
 
                   {/* Batch Cells */}
                   {batches.map((b, batchIndex) => {
-                    const key = `${b.programmeBatchId}::${coCode.toUpperCase()}`;
+                    const key = `${b.programmeBatchId}::${coCode}`;
                     const dp = dataMap.get(key);
                     const finalAtt = dp?.overallAttainment;
                     const cellStyle = getCellColor(finalAtt);
@@ -190,6 +246,7 @@ export default function CourseOutcomeHeatmapMatrix({
                           borderRadius: 6,
                           cursor: 'pointer',
                           position: 'relative',
+                          zIndex: isCellHovered ? 100 : 1,
                           transform: isCellHovered ? 'scale(1.03)' : 'scale(1)',
                           transition: 'all 0.15s ease',
                           boxShadow: isCellHovered ? '0 4px 12px rgba(15, 23, 42, 0.08)' : 'none',
@@ -208,7 +265,7 @@ export default function CourseOutcomeHeatmapMatrix({
                                 : isLastCol
                                 ? { right: 0 }
                                 : { left: '50%', transform: 'translateX(-50%)' }),
-                              zIndex: 60,
+                              zIndex: 100,
                               background: '#ffffff',
                               border: '1px solid #cbd5e1',
                               borderRadius: 8,
