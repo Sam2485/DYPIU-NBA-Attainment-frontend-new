@@ -9,6 +9,7 @@ import OutcomeIndirectTimeline from './OutcomeIndirectTimeline';
 import OutcomeIndirectTrendChart from './OutcomeIndirectTrendChart';
 import OutcomeIndirectEvidenceTable from './OutcomeIndirectEvidenceTable';
 import OutcomeIndirectFormationExplanation from './OutcomeIndirectFormationExplanation';
+import IndirectEvidenceRecordModal from './IndirectEvidenceRecordModal';
 import { AlertCircle, RefreshCw, ArrowLeft, ShieldAlert, FileQuestion } from 'lucide-react';
 
 const skeletonItem = {
@@ -125,6 +126,7 @@ export default function OutcomeIndirectDrilldownView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isForbidden, setIsForbidden] = useState(false);
+  const [selectedEvidenceRecord, setSelectedEvidenceRecord] = useState(null);
 
   // Fetch complete outcome catalog for the batch to populate the dropdown selector
   useEffect(() => {
@@ -460,6 +462,7 @@ export default function OutcomeIndirectDrilldownView() {
           evidence={data.evidence || []}
           outcomeCode={data.outcomeCode || currentCode}
           outcomeType={data.outcomeType || currentType}
+          onViewRecord={setSelectedEvidenceRecord}
         />
       )}
 
@@ -471,6 +474,7 @@ export default function OutcomeIndirectDrilldownView() {
           outcomeType={data.outcomeType || currentType}
           totalEvidenceCount={totalCount}
           participatingEvidenceCount={participatingCount}
+          onViewRecord={setSelectedEvidenceRecord}
         />
       )}
 
@@ -481,6 +485,18 @@ export default function OutcomeIndirectDrilldownView() {
         indirectAttainment={data.indirectAttainment}
         participatingEvidenceCount={participatingCount}
       />
+
+      {/* 10. Indirect Evidence Complete Record Modal */}
+      {selectedEvidenceRecord && (
+        <IndirectEvidenceRecordModal
+          isOpen={Boolean(selectedEvidenceRecord)}
+          onClose={() => setSelectedEvidenceRecord(null)}
+          evidenceItem={selectedEvidenceRecord}
+          programmeBatchId={programmeBatchId}
+          outcomes={availableOutcomes}
+          currentOutcomeCode={data?.outcomeCode || currentCode}
+        />
+      )}
     </div>
   );
 }

@@ -5,7 +5,7 @@ import CourseAnalyticsHeader from './CourseAnalyticsHeader';
 import CourseOverviewSection from './CourseOverviewSection';
 import CourseOutcomeContributionSection from './CourseOutcomeContributionSection';
 import CourseCoAttainmentSection from './CourseCoAttainmentSection';
-import CourseAtrSection from './CourseAtrSection';
+import CourseBottomActionCards from './CourseBottomActionCards';
 import { AlertCircle, RefreshCw, ArrowLeft, ShieldAlert } from 'lucide-react';
 
 const skeletonItem = {
@@ -353,9 +353,13 @@ export default function CourseAnalyticsView() {
         outcomeType={urlOutcomeType}
       />
 
-      {/* 5. Course ATR Continuous Improvement */}
-      <CourseAtrSection
+      {/* 5. Bottom Investigation & Action Cards: Course ATR + Historical Analysis (Side-by-Side) */}
+      <CourseBottomActionCards
+        programmeBatchId={programmeBatchId}
         programmeBatchCourseId={programmeBatchCourseId}
+        courseCode={data.courseCode}
+        courseName={data.courseName}
+        batchName={data.batchName}
         courseAtrAvailable={data.courseAtrAvailable}
         courseAtrStatus={data.courseAtrStatus}
       />

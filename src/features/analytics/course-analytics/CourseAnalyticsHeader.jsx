@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, BookOpen, User, GraduationCap, ChevronDown, Award } from 'lucide-react';
+import { ArrowLeft, User, GraduationCap, History, GitCompare } from 'lucide-react';
 
 const PO_COLOR = '#0284c7';   // Sky Blue
 const PSO_COLOR = '#16a34a';  // Light Green
@@ -184,34 +184,115 @@ export default function CourseAnalyticsHeader({
           </span>
         </div>
 
-        {/* Course Offering Dropdown Selector (if multiple courses available in batch) */}
-        {availableCourses && availableCourses.length > 1 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Switch Course:</span>
-            <select
-              value={programmeBatchCourseId}
-              onChange={(e) => {
-                if (onSelectCourse) onSelectCourse(e.target.value);
-              }}
-              style={{
-                fontSize: 12,
-                fontWeight: 700,
-                color: '#0f172a',
-                padding: '6px 10px',
-                borderRadius: 6,
-                border: '1px solid #cbd5e1',
-                background: '#f8fafc',
-                cursor: 'pointer',
-              }}
-            >
-              {sortedCourses.map((c) => (
-                <option key={c.programmeBatchCourseId || c.id} value={c.programmeBatchCourseId || c.id}>
-                  {c.courseCode} - {c.courseName} {c.semester ? `(Sem ${c.semester})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Course Offering Dropdown Selector (if multiple courses available in batch) */}
+          {availableCourses && availableCourses.length > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Switch Course:</span>
+              <select
+                value={programmeBatchCourseId}
+                onChange={(e) => {
+                  if (onSelectCourse) onSelectCourse(e.target.value);
+                }}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: '#0f172a',
+                  padding: '6px 10px',
+                  borderRadius: 6,
+                  border: '1px solid #cbd5e1',
+                  background: '#f8fafc',
+                  cursor: 'pointer',
+                }}
+              >
+                {sortedCourses.map((c) => (
+                  <option key={c.programmeBatchCourseId || c.id} value={c.programmeBatchCourseId || c.id}>
+                    {c.courseCode} - {c.courseName} {c.semester ? `(Sem ${c.semester})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Quick Analytics Actions: Historical Attainment & Compare Performance */}
+          <button
+            type="button"
+            onClick={() =>
+              navigate(`${basePath}/analytics/batch/${programmeBatchId}/course/${programmeBatchCourseId}/historical`)
+            }
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: '#f8fafc',
+              border: '1px solid #cbd5e1',
+              borderRadius: 6,
+              padding: '6px 12px',
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#334155',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#e2e8f0';
+              e.currentTarget.style.color = '#0f172a';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = '#f8fafc';
+              e.currentTarget.style.color = '#334155';
+            }}
+            title="View attainment trends for this course across all historical batches"
+          >
+            <History size={13} color="#0284c7" />
+            <span>Historical Attainment</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              navigate(`${basePath}/analytics/compare-courses?programmeBatchCourseId1=${programmeBatchCourseId}`, {
+                state: {
+                  slot1Course: {
+                    programmeBatchCourseId,
+                    programmeBatchId,
+                    batchName,
+                    courseCode,
+                    courseName,
+                    semester,
+                    programmeName,
+                  },
+                },
+              })
+            }
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: '#f8fafc',
+              border: '1px solid #cbd5e1',
+              borderRadius: 6,
+              padding: '6px 12px',
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#334155',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#e2e8f0';
+              e.currentTarget.style.color = '#0f172a';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = '#f8fafc';
+              e.currentTarget.style.color = '#334155';
+            }}
+            title="Compare this course with another batch or course offering"
+          >
+            <GitCompare size={13} color="#4f46e5" />
+            <span>Compare Course</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. Course Identity & Context Badges */}

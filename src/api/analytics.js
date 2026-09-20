@@ -296,8 +296,10 @@ export const analyticsApi = {
    * @param {string} [params.outcomeCode]
    * @returns {Promise<import('axios').AxiosResponse>}
    */
-  getHistoricalProgrammeAttainment: ({ masterProgrammeId, outcomeCode } = {}) => {
-    const params = { masterProgrammeId };
+  getHistoricalProgrammeAttainment: ({ masterProgrammeId, programmeBatchId, outcomeCode } = {}) => {
+    const params = {};
+    if (masterProgrammeId) params.masterProgrammeId = masterProgrammeId;
+    if (programmeBatchId) params.programmeBatchId = programmeBatchId;
     if (outcomeCode) params.outcomeCode = outcomeCode;
     return apiClient.get('/analytics/historical-programme-attainment', { params });
   },
@@ -312,6 +314,31 @@ export const analyticsApi = {
   compareBatches: ({ programmeBatchId1, programmeBatchId2 } = {}) => {
     const params = { programmeBatchId1, programmeBatchId2 };
     return apiClient.get('/analytics/compare-batches', { params });
+  },
+
+  /**
+   * Fetch historical course attainment across batches.
+   * @param {Object} params
+   * @param {string} params.programmeBatchCourseId
+   * @param {string} [params.coCode]
+   * @returns {Promise<import('axios').AxiosResponse>}
+   */
+  getHistoricalCourseAttainment: ({ programmeBatchCourseId, coCode } = {}) => {
+    const params = { programmeBatchCourseId };
+    if (coCode) params.coCode = coCode;
+    return apiClient.get('/analytics/historical-course-attainment', { params });
+  },
+
+  /**
+   * Fetch course performance comparison between any two course offerings.
+   * @param {Object} params
+   * @param {string} params.programmeBatchCourseId1
+   * @param {string} params.programmeBatchCourseId2
+   * @returns {Promise<import('axios').AxiosResponse>}
+   */
+  compareCourses: ({ programmeBatchCourseId1, programmeBatchCourseId2 } = {}) => {
+    const params = { programmeBatchCourseId1, programmeBatchCourseId2 };
+    return apiClient.get('/analytics/compare-courses', { params });
   },
 };
 

@@ -34,25 +34,36 @@ export default function ComparisonSlotSelector({
   onRemoveSlot,
   onCompare,
   isLoading = false,
+  initialProgrammeId = '',
 }) {
   const [programmes, setProgrammes] = useState([]);
   const [batches, setBatches] = useState([]);
-  const [selectedProgrammeId, setSelectedProgrammeId] = useState('');
+  const [selectedProgrammeId, setSelectedProgrammeId] = useState(initialProgrammeId || '');
   const [selectedBatchId, setSelectedBatchId] = useState('');
   const [loadingProgrammes, setLoadingProgrammes] = useState(true);
   const [loadingBatches, setLoadingBatches] = useState(false);
   const [validationError, setValidationError] = useState(null);
 
+  // Sync initialProgrammeId if provided from parent (e.g. current batch)
+  useEffect(() => {
+    if (initialProgrammeId) {
+      setSelectedProgrammeId(initialProgrammeId);
+    }
+  }, [initialProgrammeId]);
+
   // Load all Master Programmes
   useEffect(() => {
     setLoadingProgrammes(true);
-    academicApi.getMasterProgrammes()
+    academicApi
+      .getMasterProgrammes()
       .then((res) => {
-        const payload = res?.data ?? res;
-        const list = Array.isArray(payload) ? payload : (payload?.data || []);
+        const payload = res?.data?.data ?? res?.data ?? res;
+        const list = Array.isArray(payload) ? payload : (payload?.content || []);
         setProgrammes(list);
         if (list.length > 0) {
-          setSelectedProgrammeId(list[0].id);
+          // If initialProgrammeId matches one of the programmes, select it, else first
+          const match = initialProgrammeId && list.find((p) => p.id === initialProgrammeId);
+          setSelectedProgrammeId((prev) => (prev ? prev : (match ? match.id : list[0].id)));
         }
       })
       .catch((err) => {
@@ -61,7 +72,7 @@ export default function ComparisonSlotSelector({
       .finally(() => {
         setLoadingProgrammes(false);
       });
-  }, []);
+  }, [initialProgrammeId]);
 
   // Load Batches whenever selectedProgrammeId changes
   useEffect(() => {
@@ -73,14 +84,20 @@ export default function ComparisonSlotSelector({
 
     setLoadingBatches(true);
     setSelectedBatchId('');
-    academicApi.getBatches({ masterProgrammeId: selectedProgrammeId })
+    academicApi
+      .getBatches({ masterProgrammeId: selectedProgrammeId, status: 'ALL' })
       .then((res) => {
-        const payload = res?.data ?? res;
-        const list = Array.isArray(payload) ? payload : (payload?.data || []);
-        // Sort batches chronologically
+        const payload = res?.data?.data ?? res?.data ?? res;
+        const list = Array.isArray(payload) ? payload : (payload?.content || []);
+        // Sort batches chronologically (descending start year)
         const sorted = [...list].sort((a, b) => (b.startYear || 0) - (a.startYear || 0));
         setBatches(sorted);
-        if (sorted.length > 0) {
+
+        // Pre-select first batch not already present in slot1 or slot2
+        const available = sorted.find((b) => b.id !== slot1?.batchId && b.id !== slot2?.batchId);
+        if (available) {
+          setSelectedBatchId(available.id);
+        } else if (sorted.length > 0) {
           setSelectedBatchId(sorted[0].id);
         }
       })
@@ -91,7 +108,7 @@ export default function ComparisonSlotSelector({
       .finally(() => {
         setLoadingBatches(false);
       });
-  }, [selectedProgrammeId]);
+  }, [selectedProgrammeId, slot1?.batchId, slot2?.batchId]);
 
   const handleAddBatch = () => {
     setValidationError(null);
@@ -204,11 +221,15 @@ export default function ComparisonSlotSelector({
             disabled={loadingBatches || batches.length === 0}
             style={selectStyle}
           >
-            {batches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name || `Batch ${b.startYear}-${b.endYear}`} [{b.status || 'ACTIVE'}]
-              </option>
-            ))}
+            {batches.length === 0 ? (
+              <option value="">{loadingBatches ? 'Loading batches...' : 'No batches found'}</option>
+            ) : (
+              batches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name || `Batch ${b.startYear}-${b.endYear}`} [{b.status || 'ACTIVE'}]
+                </option>
+              ))
+            )}
           </select>
         </div>
 
@@ -295,6 +316,7 @@ export default function ComparisonSlotSelector({
                 </div>
               </div>
 
+              {/* Prominent Remove Option for Slot 1 */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
                 <button
                   type="button"
@@ -302,13 +324,24 @@ export default function ComparisonSlotSelector({
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 5,
-                    fontSize: 11.5,
+                    gap: 6,
+                    padding: '4px 10px',
+                    borderRadius: 6,
+                    background: '#fef2f2',
+                    border: '1px solid #fee2e2',
+                    fontSize: 12,
                     fontWeight: 700,
                     color: '#dc2626',
-                    background: 'transparent',
-                    border: 'none',
                     cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#fee2e2';
+                    e.currentTarget.style.borderColor = '#fca5a5';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#fef2f2';
+                    e.currentTarget.style.borderColor = '#fee2e2';
                   }}
                 >
                   <Trash2 size={13} />
@@ -367,6 +400,7 @@ export default function ComparisonSlotSelector({
                 </div>
               </div>
 
+              {/* Prominent Remove Option for Slot 2 */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
                 <button
                   type="button"
@@ -374,13 +408,24 @@ export default function ComparisonSlotSelector({
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 5,
-                    fontSize: 11.5,
+                    gap: 6,
+                    padding: '4px 10px',
+                    borderRadius: 6,
+                    background: '#fef2f2',
+                    border: '1px solid #fee2e2',
+                    fontSize: 12,
                     fontWeight: 700,
                     color: '#dc2626',
-                    background: 'transparent',
-                    border: 'none',
                     cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#fee2e2';
+                    e.currentTarget.style.borderColor = '#fca5a5';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#fef2f2';
+                    e.currentTarget.style.borderColor = '#fee2e2';
                   }}
                 >
                   <Trash2 size={13} />

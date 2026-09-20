@@ -5,7 +5,7 @@ import HistoricalAttainmentChart from './HistoricalAttainmentChart';
 import LatestBatchContextCard from './LatestBatchContextCard';
 import DirectVsIndirectHistoricalChart from './DirectVsIndirectHistoricalChart';
 import OutcomeHeatmapMatrix from './OutcomeHeatmapMatrix';
-import { ArrowLeft, GitCompare, RefreshCw, AlertCircle, School, GraduationCap } from 'lucide-react';
+import { ArrowLeft, GitCompare, RefreshCw, AlertCircle, School, GraduationCap, Compass } from 'lucide-react';
 
 const PO_COLOR = '#0284c7';
 const PSO_COLOR = '#16a34a';
@@ -38,57 +38,49 @@ function sortOutcomesAscending(outcomes = []) {
 }
 
 export default function HistoricalProgrammeAttainmentView() {
-  const { masterProgrammeId: paramProgId } = useParams();
+  const { programmeBatchId, masterProgrammeId: paramProgId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // Resolve masterProgrammeId from route param or query param
+  // Rooted in the batch we came from
+  const batchId =
+    programmeBatchId ||
+    searchParams.get('programmeBatchId') ||
+    searchParams.get('currentBatchId') ||
+    '';
   const masterProgrammeId = paramProgId || searchParams.get('masterProgrammeId') || '';
   const initialOutcome = searchParams.get('outcomeCode') || '';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
+  const [batchDetails, setBatchDetails] = useState(null);
   const [programmeDetails, setProgrammeDetails] = useState(null);
 
   const [selectedOutcomeCode, setSelectedOutcomeCode] = useState(initialOutcome || 'PO1');
   const [selectedOutcomeType, setSelectedOutcomeType] = useState('PO');
 
-  const [allProgrammes, setAllProgrammes] = useState([]);
-
-  // Fetch all programmes for selector/fallback
+  // Load batch metadata if batchId is provided
   useEffect(() => {
-    academicApi.getMasterProgrammes()
+    if (!batchId) return;
+    academicApi
+      .getBatchById(batchId)
       .then((res) => {
         const payload = res?.data ?? res;
-        const list = Array.isArray(payload) ? payload : (payload?.data || []);
-        setAllProgrammes(list);
-        if (!masterProgrammeId && list.length > 0) {
-          navigate(`/analytics/programme/${list[0].id}/historical`, { replace: true });
+        if (payload) {
+          setBatchDetails(payload);
         }
       })
       .catch((err) => {
-        console.error('[HistoricalProgrammeAttainmentView] Error loading programmes list:', err);
+        console.warn('[HistoricalProgrammeAttainmentView] Unable to fetch batch metadata:', err);
       });
-  }, [masterProgrammeId, navigate]);
+  }, [batchId]);
 
-  // Load Programme metadata (e.g. School name) if available
-  useEffect(() => {
-    if (!masterProgrammeId) return;
-    academicApi.getProgrammeById(masterProgrammeId)
-      .then((res) => {
-        const payload = res?.data ?? res;
-        setProgrammeDetails(payload);
-      })
-      .catch(() => {
-        // Silently ignore if not found or unauthorized for full academic entity
-      });
-  }, [masterProgrammeId]);
-
-  // Load Historical Programme Attainment
+  // Load Historical Programme Attainment (no programme or batch selectors; rooted in current batch)
   const fetchHistoricalData = useCallback(async () => {
-    if (!masterProgrammeId) {
+    if (!batchId && !masterProgrammeId) {
       setLoading(false);
+      setError('No batch or programme identifier was provided.');
       return;
     }
 
@@ -96,9 +88,9 @@ export default function HistoricalProgrammeAttainmentView() {
     setError(null);
 
     try {
-      // Call endpoint without outcomeCode filter so we receive all data points for both heatmap and selected chart
       const res = await analyticsApi.getHistoricalProgrammeAttainment({
-        masterProgrammeId,
+        programmeBatchId: batchId || undefined,
+        masterProgrammeId: (!batchId && masterProgrammeId) ? masterProgrammeId : undefined,
       });
 
       const payload = res?.data ?? res;
@@ -131,11 +123,26 @@ export default function HistoricalProgrammeAttainmentView() {
     } finally {
       setLoading(false);
     }
-  }, [masterProgrammeId, initialOutcome]);
+  }, [batchId, masterProgrammeId, initialOutcome]);
 
   useEffect(() => {
     fetchHistoricalData();
   }, [fetchHistoricalData]);
+
+  // Fetch programme metadata (School name, etc.) once masterProgrammeId is known
+  const effectiveProgId = data?.masterProgrammeId || batchDetails?.masterProgrammeId || masterProgrammeId;
+  useEffect(() => {
+    if (!effectiveProgId) return;
+    academicApi
+      .getProgrammeById(effectiveProgId)
+      .then((res) => {
+        const payload = res?.data ?? res;
+        setProgrammeDetails(payload);
+      })
+      .catch(() => {
+        // Silently ignore if unauthorized or not found
+      });
+  }, [effectiveProgId]);
 
   const handleOutcomeChange = (code) => {
     const cleanCode = code.toUpperCase();
@@ -144,15 +151,22 @@ export default function HistoricalProgrammeAttainmentView() {
     setSelectedOutcomeType(type);
 
     // Update URL param without refreshing
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('outcomeCode', code);
-      return next;
-    }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('outcomeCode', code);
+        return next;
+      },
+      { replace: true }
+    );
   };
 
   const handleBack = () => {
-    navigate(-1);
+    if (batchId) {
+      navigate(`/analytics/batch/${batchId}`);
+    } else {
+      navigate(-1);
+    }
   };
 
   if (loading) {
@@ -239,24 +253,40 @@ export default function HistoricalProgrammeAttainmentView() {
             }}
           >
             <ArrowLeft size={14} />
-            <span>Back</span>
+            <span>Back to Batch</span>
           </button>
         </div>
       </div>
     );
   }
 
-  const completedBatches = data?.batches || [];
+  const allBatches = data?.batches || [];
   const outcomes = sortOutcomesAscending(data?.outcomes || []);
   const dataPoints = data?.dataPoints || [];
-  const programmeName = data?.programmeName || programmeDetails?.name || 'Programme';
+  const programmeName = data?.programmeName || batchDetails?.programmeName || programmeDetails?.name || 'Programme';
   const schoolName = programmeDetails?.schoolName || programmeDetails?.department?.schoolName || '';
 
-  // Identify latest completed batch (last in chronological order)
-  const latestBatch = completedBatches.length > 0 ? completedBatches[completedBatches.length - 1] : null;
-  const latestDataPoint = latestBatch
+  // Current investigating batch
+  const currentBatchId = data?.currentBatchId || batchId;
+  const investigatingBatch =
+    allBatches.find((b) => b.batchId === currentBatchId) ||
+    (batchDetails
+      ? {
+          batchId: batchDetails.id,
+          batchName: batchDetails.name,
+          startYear: batchDetails.startYear,
+          endYear: batchDetails.endYear,
+          status: batchDetails.status,
+        }
+      : null);
+
+  // Reference batch for context card: current batch if present, else latest batch
+  const referenceBatch = investigatingBatch || (allBatches.length > 0 ? allBatches[allBatches.length - 1] : null);
+  const referenceDataPoint = referenceBatch
     ? dataPoints.find(
-        (dp) => dp.batchId === latestBatch.batchId && (dp.outcomeCode || '').toUpperCase() === selectedOutcomeCode.toUpperCase()
+        (dp) =>
+          dp.batchId === referenceBatch.batchId &&
+          (dp.outcomeCode || '').toUpperCase() === selectedOutcomeCode.toUpperCase()
       )
     : null;
 
@@ -312,17 +342,23 @@ export default function HistoricalProgrammeAttainmentView() {
               }}
             >
               <ArrowLeft size={14} />
-              <span>Back</span>
+              <span>Back to Batch Analytics</span>
             </button>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.04em' }}>
-              ANALYTICS / PROGRAMME / HISTORICAL ATTAINMENT
+              ANALYTICS / BATCH / HISTORICAL ATTAINMENT
             </span>
           </div>
 
           {/* Action: Compare Batches Button */}
           <button
             type="button"
-            onClick={() => navigate('/analytics/compare-batches')}
+            onClick={() =>
+              navigate(
+                currentBatchId
+                  ? `/analytics/compare-batches?currentBatchId=${currentBatchId}`
+                  : '/analytics/compare-batches'
+              )
+            }
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -355,37 +391,52 @@ export default function HistoricalProgrammeAttainmentView() {
 
         {/* Programme Title & Metadata */}
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0' }}>
             Historical Programme Attainment
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '0 0 8px 0', flexWrap: 'wrap' }}>
             <span style={{ fontSize: 16, fontWeight: 700, color: '#0284c7' }}>
               {programmeName}
             </span>
-            {allProgrammes.length > 1 && (
-              <select
-                value={masterProgrammeId}
-                onChange={(e) => navigate(`/analytics/programme/${e.target.value}/historical`)}
+
+            {/* Investigating Batch Indicator Badge */}
+            {investigatingBatch && (
+              <div
                 style={{
-                  padding: '4px 10px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '3px 10px',
                   borderRadius: 6,
-                  border: '1px solid #cbd5e1',
-                  background: '#ffffff',
+                  background: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
                   fontSize: 12,
-                  fontWeight: 600,
-                  color: '#334155',
-                  cursor: 'pointer',
-                  outline: 'none',
+                  fontWeight: 700,
+                  color: '#166534',
                 }}
               >
-                {allProgrammes.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    Switch Programme: {p.name}
-                  </option>
-                ))}
-              </select>
+                <Compass size={13} color="#16a34a" />
+                <span>
+                  Investigating Batch:{' '}
+                  {investigatingBatch.batchName || `Batch ${investigatingBatch.startYear}-${investigatingBatch.endYear}`}
+                </span>
+                <span
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                    padding: '1px 6px',
+                    borderRadius: 4,
+                    background: investigatingBatch.status === 'ACTIVE' ? '#dcfce7' : '#f1f5f9',
+                    color: investigatingBatch.status === 'ACTIVE' ? '#15803d' : '#475569',
+                    border: `1px solid ${investigatingBatch.status === 'ACTIVE' ? '#86efac' : '#cbd5e1'}`,
+                  }}
+                >
+                  {investigatingBatch.status || 'ACTIVE'}
+                </span>
+              </div>
             )}
           </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 12.5, color: '#64748b', flexWrap: 'wrap' }}>
             {schoolName && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -395,9 +446,8 @@ export default function HistoricalProgrammeAttainmentView() {
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <GraduationCap size={14} color="#94a3b8" />
-              <span>{completedBatches.length} Completed Batches in scope</span>
+              <span>{allBatches.length} Batches in Programme Trend (Active & Completed)</span>
             </div>
-            <span>Excludes active/in-progress batches</span>
           </div>
         </div>
       </div>
@@ -464,7 +514,7 @@ export default function HistoricalProgrammeAttainmentView() {
         </span>
       </div>
 
-      {completedBatches.length === 0 ? (
+      {allBatches.length === 0 ? (
         <div
           style={{
             background: '#ffffff',
@@ -476,47 +526,50 @@ export default function HistoricalProgrammeAttainmentView() {
             fontSize: 13.5,
           }}
         >
-          No completed batch attainment data is available for this programme.
+          No batch attainment data is available for this programme.
         </div>
       ) : (
         <>
           {/* SECTION 1: Main Historical Attainment (Vertical Stacked Direct + Indirect) */}
           <HistoricalAttainmentChart
-            batches={completedBatches}
+            batches={allBatches}
             dataPoints={dataPoints}
             selectedOutcomeCode={selectedOutcomeCode}
             selectedOutcomeType={selectedOutcomeType}
           />
 
-          {/* SECTION 2: Latest Batch Context */}
+          {/* SECTION 2: Reference / Investigating Batch Context */}
           <LatestBatchContextCard
-            latestBatch={latestBatch}
-            latestDataPoint={latestDataPoint}
+            latestBatch={referenceBatch}
+            latestDataPoint={referenceDataPoint}
             selectedOutcomeCode={selectedOutcomeCode}
             selectedOutcomeType={selectedOutcomeType}
           />
 
           {/* SECTION 3: Direct vs Indirect Historical Comparison (Vertical Grouped Bars) */}
           <DirectVsIndirectHistoricalChart
-            batches={completedBatches}
+            batches={allBatches}
             dataPoints={dataPoints}
             selectedOutcomeCode={selectedOutcomeCode}
           />
 
           {/* SECTION 4: PO/PSO x Batch Overview (Heatmap Matrix) */}
           <OutcomeHeatmapMatrix
-            batches={completedBatches}
+            batches={allBatches}
             outcomes={outcomes}
             dataPoints={dataPoints}
             selectedOutcomeCode={selectedOutcomeCode}
             onSelectOutcome={(code, type) => {
               setSelectedOutcomeCode(code);
               setSelectedOutcomeType(type);
-              setSearchParams((prev) => {
-                const next = new URLSearchParams(prev);
-                next.set('outcomeCode', code);
-                return next;
-              }, { replace: true });
+              setSearchParams(
+                (prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.set('outcomeCode', code);
+                  return next;
+                },
+                { replace: true }
+              );
             }}
           />
         </>

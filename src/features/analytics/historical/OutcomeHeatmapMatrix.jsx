@@ -53,7 +53,7 @@ export default function OutcomeHeatmapMatrix({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>
-            PO / PSO Attainment Across Completed Batches
+            PO / PSO Attainment Across Batches
           </h3>
           <span style={{ fontSize: 12, color: '#64748b' }}>
             Complete longitudinal matrix of final attainment. Click any row or cell to inspect that outcome above.

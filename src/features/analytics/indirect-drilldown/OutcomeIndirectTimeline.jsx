@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Users, User, CheckCircle2, XCircle, Sparkles } from 'lucide-react';
+import { Calendar, Users, User, CheckCircle2, XCircle, Sparkles, ArrowRight } from 'lucide-react';
 
 const PO_COLOR = '#0284c7';   // Sky Blue
 const PSO_COLOR = '#16a34a';  // Light Green
@@ -59,6 +59,7 @@ export default function OutcomeIndirectTimeline({
   evidence = [],
   outcomeCode,
   outcomeType,
+  onViewRecord,
 }) {
   const isPo = outcomeType === 'PO';
   const themeColor = isPo ? PO_COLOR : PSO_COLOR;
@@ -78,98 +79,158 @@ export default function OutcomeIndirectTimeline({
         marginBottom: 24,
       }}
     >
-      <div style={{ marginBottom: 20 }}>
-        <h3
-          style={{
-            fontSize: 15,
-            fontWeight: 800,
-            color: '#0f172a',
-            margin: '0 0 4px 0',
-            textTransform: 'uppercase',
-            letterSpacing: '0.03em',
-          }}
-        >
-          Programme Indirect Evidence Timeline
-        </h3>
-        <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>
-          Chronological sequence of programme events, stakeholder surveys, and the culminating exit survey evaluating {outcomeCode}
-        </p>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          marginBottom: 18,
+          flexWrap: 'wrap',
+          gap: 10,
+        }}
+      >
+        <div>
+          <h3
+            style={{
+              fontSize: 15,
+              fontWeight: 800,
+              color: '#0f172a',
+              margin: '0 0 4px 0',
+              textTransform: 'uppercase',
+              letterSpacing: '0.03em',
+            }}
+          >
+            Programme Indirect Evidence Timeline
+          </h3>
+          <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>
+            Chronological sequence of programme events, stakeholder surveys, and the culminating exit survey evaluating {outcomeCode}
+          </p>
+        </div>
+        {evidence.length > 3 && (
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              background: '#f1f5f9',
+              border: '1px solid #e2e8f0',
+              color: '#475569',
+              padding: '4px 10px',
+              borderRadius: 20,
+            }}
+          >
+            Showing all {evidence.length} events • Scroll to explore
+          </span>
+        )}
       </div>
 
-      {/* Timeline items list */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}>
-        {/* Left vertical timeline tracking line */}
-        <div
-          style={{
-            position: 'absolute',
-            left: 20,
-            top: 14,
-            bottom: 14,
-            width: 2,
-            background: '#e2e8f0',
-            zIndex: 0,
-          }}
-        />
+      {/* Scrollable Timeline container restricted to show ~3 events at a time */}
+      <div
+        style={{
+          maxHeight: '410px',
+          overflowY: 'auto',
+          paddingRight: 6,
+          paddingLeft: 2,
+          paddingTop: 4,
+          paddingBottom: 4,
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}>
+          {/* Left vertical timeline tracking line */}
+          <div
+            style={{
+              position: 'absolute',
+              left: 20,
+              top: 14,
+              bottom: 14,
+              width: 2,
+              background: '#e2e8f0',
+              zIndex: 0,
+            }}
+          />
 
-        {evidence.map((item, index) => {
-          const typeInfo = getTypeBadgeStyle(item.type);
-          const isEvaluated = Boolean(item.outcomeEvaluated);
-          const valStr = isEvaluated && item.outcomeValue != null
-            ? Number(item.outcomeValue).toFixed(2)
-            : '—';
+          {evidence.map((item, index) => {
+            const typeInfo = getTypeBadgeStyle(item.type);
+            const isEvaluated = Boolean(item.outcomeEvaluated);
+            const valStr = isEvaluated && item.outcomeValue != null
+              ? Number(item.outcomeValue).toFixed(2)
+              : '—';
 
-          return (
-            <div
-              key={item.assessmentId || `ev-${index}`}
-              style={{
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 16,
-                zIndex: 1,
-              }}
-            >
-              {/* Step indicator node */}
+            return (
               <div
+                key={item.assessmentId || `ev-${index}`}
                 style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: '50%',
-                  background: typeInfo.isExitSurvey ? '#10b981' : isEvaluated ? themeColor : '#cbd5e1',
-                  border: '3px solid #ffffff',
-                  boxShadow: '0 2px 6px rgba(15, 23, 42, 0.15)',
+                  position: 'relative',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                  color: '#ffffff',
+                  alignItems: 'flex-start',
+                  gap: 16,
+                  zIndex: 1,
                 }}
               >
-                {typeInfo.isExitSurvey ? (
-                  <Sparkles size={18} />
-                ) : isEvaluated ? (
-                  <CheckCircle2 size={18} />
-                ) : (
-                  <XCircle size={18} />
-                )}
-              </div>
+                {/* Step indicator node */}
+                <div
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: '50%',
+                    background: typeInfo.isExitSurvey ? '#10b981' : isEvaluated ? themeColor : '#cbd5e1',
+                    border: '3px solid #ffffff',
+                    boxShadow: '0 2px 6px rgba(15, 23, 42, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    color: '#ffffff',
+                  }}
+                >
+                  {typeInfo.isExitSurvey ? (
+                    <Sparkles size={18} />
+                  ) : isEvaluated ? (
+                    <CheckCircle2 size={18} />
+                  ) : (
+                    <XCircle size={18} />
+                  )}
+                </div>
 
-              {/* Evidence Card Container */}
-              <div
-                style={{
-                  flex: 1,
-                  background: typeInfo.isExitSurvey ? '#f0fdf4' : '#ffffff',
-                  border: `1px solid ${typeInfo.isExitSurvey ? '#a7f3d0' : '#e2e8f0'}`,
-                  borderRadius: 12,
-                  padding: 16,
-                  boxShadow: typeInfo.isExitSurvey
-                    ? '0 3px 10px rgba(16, 185, 129, 0.08)'
-                    : '0 1px 3px rgba(15, 23, 42, 0.03)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10,
-                }}
-              >
+                {/* Evidence Card Container - Clickable to open record */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onViewRecord && onViewRecord(item)}
+                  onKeyDown={(e) => {
+                    if ((e.key === 'Enter' || e.key === ' ') && onViewRecord) {
+                      e.preventDefault();
+                      onViewRecord(item);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    background: typeInfo.isExitSurvey ? '#f0fdf4' : '#ffffff',
+                    border: `1px solid ${typeInfo.isExitSurvey ? '#a7f3d0' : '#e2e8f0'}`,
+                    borderRadius: 12,
+                    padding: 16,
+                    boxShadow: typeInfo.isExitSurvey
+                      ? '0 3px 10px rgba(16, 185, 129, 0.08)'
+                      : '0 1px 3px rgba(15, 23, 42, 0.03)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = typeInfo.isExitSurvey ? '#34d399' : themeColor;
+                    e.currentTarget.style.boxShadow = '0 4px 14px rgba(15, 23, 42, 0.08)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = typeInfo.isExitSurvey ? '#a7f3d0' : '#e2e8f0';
+                    e.currentTarget.style.boxShadow = typeInfo.isExitSurvey
+                      ? '0 3px 10px rgba(16, 185, 129, 0.08)'
+                      : '0 1px 3px rgba(15, 23, 42, 0.03)';
+                    e.currentTarget.style.transform = 'none';
+                  }}
+                  title={`Click to view record across all outcomes`}
+                >
                 {/* Top Row: Type Badge, Culminating Flag, and Date */}
                 <div
                   style={{
@@ -284,11 +345,12 @@ export default function OutcomeIndirectTimeline({
                   </div>
                 </div>
 
-                {/* Bottom Row: Metadata (Response Count, Created By) */}
+                {/* Bottom Row: Metadata (Response Count, Created By, and View Record prompt) */}
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
+                    justifyContent: 'space-between',
                     gap: 16,
                     fontSize: 11.5,
                     color: '#64748b',
@@ -297,24 +359,43 @@ export default function OutcomeIndirectTimeline({
                     flexWrap: 'wrap',
                   }}
                 >
-                  {item.responseCount != null && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Users size={13} color="#475569" />
-                      <strong style={{ color: '#0f172a' }}>{item.responseCount}</strong> responses
-                    </div>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                    {item.responseCount != null && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Users size={13} color="#475569" />
+                        <strong style={{ color: '#0f172a' }}>{item.responseCount}</strong> responses
+                      </div>
+                    )}
 
-                  {item.createdBy && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <User size={13} color="#94a3b8" />
-                      <span>By: {item.createdBy}</span>
-                    </div>
-                  )}
+                    {item.createdBy && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <User size={13} color="#94a3b8" />
+                        <span>By: {item.createdBy}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* View Record link */}
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      color: typeInfo.isExitSurvey ? '#047857' : themeColor,
+                      fontWeight: 700,
+                      fontSize: 11.5,
+                      marginLeft: 'auto',
+                    }}
+                  >
+                    <span>View Record</span>
+                    <ArrowRight size={13} />
+                  </div>
                 </div>
               </div>
             </div>
           );
         })}
+        </div>
       </div>
     </div>
   );

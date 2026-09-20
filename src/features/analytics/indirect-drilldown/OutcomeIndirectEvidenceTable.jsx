@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Eye, CheckCircle2, XCircle, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Eye, CheckCircle2, XCircle, Users } from 'lucide-react';
 
 const PO_COLOR = '#0284c7';   // Sky Blue
 const PSO_COLOR = '#16a34a';  // Light Green
@@ -61,13 +61,13 @@ export default function OutcomeIndirectEvidenceTable({
   outcomeType,
   totalEvidenceCount = 0,
   participatingEvidenceCount = 0,
+  onViewRecord,
 }) {
   const isPo = outcomeType === 'PO';
   const themeColor = isPo ? PO_COLOR : PSO_COLOR;
 
   const [filterMode, setFilterMode] = useState('ALL'); // 'ALL' | 'EVALUATED'
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedId, setExpandedId] = useState(null);
 
   const filteredItems = React.useMemo(() => {
     return (evidence || []).filter((item) => {
@@ -276,207 +276,188 @@ export default function OutcomeIndirectEvidenceTable({
               filteredItems.map((item, index) => {
                 const badge = getTypeBadge(item.type);
                 const isEvaluated = Boolean(item.outcomeEvaluated);
-                const isExpanded = expandedId === item.assessmentId;
 
                 return (
-                  <React.Fragment key={item.assessmentId || `row-${index}`}>
-                    <tr
-                      style={{
-                        borderBottom: '1px solid #f1f5f9',
-                        background: badge.isExit
-                          ? '#fafffd'
-                          : isEvaluated
-                          ? '#ffffff'
-                          : '#fafafa',
-                      }}
-                    >
-                      {/* Name */}
-                      <td style={{ padding: '12px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <strong style={{ color: '#0f172a' }}>{item.name}</strong>
-                          {badge.isExit && (
-                            <span
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 800,
-                                padding: '1px 6px',
-                                borderRadius: 3,
-                                background: '#047857',
-                                color: '#ffffff',
-                              }}
-                            >
-                              Exit Survey
-                            </span>
-                          )}
-                        </div>
-                        {item.description && !isExpanded && (
-                          <div
+                  <tr
+                    key={item.assessmentId || `row-${index}`}
+                    style={{
+                      borderBottom: '1px solid #f1f5f9',
+                      background: badge.isExit
+                        ? '#fafffd'
+                        : isEvaluated
+                        ? '#ffffff'
+                        : '#fafafa',
+                    }}
+                  >
+                    {/* Name */}
+                    <td style={{ padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <strong style={{ color: '#0f172a' }}>{item.name}</strong>
+                        {badge.isExit && (
+                          <span
                             style={{
-                              fontSize: 11,
-                              color: '#64748b',
-                              marginTop: 2,
-                              maxWidth: 300,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
+                              fontSize: 10,
+                              fontWeight: 800,
+                              padding: '1px 6px',
+                              borderRadius: 3,
+                              background: '#047857',
+                              color: '#ffffff',
                             }}
                           >
-                            {item.description}
-                          </div>
+                            Exit Survey
+                          </span>
                         )}
-                      </td>
-
-                      {/* Type Badge */}
-                      <td style={{ padding: '12px 14px' }}>
-                        <span
+                      </div>
+                      {item.description && (
+                        <div
                           style={{
-                            padding: '3px 8px',
-                            borderRadius: 4,
                             fontSize: 11,
-                            fontWeight: 700,
-                            background: badge.bg,
-                            border: `1px solid ${badge.border}`,
-                            color: badge.color,
+                            color: '#64748b',
+                            marginTop: 2,
+                            maxWidth: 320,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
                           }}
+                          title={item.description}
                         >
-                          {badge.label}
-                        </span>
-                      </td>
+                          {item.description}
+                        </div>
+                      )}
+                    </td>
 
-                      {/* Date */}
-                      <td style={{ padding: '12px 14px', color: '#475569', whiteSpace: 'nowrap' }}>
-                        {formatDate(item.date)}
-                      </td>
+                    {/* Type Badge */}
+                    <td style={{ padding: '12px 14px' }}>
+                      <span
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: 4,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          background: badge.bg,
+                          border: `1px solid ${badge.border}`,
+                          color: badge.color,
+                        }}
+                      >
+                        {badge.label}
+                      </span>
+                    </td>
 
-                      {/* Evaluated Status */}
-                      <td style={{ padding: '12px 14px' }}>
-                        {isEvaluated ? (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              color: '#16a34a',
-                              fontWeight: 700,
-                              fontSize: 11.5,
-                            }}
-                          >
-                            <CheckCircle2 size={14} />
-                            Yes
-                          </span>
-                        ) : (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              color: '#94a3b8',
-                              fontWeight: 600,
-                              fontSize: 11.5,
-                            }}
-                          >
-                            <XCircle size={14} />
-                            Not Evaluated
-                          </span>
-                        )}
-                      </td>
+                    {/* Date */}
+                    <td style={{ padding: '12px 14px', color: '#475569', whiteSpace: 'nowrap' }}>
+                      {formatDate(item.date)}
+                    </td>
 
-                      {/* Outcome Value: NEVER 0.00 if not evaluated */}
-                      <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                        {isEvaluated && item.outcomeValue != null ? (
-                          <div>
-                            <strong style={{ color: themeColor, fontSize: 13.5 }}>
-                              {Number(item.outcomeValue).toFixed(2)}
-                            </strong>
-                            <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 2 }}>
-                              / 3.00
-                            </span>
-                          </div>
-                        ) : (
-                          <span style={{ color: '#94a3b8', fontWeight: 600 }}>—</span>
-                        )}
-                      </td>
-
-                      {/* Responses */}
-                      <td style={{ padding: '12px 14px', textAlign: 'center', color: '#475569' }}>
-                        {item.responseCount != null ? (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              fontWeight: 700,
-                              color: '#0f172a',
-                            }}
-                          >
-                            <Users size={12} color="#64748b" />
-                            {item.responseCount}
-                          </span>
-                        ) : (
-                          <span style={{ color: '#94a3b8' }}>—</span>
-                        )}
-                      </td>
-
-                      {/* Created By */}
-                      <td style={{ padding: '12px 14px', color: '#64748b' }}>
-                        {item.createdBy || '—'}
-                      </td>
-
-                      {/* Action */}
-                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => setExpandedId(isExpanded ? null : item.assessmentId)}
+                    {/* Evaluated Status */}
+                    <td style={{ padding: '12px 14px' }}>
+                      {isEvaluated ? (
+                        <span
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: 4,
-                            padding: '4px 8px',
-                            borderRadius: 6,
-                            border: '1px solid #cbd5e1',
-                            background: '#ffffff',
-                            color: '#475569',
-                            fontSize: 11,
+                            color: '#16a34a',
                             fontWeight: 700,
-                            cursor: 'pointer',
+                            fontSize: 11.5,
                           }}
                         >
-                          <Eye size={12} />
-                          <span>{isExpanded ? 'Hide' : 'Details'}</span>
-                          {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                        </button>
-                      </td>
-                    </tr>
-
-                    {/* Expandable Details Row */}
-                    {isExpanded && (
-                      <tr style={{ background: '#f8fafc' }}>
-                        <td
-                          colSpan={8}
+                          <CheckCircle2 size={14} />
+                          Yes
+                        </span>
+                      ) : (
+                        <span
                           style={{
-                            padding: '12px 18px',
-                            borderBottom: '1px solid #e2e8f0',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            color: '#94a3b8',
+                            fontWeight: 600,
+                            fontSize: 11.5,
                           }}
                         >
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12 }}>
-                            <div>
-                              <strong style={{ color: '#0f172a' }}>Description: </strong>
-                              <span style={{ color: '#475569' }}>
-                                {item.description || 'No detailed description provided.'}
-                              </span>
-                            </div>
-                            <div style={{ display: 'flex', gap: 20, color: '#64748b' }}>
-                              <span>Assessment ID: <code>{item.assessmentId}</code></span>
-                              <span>Date Recorded: {formatDate(item.date)}</span>
-                              <span>
-                                Status for {outcomeCode}: {isEvaluated ? `Evaluated (${Number(item.outcomeValue).toFixed(2)}/3.00)` : 'Not Evaluated (Excluded from arithmetic average)'}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
+                          <XCircle size={14} />
+                          Not Evaluated
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Outcome Value: NEVER 0.00 if not evaluated */}
+                    <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                      {isEvaluated && item.outcomeValue != null ? (
+                        <div>
+                          <strong style={{ color: themeColor, fontSize: 13.5 }}>
+                            {Number(item.outcomeValue).toFixed(2)}
+                          </strong>
+                          <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 2 }}>
+                            / 3.00
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{ color: '#94a3b8', fontWeight: 600 }}>—</span>
+                      )}
+                    </td>
+
+                    {/* Responses */}
+                    <td style={{ padding: '12px 14px', textAlign: 'center', color: '#475569' }}>
+                      {item.responseCount != null ? (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            fontWeight: 700,
+                            color: '#0f172a',
+                          }}
+                        >
+                          <Users size={12} color="#64748b" />
+                          {item.responseCount}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#94a3b8' }}>—</span>
+                      )}
+                    </td>
+
+                    {/* Created By */}
+                    <td style={{ padding: '12px 14px', color: '#64748b' }}>
+                      {item.createdBy || '—'}
+                    </td>
+
+                    {/* Action: View Record */}
+                    <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => onViewRecord && onViewRecord(item)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          padding: '5px 12px',
+                          borderRadius: 6,
+                          border: `1px solid ${themeColor}40`,
+                          background: '#ffffff',
+                          color: themeColor,
+                          fontSize: 11.5,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                          transition: 'all 0.15s ease',
+                          whiteSpace: 'nowrap',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = `${themeColor}12`;
+                          e.currentTarget.style.borderColor = themeColor;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = '#ffffff';
+                          e.currentTarget.style.borderColor = `${themeColor}40`;
+                        }}
+                        title={`View complete record across all outcomes`}
+                      >
+                        <Eye size={13} />
+                        <span>View Record</span>
+                      </button>
+                    </td>
+                  </tr>
                 );
               })
             )}

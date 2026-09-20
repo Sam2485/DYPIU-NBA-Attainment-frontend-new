@@ -21,9 +21,11 @@ export default function InvestigationActionsTiles({
   const atrPath = isAdmin
     ? `/admin/analytics/batch/${programmeBatchId}/atr`
     : `/analytics/batch/${programmeBatchId}/atr`;
-  const historicalPath = masterProgrammeId
-    ? (isAdmin ? `/admin/analytics/programme/${masterProgrammeId}/historical` : `/analytics/programme/${masterProgrammeId}/historical`)
-    : (isAdmin ? '/admin/analytics/compare-batches' : '/analytics/compare-batches');
+  const historicalPath = programmeBatchId
+    ? (isAdmin ? `/admin/analytics/batch/${programmeBatchId}/historical` : `/analytics/batch/${programmeBatchId}/historical`)
+    : (masterProgrammeId
+        ? (isAdmin ? `/admin/analytics/programme/${masterProgrammeId}/historical` : `/analytics/programme/${masterProgrammeId}/historical`)
+        : (isAdmin ? '/admin/analytics/compare-batches' : '/analytics/compare-batches'));
 
   const indirectCount = programmeIndirect.assessmentCount ?? 0;
   const hasExitSurvey = Boolean(programmeIndirect.hasExitSurvey);
@@ -252,13 +254,7 @@ export default function InvestigationActionsTiles({
 
         {/* TILE 3: HISTORICAL COMPARISON */}
         <div
-          onClick={() =>
-            navigate(
-              masterProgrammeId
-                ? `/analytics/programme/${masterProgrammeId}/historical`
-                : '/analytics/compare-batches'
-            )
-          }
+          onClick={() => navigate(historicalPath)}
           style={{
             background: '#ffffff',
             border: '1px solid #e2e8f0',
