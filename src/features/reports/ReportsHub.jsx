@@ -844,8 +844,14 @@ export default function ReportsHub() {
     setOfficialReportAction(format); setOfficialReportError('');
     try {
       const response = await requestOfficialReport(format);
-      if (format === 'pdf') openReportPdf(response);
-      else downloadReportBlob(response, 'official-obe-report.xlsx');
+      if (format === 'pdf') {
+        openReportPdf(response);
+      } else {
+        const fallbackName = effectiveAttainmentViewMode === 'course-attainment'
+          ? `COURSE_ATTAINMENT_${currentCourseObj?.code || 'COURSE'}.xlsx`
+          : 'official-obe-report.xlsx';
+        downloadReportBlob(response, fallbackName);
+      }
     } catch (error) {
       setOfficialReportError(error?.response?.data?.message || error?.message || 'Unable to download the official report.');
     } finally { setOfficialReportAction(''); }
