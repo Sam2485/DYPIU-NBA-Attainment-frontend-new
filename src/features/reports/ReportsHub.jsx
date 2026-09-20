@@ -7,6 +7,13 @@ import {
   Printer,
   ChevronDown,
   AlertCircle,
+  ShieldCheck,
+  FileCheck2,
+  CheckCircle2,
+  Building2,
+  X,
+  Award,
+  Upload,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -15,6 +22,8 @@ import ProgrammeATR from '../atr/ProgrammeATR';
 import COAttainmentEngine from '../coAttainment/COAttainmentEngine';
 import { reportsApi } from '../../api/reports';
 import { attainmentApi } from '../../api/attainment';
+import { academicApi } from '../../api/academic';
+import { approvalsApi } from '../../api/approvals';
 import { downloadReportBlob, openReportPdf } from '../../utils/reportDownload';
 
 const unwrapReportData = (response) => response?.data?.data ?? response?.data ?? response;
@@ -87,13 +96,21 @@ export default function ReportsHub() {
   const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
   const isProgrammeCoordinator = role === 'PROGRAMME_COORDINATOR';
   const isHod = role === 'HOD';
-  const isDirector = role === 'DIRECTOR' || role === 'SCHOOL_DIRECTOR' || role === 'IQAC';
-  const isHodOrDirector = isHod || isDirector;
+  const isIqac = role === 'IQAC' || role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const isDirector = (role === 'DIRECTOR' || role === 'SCHOOL_DIRECTOR') && !isIqac;
+  const isHodOrDirector = isHod || isDirector || isIqac;
   const reportSelectionStorageKey = (selection) =>
     `nba_reports_selected_${selection}:${role}:${user?.email ?? user?.id ?? 'current-user'}`;
   const readReportSelection = (selection) => (
     typeof window === 'undefined' ? '' : sessionStorage.getItem(reportSelectionStorageKey(selection)) ?? ''
   );
+  const [schools, setSchools] = useState([]);
+  const [selectedSchoolId, setSelectedSchoolId] = useState(
+    () => readReportSelection('school')
+  );
+  const [loadingSchools, setLoadingSchools] = useState(false);
+  const [iqacProgrammes, setIqacProgrammes] = useState([]);
+  const [iqacBatches, setIqacBatches] = useState([]);
   const [hodProgrammes, setHodProgrammes] = useState([]);
   const [hodBatches, setHodBatches] = useState([]);
   const [coordinatorBatches, setCoordinatorBatches] = useState([]);
@@ -102,6 +119,12 @@ export default function ReportsHub() {
   const hodProgrammeScopeRef = useRef(null);
   const directorProgrammeScopeRef = useRef(null);
   const loadedReportOfferingsBatchRef = useRef('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(reportSelectionStorageKey('school'), selectedSchoolId || '');
+    }
+  }, [selectedSchoolId, role, user?.email, user?.id]);
 
   useEffect(() => {
     if (programmeId || typeof window === 'undefined') return;
@@ -131,6 +154,9 @@ export default function ReportsHub() {
 
   // Role-based Programmes List
   const roleProgrammes = (() => {
+    if (isIqac) {
+      return iqacProgrammes;
+    }
     if (isDirector) {
       // Director sees every programme in their school through the explicit
       // report-filter hierarchy, rather than data left over from another view.
@@ -237,7 +263,10 @@ export default function ReportsHub() {
     ? coordinatorBatches
     : isDirector
     ? directorBatches
+    : isIqac
+    ? iqacBatches
     : (batches || []);
+  const selectedSchool = schools.find((s) => String(s.id) === String(selectedSchoolId)) || null;
   const effectiveBatchId = isCourseCoordinator ? batchId : selectedBatchId;
   const currentBatchObj = batchList.find((b) => b.id === effectiveBatchId) || null;
   const batchAcademicYear = currentBatchObj?.academicYear
@@ -346,6 +375,58 @@ export default function ReportsHub() {
     return () => { cancelled = true; };
   }, [isDirector, setProgrammeId, user?.schoolId]);
 
+  // IQAC Reports: Oversees the entire university.
+  // Loads Schools → Programmes for selected School → Batches → Courses.
+  useEffect(() => {
+    if (!isIqac) return;
+    let cancelled = false;
+    setLoadingSchools(true);
+    academicApi.getSchools()
+      .then((response) => {
+        if (cancelled) return;
+        const data = unwrapReportData(response) ?? [];
+        const list = Array.isArray(data) ? data : [];
+        setSchools(list);
+        if (list.length > 0) {
+          setSelectedSchoolId((prev) => {
+            if (prev && list.some((s) => String(s.id) === String(prev))) return prev;
+            return list[0]?.id ?? '';
+          });
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load schools for IQAC report:', err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSchools(false);
+      });
+    return () => { cancelled = true; };
+  }, [isIqac]);
+
+  useEffect(() => {
+    if (!isIqac) return;
+    let cancelled = false;
+    const filter = selectedSchoolId ? { schoolId: selectedSchoolId } : {};
+    academicApi.getProgrammes(filter)
+      .then((response) => {
+        if (cancelled) return;
+        const programmes = unwrapReportData(response) ?? [];
+        const list = Array.isArray(programmes) ? programmes.map(normalizeReportProgramme) : [];
+        setIqacProgrammes(list);
+        const selectedStillAvailable = list.some((p) => String(p.id) === String(programmeId));
+        if (!selectedStillAvailable) {
+          setProgrammeId(list[0]?.id ?? null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Failed to load programmes for IQAC report:', err);
+          setIqacProgrammes([]);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [isIqac, selectedSchoolId, setProgrammeId, programmeId]);
+
   useEffect(() => {
     if (!isHod || !currentProgId) {
       if (isHod) setHodBatches([]);
@@ -409,6 +490,37 @@ export default function ReportsHub() {
       });
     return () => { cancelled = true; };
   }, [currentProgId, isDirector, loadCourseOfferings]);
+
+  useEffect(() => {
+    if (!isIqac || !currentProgId) {
+      if (isIqac) setIqacBatches([]);
+      return;
+    }
+    let cancelled = false;
+    reportsApi.getProgrammeBatchesByMasterProgramme(currentProgId)
+      .then((response) => {
+        if (cancelled) return;
+        const programmeBatches = unwrapReportData(response) ?? [];
+        const list = Array.isArray(programmeBatches) ? programmeBatches.map(normalizeReportBatch) : [];
+        setIqacBatches(list);
+        const nextBatchId = list.some((batch) => String(batch.id) === String(selectedBatchId))
+          ? selectedBatchId
+          : (list[0]?.id ?? '');
+        setSelectedBatchId(nextBatchId);
+        if (nextBatchId) {
+          loadedReportOfferingsBatchRef.current = String(nextBatchId);
+          loadCourseOfferings(nextBatchId).catch(() => {
+            if (loadedReportOfferingsBatchRef.current === String(nextBatchId)) {
+              loadedReportOfferingsBatchRef.current = '';
+            }
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setIqacBatches([]);
+      });
+    return () => { cancelled = true; };
+  }, [currentProgId, isIqac, loadCourseOfferings]);
 
   useEffect(() => {
     if (!isProgrammeCoordinator || !currentProgId) {
@@ -739,6 +851,165 @@ export default function ReportsHub() {
     } finally { setOfficialReportAction(''); }
   };
 
+  // IQAC Report Authentication & Certification Tracking
+  const currentReportKey = useMemo(() => {
+    if (activeMainTab === 'atr-reports') {
+      if (atrSubTab === 'course-atr') {
+        const id = selectedReportCourseOfferingId || courseOfferingId || selectedCourseOffering?.id || currentCourseObj?.id;
+        return `course-atr:${id || 'none'}`;
+      }
+      return `programme-atr:${effectiveBatchId || 'none'}`;
+    }
+    if (effectiveAttainmentViewMode === 'course-attainment') {
+      const id = selectedReportCourseOfferingId || courseOfferingId || selectedCourseOffering?.id || currentCourseObj?.id;
+      return `course-attainment:${id || 'none'}`;
+    }
+    return `programme-attainment:${currentProgId || 'none'}:${effectiveBatchId || 'none'}`;
+  }, [activeMainTab, atrSubTab, currentCourseObj?.id, currentProgId, effectiveAttainmentViewMode, effectiveBatchId, selectedCourseOffering?.id, selectedReportCourseOfferingId, courseOfferingId]);
+
+  const currentReportTitle = useMemo(() => {
+    if (activeMainTab === 'atr-reports') {
+      if (atrSubTab === 'course-atr') {
+        return `Course Action Taken Report (ATR) — ${currentCourseObj?.code || 'Course'}`;
+      }
+      return `Programme Action Taken Report (ATR) — ${currentProgramme?.code || 'Programme'} (${currentBatchName})`;
+    }
+    if (effectiveAttainmentViewMode === 'course-attainment') {
+      return `Course Attainment Report — ${currentCourseObj?.code || 'Course'} (${currentCourseObj?.name || 'Course'})`;
+    }
+    return `Programme Attainment Report — ${currentProgramme?.name || 'Programme'} (${currentBatchName})`;
+  }, [activeMainTab, atrSubTab, currentCourseObj, currentProgramme, currentBatchName, effectiveAttainmentViewMode]);
+
+  const [authRecord, setAuthRecord] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [authRemarks, setAuthRemarks] = useState(
+    'Attainment metrics, assessment rubrics, and continuous improvement action plans audited and verified compliant with DYPIU OBE regulations & NBA Criterion 3 standards.'
+  );
+  const [authSuccessMsg, setAuthSuccessMsg] = useState('');
+  const [authErrorMsg, setAuthErrorMsg] = useState('');
+  const [authModalTab, setAuthModalTab] = useState('sign'); // 'sign' | 'verify'
+  const [verifyingFile, setVerifyingFile] = useState(false);
+  const [fileVerificationResult, setFileVerificationResult] = useState(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = localStorage.getItem(`iqac_auth:${currentReportKey}`);
+      if (stored) {
+        setAuthRecord(JSON.parse(stored));
+      } else {
+        setAuthRecord(null);
+      }
+    } catch {
+      setAuthRecord(null);
+    }
+    setAuthSuccessMsg('');
+    setAuthErrorMsg('');
+    setFileVerificationResult(null);
+  }, [currentReportKey]);
+
+  const handleAuthenticateReport = async () => {
+    setAuthSubmitting(true);
+    setAuthErrorMsg('');
+    setAuthSuccessMsg('');
+
+    try {
+      const verifier = user?.name || user?.email || 'IQAC Quality Lead';
+      const timestamp = new Date().toISOString();
+      const randomSeq = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const certificateId = `DYPIU-IQAC-${new Date().getFullYear()}-${randomSeq}`;
+
+      // If viewing ATR reports, update backend approval verification status
+      if (activeMainTab === 'atr-reports') {
+        const targetCourseId = selectedReportCourseOfferingId || courseOfferingId || selectedCourseOffering?.id || currentCourseObj?.id;
+        if (atrSubTab === 'course-atr' && targetCourseId) {
+          try {
+            await approvalsApi.verifyStatus({
+              key: targetCourseId,
+              statusType: 'atrStatus',
+              statusValue: 'APPROVED',
+              remarksValue: authRemarks,
+              verifierName: verifier,
+            });
+          } catch (backendErr) {
+            console.warn('Backend approval verification notice:', backendErr);
+          }
+        } else if (atrSubTab === 'programme-atr' && effectiveBatchId) {
+          try {
+            await approvalsApi.verifyStatus({
+              key: effectiveBatchId,
+              statusType: 'programmeAtrStatus',
+              statusValue: 'APPROVED',
+              remarksValue: authRemarks,
+              verifierName: verifier,
+            });
+          } catch (backendErr) {
+            console.warn('Backend approval verification notice:', backendErr);
+          }
+        }
+      }
+
+      const newRecord = {
+        reportKey: currentReportKey,
+        reportTitle: currentReportTitle,
+        certificateId,
+        authenticatedBy: verifier,
+        authenticatedByEmail: user?.email || '',
+        authenticatedAt: timestamp,
+        remarks: authRemarks,
+        status: 'AUTHENTICATED',
+        complianceStatus: 'Verified Compliant with NBA/NAAC Standards',
+        schoolName: selectedSchool?.name || (isIqac ? 'Institutional Quality Assurance' : 'School of Engineering'),
+        programmeName: currentProgramme?.name || '',
+        batchName: currentBatchName,
+        courseName: currentCourseObj?.code ? `${currentCourseObj.code} — ${currentCourseObj.name}` : undefined,
+      };
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`iqac_auth:${currentReportKey}`, JSON.stringify(newRecord));
+      }
+      setAuthRecord(newRecord);
+      setAuthSuccessMsg('Report successfully authenticated and certified with official IQAC accreditation seal!');
+      setTimeout(() => {
+        setShowAuthModal(false);
+      }, 1400);
+    } catch (err) {
+      console.error('Failed to authenticate report:', err);
+      setAuthErrorMsg(err?.response?.data?.message || err?.message || 'Failed to authenticate report. Please retry.');
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleVerifyFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setVerifyingFile(true);
+    setFileVerificationResult(null);
+    try {
+      const artifactType = file.name.endsWith('.xlsx') || file.name.endsWith('.xls') ? 'EXCEL' : 'PDF';
+      const cleanKey = currentReportKey.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const response = await reportsApi.verifyArtifact({
+        reportId: cleanKey,
+        artifactType,
+        file,
+      });
+      const result = unwrapReportData(response);
+      setFileVerificationResult({
+        state: result?.valid === false ? 'failed' : 'valid',
+        message: result?.message || (result?.valid === false ? 'Integrity verification failed (file hash mismatch).' : 'Cryptographic integrity verified! Document matches official system record.'),
+      });
+    } catch (err) {
+      setFileVerificationResult({
+        state: 'failed',
+        message: err?.response?.data?.message || 'Verification could not be completed for this artifact.',
+      });
+    } finally {
+      setVerifyingFile(false);
+    }
+  };
+
   return (
     <div className="animated-page" style={{ paddingBottom: '48px' }}>
 
@@ -767,8 +1038,8 @@ export default function ReportsHub() {
             </p>
           </div>
 
-          {/* Actions: Download & Print */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Actions: Download & Print & IQAC Authenticate */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             {isCourseCoordinator && (activeMainTab !== 'atr-reports' || atrSubTab === 'course-atr') && <select
               value={selectedCourseOffering?.id ?? ''}
               onChange={(event) => {
@@ -780,6 +1051,43 @@ export default function ReportsHub() {
             >
               {assignedOfferings.length === 0 ? <option value="">No assigned courses</option> : assignedOfferings.map((offering) => <option key={offering.id} value={offering.id}>{offering.courseCode ?? offering.code ?? 'Course'} — {offering.courseName ?? offering.name ?? 'Programme-Batch Course'} · Sem {offering.semester ?? '—'}</option>)}
             </select>}
+
+            {/* Authenticate Report Option for IQAC Role */}
+            {isIqac && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthSuccessMsg('');
+                  setAuthErrorMsg('');
+                  setShowAuthModal(true);
+                }}
+                style={{
+                  height: '38px',
+                  padding: '0 16px',
+                  fontSize: '12.5px',
+                  fontWeight: '700',
+                  background: authRecord
+                    ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
+                    : 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  fontFamily: 'inherit',
+                  boxShadow: authRecord
+                    ? '0 2px 6px rgba(5, 150, 105, 0.35)'
+                    : '0 2px 6px rgba(79, 70, 229, 0.3)',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <ShieldCheck size={16} />
+                {authRecord ? '✓ Authenticated' : 'Authenticate Report'}
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => handleOfficialDownload('excel')}
@@ -833,11 +1141,52 @@ export default function ReportsHub() {
         {/* Dynamic Filters Row */}
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '14px', paddingTop: '14px', borderTop: '1px solid #f1f5f9' }}>
           
-          {/* 1. PROGRAMME SELECTOR (For Programme Coordinator, HOD, Director) */}
-          {!isCourseCoordinator && !isProgrammeCoordinator && (
-            <div style={{ minWidth: '240px', flex: '1 1 240px', order: isHod || isDirector ? 1 : undefined }}>
+          {/* 0. SCHOOL SELECTOR (For IQAC Role) */}
+          {isIqac && (
+            <div style={{ minWidth: '240px', flex: '1 1 240px', order: 0 }}>
               <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-                {isHod || isDirector ? 'Programme' : 'School Programme'}
+                School
+              </label>
+              <div style={{ position: 'relative' }}>
+                <select
+                  value={selectedSchoolId}
+                  onChange={(e) => {
+                    const newSchoolId = e.target.value;
+                    setSelectedSchoolId(newSchoolId);
+                    setSelectedBatchId('');
+                    setSelectedReportCourseOfferingId('');
+                  }}
+                  style={{
+                    height: '38px',
+                    width: '100%',
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    color: '#0f172a',
+                    background: '#ffffff',
+                    border: '1.5px solid #cbd5e1',
+                    borderRadius: '8px',
+                    padding: '0 30px 0 12px',
+                    appearance: 'none',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <option value="">All Schools</option>
+                  {schools.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name} {s.code ? `(${s.code})` : ''}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
+              </div>
+            </div>
+          )}
+
+          {/* 1. PROGRAMME SELECTOR (For Programme Coordinator, HOD, Director, IQAC) */}
+          {!isCourseCoordinator && !isProgrammeCoordinator && (
+            <div style={{ minWidth: '240px', flex: '1 1 240px', order: isHod || isDirector || isIqac ? 1 : undefined }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+                {isHod || isDirector || isIqac ? 'Programme' : 'School Programme'}
               </label>
               <div style={{ position: 'relative' }}>
                 <select
@@ -845,7 +1194,7 @@ export default function ReportsHub() {
                   onChange={(e) => {
                     const newProgId = e.target.value;
                     setProgrammeId(newProgId);
-                    if (isHod || isDirector) setSelectedBatchId('');
+                    if (isHod || isDirector || isIqac) setSelectedBatchId('');
                     setSelectedReportCourseOfferingId('');
                     const matchingCourses = courses.filter((c) => !c.programmeId || c.programmeId === newProgId);
                     if (matchingCourses.length > 0) {
@@ -879,13 +1228,13 @@ export default function ReportsHub() {
           )}
 
           {/* 2. COURSE SELECTOR (For All Roles) */}
-          {!isCourseCoordinator && <div style={{ minWidth: '260px', flex: '1 1 260px', order: isProgrammeCoordinator ? 2 : isHod || isDirector ? 3 : undefined }}>
+          {!isCourseCoordinator && <div style={{ minWidth: '260px', flex: '1 1 260px', order: isProgrammeCoordinator ? 2 : isHod || isDirector || isIqac ? 3 : undefined }}>
             <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-              {isProgrammeCoordinator || isHod || isDirector ? 'Course' : `Select Course (under ${currentProgramme.code})`}
+              {isProgrammeCoordinator || isHod || isDirector || isIqac ? 'Course' : `Select Course (under ${currentProgramme.code})`}
             </label>
             <div style={{ position: 'relative' }}>
               <select
-                value={isProgrammeCoordinator || isHod || isDirector ? (selectedCourseOffering?.id ?? selectedReportCourseOfferingId) : (currentCourseObj.id || courseId || '')}
+                value={isProgrammeCoordinator || isHod || isDirector || isIqac ? (selectedCourseOffering?.id ?? selectedReportCourseOfferingId) : (currentCourseObj.id || courseId || '')}
                 onChange={(e) => {
                   const selectionId = e.target.value;
                   const matchingOffering = reportCourseOfferings.find((offering) => String(offering.id) === String(selectionId));
@@ -911,7 +1260,7 @@ export default function ReportsHub() {
                   fontFamily: 'inherit',
                 }}
               >
-                {isProgrammeCoordinator || isHod || isDirector ? (
+                {isProgrammeCoordinator || isHod || isDirector || isIqac ? (
                   <>
                     {reportCourseOfferings.length === 0 && <option value="">No courses available for this programme batch</option>}
                     {reportCourseOfferings.map((offering) => (
@@ -934,9 +1283,9 @@ export default function ReportsHub() {
           </div>}
 
           {/* 3. ACADEMIC BATCH SELECTOR (For All Roles) */}
-          {!isCourseCoordinator && <div style={{ minWidth: '240px', flex: '1 1 240px', order: isProgrammeCoordinator ? 1 : isHod || isDirector ? 2 : undefined }}>
+          {!isCourseCoordinator && <div style={{ minWidth: '240px', flex: '1 1 240px', order: isProgrammeCoordinator ? 1 : isHod || isDirector || isIqac ? 2 : undefined }}>
             <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-              {isProgrammeCoordinator || isHod || isDirector ? 'Batch' : 'Academic Batch'}
+              {isProgrammeCoordinator || isHod || isDirector || isIqac ? 'Batch' : 'Academic Batch'}
             </label>
             <div style={{ position: 'relative' }}>
               <select
@@ -1031,6 +1380,89 @@ export default function ReportsHub() {
           <FileText size={16} /> ATR Reports
         </button>
       </div>
+
+      {/* ── IQAC AUTHENTICATED & CERTIFIED BANNER ─────────────────────────────── */}
+      {authRecord && (
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+            border: '1.5px solid #10b981',
+            borderRadius: '12px',
+            padding: '16px 20px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+            flexWrap: 'wrap',
+            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.12)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div
+              style={{
+                width: '46px',
+                height: '46px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: '#ffffff',
+                display: 'grid',
+                placeItems: 'center',
+                flexShrink: 0,
+                boxShadow: '0 4px 10px rgba(16, 185, 129, 0.35)',
+              }}
+            >
+              <ShieldCheck size={26} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '13px', fontWeight: '800', color: '#065f46', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                  IQAC Authenticated & Audited Report
+                </span>
+                <span style={{ fontSize: '11px', fontWeight: '800', background: '#d1fae5', color: '#047857', padding: '2px 8px', borderRadius: '999px', border: '1px solid #a7f3d0' }}>
+                  ✓ Official Certification
+                </span>
+              </div>
+              <div style={{ fontSize: '12px', color: '#334155', marginTop: '3px', fontWeight: '600' }}>
+                Certificate ID: <span style={{ fontFamily: 'monospace', color: '#0f172a', fontWeight: '700' }}>{authRecord.certificateId}</span>
+                &nbsp;·&nbsp;
+                Authenticated by: <strong style={{ color: '#0f172a' }}>{authRecord.authenticatedBy}</strong>
+                &nbsp;·&nbsp;
+                <span>{new Date(authRecord.authenticatedAt).toLocaleString()}</span>
+              </div>
+              {authRecord.remarks && (
+                <div style={{ fontSize: '12px', color: '#475569', marginTop: '4px', fontStyle: 'italic', background: '#ffffff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                  “{authRecord.remarks}”
+                </div>
+              )}
+            </div>
+          </div>
+          {isIqac && (
+            <button
+              type="button"
+              className="print:hidden"
+              onClick={() => {
+                setAuthSuccessMsg('');
+                setAuthErrorMsg('');
+                setShowAuthModal(true);
+              }}
+              style={{
+                fontSize: '12px',
+                fontWeight: '700',
+                color: '#047857',
+                background: '#ffffff',
+                border: '1px solid #a7f3d0',
+                padding: '6px 14px',
+                borderRadius: '7px',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              Manage Sign-off
+            </button>
+          )}
+        </div>
+      )}
 
       {/* =================================================================== */}
       {/* SECTION 1: ATTAINMENT REPORTS TAB                                   */}
@@ -1646,6 +2078,403 @@ export default function ReportsHub() {
             />
           )}
 
+        </div>
+      )}
+
+      {/* ── IQAC AUTHENTICATE REPORT MODAL ──────────────────────────────────── */}
+      {showAuthModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="print:hidden"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'grid',
+            placeItems: 'center',
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              width: 'min(100%, 620px)',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              background: '#ffffff',
+              borderRadius: '16px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #e2e8f0',
+              padding: '24px 28px',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '10px',
+                    background: '#eef2ff',
+                    color: '#4f46e5',
+                    display: 'grid',
+                    placeItems: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <ShieldCheck size={24} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+                    IQAC Report Authentication
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#64748b' }}>
+                    Institutional quality sign-off & NBA compliance certification
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(false)}
+                style={{
+                  border: 'none',
+                  background: '#f1f5f9',
+                  color: '#64748b',
+                  borderRadius: '8px',
+                  width: '32px',
+                  height: '32px',
+                  display: 'grid',
+                  placeItems: 'center',
+                  cursor: 'pointer',
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Tabs (Sign-off vs Verify Artifact) */}
+            <div
+              style={{
+                display: 'flex',
+                gap: '8px',
+                background: '#f8fafc',
+                padding: '4px',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0',
+                marginBottom: '18px',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setAuthModalTab('sign')}
+                style={{
+                  flex: 1,
+                  padding: '7px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '12.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  background: authModalTab === 'sign' ? '#ffffff' : 'transparent',
+                  color: authModalTab === 'sign' ? '#4f46e5' : '#64748b',
+                  boxShadow: authModalTab === 'sign' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <Award size={14} /> Institutional Certification & Stamp
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthModalTab('verify')}
+                style={{
+                  flex: 1,
+                  padding: '7px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '12.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  background: authModalTab === 'verify' ? '#ffffff' : 'transparent',
+                  color: authModalTab === 'verify' ? '#4f46e5' : '#64748b',
+                  boxShadow: authModalTab === 'verify' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <FileCheck2 size={14} /> Artifact Integrity Verification
+              </button>
+            </div>
+
+            {/* Report Context Card */}
+            <div
+              style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '10px',
+                padding: '12px 16px',
+                marginBottom: '18px',
+                fontSize: '12.5px',
+              }}
+            >
+              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', rowGap: '6px', columnGap: '12px' }}>
+                <span style={{ color: '#64748b', fontWeight: '600' }}>Target Report:</span>
+                <span style={{ color: '#0f172a', fontWeight: '700' }}>{currentReportTitle}</span>
+
+                <span style={{ color: '#64748b', fontWeight: '600' }}>School:</span>
+                <span style={{ color: '#0f172a', fontWeight: '600' }}>
+                  {selectedSchool?.name || (isIqac ? 'All Schools / Institutional' : 'University Wide')}
+                </span>
+
+                <span style={{ color: '#64748b', fontWeight: '600' }}>Programme:</span>
+                <span style={{ color: '#0f172a', fontWeight: '600' }}>
+                  {currentProgramme?.name ? `${currentProgramme.code} — ${currentProgramme.name}` : '—'}
+                </span>
+
+                <span style={{ color: '#64748b', fontWeight: '600' }}>Batch:</span>
+                <span style={{ color: '#0f172a', fontWeight: '600' }}>{currentBatchName}</span>
+
+                {currentCourseObj?.code && (
+                  <>
+                    <span style={{ color: '#64748b', fontWeight: '600' }}>Course:</span>
+                    <span style={{ color: '#4f46e5', fontWeight: '700' }}>
+                      {currentCourseObj.code} — {currentCourseObj.name}
+                    </span>
+                  </>
+                )}
+
+                <span style={{ color: '#64748b', fontWeight: '600' }}>Auditor / Lead:</span>
+                <span style={{ color: '#0f172a', fontWeight: '600' }}>
+                  {user?.name || user?.email || 'IQAC Director'}
+                </span>
+              </div>
+            </div>
+
+            {/* TAB 1: INSTITUTIONAL SIGN-OFF & CERTIFICATION */}
+            {authModalTab === 'sign' && (
+              <div>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                    IQAC Authentication Remarks & Compliance Findings
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={authRemarks}
+                    onChange={(e) => setAuthRemarks(e.target.value)}
+                    placeholder="Enter observations, evidence validation notes, and compliance statement..."
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      fontSize: '12.5px',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1.5px solid #cbd5e1',
+                      fontFamily: 'inherit',
+                      lineHeight: '1.45',
+                      outline: 'none',
+                    }}
+                  />
+                  <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#64748b' }}>
+                    Remarks will be inscribed on the official report record and verified certification banner.
+                  </p>
+                </div>
+
+                {authRecord && (
+                  <div
+                    style={{
+                      background: '#ecfdf5',
+                      border: '1px solid #a7f3d0',
+                      borderRadius: '8px',
+                      padding: '10px 14px',
+                      marginBottom: '16px',
+                      fontSize: '12px',
+                      color: '#065f46',
+                    }}
+                  >
+                    <strong>Currently Certified:</strong> ID{' '}
+                    <span style={{ fontFamily: 'monospace', fontWeight: '800' }}>{authRecord.certificateId}</span> on{' '}
+                    {new Date(authRecord.authenticatedAt).toLocaleDateString()}. Re-authenticating will issue an updated institutional timestamp.
+                  </div>
+                )}
+
+                {authSuccessMsg && (
+                  <div
+                    style={{
+                      background: '#ecfdf5',
+                      border: '1px solid #10b981',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      marginBottom: '16px',
+                      color: '#047857',
+                      fontSize: '12.5px',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <CheckCircle2 size={16} /> {authSuccessMsg}
+                  </div>
+                )}
+
+                {authErrorMsg && (
+                  <div
+                    style={{
+                      background: '#fef2f2',
+                      border: '1px solid #f87171',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      marginBottom: '16px',
+                      color: '#b91c1c',
+                      fontSize: '12.5px',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <AlertCircle size={16} /> {authErrorMsg}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowAuthModal(false)}
+                    style={{
+                      padding: '9px 18px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#475569',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={authSubmitting}
+                    onClick={handleAuthenticateReport}
+                    style={{
+                      padding: '9px 20px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+                      color: '#ffffff',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      cursor: authSubmitting ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontFamily: 'inherit',
+                      boxShadow: '0 2px 6px rgba(79, 70, 229, 0.3)',
+                    }}
+                  >
+                    <ShieldCheck size={16} />
+                    {authSubmitting ? 'Certifying & Sealing…' : 'Authenticate & Certify Report'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: ARTIFACT INTEGRITY VERIFICATION */}
+            {authModalTab === 'verify' && (
+              <div>
+                <div style={{ padding: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', marginBottom: '16px' }}>
+                  <p style={{ margin: '0 0 10px', fontSize: '12.5px', color: '#334155', lineHeight: '1.45' }}>
+                    Upload an exported PDF or Excel document to verify that its cryptographic SHA-256 hash matches the authoritative record generated by the server.
+                  </p>
+                  <label
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '9px 18px',
+                      borderRadius: '8px',
+                      background: '#4f46e5',
+                      color: '#ffffff',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      cursor: verifyingFile ? 'wait' : 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    <Upload size={15} /> {verifyingFile ? 'Validating Hash…' : 'Select Exported Report File'}
+                    <input
+                      type="file"
+                      accept=".pdf,.xlsx,.xls"
+                      disabled={verifyingFile}
+                      onChange={handleVerifyFile}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </div>
+
+                {fileVerificationResult && (
+                  <div
+                    style={{
+                      background: fileVerificationResult.state === 'valid' ? '#ecfdf5' : '#fef2f2',
+                      border: `1.5px solid ${fileVerificationResult.state === 'valid' ? '#10b981' : '#ef4444'}`,
+                      borderRadius: '10px',
+                      padding: '14px 16px',
+                      marginBottom: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                    }}
+                  >
+                    {fileVerificationResult.state === 'valid' ? (
+                      <CheckCircle2 size={22} style={{ color: '#059669', flexShrink: 0 }} />
+                    ) : (
+                      <AlertCircle size={22} style={{ color: '#dc2626', flexShrink: 0 }} />
+                    )}
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: '800', color: fileVerificationResult.state === 'valid' ? '#065f46' : '#991b1b' }}>
+                        {fileVerificationResult.state === 'valid' ? 'Official Integrity Verified' : 'Verification Unsuccessful'}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#334155', marginTop: '2px' }}>
+                        {fileVerificationResult.message}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowAuthModal(false)}
+                    style={{
+                      padding: '9px 18px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#475569',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

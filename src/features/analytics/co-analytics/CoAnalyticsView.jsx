@@ -166,8 +166,22 @@ export default function CoAnalyticsView() {
           setCourseData(payload);
 
           // Extract all COs for this course
-          if (payload.courseOutcomes) {
-            setAvailableCos(sortCosAscending(payload.courseOutcomes));
+          if (payload.courseOutcomes && payload.courseOutcomes.length > 0) {
+            const sortedCos = sortCosAscending(payload.courseOutcomes);
+            setAvailableCos(sortedCos);
+
+            // Validate if selectedCoCode matches any available CO in this course
+            const exists = sortedCos.some((c) => {
+              const code = (c.coCode || c.code || '').trim().toUpperCase();
+              return code === selectedCoCode.trim().toUpperCase();
+            });
+
+            if (!exists) {
+              const firstValidCo = sortedCos[0].coCode || sortedCos[0].code;
+              if (firstValidCo) {
+                setSelectedCoCode(firstValidCo);
+              }
+            }
           }
 
           // Extract all mapped outcomes

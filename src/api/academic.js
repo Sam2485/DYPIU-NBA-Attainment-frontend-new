@@ -38,9 +38,15 @@ export const academicApi = {
   // =========================
   // Master Programmes
   // =========================
-  getProgrammes: (departmentId) => {
+  getProgrammes: (filter) => {
     const params = {};
-    if (departmentId) params.departmentId = departmentId;
+    if (typeof filter === 'string') {
+      params.departmentId = filter;
+    } else if (filter && typeof filter === 'object') {
+      if (filter.departmentId) params.departmentId = filter.departmentId;
+      if (filter.schoolId) params.schoolId = filter.schoolId;
+      if (filter.level) params.level = filter.level;
+    }
 
     return apiClient.get('/academic/master-programmes', { params });
   },

@@ -94,11 +94,14 @@ export default function ComparisonSlotSelector({
         setBatches(sorted);
 
         // Pre-select first batch not already present in slot1 or slot2
-        const available = sorted.find((b) => b.id !== slot1?.batchId && b.id !== slot2?.batchId);
+        const available = sorted.find((b) => {
+          const bId = b.programmeBatchId || b.id;
+          return bId !== slot1?.batchId && bId !== slot2?.batchId;
+        });
         if (available) {
-          setSelectedBatchId(available.id);
+          setSelectedBatchId(available.programmeBatchId || available.id);
         } else if (sorted.length > 0) {
-          setSelectedBatchId(sorted[0].id);
+          setSelectedBatchId(sorted[0].programmeBatchId || sorted[0].id);
         }
       })
       .catch((err) => {
@@ -108,35 +111,54 @@ export default function ComparisonSlotSelector({
       .finally(() => {
         setLoadingBatches(false);
       });
-  }, [selectedProgrammeId, slot1?.batchId, slot2?.batchId]);
+  }, [selectedProgrammeId]);
 
-  const handleAddBatch = () => {
+  // Keep selectedBatchId valid if current selection is empty or became invalid
+  useEffect(() => {
+    if (batches.length === 0) return;
+    const exists = batches.some((b) => (b.programmeBatchId || b.id) === selectedBatchId);
+    if (!selectedBatchId || !exists) {
+      const available = batches.find((b) => {
+        const bId = b.programmeBatchId || b.id;
+        return bId !== slot1?.batchId && bId !== slot2?.batchId;
+      });
+      const chosen = available || batches[0];
+      setSelectedBatchId(chosen.programmeBatchId || chosen.id);
+    }
+  }, [batches, slot1?.batchId, slot2?.batchId, selectedBatchId]);
+
+  const handleAddBatch = (targetSlotNumber) => {
     setValidationError(null);
     if (!selectedProgrammeId || !selectedBatchId) return;
 
     const prog = programmes.find((p) => p.id === selectedProgrammeId);
-    const batch = batches.find((b) => b.id === selectedBatchId);
+    const batch = batches.find((b) => (b.programmeBatchId || b.id) === selectedBatchId);
     if (!prog || !batch) return;
 
-    // Validate that this exact batch is not already in slot1 or slot2
-    if ((slot1 && slot1.batchId === batch.id) || (slot2 && slot2.batchId === batch.id)) {
-      setValidationError('This batch is already added to comparison. Please choose a different batch.');
+    const batchId = batch.programmeBatchId || batch.id;
+    const targetSlot = targetSlotNumber || (!slot1 ? 1 : 2);
+
+    // Validate that this exact batch is not already in the other slot
+    if ((targetSlot === 1 && slot2 && slot2.batchId === batchId) ||
+        (targetSlot === 2 && slot1 && slot1.batchId === batchId)) {
+      setValidationError('Cannot compare a batch to itself. Please choose a different batch.');
       return;
     }
 
-    onAddSlot({
+    const slotPayload = {
       programmeId: prog.id,
       programmeName: prog.name,
-      batchId: batch.id,
+      batchId: batchId,
       batchName: batch.name || `Batch ${batch.startYear}-${batch.endYear}`,
       startYear: batch.startYear,
       endYear: batch.endYear,
       status: batch.status || 'ACTIVE',
-    });
+    };
+
+    onAddSlot(targetSlot, slotPayload);
   };
 
   const isBothSlotsFilled = Boolean(slot1 && slot2);
-  const canAddMore = !slot1 || !slot2;
 
   return (
     <div
@@ -224,41 +246,77 @@ export default function ComparisonSlotSelector({
             {batches.length === 0 ? (
               <option value="">{loadingBatches ? 'Loading batches...' : 'No batches found'}</option>
             ) : (
-              batches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name || `Batch ${b.startYear}-${b.endYear}`} [{b.status || 'ACTIVE'}]
-                </option>
-              ))
+              batches.map((b) => {
+                const bId = b.programmeBatchId || b.id;
+                return (
+                  <option key={bId} value={bId}>
+                    {b.name || `Batch ${b.startYear}-${b.endYear}`} [{b.status || 'ACTIVE'}]
+                  </option>
+                );
+              })
             )}
           </select>
         </div>
 
-        {/* Add Batch Button */}
+        {/* Slot Assignment Action Buttons */}
         <div>
-          <button
-            type="button"
-            onClick={handleAddBatch}
-            disabled={!canAddMore || !selectedBatchId}
-            style={{
-              width: '100%',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 7,
-              padding: '9px 18px',
-              borderRadius: 8,
-              background: canAddMore && selectedBatchId ? '#0284c7' : '#e2e8f0',
-              color: canAddMore && selectedBatchId ? '#ffffff' : '#94a3b8',
-              fontSize: 13,
-              fontWeight: 700,
-              border: 'none',
-              cursor: canAddMore && selectedBatchId ? 'pointer' : 'not-allowed',
-              transition: 'background 0.15s ease',
-            }}
-          >
-            <Plus size={15} />
-            <span>+ Add Batch for Comparison</span>
-          </button>
+          <label style={labelStyle}>
+            <Plus size={14} color="#0284c7" />
+            <span>Select Comparison Slot</span>
+          </label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => handleAddBatch(1)}
+              disabled={!selectedBatchId}
+              style={{
+                flex: 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 5,
+                padding: '9px 12px',
+                borderRadius: 8,
+                background: selectedBatchId ? '#0284c7' : '#e2e8f0',
+                color: selectedBatchId ? '#ffffff' : '#94a3b8',
+                fontSize: 12.5,
+                fontWeight: 700,
+                border: 'none',
+                cursor: selectedBatchId ? 'pointer' : 'not-allowed',
+                transition: 'background 0.15s ease',
+              }}
+              title="Assign this batch to Slot 1"
+            >
+              <Plus size={14} />
+              <span>Assign Slot 1</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleAddBatch(2)}
+              disabled={!selectedBatchId}
+              style={{
+                flex: 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 5,
+                padding: '9px 12px',
+                borderRadius: 8,
+                background: selectedBatchId ? '#8b5cf6' : '#e2e8f0',
+                color: selectedBatchId ? '#ffffff' : '#94a3b8',
+                fontSize: 12.5,
+                fontWeight: 700,
+                border: 'none',
+                cursor: selectedBatchId ? 'pointer' : 'not-allowed',
+                transition: 'background 0.15s ease',
+              }}
+              title="Assign this batch to Slot 2"
+            >
+              <Plus size={14} />
+              <span>Assign Slot 2</span>
+            </button>
+          </div>
         </div>
       </div>
 

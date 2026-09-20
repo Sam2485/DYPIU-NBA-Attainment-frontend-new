@@ -66,6 +66,13 @@ export default function CourseComparisonSlotSelector({
       });
   }, []);
 
+  // Sync initial programme/batch from slot1 if available
+  useEffect(() => {
+    if (slot1?.masterProgrammeId) {
+      setSelectedProgrammeId((prev) => prev || slot1.masterProgrammeId);
+    }
+  }, [slot1?.masterProgrammeId]);
+
   // Load Batches when selectedProgrammeId changes
   useEffect(() => {
     if (!selectedProgrammeId) {
@@ -84,7 +91,8 @@ export default function CourseComparisonSlotSelector({
         const sorted = [...list].sort((a, b) => (b.startYear || 0) - (a.startYear || 0));
         setBatches(sorted);
         if (sorted.length > 0) {
-          setSelectedBatchId(sorted[0].id);
+          const firstId = sorted[0].programmeBatchId || sorted[0].id;
+          setSelectedBatchId(firstId);
         }
       })
       .catch((err) => {
@@ -114,10 +122,13 @@ export default function CourseComparisonSlotSelector({
         if (list.length > 0) {
           // Default to first course not already selected
           const available = list.find(
-            (c) => (c.programmeBatchCourseId || c.id) !== slot1?.programmeBatchCourseId &&
-                   (c.programmeBatchCourseId || c.id) !== slot2?.programmeBatchCourseId
+            (c) => {
+              const cid = c.programmeBatchCourseId || c.id;
+              return cid !== slot1?.programmeBatchCourseId && cid !== slot2?.programmeBatchCourseId;
+            }
           );
-          setSelectedCourseId(available ? (available.programmeBatchCourseId || available.id) : (list[0].programmeBatchCourseId || list[0].id));
+          const chosen = available || list[0];
+          setSelectedCourseId(chosen.programmeBatchCourseId || chosen.id);
         }
       })
       .catch((err) => {
@@ -126,13 +137,13 @@ export default function CourseComparisonSlotSelector({
       .finally(() => {
         setLoadingCourses(false);
       });
-  }, [selectedBatchId, slot1, slot2]);
+  }, [selectedBatchId, slot1?.programmeBatchCourseId, slot2?.programmeBatchCourseId]);
 
   const handleAssignToSlot = (slotNumber) => {
     if (!selectedCourseId) return;
 
     const courseObj = courses.find((c) => (c.programmeBatchCourseId || c.id) === selectedCourseId);
-    const batchObj = batches.find((b) => b.id === selectedBatchId);
+    const batchObj = batches.find((b) => (b.programmeBatchId || b.id) === selectedBatchId);
     const progObj = programmes.find((p) => p.id === selectedProgrammeId);
 
     const slotPayload = {
@@ -401,11 +412,14 @@ export default function CourseComparisonSlotSelector({
               ) : batches.length === 0 ? (
                 <option>No batches found</option>
               ) : (
-                batches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name || `Batch ${b.startYear}-${b.endYear}`} ({b.status || 'ACTIVE'})
-                  </option>
-                ))
+                batches.map((b) => {
+                  const bId = b.programmeBatchId || b.id;
+                  return (
+                    <option key={bId} value={bId}>
+                      {b.name || `Batch ${b.startYear}-${b.endYear}`} ({b.status || 'ACTIVE'})
+                    </option>
+                  );
+                })
               )}
             </select>
           </div>

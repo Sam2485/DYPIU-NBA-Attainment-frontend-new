@@ -85,12 +85,13 @@ export default function CompareBatchesView() {
       academicApi
         .getBatchById(defaultBatchId)
         .then((res) => {
-          const payload = res?.data ?? res;
+          const payload = res?.data?.data ?? res?.data ?? res;
           if (payload) {
+            const batchId = payload.programmeBatchId || payload.id;
             setSlot1({
               programmeId: payload.masterProgrammeId,
               programmeName: payload.programmeName || payload.name || 'Programme',
-              batchId: payload.id,
+              batchId: batchId,
               batchName: payload.name || `Batch ${payload.startYear}-${payload.endYear}`,
               startYear: payload.startYear,
               endYear: payload.endYear,
@@ -104,11 +105,20 @@ export default function CompareBatchesView() {
     }
   }, [paramBatch1, paramBatch2, currentBatchId, fetchComparison, slot1]);
 
-  const handleAddSlot = (slotData) => {
-    if (!slot1) {
-      setSlot1(slotData);
-    } else if (!slot2) {
-      setSlot2(slotData);
+  const handleAddSlot = (slotOrNumber, maybeSlotData) => {
+    if (typeof slotOrNumber === 'number') {
+      if (slotOrNumber === 1) {
+        setSlot1(maybeSlotData);
+      } else if (slotOrNumber === 2) {
+        setSlot2(maybeSlotData);
+      }
+    } else {
+      const slotData = slotOrNumber;
+      if (!slot1) {
+        setSlot1(slotData);
+      } else if (!slot2) {
+        setSlot2(slotData);
+      }
     }
   };
 
@@ -138,11 +148,14 @@ export default function CompareBatchesView() {
 
   const handleCompareClick = () => {
     if (!slot1 || !slot2) return;
+    const id1 = slot1.batchId || slot1.programmeBatchId || slot1.id;
+    const id2 = slot2.batchId || slot2.programmeBatchId || slot2.id;
+    if (!id1 || !id2) return;
     setSearchParams(
-      { programmeBatchId1: slot1.batchId, programmeBatchId2: slot2.batchId },
+      { programmeBatchId1: id1, programmeBatchId2: id2 },
       { replace: true }
     );
-    fetchComparison(slot1.batchId, slot2.batchId);
+    fetchComparison(id1, id2);
   };
 
   const handleBack = () => {

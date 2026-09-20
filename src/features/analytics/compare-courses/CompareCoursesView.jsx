@@ -104,8 +104,18 @@ export default function CompareCoursesView() {
         .getHistoricalCourseAttainment({ programmeBatchCourseId: paramC1 })
         .then((res) => {
           const payload = res?.data?.data ?? res?.data ?? res;
-          if (payload?.course) {
-            setSlot1(payload.course);
+          if (payload) {
+            setSlot1({
+              programmeBatchCourseId: payload.currentProgrammeBatchCourseId || payload.course?.programmeBatchCourseId || paramC1,
+              programmeBatchId: payload.currentBatchId || payload.course?.programmeBatchId,
+              batchName: payload.currentBatchName || payload.course?.batchName,
+              masterProgrammeId: payload.masterProgrammeId || payload.course?.masterProgrammeId,
+              programmeName: payload.programmeName || payload.course?.programmeName,
+              courseCode: payload.courseCode || payload.course?.courseCode,
+              courseName: payload.courseName || payload.course?.courseName,
+              semester: payload.currentSemester || payload.course?.semester,
+              batchStatus: payload.currentBatchStatus || payload.course?.batchStatus || 'ACTIVE',
+            });
           }
         })
         .catch((err) => {
@@ -114,11 +124,20 @@ export default function CompareCoursesView() {
     }
   }, [paramC1, paramC2, fetchComparison, slot1, location.state]);
 
-  const handleAddSlot = (slotData) => {
-    if (!slot1) {
-      setSlot1(slotData);
-    } else if (!slot2) {
-      setSlot2(slotData);
+  const handleAddSlot = (slotOrNumber, maybeSlotData) => {
+    if (typeof slotOrNumber === 'number') {
+      if (slotOrNumber === 1) {
+        setSlot1(maybeSlotData);
+      } else if (slotOrNumber === 2) {
+        setSlot2(maybeSlotData);
+      }
+    } else {
+      const slotData = slotOrNumber;
+      if (!slot1) {
+        setSlot1(slotData);
+      } else if (!slot2) {
+        setSlot2(slotData);
+      }
     }
   };
 

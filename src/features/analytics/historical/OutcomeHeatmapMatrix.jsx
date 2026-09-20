@@ -128,7 +128,7 @@ export default function OutcomeHeatmapMatrix({
               ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody onMouseLeave={() => setHoveredCell(null)}>
             {outcomes.map((code) => {
               const isSelected = (selectedOutcomeCode || '').toUpperCase() === code.toUpperCase();
               const isPso = code.toUpperCase().startsWith('PSO');
@@ -191,8 +191,11 @@ export default function OutcomeHeatmapMatrix({
                     return (
                       <td
                         key={b.batchId}
-                        onMouseEnter={() => setHoveredCell({ code, batch: b, dp, finalAtt, targetLevel, gap, targetMet })}
-                        onMouseLeave={() => setHoveredCell(null)}
+                        onMouseEnter={() => {
+                          if (hoveredCell?.key !== key) {
+                            setHoveredCell({ key, code, batch: b, dp, finalAtt, targetLevel, gap, targetMet });
+                          }
+                        }}
                         style={{
                           textAlign: 'center',
                           padding: '9px 12px',
@@ -216,60 +219,70 @@ export default function OutcomeHeatmapMatrix({
         </table>
       </div>
 
-      {/* Hover Information Card */}
-      {hoveredCell && (
-        <div
-          style={{
-            marginTop: 14,
-            padding: '10px 16px',
-            background: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            borderRadius: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 12,
-            fontSize: 12,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontWeight: 800, color: '#0f172a', fontSize: 13 }}>
-              {hoveredCell.code} — {hoveredCell.batch.batchName || `Batch ${hoveredCell.batch.startYear}-${hoveredCell.batch.endYear}`}
-            </span>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                padding: '2px 8px',
-                borderRadius: 4,
-                background: hoveredCell.targetMet ? '#dcfce7' : '#fee2e2',
-                color: hoveredCell.targetMet ? '#15803d' : '#b91c1c',
-              }}
-            >
-              {hoveredCell.targetMet ? 'Target Met' : 'Below Target'}
-            </span>
-          </div>
+      {/* Hover Information Card - Fixed min-height to guarantee zero layout shift / no flickering */}
+      <div
+        style={{
+          marginTop: 14,
+          minHeight: 52,
+          padding: '10px 16px',
+          background: hoveredCell ? '#f8fafc' : '#ffffff',
+          border: hoveredCell ? '1px solid #e2e8f0' : '1px dashed #e2e8f0',
+          borderRadius: 8,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 12,
+          fontSize: 12,
+          boxSizing: 'border-box',
+          transition: 'background-color 0.15s ease, border-color 0.15s ease',
+        }}
+      >
+        {hoveredCell ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a', fontSize: 13 }}>
+                {hoveredCell.code} — {hoveredCell.batch.batchName || `Batch ${hoveredCell.batch.startYear}-${hoveredCell.batch.endYear}`}
+              </span>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: 4,
+                  background: hoveredCell.targetMet ? '#dcfce7' : '#fee2e2',
+                  color: hoveredCell.targetMet ? '#15803d' : '#b91c1c',
+                }}
+              >
+                {hoveredCell.targetMet ? 'Target Met' : 'Below Target'}
+              </span>
+            </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18, color: '#475569' }}>
-            <span>
-              Final Attainment: <strong style={{ color: '#0f172a' }}>{hoveredCell.finalAtt != null ? hoveredCell.finalAtt.toFixed(2) : '—'}</strong>
-            </span>
-            <span>
-              Target: <strong style={{ color: '#0f172a' }}>{hoveredCell.targetLevel.toFixed(2)}</strong>
-            </span>
-            <span>
-              Gap:{' '}
-              <strong style={{ color: hoveredCell.gap >= 0 ? '#15803d' : '#b91c1c' }}>
-                {hoveredCell.gap != null ? (hoveredCell.gap >= 0 ? `+${hoveredCell.gap.toFixed(2)}` : hoveredCell.gap.toFixed(2)) : '—'}
-              </strong>
-            </span>
-            <span style={{ color: '#0284c7', fontWeight: 700, fontSize: 11.5 }}>
-              Click to inspect outcome &uarr;
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18, color: '#475569' }}>
+              <span>
+                Final Attainment: <strong style={{ color: '#0f172a' }}>{hoveredCell.finalAtt != null ? hoveredCell.finalAtt.toFixed(2) : '—'}</strong>
+              </span>
+              <span>
+                Target: <strong style={{ color: '#0f172a' }}>{hoveredCell.targetLevel.toFixed(2)}</strong>
+              </span>
+              <span>
+                Gap:{' '}
+                <strong style={{ color: hoveredCell.gap >= 0 ? '#15803d' : '#b91c1c' }}>
+                  {hoveredCell.gap != null ? (hoveredCell.gap >= 0 ? `+${hoveredCell.gap.toFixed(2)}` : hoveredCell.gap.toFixed(2)) : '—'}
+                </strong>
+              </span>
+              <span style={{ color: '#0284c7', fontWeight: 700, fontSize: 11.5 }}>
+                Click row to inspect outcome &uarr;
+              </span>
+            </div>
+          </>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', color: '#94a3b8', fontSize: 12 }}>
+            <span>Hover over any outcome cell to view longitudinal attainment breakdown and target gap.</span>
+            <span style={{ fontSize: 11.5, color: '#64748b' }}>Click any row to switch primary analysis focus &uarr;</span>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

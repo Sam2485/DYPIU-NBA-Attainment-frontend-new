@@ -81,7 +81,7 @@ export default function CourseOutcomeHeatmapMatrix({
       </div>
 
       {/* Heatmap Matrix Table */}
-      <div style={{ overflowX: 'auto' }}>
+      <div style={{ overflowX: 'auto', paddingBottom: 16 }}>
         <table
           style={{
             width: '100%',
@@ -130,8 +130,8 @@ export default function CourseOutcomeHeatmapMatrix({
               ))}
             </tr>
           </thead>
-          <tbody>
-            {courseOutcomes.map((coCode) => {
+          <tbody onMouseLeave={() => setHoveredCell(null)}>
+            {courseOutcomes.map((coCode, rowIndex) => {
               const isRowSelected = selectedCoCode?.toUpperCase() === coCode?.toUpperCase();
 
               return (
@@ -161,19 +161,24 @@ export default function CourseOutcomeHeatmapMatrix({
                   </td>
 
                   {/* Batch Cells */}
-                  {batches.map((b) => {
+                  {batches.map((b, batchIndex) => {
                     const key = `${b.programmeBatchId}::${coCode.toUpperCase()}`;
                     const dp = dataMap.get(key);
                     const finalAtt = dp?.overallAttainment;
                     const cellStyle = getCellColor(finalAtt);
                     const isCellHovered = hoveredCell === key;
 
+                    const isTopRow = rowIndex < 3;
+                    const isFirstCol = batchIndex === 0;
+                    const isLastCol = batchIndex === batches.length - 1;
+
                     return (
                       <td
                         key={b.programmeBatchId}
                         onClick={() => onSelectCo(coCode)}
-                        onMouseEnter={() => setHoveredCell(key)}
-                        onMouseLeave={() => setHoveredCell(null)}
+                        onMouseEnter={() => {
+                          if (hoveredCell !== key) setHoveredCell(key);
+                        }}
                         style={{
                           textAlign: 'center',
                           padding: '10px 12px',
@@ -197,10 +202,13 @@ export default function CourseOutcomeHeatmapMatrix({
                           <div
                             style={{
                               position: 'absolute',
-                              bottom: 'calc(100% + 6px)',
-                              left: '50%',
-                              transform: 'translateX(-50%)',
-                              zIndex: 50,
+                              ...(isTopRow ? { top: 'calc(100% + 6px)' } : { bottom: 'calc(100% + 6px)' }),
+                              ...(isFirstCol
+                                ? { left: 0 }
+                                : isLastCol
+                                ? { right: 0 }
+                                : { left: '50%', transform: 'translateX(-50%)' }),
+                              zIndex: 60,
                               background: '#ffffff',
                               border: '1px solid #cbd5e1',
                               borderRadius: 8,

@@ -55,6 +55,7 @@ const IqacSchoolsPage = lazy(() => import('../pages/iqac/IqacSchoolsPage'));
 const IqacUsersPage = lazy(() => import('../pages/iqac/IqacUsersPage'));
 const ReportTemplatePage = lazy(() => import('../pages/iqac/ReportTemplatePage'));
 const GeneratedReportsPage = lazy(() => import('../pages/iqac/GeneratedReportsPage'));
+const IqacReportsPage = lazy(() => import('../pages/iqac/IqacReportsPage'));
 const IqacAuditLogsPage = lazy(() => import('../pages/iqac/IqacAuditLogsPage'));
 const IqacRecoveryPage = lazy(() => import('../pages/iqac/IqacRecoveryPage'));
 const BatchAnalyticsPage = lazy(() => import('../pages/analytics/BatchAnalyticsPage'));
@@ -521,7 +522,7 @@ export default function AppRoutes() {
         path="/admin/reports"
         element={
           <RoleProtectedRoute allowedRoles={['IQAC']}>
-            <GeneratedReportsPage />
+            <IqacReportsPage />
           </RoleProtectedRoute>
         }
       />
