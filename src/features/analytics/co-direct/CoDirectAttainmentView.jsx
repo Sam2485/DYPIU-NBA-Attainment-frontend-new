@@ -169,21 +169,45 @@ export default function CoDirectAttainmentView() {
           console.warn('Student evidence fetch failed:', evidenceRes.reason);
         }
 
-        // Process Full Examination Marks Table
+        // Process Detailed Student Records (Primary: authoritative student-evidence endpoint)
         let rows = [];
-        if (examRes.status === 'fulfilled') {
+        if (evidencePayload?.studentRecords && evidencePayload.studentRecords.length > 0) {
+          rows = evidencePayload.studentRecords.map((r, idx) => ({
+            id: r.prn || r.studentIdentifier || `std-${idx}`,
+            prn: r.prn || r.maskedPrn,
+            maskedPrn: r.maskedPrn,
+            studentName: r.studentName || r.studentIdentifier,
+            marksObtained: r.marksObtained,
+            maxMarks: r.maxMarks,
+            percentage: r.percentage,
+            thresholdMarks: r.maxMarks && r.threshold ? (Number(r.maxMarks) * Number(r.threshold)) / 100 : null,
+            thresholdMet: r.thresholdMet,
+            evaluationStatus: r.evaluationStatus,
+          }));
+        } else if (examRes.status === 'fulfilled') {
           const examPayload = unwrapResponseData(examRes.value);
           const studentMarks = examPayload?.studentMarks || [];
           const coMaxMarks = examPayload?.coMaxMarks || {};
           const coThresholdMarks = examPayload?.coThresholdMarks || {};
 
+          // Resolve matching key in examPayload if targetCo is C321.6 vs CO6
+          const allExamKeys = Object.keys(coMaxMarks);
+          let matchedKey = allExamKeys.find((k) => k.toUpperCase() === targetCo);
+          if (!matchedKey) {
+            const targetDigits = targetCo.replace(/\D+/g, '');
+            if (targetDigits) {
+              matchedKey = allExamKeys.find((k) => k.replace(/\D+/g, '') === targetDigits);
+            }
+          }
+          const activeKey = matchedKey || targetCo;
+
           if (studentMarks.length > 0) {
-            const maxM = coMaxMarks[targetCo] != null ? Number(coMaxMarks[targetCo]) : 100;
-            const threshM = coThresholdMarks[targetCo] != null ? Number(coThresholdMarks[targetCo]) : null;
+            const maxM = coMaxMarks[activeKey] != null ? Number(coMaxMarks[activeKey]) : 100;
+            const threshM = coThresholdMarks[activeKey] != null ? Number(coThresholdMarks[activeKey]) : null;
 
             rows = studentMarks
               .map((s, idx) => {
-                const markVal = s.coMarks?.[targetCo] != null ? Number(s.coMarks[targetCo]) : null;
+                const markVal = s.coMarks?.[activeKey] != null ? Number(s.coMarks[activeKey]) : (s.coMarks?.[targetCo] != null ? Number(s.coMarks[targetCo]) : null);
                 const pct = markVal != null && maxM > 0 ? (markVal / maxM) * 100 : null;
                 const isMet = markVal != null && threshM != null ? markVal >= threshM : false;
 
@@ -200,20 +224,6 @@ export default function CoDirectAttainmentView() {
               })
               .filter((r) => r.marksObtained != null);
           }
-        }
-
-        // Fallback to studentEvidence studentRecords if exam marks table was empty
-        if (rows.length === 0 && evidencePayload?.studentRecords?.length > 0) {
-          rows = evidencePayload.studentRecords.map((r, idx) => ({
-            id: r.studentIdentifier || `std-${idx}`,
-            prn: r.maskedPrn,
-            studentName: r.studentIdentifier,
-            marksObtained: r.marksObtained,
-            maxMarks: r.maxMarks,
-            percentage: r.percentage,
-            thresholdMarks: null,
-            thresholdMet: r.thresholdMet,
-          }));
         }
 
         setStudentTableRows(rows);
@@ -346,14 +356,14 @@ export default function CoDirectAttainmentView() {
   const activeCourse = courseData || coData;
   const directEvidenceSummary = coData?.directEvidenceSummary;
 
-  const evaluatedStudents = directEvidenceSummary?.evaluatedStudents ?? studentEvidenceData?.totalStudentsEvaluated ?? null;
-  const totalStudents = directEvidenceSummary?.totalStudents ?? studentEvidenceData?.totalStudentsEvaluated ?? null;
-  const thresholdVal = directEvidenceSummary?.threshold ?? studentEvidenceData?.configuredThresholdPercentage ?? 60;
-  const studentsMeeting = directEvidenceSummary?.studentsMeetingThreshold ?? studentEvidenceData?.studentsMeetingThreshold ?? 0;
+  const evaluatedStudents = studentEvidenceData?.totalStudentsEvaluated ?? directEvidenceSummary?.evaluatedStudents ?? null;
+  const totalStudents = studentEvidenceData?.totalStudentsEnrolled ?? directEvidenceSummary?.totalStudents ?? studentEvidenceData?.totalStudentsEvaluated ?? null;
+  const thresholdVal = studentEvidenceData?.configuredThresholdPercentage ?? directEvidenceSummary?.threshold ?? 50;
+  const studentsMeeting = studentEvidenceData?.studentsMeetingThreshold ?? directEvidenceSummary?.studentsMeetingThreshold ?? 0;
   const studentsBelow = studentEvidenceData?.studentsBelowThreshold != null
     ? studentEvidenceData.studentsBelowThreshold
     : (evaluatedStudents != null ? Math.max(0, evaluatedStudents - studentsMeeting) : 0);
-  const passingPct = directEvidenceSummary?.directPercentage ?? studentEvidenceData?.attainmentRatePercentage ?? null;
+  const passingPct = studentEvidenceData?.attainmentRatePercentage ?? directEvidenceSummary?.directPercentage ?? null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
@@ -367,7 +377,7 @@ export default function CoDirectAttainmentView() {
         courseName={activeCourse?.courseName}
         semester={activeCourse?.semester}
         courseCoordinator={activeCourse?.courseCoordinator || activeCourse?.courseCoordinatorName}
-        coCode={coScope === 'SELECTED' ? selectedCoCode : 'All COs'}
+        coCode={selectedCoCode || 'CO1'}
         coStatement={coScope === 'SELECTED' ? coData?.coStatement : 'All Course Outcomes Direct Attainment Overview'}
         coScope={coScope}
         onCoScopeChange={handleCoScopeChange}

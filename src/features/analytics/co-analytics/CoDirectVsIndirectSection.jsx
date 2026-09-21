@@ -417,7 +417,9 @@ export default function CoDirectVsIndirectSection({
                   <span>Evaluated Students:</span>
                   <strong style={{ color: '#0f172a' }}>
                     {directEvidenceSummary?.evaluatedStudents ?? '—'}
-                    {directEvidenceSummary?.totalStudents ? ` / ${directEvidenceSummary.totalStudents}` : ''}
+                    {directEvidenceSummary?.totalStudents && directEvidenceSummary.totalStudents !== directEvidenceSummary.evaluatedStudents
+                      ? ` / ${directEvidenceSummary.totalStudents} Enrolled`
+                      : (directEvidenceSummary?.totalStudents ? ` / ${directEvidenceSummary.totalStudents}` : '')}
                   </strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>

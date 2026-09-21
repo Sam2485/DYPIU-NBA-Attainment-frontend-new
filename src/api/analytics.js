@@ -204,6 +204,23 @@ export const analyticsApi = {
   },
 
   /**
+   * Fetch CO Indirect Attainment evidence (Course-End Survey distribution & privacy-safe response records).
+   * @param {Object} params
+   * @param {string} params.programmeBatchCourseId
+   * @param {string} [params.coCode] - optional; omit or "ALL" for all COs
+   * @returns {Promise<import('axios').AxiosResponse>}
+   */
+  getCoIndirectEvidence: ({ programmeBatchCourseId, coCode } = {}) => {
+    const params = { programmeBatchCourseId };
+    if (coCode && coCode.trim() && coCode.trim().toUpperCase() !== 'ALL') {
+      params.coCode = coCode.trim();
+    } else if (coCode && coCode.trim().toUpperCase() === 'ALL') {
+      params.coCode = 'ALL';
+    }
+    return apiClient.get('/analytics/co-indirect-evidence', { params });
+  },
+
+  /**
    * Fetch current IQAC Student Performance Evidence Threshold configuration.
    * @returns {Promise<import('axios').AxiosResponse>}
    */

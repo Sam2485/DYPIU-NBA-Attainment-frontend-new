@@ -1,7 +1,23 @@
 import React from 'react';
-import { Info, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Info, ShieldCheck, CheckCircle2, XCircle, ArrowRight, BarChart3, Award, Target } from 'lucide-react';
 
-export default function CoIndirectInterpretationPanel() {
+export default function CoIndirectInterpretationPanel({
+  coCode = 'CO',
+  validResponseCount = 0,
+  level1Count = 0,
+  level2Count = 0,
+  level3Count = 0,
+  indirectAttainment = null,
+  indirectScore = null,
+  overallIndirectPercentage = null,
+  coTargetLevel = null,
+  coTargetMet = null,
+}) {
+  const isTargetMet = coTargetMet === true;
+  const attainmentDisplay = indirectAttainment != null ? indirectAttainment : (indirectScore != null ? Number(indirectScore).toFixed(2) : '—');
+  const targetDisplay = coTargetLevel != null ? Number(coTargetLevel).toFixed(2) : '2.00';
+  const pctDisplay = overallIndirectPercentage != null ? `${Number(overallIndirectPercentage).toFixed(2)}%` : '—';
+
   return (
     <div
       style={{
@@ -25,73 +41,151 @@ export default function CoIndirectInterpretationPanel() {
           <Info size={20} />
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-          <h4 style={{ fontSize: 14, fontWeight: 800, color: '#166534', margin: 0 }}>
-            How Indirect Evidence Is Interpreted
-          </h4>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+          <div>
+            <h4 style={{ fontSize: 14, fontWeight: 800, color: '#166534', margin: 0 }}>
+              How {coCode} Attained Its Indirect Level
+            </h4>
+            <p style={{ fontSize: 12.5, color: '#14532d', lineHeight: 1.5, margin: '4px 0 0 0' }}>
+              The authoritative NBA Course-End Survey attainment is computed systematically across three verification steps:
+            </p>
+          </div>
 
-          <p style={{ fontSize: 12.5, color: '#14532d', lineHeight: 1.5, margin: 0 }}>
-            Course-end survey responses are converted into the configured indirect attainment scale by the
-            backend calculation engine. Student evaluations are mapped using standard NBA rating levels:
-          </p>
-
+          {/* 3 Step Interpretation Flow */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
               gap: 12,
-              marginTop: 4,
             }}
           >
+            {/* Step 1 */}
             <div
               style={{
                 background: '#ffffff',
                 border: '1px solid #dcfce7',
-                borderRadius: 8,
-                padding: '10px 14px',
+                borderRadius: 10,
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
               }}
             >
-              <span style={{ fontWeight: 800, color: '#166534', fontSize: 12 }}>
-                Slight (Rating 1)
-              </span>
-              <p style={{ fontSize: 11.5, color: '#64748b', margin: '2px 0 0 0' }}>
-                Maps to NBA Level 1 baseline feedback.
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: 999,
+                    background: '#16a34a',
+                    color: '#ffffff',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  1
+                </span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>
+                  Response Aggregation
+                </span>
+              </div>
+              <p style={{ fontSize: 11.5, color: '#475569', margin: 0, lineHeight: 1.4 }}>
+                <strong>{validResponseCount}</strong> valid student evaluations collected:
+                <br />
+                • Level 1 (Slight): <strong>{level1Count}</strong>
+                <br />
+                • Level 2 (Moderate): <strong>{level2Count}</strong>
+                <br />
+                • Level 3 (Substantial): <strong>{level3Count}</strong>
               </p>
             </div>
 
+            {/* Step 2 */}
             <div
               style={{
                 background: '#ffffff',
                 border: '1px solid #dcfce7',
-                borderRadius: 8,
-                padding: '10px 14px',
+                borderRadius: 10,
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
               }}
             >
-              <span style={{ fontWeight: 800, color: '#15803d', fontSize: 12 }}>
-                Moderate (Rating 2)
-              </span>
-              <p style={{ fontSize: 11.5, color: '#64748b', margin: '2px 0 0 0' }}>
-                Maps to NBA Level 2 expected competency.
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: 999,
+                    background: '#16a34a',
+                    color: '#ffffff',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  2
+                </span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>
+                  Attainment Computation
+                </span>
+              </div>
+              <p style={{ fontSize: 11.5, color: '#475569', margin: 0, lineHeight: 1.4 }}>
+                Survey responses yield an indirect attainment level of{' '}
+                <strong style={{ color: '#16a34a' }}>{attainmentDisplay}</strong> / 3.00 with an overall indirect rating of{' '}
+                <strong style={{ color: '#0f172a' }}>{pctDisplay}</strong>.
               </p>
             </div>
 
+            {/* Step 3 */}
             <div
               style={{
                 background: '#ffffff',
                 border: '1px solid #dcfce7',
-                borderRadius: 8,
-                padding: '10px 14px',
+                borderRadius: 10,
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
               }}
             >
-              <span style={{ fontWeight: 800, color: '#14532d', fontSize: 12 }}>
-                Substantial (Rating 3)
-              </span>
-              <p style={{ fontSize: 11.5, color: '#64748b', margin: '2px 0 0 0' }}>
-                Maps to NBA Level 3 mastery competency.
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: 999,
+                    background: '#16a34a',
+                    color: '#ffffff',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  3
+                </span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>
+                  Benchmark Validation
+                </span>
+              </div>
+              <p style={{ fontSize: 11.5, color: '#475569', margin: 0, lineHeight: 1.4 }}>
+                Compared against target level of <strong>{targetDisplay}</strong>, outcome attainment is{' '}
+                <strong style={{ color: isTargetMet ? '#15803d' : '#b91c1c' }}>
+                  {isTargetMet ? 'Target Met' : 'Target Not Met'}
+                </strong>.
               </p>
             </div>
           </div>
 
+          {/* Privacy / Confidentiality Rule */}
           <div
             style={{
               display: 'flex',
@@ -100,15 +194,13 @@ export default function CoIndirectInterpretationPanel() {
               fontSize: 12,
               color: '#166534',
               fontWeight: 600,
-              marginTop: 6,
               paddingTop: 8,
               borderTop: '1px solid #dcfce7',
             }}
           >
             <ShieldCheck size={16} style={{ color: '#16a34a', flexShrink: 0 }} />
             <span>
-              <strong>Confidentiality Rule:</strong> Indirect evidence is aggregate-only. Individual student
-              survey identities are not recorded or displayed to ensure anonymous student evaluation.
+              <strong>Confidentiality Rule:</strong> Student privacy is strictly maintained. All responses are pseudonymized with masked PRNs (e.g., 2021***0001) for audit verification.
             </span>
           </div>
         </div>

@@ -4,10 +4,11 @@ import { analyticsApi } from '../../../api';
 import CoIndirectAttainmentHeader from './CoIndirectAttainmentHeader';
 import CoIndirectSummaryCard from './CoIndirectSummaryCard';
 import CoIndirectDistributionChart from './CoIndirectDistributionChart';
-import CoIndirectResponseTable from './CoIndirectResponseTable';
+import CoIndirectTargetChart from './CoIndirectTargetChart';
 import CoIndirectInterpretationPanel from './CoIndirectInterpretationPanel';
+import CoIndirectResponseTable from './CoIndirectResponseTable';
 import CoIndirectAllOverview from './CoIndirectAllOverview';
-import { AlertCircle, RefreshCw, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { AlertCircle, RefreshCw, ArrowLeft, ShieldAlert, FileQuestion } from 'lucide-react';
 
 const skeletonItem = {
   background: 'linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%)',
@@ -26,13 +27,17 @@ function CoIndirectSkeleton() {
         }
       `}</style>
       <div style={{ height: 130, borderRadius: 14, ...skeletonItem }} />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 14 }}>
-        {[...Array(6)].map((_, i) => (
-          <div key={i} style={{ height: 100, borderRadius: 10, ...skeletonItem }} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14 }}>
+        {[...Array(5)].map((_, i) => (
+          <div key={i} style={{ height: 95, borderRadius: 12, ...skeletonItem }} />
         ))}
       </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 20 }}>
+        <div style={{ height: 320, borderRadius: 14, ...skeletonItem }} />
+        <div style={{ height: 320, borderRadius: 14, ...skeletonItem }} />
+      </div>
+      <div style={{ height: 180, borderRadius: 14, ...skeletonItem }} />
       <div style={{ height: 300, borderRadius: 14, ...skeletonItem }} />
-      <div style={{ height: 220, borderRadius: 14, ...skeletonItem }} />
     </div>
   );
 }
@@ -70,88 +75,77 @@ export default function CoIndirectAttainmentView() {
     urlCoCode && urlCoCode.toLowerCase() !== 'all' ? urlCoCode.toUpperCase() : 'CO1'
   );
 
-  const [coData, setCoData] = useState(null);
-  const [courseData, setCourseData] = useState(null);
+  const [evidenceData, setEvidenceData] = useState(null);
   const [availableCos, setAvailableCos] = useState([]);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isForbidden, setIsForbidden] = useState(false);
+  const [isNotFound, setIsNotFound] = useState(false);
 
-  // 1. Initial Course Analytics load to discover all COs and context
-  useEffect(() => {
-    if (!programmeBatchCourseId) return;
-
-    let isMounted = true;
-    analyticsApi
-      .getCourseAnalytics({ programmeBatchCourseId })
-      .then((res) => {
-        if (!isMounted) return;
-        const data = unwrapResponseData(res);
-        if (data) {
-          setCourseData(data);
-          const rawCos = data.courseOutcomes || [];
-          const sorted = sortCosAscending(rawCos);
-          setAvailableCos(sorted);
-          if (sorted.length > 0 && (!selectedCoCode || selectedCoCode === 'CO1')) {
-            const firstCode = sorted[0].coCode || sorted[0].code;
-            if (urlCoCode && sorted.some((c) => (c.coCode || c.code) === urlCoCode.toUpperCase())) {
-              setSelectedCoCode(urlCoCode.toUpperCase());
-            } else if (firstCode) {
-              setSelectedCoCode(firstCode);
-            }
-          }
-        }
-      })
-      .catch((err) => {
-        console.warn('Failed to load course analytics overview in CoIndirectAttainmentView:', err);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [programmeBatchCourseId, urlCoCode]);
-
-  // 2. Fetch Detailed Indirect Data for Selected CO or All CO
-  const fetchIndirectData = useCallback(async () => {
+  // Load CO Indirect Evidence
+  const fetchIndirectEvidence = useCallback(async () => {
     if (!programmeBatchCourseId) return;
 
     setLoading(true);
     setError(null);
     setIsForbidden(false);
+    setIsNotFound(false);
 
     try {
-      if (coScope === 'ALL') {
-        const courseRes = await analyticsApi.getCourseAnalytics({ programmeBatchCourseId });
-        const cData = unwrapResponseData(courseRes);
-        setCourseData(cData);
-        if (cData?.courseOutcomes) {
-          setAvailableCos(sortCosAscending(cData.courseOutcomes));
+      const targetCo = coScope === 'SELECTED' ? (selectedCoCode || 'CO1').toUpperCase() : 'ALL';
+      const res = await analyticsApi.getCoIndirectEvidence({
+        programmeBatchCourseId,
+        coCode: targetCo,
+      });
+
+      const data = unwrapResponseData(res);
+      if (data) {
+        setEvidenceData(data);
+
+        // Populate availableCos if in ALL mode or if not yet populated
+        if (data.coEvidence && data.coEvidence.length > 0) {
+          if (coScope === 'ALL' || availableCos.length === 0) {
+            const mapped = data.coEvidence.map((item) => ({
+              coCode: item.coCode,
+              code: item.coCode,
+              statement: item.coStatement,
+              coStatement: item.coStatement,
+              target: item.coTargetLevel,
+              coTargetLevel: item.coTargetLevel,
+              indirectAttainment: item.indirectAttainment,
+              overallIndirectPercentage: item.overallIndirectPercentage,
+              targetMet: item.coTargetMet,
+            }));
+            const sorted = sortCosAscending(mapped);
+            setAvailableCos(sorted);
+
+            // If selectedCoCode is not yet set or not in sorted list, pick first
+            if (!selectedCoCode || !sorted.some((c) => c.coCode === selectedCoCode)) {
+              if (sorted.length > 0) {
+                setSelectedCoCode(sorted[0].coCode);
+              }
+            }
+          }
         }
-      } else {
-        const targetCo = (selectedCoCode || 'CO1').toUpperCase();
-        const coRes = await analyticsApi.getCoAnalytics({
-          programmeBatchCourseId,
-          coCode: targetCo,
-        });
-        setCoData(unwrapResponseData(coRes));
       }
     } catch (err) {
-      console.error('Failed to load CO Indirect Attainment evidence:', err);
+      console.error('Failed to load CO Indirect Evidence:', err);
       const status = err?.response?.status;
       if (status === 403) {
         setIsForbidden(true);
+      } else if (status === 404) {
+        setIsNotFound(true);
       } else {
-        setError(err.message || 'Unable to load indirect survey assessment evidence for this Course Outcome.');
+        setError(err.message || 'Unable to load course indirect survey evidence.');
       }
     } finally {
       setLoading(false);
     }
-  }, [programmeBatchCourseId, coScope, selectedCoCode]);
+  }, [programmeBatchCourseId, coScope, selectedCoCode, availableCos.length]);
 
   useEffect(() => {
-    fetchIndirectData();
-  }, [fetchIndirectData]);
+    fetchIndirectEvidence();
+  }, [fetchIndirectEvidence]);
 
   const handleCoScopeChange = (newScope) => {
     setCoScope(newScope);
@@ -169,6 +163,7 @@ export default function CoIndirectAttainmentView() {
     setSearchParams(newParams, { replace: true });
   };
 
+  // Forbidden 403 State
   if (isForbidden) {
     return (
       <div
@@ -213,11 +208,58 @@ export default function CoIndirectAttainmentView() {
     );
   }
 
-  if (loading && !coData && !courseData) {
+  // Not Found 404 State
+  if (isNotFound) {
+    return (
+      <div
+        style={{
+          background: '#ffffff',
+          borderRadius: 14,
+          border: '1px solid #e2e8f0',
+          padding: 40,
+          textAlign: 'center',
+          maxWidth: 600,
+          margin: '40px auto',
+        }}
+      >
+        <FileQuestion size={48} style={{ color: '#94a3b8', margin: '0 auto 16px' }} />
+        <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', marginBottom: 8 }}>
+          Course Offering Not Found
+        </h2>
+        <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5, marginBottom: 20 }}>
+          The requested course offering could not be located.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            background: '#16a34a',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: 8,
+            padding: '8px 16px',
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          <ArrowLeft size={14} />
+          <span>Return to Previous Screen</span>
+        </button>
+      </div>
+    );
+  }
+
+  // Loading Skeleton
+  if (loading && !evidenceData) {
     return <CoIndirectSkeleton />;
   }
 
-  if (error && !coData && !courseData) {
+  // General Error State
+  if (error && !evidenceData) {
     return (
       <div
         style={{
@@ -239,7 +281,7 @@ export default function CoIndirectAttainmentView() {
         </p>
         <button
           type="button"
-          onClick={fetchIndirectData}
+          onClick={fetchIndirectEvidence}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -261,25 +303,30 @@ export default function CoIndirectAttainmentView() {
     );
   }
 
-  const activeCourse = courseData || coData;
-  const indirectEvidenceSummary = coData?.indirectEvidenceSummary;
-  const responseCount = indirectEvidenceSummary?.responseCount ?? 0;
-  const levelDistribution = indirectEvidenceSummary?.levelDistribution || {};
+  // Active Selected CO Item
+  const coItems = evidenceData?.coEvidence || [];
+  const selectedCoItem =
+    coItems.find((item) => item.coCode === selectedCoCode) ||
+    coItems[0] ||
+    null;
+
+  const currentCoCode = selectedCoItem?.coCode || selectedCoCode || 'CO1';
+  const currentCoStatement = selectedCoItem?.coStatement || '';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-      {/* 1. Header & Context */}
+    <div style={{ maxWidth: 1280, margin: '0 auto', paddingBottom: 60 }}>
+      {/* 1. Header with breadcrumbs, context pills, and dual-scope switcher */}
       <CoIndirectAttainmentHeader
         programmeBatchId={programmeBatchId}
         programmeBatchCourseId={programmeBatchCourseId}
-        batchName={activeCourse?.batchName}
-        programmeName={activeCourse?.programmeName}
-        courseCode={activeCourse?.courseCode}
-        courseName={activeCourse?.courseName}
-        semester={activeCourse?.semester}
-        courseCoordinator={activeCourse?.courseCoordinator || activeCourse?.courseCoordinatorName}
-        coCode={coScope === 'SELECTED' ? selectedCoCode : 'All COs'}
-        coStatement={coScope === 'SELECTED' ? coData?.coStatement : 'All Course Outcomes Indirect Attainment Overview'}
+        batchName={evidenceData?.batchName}
+        programmeName={evidenceData?.programmeName}
+        courseCode={evidenceData?.courseCode}
+        courseName={evidenceData?.courseName}
+        semester={evidenceData?.semester}
+        courseCoordinator={evidenceData?.courseCoordinatorName}
+        coCode={currentCoCode}
+        coStatement={currentCoStatement}
         coScope={coScope}
         onCoScopeChange={handleCoScopeChange}
         onSelectCo={handleSelectCo}
@@ -288,44 +335,104 @@ export default function CoIndirectAttainmentView() {
         outcomeType={urlOutcomeType}
       />
 
-      {/* 2. Body based on Scope */}
-      {coScope === 'ALL' ? (
+      {/* 2. Top Summary Cards (5 Metrics + Selected CO Attainment Summary if in SELECTED mode) */}
+      <CoIndirectSummaryCard
+        coCode={currentCoCode}
+        coScope={coScope}
+        overallIndirectAttainment={evidenceData?.overallIndirectAttainment}
+        overallIndirectPercentage={evidenceData?.overallIndirectPercentage}
+        totalSurveyResponses={evidenceData?.totalSurveyResponses}
+        assessmentMethod={evidenceData?.assessmentMethod}
+        indirectWeight={evidenceData?.indirectWeight}
+        indirectAttainment={selectedCoItem?.indirectAttainment}
+        indirectScore={selectedCoItem?.indirectScore}
+        coOverallIndirectPercentage={selectedCoItem?.overallIndirectPercentage}
+        target={selectedCoItem?.coTargetLevel}
+        targetMet={selectedCoItem?.coTargetMet}
+      />
+
+      {/* 3. Empty State banner when zero survey responses exist */}
+      {evidenceData?.totalSurveyResponses === 0 && (
+        <div
+          style={{
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: 12,
+            padding: '20px 24px',
+            marginBottom: 24,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <AlertCircle size={20} style={{ color: '#94a3b8', flexShrink: 0 }} />
+          <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.4 }}>
+            <strong style={{ color: '#0f172a' }}>No Survey Responses Recorded:</strong> No Course-End Survey responses have been submitted for this course offering yet. Attainment values reflect initial baseline state.
+          </div>
+        </div>
+      )}
+
+      {/* 4. Body Content: Selected-CO Drilldown vs All-CO Overview */}
+      {coScope === 'SELECTED' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Charts Row: Response Distribution (left) + Target vs Attainment (right) */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+              gap: 20,
+            }}
+          >
+            <CoIndirectDistributionChart
+              coCode={currentCoCode}
+              coItem={selectedCoItem}
+              levelDistribution={selectedCoItem?.levelDistribution}
+              responseCount={selectedCoItem?.validResponseCount}
+              level1Count={selectedCoItem?.level1Count}
+              level2Count={selectedCoItem?.level2Count}
+              level3Count={selectedCoItem?.level3Count}
+              validResponseCount={selectedCoItem?.validResponseCount}
+              level1Percentage={selectedCoItem?.level1Percentage}
+              level2Percentage={selectedCoItem?.level2Percentage}
+              level3Percentage={selectedCoItem?.level3Percentage}
+            />
+
+            <CoIndirectTargetChart
+              coCode={currentCoCode}
+              attainment={selectedCoItem?.indirectAttainment ?? selectedCoItem?.indirectScore}
+              target={selectedCoItem?.coTargetLevel}
+              targetMet={selectedCoItem?.coTargetMet}
+            />
+          </div>
+
+          {/* 3-Step Interpretation Card */}
+          <CoIndirectInterpretationPanel
+            coCode={currentCoCode}
+            validResponseCount={selectedCoItem?.validResponseCount || 0}
+            level1Count={selectedCoItem?.level1Count || 0}
+            level2Count={selectedCoItem?.level2Count || 0}
+            level3Count={selectedCoItem?.level3Count || 0}
+            indirectAttainment={selectedCoItem?.indirectAttainment}
+            indirectScore={selectedCoItem?.indirectScore}
+            overallIndirectPercentage={selectedCoItem?.overallIndirectPercentage}
+            coTargetLevel={selectedCoItem?.coTargetLevel}
+            coTargetMet={selectedCoItem?.coTargetMet}
+          />
+
+          {/* Privacy-Safe Survey Response Evidence Table */}
+          <CoIndirectResponseTable
+            responseRecords={selectedCoItem?.responseRecords || []}
+            coCode={currentCoCode}
+            validResponseCount={selectedCoItem?.validResponseCount || 0}
+          />
+        </div>
+      ) : (
+        /* All-CO Mode Overview */
         <CoIndirectAllOverview
-          courseOutcomes={courseData?.courseOutcomes || availableCos}
+          courseOutcomes={availableCos}
+          coEvidence={coItems}
           onSelectCo={handleSelectCo}
         />
-      ) : (
-        <>
-          {/* Summary Metric Cards */}
-          <CoIndirectSummaryCard
-            coCode={selectedCoCode}
-            indirectAttainment={coData?.indirectAttainment}
-            indirectLevel={indirectEvidenceSummary?.indirectLevel}
-            target={coData?.target}
-            targetMet={coData?.targetMet}
-            responseCount={responseCount}
-            indirectScore={indirectEvidenceSummary?.indirectScore}
-            assessmentMethod="Course-End Survey"
-            indirectWeight={coData?.indirectWeight || 20}
-          />
-
-          {/* Response Distribution Vertical Bar Chart */}
-          <CoIndirectDistributionChart
-            levelDistribution={levelDistribution}
-            responseCount={responseCount}
-            coCode={selectedCoCode}
-          />
-
-          {/* Aggregate Survey Response Distribution Table */}
-          <CoIndirectResponseTable
-            levelDistribution={levelDistribution}
-            responseCount={responseCount}
-            coCode={selectedCoCode}
-          />
-
-          {/* Interpretation and Privacy Panel */}
-          <CoIndirectInterpretationPanel />
-        </>
       )}
     </div>
   );

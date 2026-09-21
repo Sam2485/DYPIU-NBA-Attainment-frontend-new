@@ -123,8 +123,12 @@ export default function CoAnalyticsView() {
   };
 
   // Active state for CO and Outcome selectors
-  const [coScope, setCoScope] = useState('SELECTED'); // 'SELECTED' | 'ALL'
-  const [selectedCoCode, setSelectedCoCode] = useState(urlCoCode || 'CO1');
+  const urlCoScope = searchParams.get('coScope');
+  const isUrlCoPseudo = !urlCoCode || urlCoCode.toLowerCase() === 'all' || urlCoCode === 'All COs';
+  const isAllScope = urlCoScope === 'ALL' || (urlCoCode && (urlCoCode.toLowerCase() === 'all' || urlCoCode === 'All COs'));
+
+  const [coScope, setCoScope] = useState(isAllScope ? 'ALL' : 'SELECTED');
+  const [selectedCoCode, setSelectedCoCode] = useState(!isUrlCoPseudo ? urlCoCode : 'CO1');
   const [outcomeScope, setOutcomeScope] = useState(urlOutcomeCode ? 'SELECTED' : 'ALL');
 
   // Authoritative data state
@@ -141,12 +145,12 @@ export default function CoAnalyticsView() {
   const [isStudentEvidenceOpen, setIsStudentEvidenceOpen] = useState(false);
   const [isSurveyModalOpen, setIsSurveyModalOpen] = useState(false);
 
-  // Sync selectedCoCode with urlCoCode
+  // Sync selectedCoCode with urlCoCode (ignoring pseudo codes like 'ALL' or 'All COs')
   useEffect(() => {
-    if (urlCoCode && urlCoCode !== selectedCoCode) {
+    if (urlCoCode && !isUrlCoPseudo && urlCoCode !== selectedCoCode) {
       setSelectedCoCode(urlCoCode);
     }
-  }, [urlCoCode]);
+  }, [urlCoCode, isUrlCoPseudo, selectedCoCode]);
 
   // 1. Fetch Course-level context (to populate all available COs & outcomes)
   useEffect(() => {
@@ -210,6 +214,12 @@ export default function CoAnalyticsView() {
       return;
     }
 
+    // Guard against pseudo codes like 'ALL' or 'All COs'
+    if (activeCo.toLowerCase() === 'all' || activeCo === 'All COs') {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setIsForbidden(false);
@@ -245,7 +255,9 @@ export default function CoAnalyticsView() {
 
   useEffect(() => {
     if (coScope === 'SELECTED') {
-      fetchSingleCoAnalytics(selectedCoCode);
+      if (selectedCoCode && selectedCoCode.toLowerCase() !== 'all' && selectedCoCode !== 'All COs') {
+        fetchSingleCoAnalytics(selectedCoCode);
+      }
     } else {
       setLoading(false);
     }
@@ -258,9 +270,13 @@ export default function CoAnalyticsView() {
     setSelectedCoCode(newCoCode);
 
     const basePath = window.location.pathname.startsWith('/admin') ? '/admin' : '';
-    const query = urlOutcomeCode
-      ? `?outcomeType=${urlOutcomeType}&outcomeCode=${urlOutcomeCode}`
-      : '';
+    const queryParams = new URLSearchParams(searchParams);
+    queryParams.set('coScope', 'SELECTED');
+    if (urlOutcomeCode) {
+      queryParams.set('outcomeType', urlOutcomeType);
+      queryParams.set('outcomeCode', urlOutcomeCode);
+    }
+    const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
     navigate(`${basePath}/analytics/batch/${programmeBatchId}/course/${programmeBatchCourseId}/co/${newCoCode}${query}`, {
       replace: true,
     });
@@ -269,6 +285,9 @@ export default function CoAnalyticsView() {
   // Handle switching CO scope ("Selected CO" vs "All CO")
   const handleCoScopeChange = (newScope) => {
     setCoScope(newScope);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('coScope', newScope);
+    setSearchParams(newParams, { replace: true });
     if (newScope === 'SELECTED') {
       fetchSingleCoAnalytics(selectedCoCode);
     }

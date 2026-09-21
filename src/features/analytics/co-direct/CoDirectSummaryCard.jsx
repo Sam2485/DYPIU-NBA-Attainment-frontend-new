@@ -201,12 +201,16 @@ export default function CoDirectSummaryCard({
             <span style={{ fontSize: 20, fontWeight: 800, color: '#0f172a' }}>
               {evaluatedStudents ?? totalStudents ?? '—'}
             </span>
-            {totalStudents != null && evaluatedStudents != null && (
-              <span style={{ fontSize: 12, color: '#64748b' }}>/ {totalStudents}</span>
+            {totalStudents != null && evaluatedStudents != null && totalStudents !== evaluatedStudents && (
+              <span style={{ fontSize: 12, color: '#64748b' }}>/ {totalStudents} Enrolled</span>
             )}
             <Users size={16} style={{ color: '#0284c7', marginLeft: 'auto' }} />
           </div>
-          <span style={{ fontSize: 11, color: '#64748b' }}>Evaluation Population</span>
+          <span style={{ fontSize: 11, color: '#64748b' }}>
+            {totalStudents != null && evaluatedStudents != null && totalStudents !== evaluatedStudents
+              ? `${evaluatedStudents} evaluated of ${totalStudents} enrolled`
+              : 'Evaluation Population'}
+          </span>
         </div>
 
         {/* 5. Meeting vs Below Threshold */}

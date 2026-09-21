@@ -36,7 +36,8 @@ export default function CoDirectAttainmentHeader({
 
   const sortedCos = React.useMemo(() => {
     const list = [...availableCos];
-    if (coCode && !list.some((c) => (c.coCode || c.code) === coCode)) {
+    const isPseudo = !coCode || coCode === 'All COs' || coCode.toLowerCase() === 'all';
+    if (!isPseudo && !list.some((c) => (c.coCode || c.code) === coCode)) {
       list.push({ coCode, statement: coStatement });
     }
     return sortCosAscending(list);
@@ -50,8 +51,14 @@ export default function CoDirectAttainmentHeader({
     }
     params.set('coScope', coScope);
     const query = params.toString() ? `?${params.toString()}` : '';
-    const coPart = coScope === 'ALL' ? (coCode || 'CO1') : (coCode || 'CO1');
-    navigate(`${basePath}/analytics/batch/${programmeBatchId}/course/${programmeBatchCourseId}/co/${coPart}${query}`);
+
+    // Sanitize coPart so it is never a pseudo-code like 'All COs' or 'ALL' in the route param
+    const isPseudo = !coCode || coCode === 'All COs' || coCode.toLowerCase() === 'all';
+    const cleanCo = (!isPseudo)
+      ? coCode
+      : (availableCos[0]?.coCode || availableCos[0]?.code || 'CO1');
+
+    navigate(`${basePath}/analytics/batch/${programmeBatchId}/course/${programmeBatchCourseId}/co/${cleanCo}${query}`);
   };
 
   return (

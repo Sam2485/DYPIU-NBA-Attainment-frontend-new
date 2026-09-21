@@ -36,7 +36,8 @@ export default function CoIndirectAttainmentHeader({
 
   const sortedCos = React.useMemo(() => {
     const list = [...availableCos];
-    if (coCode && !list.some((c) => (c.coCode || c.code) === coCode)) {
+    const isPseudo = !coCode || coCode === 'All COs' || coCode.toLowerCase() === 'all';
+    if (!isPseudo && !list.some((c) => (c.coCode || c.code) === coCode)) {
       list.push({ coCode, statement: coStatement });
     }
     return sortCosAscending(list);
@@ -50,8 +51,14 @@ export default function CoIndirectAttainmentHeader({
     }
     params.set('coScope', coScope);
     const query = params.toString() ? `?${params.toString()}` : '';
-    const coPart = coScope === 'ALL' ? (coCode || 'CO1') : (coCode || 'CO1');
-    navigate(`${basePath}/analytics/batch/${programmeBatchId}/course/${programmeBatchCourseId}/co/${coPart}${query}`);
+
+    // Sanitize coPart so it is never a pseudo-code like 'All COs' or 'ALL' in the route param
+    const isPseudo = !coCode || coCode === 'All COs' || coCode.toLowerCase() === 'all';
+    const cleanCo = (!isPseudo)
+      ? coCode
+      : (availableCos[0]?.coCode || availableCos[0]?.code || 'CO1');
+
+    navigate(`${basePath}/analytics/batch/${programmeBatchId}/course/${programmeBatchCourseId}/co/${cleanCo}${query}`);
   };
 
   return (
@@ -125,9 +132,16 @@ export default function CoIndirectAttainmentHeader({
             <span>/</span>
             <span
               style={{ cursor: 'pointer', color: '#64748b' }}
+              onClick={() => navigate(`${basePath}/analytics/programme`)}
+            >
+              {programmeName ? programmeName.toUpperCase() : 'PROGRAMME'}
+            </span>
+            <span>/</span>
+            <span
+              style={{ cursor: 'pointer', color: '#64748b' }}
               onClick={() => navigate(`${basePath}/analytics/batch/${programmeBatchId}`)}
             >
-              BATCH ANALYTICS
+              {batchName ? `BATCH ${batchName}` : 'BATCH ANALYTICS'}
             </span>
             <span>/</span>
             <span
@@ -144,7 +158,7 @@ export default function CoIndirectAttainmentHeader({
               CO ANALYTICS
             </span>
             <span>/</span>
-            <span style={{ color: INDIRECT_GREEN }}>INDIRECT ATTAINMENT</span>
+            <span style={{ color: INDIRECT_GREEN }}>CO INDIRECT ATTAINMENT</span>
           </span>
         </div>
 
@@ -280,8 +294,8 @@ export default function CoIndirectAttainmentHeader({
             </span>
           </div>
 
-          <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0 0' }}>
-            Course-end survey evidence for indirect assessment
+          <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0 0', fontWeight: 500 }}>
+            Course-End Survey Evidence
           </p>
 
           {coScope === 'SELECTED' && coStatement && (
@@ -326,8 +340,7 @@ export default function CoIndirectAttainmentHeader({
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#64748b' }}>
             <GraduationCap size={13} />
             <span>
-              {programmeName || 'Programme'} • {batchName ? `Batch ${batchName}` : 'Batch'}
-              {semester ? ` • Sem ${semester}` : ''}
+              {semester ? `Semester ${semester}` : 'Semester'} • {batchName ? `Batch ${batchName}` : 'Batch'}
             </span>
           </div>
           {courseCoordinator && (
