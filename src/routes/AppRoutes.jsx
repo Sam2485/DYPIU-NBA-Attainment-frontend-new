@@ -43,6 +43,7 @@ const DirectorProgrammeOverviewPage = lazy(() => import('../pages/director/Direc
 const DirectorApprovalsPage = lazy(() => import('../pages/director/DirectorApprovalsPage'));
 const DirectorReportsPage = lazy(() => import('../pages/director/DirectorReportsPage'));
 const DirectorSetupWorkflowPage = lazy(() => import('../pages/director/DirectorSetupWorkflowPage'));
+const DirectorAnalyticsPage = lazy(() => import('../pages/director/DirectorAnalyticsPage'));
 
 // Programme Coordinator Pages
 const ProgrammeCoordinatorDashboardPage = lazy(() => import('../pages/programme-coordinator/ProgrammeCoordinatorDashboardPage'));
@@ -50,6 +51,7 @@ const ProgrammeCoordinatorSetupWorkflowPage = lazy(() => import('../pages/progra
 const ProgrammeCoordinatorManageCoursesPage = lazy(() => import('../pages/programme-coordinator/ProgrammeCoordinatorManageCoursesPage'));
 const ProgrammeTargetSettingsPage = lazy(() => import('../pages/programme-coordinator/ProgrammeTargetSettingsPage'));
 const ProgrammeIndirectAttainmentPage = lazy(() => import('../pages/programme-coordinator/ProgrammeIndirectAttainmentPage'));
+const ProgrammeCoordinatorAnalyticsPage = lazy(() => import('../pages/programme-coordinator/ProgrammeCoordinatorAnalyticsPage'));
 const IqacDashboardPage = lazy(() => import('../pages/iqac/IqacDashboardPage'));
 const IqacSchoolsPage = lazy(() => import('../pages/iqac/IqacSchoolsPage'));
 const IqacUsersPage = lazy(() => import('../pages/iqac/IqacUsersPage'));
@@ -81,6 +83,7 @@ const HodProgrammeATRPage = lazy(() => import('../pages/hod/HodProgrammeATRPage'
 const HodReportsPage = lazy(() => import('../pages/hod/HodReportsPage'));
 const HodSetupWorkflowPage = lazy(() => import('../pages/hod/HodSetupWorkflowPage'));
 const HodProgrammeCoordinatorsPage = lazy(() => import('../pages/hod/HodProgrammeCoordinatorsPage'));
+const HodAnalyticsPage = lazy(() => import('../pages/hod/HodAnalyticsPage'));
 const CourseCoordinatorWorkflowPage = lazy(() => import('../pages/CourseCoordinatorWorkflowPage'));
 
 const dashboardPathForRole = (role) => {
@@ -600,6 +603,14 @@ export default function AppRoutes() {
           </RoleProtectedRoute>
         }
       />
+      <Route
+        path="/director/analytics"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR']}>
+            <DirectorAnalyticsPage />
+          </RoleProtectedRoute>
+        }
+      />
 
       {/* Programme Coordinator Routes */}
       <Route
@@ -639,6 +650,14 @@ export default function AppRoutes() {
         element={
           <RoleProtectedRoute allowedRoles={['IQAC', 'PROGRAMME_COORDINATOR']}>
             <ProgrammeIndirectAttainmentPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/programme-coordinator/analytics"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'PROGRAMME_COORDINATOR']}>
+            <ProgrammeCoordinatorAnalyticsPage />
           </RoleProtectedRoute>
         }
       />
@@ -705,6 +724,14 @@ export default function AppRoutes() {
         element={
           <RoleProtectedRoute allowedRoles={['IQAC', 'HOD']}>
             <HodReportsPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/hod/analytics"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'HOD']}>
+            <HodAnalyticsPage />
           </RoleProtectedRoute>
         }
       />

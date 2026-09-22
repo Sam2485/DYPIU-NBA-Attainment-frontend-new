@@ -42,6 +42,7 @@ function Icon({ name, active = false, size = 16 }) {
 // ── Director Nav Items ─────────────────────────────────────────────────────────
 const DIRECTOR_NAV = [
   { id: 'dashboard',             path: '/director/dashboard',             icon: 'dashboard', label: 'Dashboard' },
+  { id: 'analytics',             path: '/director/analytics',             icon: 'coa',       label: 'Analytics' },
   { id: 'school-structure',      path: '/director/school-structure',      icon: 'academic',  label: 'School Structure' },
   { id: 'department-management', path: '/director/department-management', icon: 'users',     label: 'Departments & HODs' },
   { id: 'programme-overview',    path: '/director/programme-overview',    icon: 'outcomes',  label: 'Programmes' },
@@ -51,6 +52,7 @@ const DIRECTOR_NAV = [
 // ── HOD Nav Items ──────────────────────────────────────────────────────────────
 const HOD_NAV = [
   { id: 'dashboard',              path: '/hod/dashboard',              icon: 'dashboard', label: 'Dashboard' },
+  { id: 'analytics',              path: '/hod/analytics',              icon: 'coa',       label: 'Analytics' },
   { id: 'batch-management',       path: '/hod/batch-management',       icon: 'academic',  label: 'Batch Management' },
   { id: 'programme-outcomes',     path: '/hod/programme-outcomes',     icon: 'outcomes',  label: 'Programme Outcomes' },
   { id: 'programme-coordinators', path: '/hod/programme-coordinators', icon: 'users',     label: 'Programme Coordinators' },
@@ -61,6 +63,7 @@ const HOD_NAV = [
 // ── Programme Coordinator Nav Items ───────────────────────────────────────────────
 const PROGRAMME_COORDINATOR_NAV = [
   { id: 'dashboard',          path: '/programme-coordinator/dashboard',          icon: 'dashboard', label: 'Dashboard' },
+  { id: 'analytics',          path: '/programme-coordinator/analytics',          icon: 'coa',       label: 'Analytics' },
   { id: 'manage-courses',     path: '/programme-coordinator/manage-courses',     icon: 'academic',  label: 'Manage Courses' },
   { id: 'target-settings',    path: '/programme-coordinator/target-settings',    icon: 'config',    label: 'Target Settings' },
   { id: 'indirect-attainment', path: '/programme-coordinator/indirect-attainment', icon: 'survey',  label: 'Indirect Attainment' },
@@ -72,6 +75,7 @@ const PROGRAMME_COORDINATOR_NAV = [
 // ── Dropdown 1: Programme Setup & Management ───────────────────────────────────
 const PROGRAMME_SETUP_NAV = [
   { id: 'dashboard',          path: '/programme-coordinator/dashboard',          icon: 'dashboard', label: 'Dashboard' },
+  { id: 'analytics',          path: '/programme-coordinator/analytics',          icon: 'coa',       label: 'Analytics' },
   { id: 'manage-courses',     path: '/programme-coordinator/manage-courses',     icon: 'academic',  label: 'Manage Courses' },
   { id: 'outcomes',           path: '/programme-coordinator/target-settings',    icon: 'outcomes',  label: 'Target Settings' },
   { id: 'indirect-attainment', path: '/programme-coordinator/indirect-attainment', icon: 'survey',  label: 'Indirect Attainment' },

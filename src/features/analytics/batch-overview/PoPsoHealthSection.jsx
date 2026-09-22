@@ -224,7 +224,7 @@ function PoPsoHealthSection({
                   margin: 0,
                 }}
               >
-                PO HEALTH
+                PO ATTAINMENT 
               </h3>
             </div>
             <span
@@ -410,7 +410,7 @@ function PoPsoHealthSection({
                   margin: 0,
                 }}
               >
-                PSO HEALTH
+                PSO ATTAINMENT
               </h3>
             </div>
             <span

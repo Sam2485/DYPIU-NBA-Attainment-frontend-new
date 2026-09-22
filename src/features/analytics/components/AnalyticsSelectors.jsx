@@ -39,8 +39,13 @@ export default function AnalyticsSelectors({
   onReset = () => {},
   isLoadingMetadata = false,
   isLoadingBatches = false,
+  showSchoolSelector = true,
 }) {
-  const isFiltered = Boolean(selectedSchoolId || selectedMasterProgrammeId);
+  const isFiltered = showSchoolSelector
+    ? Boolean(selectedSchoolId || selectedMasterProgrammeId)
+    : Boolean(selectedMasterProgrammeId);
+
+  const isProgrammeDisabled = isLoadingMetadata || (showSchoolSelector && !selectedSchoolId);
 
   return (
     <div
@@ -100,34 +105,38 @@ export default function AnalyticsSelectors({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gridTemplateColumns: showSchoolSelector
+            ? 'repeat(auto-fit, minmax(220px, 1fr))'
+            : 'repeat(auto-fit, minmax(260px, 1fr))',
           gap: 16,
         }}
       >
-        {/* 1. School Selector */}
-        <div>
-          <label style={labelStyle}>
-            <Landmark size={13} color="#0284c7" />
-            <span>School</span>
-          </label>
-          <select
-            value={selectedSchoolId || ''}
-            onChange={(e) => onSelectSchool(e.target.value)}
-            disabled={isLoadingMetadata}
-            style={selectStyle}
-          >
-            <option value="" disabled>
-              Select School
-            </option>
-            {schools.map((s) => (
-              <option key={s.id || s.schoolId} value={s.id || s.schoolId}>
-                {s.name || s.code}
+        {/* 1. School Selector (Only shown if showSchoolSelector is true) */}
+        {showSchoolSelector && (
+          <div>
+            <label style={labelStyle}>
+              <Landmark size={13} color="#0284c7" />
+              <span>School</span>
+            </label>
+            <select
+              value={selectedSchoolId || ''}
+              onChange={(e) => onSelectSchool(e.target.value)}
+              disabled={isLoadingMetadata}
+              style={selectStyle}
+            >
+              <option value="" disabled>
+                Select School
               </option>
-            ))}
-          </select>
-        </div>
+              {schools.map((s) => (
+                <option key={s.id || s.schoolId} value={s.id || s.schoolId}>
+                  {s.name || s.code}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
-        {/* 2. Programme Selector (Dependent on School) */}
+        {/* 2. Programme Selector (Dependent on School only if showSchoolSelector is true) */}
         <div>
           <label style={labelStyle}>
             <GraduationCap size={13} color="#059669" />
@@ -136,15 +145,15 @@ export default function AnalyticsSelectors({
           <select
             value={selectedMasterProgrammeId || ''}
             onChange={(e) => onSelectProgramme(e.target.value)}
-            disabled={!selectedSchoolId || isLoadingMetadata}
+            disabled={isProgrammeDisabled}
             style={{
               ...selectStyle,
-              background: !selectedSchoolId ? '#f8fafc' : '#ffffff',
-              cursor: !selectedSchoolId ? 'not-allowed' : 'pointer',
+              background: isProgrammeDisabled ? '#f8fafc' : '#ffffff',
+              cursor: isProgrammeDisabled ? 'not-allowed' : 'pointer',
             }}
           >
             <option value="" disabled>
-              {!selectedSchoolId ? 'Select School first' : 'Select Programme'}
+              {showSchoolSelector && !selectedSchoolId ? 'Select School first' : 'Select Programme'}
             </option>
             {programmes.map((p) => (
               <option key={p.id || p.masterProgrammeId} value={p.id || p.masterProgrammeId}>
