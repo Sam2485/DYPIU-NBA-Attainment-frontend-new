@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, School, User, Calendar, Award } from 'lucide-react';
+import { ArrowLeft, School, User, Calendar, Award, Sparkles } from 'lucide-react';
 
 export default function BatchContextBlock({ batch }) {
   const navigate = useNavigate();
@@ -71,34 +71,72 @@ export default function BatchContextBlock({ batch }) {
           </span>
         </div>
 
-        {/* Status Badge */}
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '4px 12px',
-            borderRadius: 999,
-            fontSize: 11.5,
-            fontWeight: 800,
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase',
-            background: status === 'ACTIVE' ? '#f0fdf4' : '#f8fafc',
-            color: status === 'ACTIVE' ? '#166534' : '#64748b',
-            border: `1px solid ${status === 'ACTIVE' ? '#bbf7d0' : '#e2e8f0'}`,
-          }}
-        >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            type="button"
+            onClick={() => {
+              const progId = batch.programme?.id || '';
+              const batchId = batch.programmeBatchId || '';
+              const basePath = window.location.pathname.startsWith('/admin') ? '/admin' : '';
+              navigate(`${basePath}/analytics/quick-analysis?programmeBatchId=${batchId}&masterProgrammeId=${progId}`);
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+              border: '1px solid #bae6fd',
+              borderRadius: 6,
+              padding: '5px 12px',
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#0369a1',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              boxShadow: '0 1px 2px rgba(2, 132, 199, 0.1)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#e0f2fe';
+              e.currentTarget.style.borderColor = '#7dd3fc';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)';
+              e.currentTarget.style.borderColor = '#bae6fd';
+            }}
+          >
+            <Sparkles size={13} color="#0284c7" />
+            <span>Quick Analysis</span>
+          </button>
+
+          {/* Status Badge */}
           <span
             style={{
-              width: 7,
-              height: 7,
-              borderRadius: '50%',
-              background: status === 'ACTIVE' ? '#16a34a' : '#94a3b8',
-              display: 'inline-block',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '4px 12px',
+              borderRadius: 999,
+              fontSize: 11.5,
+              fontWeight: 800,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              background: status === 'ACTIVE' ? '#f0fdf4' : '#f8fafc',
+              color: status === 'ACTIVE' ? '#166534' : '#64748b',
+              border: `1px solid ${status === 'ACTIVE' ? '#bbf7d0' : '#e2e8f0'}`,
             }}
-          />
-          {status}
-        </span>
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: status === 'ACTIVE' ? '#16a34a' : '#94a3b8',
+                display: 'inline-block',
+              }}
+            />
+            {status}
+          </span>
+        </div>
       </div>
 
       {/* Main Identity Area */}

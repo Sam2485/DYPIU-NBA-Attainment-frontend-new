@@ -73,6 +73,7 @@ const CompareBatchesPage = lazy(() => import('../pages/analytics/CompareBatchesP
 const CompareCoursesPage = lazy(() => import('../pages/analytics/CompareCoursesPage'));
 const BatchProgrammeAtrPage = lazy(() => import('../pages/analytics/BatchProgrammeAtrPage'));
 const CourseBatchAtrPage = lazy(() => import('../pages/analytics/CourseBatchAtrPage'));
+const QuickAnalysisPage = lazy(() => import('../pages/analytics/QuickAnalysisPage'));
 
 // HOD Pages
 const HodBatchManagementPage = lazy(() => import('../pages/hod/HodBatchManagementPage'));
@@ -164,6 +165,22 @@ export default function AppRoutes() {
         element={
           <RoleProtectedRoute allowedRoles={['IQAC']}>
             <IqacDashboardPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/analytics/quick-analysis"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <QuickAnalysisPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics/quick-analysis"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+            <QuickAnalysisPage />
           </RoleProtectedRoute>
         }
       />

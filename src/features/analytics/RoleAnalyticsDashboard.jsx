@@ -11,6 +11,7 @@ import BatchAttentionList from './components/BatchAttentionList';
 import AnalyticsSkeleton from './components/AnalyticsSkeleton';
 import AnalyticsEmptyState from './components/AnalyticsEmptyState';
 import AnalyticsErrorState from './components/AnalyticsErrorState';
+import { Sparkles } from 'lucide-react';
 
 export default function RoleAnalyticsDashboard({ roleOverride = null }) {
   const navigate = useNavigate();
@@ -312,33 +313,85 @@ export default function RoleAnalyticsDashboard({ roleOverride = null }) {
     return 'University-wide Attainment & Attention Monitoring';
   }, [isDirector, isHod, isProgrammeCoordinator, user, selectedSchoolObj, selectedProgrammeObj]);
 
+  const handleNavigateToQuickAnalysis = () => {
+    const basePath = isIqac ? '/admin' : '';
+    const params = new URLSearchParams();
+    if (selectedMasterProgrammeId) params.set('masterProgrammeId', selectedMasterProgrammeId);
+    if (selectedProgrammeBatchId) params.set('programmeBatchId', selectedProgrammeBatchId);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    navigate(`${basePath}/analytics/quick-analysis${qs}`);
+  };
+
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto', paddingBottom: 64 }}>
       {/* Header */}
-      <div style={{ marginBottom: 20 }}>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 800,
-            color: '#2563eb',
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            marginBottom: 4,
-          }}
-        >
-          ANALYTICS &bull; {scopeSubtitle}
+      <div
+        style={{
+          marginBottom: 20,
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 16,
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              color: '#2563eb',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              marginBottom: 4,
+            }}
+          >
+            ANALYTICS &bull; {scopeSubtitle}
+          </div>
+          <h1
+            style={{
+              margin: 0,
+              color: '#0f172a',
+              fontSize: 26,
+              fontWeight: 800,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Live Programme Batch Attention
+          </h1>
         </div>
-        <h1
+
+        {/* Quick Analysis Button */}
+        <button
+          type="button"
+          onClick={handleNavigateToQuickAnalysis}
           style={{
-            margin: 0,
-            color: '#0f172a',
-            fontSize: 26,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 20px',
+            borderRadius: 10,
+            background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+            color: '#ffffff',
+            border: 'none',
+            fontSize: 13.5,
             fontWeight: 800,
-            letterSpacing: '-0.02em',
+            cursor: 'pointer',
+            boxShadow: '0 2px 10px rgba(2, 132, 199, 0.35)',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-1px)';
+            e.currentTarget.style.boxShadow = '0 4px 14px rgba(2, 132, 199, 0.45)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'none';
+            e.currentTarget.style.boxShadow = '0 2px 10px rgba(2, 132, 199, 0.35)';
           }}
         >
-          Live Programme Batch Attention
-        </h1>
+          <Sparkles size={16} />
+          <span>Quick Analysis</span>
+        </button>
       </div>
 
       {/* Hierarchical Academic Selectors (Role-Aware) */}
