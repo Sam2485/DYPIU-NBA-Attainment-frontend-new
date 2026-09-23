@@ -213,4 +213,96 @@ describe('OBE Quick Analysis — Functional & Mathematical Invariants', () => {
       );
     });
   });
+
+  describe('Infographic Sections & Visual Composition Invariants (Ref: ChatGPT Image 23 Sept 2026, 12_28_48.png)', () => {
+    const dashboardComponentSrc = loadSource('src/features/analytics/quick-analysis/QuickAnalysisDashboard.jsx');
+
+    test('Header contains 4 context cards: Programme, Batch, School, and Generated on', () => {
+      assert.ok(dashboardComponentSrc.includes('Programme'), 'Must render Programme card');
+      assert.ok(dashboardComponentSrc.includes('Batch'), 'Must render Batch card');
+      assert.ok(dashboardComponentSrc.includes('School'), 'Must render School card');
+      assert.ok(dashboardComponentSrc.includes('Generated on'), 'Must render Generated on card');
+      assert.ok(dashboardComponentSrc.includes('Empowering Education'), 'Must render hero tagline');
+    });
+
+    test('Section 1 contains exactly 7 key OBE indicators', () => {
+      assert.ok(dashboardComponentSrc.includes('KEY OBE ATTAINMENT INDICATORS'), 'Must include Section 1 title');
+      assert.ok(dashboardComponentSrc.includes('Average Attainment'), 'Indicator 1');
+      assert.ok(dashboardComponentSrc.includes('POs Met Target'), 'Indicator 2');
+      assert.ok(dashboardComponentSrc.includes('POs Below Target'), 'Indicator 3');
+      assert.ok(dashboardComponentSrc.includes('PSOs Met Target'), 'Indicator 4');
+      assert.ok(dashboardComponentSrc.includes('PSOs Below Target'), 'Indicator 5');
+      assert.ok(dashboardComponentSrc.includes('Direct Weight'), 'Indicator 6');
+      assert.ok(dashboardComponentSrc.includes('Indirect Weight'), 'Indicator 7');
+    });
+
+    test('Section 2 renders PO & PSO vertical grouped bar chart with Target benchmark', () => {
+      assert.ok(dashboardComponentSrc.includes('PO &amp; PSO ATTAINMENT (Current vs Previous Batch &amp; Target)'), 'Must include Section 2 title');
+      assert.ok(dashboardComponentSrc.includes('CustomOutcomeTick'), 'Custom tick for PO/PSO outcome colors');
+      assert.ok(dashboardComponentSrc.includes('ReferenceLine'), 'Must include orange Target benchmark reference line');
+    });
+
+    test('Section 3 renders PO & PSO Attainment Growth with YoY percentage deltas', () => {
+      assert.ok(dashboardComponentSrc.includes('ATTAINMENT GROWTH (Average Attainment)'), 'Must include Section 3 title');
+      assert.ok(dashboardComponentSrc.includes('PO Average Attainment'), 'Must have PO Average sub-column');
+      assert.ok(dashboardComponentSrc.includes('PSO Average Attainment'), 'Must have PSO Average sub-column');
+      assert.ok(dashboardComponentSrc.includes('Growth in PO average'), 'Must include growth label');
+      assert.ok(dashboardComponentSrc.includes('Growth in PSO average'), 'Must include growth label');
+    });
+
+    test('Section 4 renders 100% stacked bar chart for Target Status (Previous vs Current)', () => {
+      assert.ok(dashboardComponentSrc.includes('TARGET STATUS (Previous vs Current Batch)'), 'Must include Section 4 title');
+      assert.ok(dashboardComponentSrc.includes('stackId="status"'), 'Must use stacked bar chart');
+      assert.ok(dashboardComponentSrc.includes('Met Target'), 'Must include Met Target legend');
+      assert.ok(dashboardComponentSrc.includes('Below Target'), 'Must include Below Target legend');
+    });
+
+    test('Section 5 renders Direct vs Indirect Attainment grouped bars', () => {
+      assert.ok(dashboardComponentSrc.includes('DIRECT vs INDIRECT ATTAINMENT'), 'Must include Section 5 title');
+      assert.ok(dashboardComponentSrc.includes('Direct Attainment'), 'Direct Attainment category');
+      assert.ok(dashboardComponentSrc.includes('Indirect Attainment'), 'Indirect Attainment category');
+    });
+
+    test('Section 6 renders Outcome Progression (Increased, Unchanged, Decreased)', () => {
+      assert.ok(dashboardComponentSrc.includes('OUTCOME PROGRESSION (POs + PSOs)'), 'Must include Section 6 title');
+      assert.ok(dashboardComponentSrc.includes('Change in attainment from previous to current batch'), 'Must include progression subtitle');
+      assert.ok(dashboardComponentSrc.includes('Increased'), 'Must include Increased bar');
+      assert.ok(dashboardComponentSrc.includes('Unchanged'), 'Must include Unchanged bar');
+      assert.ok(dashboardComponentSrc.includes('Decreased'), 'Must include Decreased bar');
+    });
+
+    test('Section 7 renders Indirect Evidence Sources with Exit Survey, Events, and Other Surveys', () => {
+      assert.ok(dashboardComponentSrc.includes('INDIRECT EVIDENCE SOURCES'), 'Must include Section 7 title');
+      assert.ok(dashboardComponentSrc.includes('Programme End Survey'), 'Source 1');
+      assert.ok(dashboardComponentSrc.includes('Programme Events'), 'Source 2');
+      assert.ok(dashboardComponentSrc.includes('Other Surveys'), 'Source 3');
+      assert.ok(dashboardComponentSrc.includes('PO Average'), 'PO Avg legend');
+      assert.ok(dashboardComponentSrc.includes('PSO Average'), 'PSO Avg legend');
+    });
+
+    test('Section 8 strictly titled COURSE CONTRIBUTIONS TO PROGRAMME DIRECT ATTAINMENT without rankings', () => {
+      assert.ok(dashboardComponentSrc.includes('COURSE CONTRIBUTIONS TO PROGRAMME DIRECT ATTAINMENT'), 'Must match exact Section 8 title');
+      assert.ok(dashboardComponentSrc.includes('Average contribution of courses to PO/PSO attainment'), 'Must match exact subtitle');
+      assert.ok(dashboardComponentSrc.includes('View all courses &rarr;'), 'Must have View all courses link');
+      assert.ok(!dashboardComponentSrc.includes('Top Courses (Direct Attainment)'), 'Must NOT use Top Courses title');
+    });
+
+    test('Section 9 renders Areas Requiring Attention and advisory callout', () => {
+      assert.ok(dashboardComponentSrc.includes('AREAS REQUIRING ATTENTION'), 'Must include Section 9 title');
+      assert.ok(dashboardComponentSrc.includes('Outcomes below target in current batch'), 'Must include Section 9 subtitle');
+      assert.ok(dashboardComponentSrc.includes('Focus on these outcomes through targeted actions and enhanced evidence.'), 'Callout text');
+    });
+
+    test('Section 10 & 11 render deterministic Observations and Next Steps with Quote', () => {
+      assert.ok(dashboardComponentSrc.includes('KEY OBSERVATIONS &amp; INSIGHTS'), 'Must include Section 10 title');
+      assert.ok(dashboardComponentSrc.includes('NEXT STEPS'), 'Must include Section 11 title');
+      assert.ok(dashboardComponentSrc.includes('From learning outcomes to real impact.'), 'Must include official DYPIU OBE motto');
+    });
+
+    test('Footer renders all 3 export and navigation actions', () => {
+      assert.ok(dashboardComponentSrc.includes('Download PDF'), 'Must have Download PDF button');
+      assert.ok(dashboardComponentSrc.includes('Download PNG'), 'Must have Download PNG button');
+      assert.ok(dashboardComponentSrc.includes('View Detailed Analytics'), 'Must have View Detailed Analytics button');
+    });
+  });
 });
