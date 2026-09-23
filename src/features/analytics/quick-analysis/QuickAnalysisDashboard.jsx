@@ -6,8 +6,10 @@ import { analyticsApi, academicApi } from '../../../api';
 import { toPng } from 'html-to-image';
 import {
   ResponsiveContainer,
+  ComposedChart,
   BarChart,
   Bar,
+  Line,
   Cell,
   XAxis,
   YAxis,
@@ -350,6 +352,10 @@ export default function QuickAnalysisDashboard() {
       (allOutcomes.reduce((acc, o) => acc + Number(o.target || 2.5), 0) / totalOutcomes).toFixed(2)
     ) || 2.5;
 
+    // Check whether all outcomes share the exact same target value
+    const allTargetsUniform = totalOutcomes > 0 &&
+      allOutcomes.every((o) => Math.abs(Number(o.target || 2.5) - Number(allOutcomes[0]?.target || 2.5)) < 0.001);
+
     // Predecessor batch comparisons: strictly check if comparisonData is valid
     const hasPreviousBatch = Boolean(
       comparisonData &&
@@ -593,6 +599,7 @@ export default function QuickAnalysisDashboard() {
       totalUnmet,
       totalOutcomes,
       avgTargetVal,
+      allTargetsUniform,
       prevAvgAttainment,
       prevPoAvg,
       prevPsoAvg,
@@ -882,9 +889,10 @@ export default function QuickAnalysisDashboard() {
         )}
 
         {!isLoadingReport && !reportError && metrics && (
-          <div
-            id="quick-analysis-report"
-            ref={reportRef}
+          <>
+            <div
+              id="quick-analysis-report"
+              ref={reportRef}
             style={{
               background: '#ffffff',
               border: '1px solid #e2e8f0',
@@ -1481,15 +1489,19 @@ export default function QuickAnalysisDashboard() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <span style={{ width: 12, height: 2, background: '#f59e0b', borderTop: '2px dashed #f59e0b' }} />
-                      <span style={{ color: '#d97706' }}>Target ({metrics.avgTargetVal.toFixed(1)})</span>
+                      <span style={{ color: '#d97706' }}>
+                        {metrics.allTargetsUniform
+                          ? `Target (${metrics.avgTargetVal.toFixed(1)})`
+                          : 'Target (PO/PSO Specific)'}
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Vertical Grouped Bar Chart */}
+                {/* Vertical Grouped Bar Chart with Individual Target Benchmark */}
                 <div style={{ width: '100%', height: 200 }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
+                    <ComposedChart
                       data={metrics.poPsoChartData}
                       margin={{ top: 12, right: 10, left: -20, bottom: 0 }}
                       barGap={2}
@@ -1521,7 +1533,7 @@ export default function QuickAnalysisDashboard() {
                         y={metrics.avgTargetVal}
                         stroke="#f59e0b"
                         strokeDasharray="4 4"
-                        strokeWidth={2}
+                        strokeWidth={0}
                       />
                       {metrics.hasPreviousBatch && (
                         <Bar
@@ -1539,7 +1551,18 @@ export default function QuickAnalysisDashboard() {
                         radius={[2, 2, 0, 0]}
                         maxBarSize={metrics.hasPreviousBatch ? 16 : 24}
                       />
-                    </BarChart>
+                      {/* Individual Target benchmark for each PO/PSO of current batch */}
+                      <Line
+                        type="linear"
+                        dataKey="target"
+                        name="Target Benchmark"
+                        stroke="#f59e0b"
+                        strokeWidth={2}
+                        strokeDasharray="4 4"
+                        dot={{ r: 3.5, fill: '#f59e0b', stroke: '#d97706', strokeWidth: 1.5 }}
+                        activeDot={{ r: 5 }}
+                      />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </div>
               </div>
@@ -1593,10 +1616,9 @@ export default function QuickAnalysisDashboard() {
                           <YAxis domain={[0, 3]} ticks={[0.0, 1.5, 2.5, 3.0]} tick={{ fontSize: 8.5, fill: '#64748b' }} axisLine={false} tickLine={false} />
                           <Bar dataKey="value" radius={[3, 3, 0, 0]}>
                             {metrics.poGrowthData.map((entry, index) => (
-                              <Bar
+                              <Cell
                                 key={`po-${index}`}
-                                dataKey="value"
-                                fill={index === 0 ? '#93c5fd' : '#0284c7'}
+                                fill={index === 0 && metrics.hasPreviousBatch ? '#93c5fd' : '#0284c7'}
                               />
                             ))}
                             <LabelList
@@ -1645,9 +1667,8 @@ export default function QuickAnalysisDashboard() {
                           <YAxis domain={[0, 3]} ticks={[0.0, 1.5, 2.5, 3.0]} tick={{ fontSize: 8.5, fill: '#64748b' }} axisLine={false} tickLine={false} />
                           <Bar dataKey="value" radius={[3, 3, 0, 0]}>
                             {metrics.psoGrowthData.map((entry, index) => (
-                              <Bar
+                              <Cell
                                 key={`pso-${index}`}
-                                dataKey="value"
                                 fill={index === 0 && metrics.hasPreviousBatch ? '#93c5fd' : '#0284c7'}
                               />
                             ))}
@@ -2112,8 +2133,12 @@ export default function QuickAnalysisDashboard() {
                     <div style={{ fontWeight: 800, color: '#16a34a', marginBottom: 2 }}>
                       PO Avg: {metrics.indirectSourcesData[0].poAvg.toFixed(2)} | PSO Avg: {metrics.indirectSourcesData[0].psoAvg.toFixed(2)}
                     </div>
-                    <div style={{ color: '#475569', fontWeight: 600 }}>Response Rate: 85%</div>
-                    <div style={{ color: '#64748b' }}>1 survey</div>
+                    <div style={{ color: '#475569', fontWeight: 600 }}>
+                      {batchOverview?.programmeIndirect?.hasExitSurvey ? 'Graduating Exit Survey' : 'Programme Exit Assessment'}
+                    </div>
+                    <div style={{ color: '#64748b' }}>
+                      {batchOverview?.programmeIndirect?.assessmentCount ? `${batchOverview.programmeIndirect.assessmentCount} Assessments` : 'Direct Cohort Feedback'}
+                    </div>
                   </div>
 
                   {/* Card 2: Programme Events */}
@@ -2135,8 +2160,8 @@ export default function QuickAnalysisDashboard() {
                     <div style={{ fontWeight: 800, color: '#16a34a', marginBottom: 2 }}>
                       PO Avg: {metrics.indirectSourcesData[1].poAvg.toFixed(2)} | PSO Avg: {metrics.indirectSourcesData[1].psoAvg.toFixed(2)}
                     </div>
-                    <div style={{ color: '#475569', fontWeight: 600 }}>6 events</div>
-                    <div style={{ color: '#64748b' }}>(Average of all events)</div>
+                    <div style={{ color: '#475569', fontWeight: 600 }}>Co-Curricular Events</div>
+                    <div style={{ color: '#64748b' }}>Rubric-based evaluation</div>
                   </div>
 
                   {/* Card 3: Other Surveys */}
@@ -2158,8 +2183,8 @@ export default function QuickAnalysisDashboard() {
                     <div style={{ fontWeight: 800, color: '#16a34a', marginBottom: 2 }}>
                       PO Avg: {metrics.indirectSourcesData[2].poAvg.toFixed(2)} | PSO Avg: {metrics.indirectSourcesData[2].psoAvg.toFixed(2)}
                     </div>
-                    <div style={{ color: '#475569', fontWeight: 600 }}>3 surveys</div>
-                    <div style={{ color: '#64748b' }}>(Average of all surveys)</div>
+                    <div style={{ color: '#475569', fontWeight: 600 }}>Stakeholder Surveys</div>
+                    <div style={{ color: '#64748b' }}>Alumni &amp; Employer Feedback</div>
                   </div>
                 </div>
               </div>
@@ -2672,108 +2697,114 @@ export default function QuickAnalysisDashboard() {
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* ── FOOTER: University Details & 3 Action Buttons ── */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingTop: 12,
-                borderTop: '1px solid #e2e8f0',
-                flexWrap: 'wrap',
-                gap: 12,
-              }}
-            >
-              {/* Left: Branding */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <img
-                  src={dypLogo}
-                  alt="DYPIU Crest"
-                  style={{ height: 38, width: 'auto', objectFit: 'contain' }}
-                />
-                <div>
-                  <div style={{ fontSize: 11.5, fontWeight: 900, color: '#0f2b5c' }}>
-                    D Y PATIL INTERNATIONAL UNIVERSITY
-                  </div>
-                  <div style={{ fontSize: 9.5, color: '#64748b', fontWeight: 600 }}>
-                    Outcome-Based Education | Quality Assurance | Academic Excellence
-                  </div>
+          {/* ── FOOTER: University Details & 3 Action Buttons (Screen Only - Excluded from Downloaded Image/PDF) ── */}
+          <div
+            className="no-print"
+            style={{
+              marginTop: 14,
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: 12,
+              padding: '12px 18px',
+              boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 12,
+            }}
+          >
+            {/* Left: Branding */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <img
+                src={dypLogo}
+                alt="DYPIU Crest"
+                style={{ height: 38, width: 'auto', objectFit: 'contain' }}
+              />
+              <div>
+                <div style={{ fontSize: 11.5, fontWeight: 900, color: '#0f2b5c' }}>
+                  D Y PATIL INTERNATIONAL UNIVERSITY
+                </div>
+                <div style={{ fontSize: 9.5, color: '#64748b', fontWeight: 600 }}>
+                  Outcome-Based Education | Quality Assurance | Academic Excellence
                 </div>
               </div>
+            </div>
 
-              {/* Right: 3 Action Buttons */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={handlePrintPdf}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '8px 14px',
-                    borderRadius: 8,
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    color: '#0f172a',
-                    fontSize: 11.5,
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                  }}
-                >
-                  <Download size={14} />
-                  <span>Download PDF</span>
-                </button>
+            {/* Right: 3 Action Buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                type="button"
+                onClick={handlePrintPdf}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 14px',
+                  borderRadius: 8,
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  color: '#0f172a',
+                  fontSize: 11.5,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                }}
+              >
+                <Download size={14} />
+                <span>Download PDF</span>
+              </button>
 
-                <button
-                  type="button"
-                  onClick={handleDownloadPng}
-                  disabled={isExporting}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '8px 14px',
-                    borderRadius: 8,
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    color: '#0f172a',
-                    fontSize: 11.5,
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                  }}
-                >
-                  <Download size={14} />
-                  <span>{isExporting ? 'Exporting...' : 'Download PNG'}</span>
-                </button>
+              <button
+                type="button"
+                onClick={handleDownloadPng}
+                disabled={isExporting}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 14px',
+                  borderRadius: 8,
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  color: '#0f172a',
+                  fontSize: 11.5,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                }}
+              >
+                <Download size={14} />
+                <span>{isExporting ? 'Exporting...' : 'Download PNG'}</span>
+              </button>
 
-                <button
-                  type="button"
-                  onClick={handleViewDetailedAnalytics}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '8px 16px',
-                    borderRadius: 8,
-                    background: '#0f4c81',
-                    border: 'none',
-                    color: '#ffffff',
-                    fontSize: 11.5,
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 4px rgba(15, 76, 129, 0.25)',
-                  }}
-                >
-                  <span>View Detailed Analytics</span>
-                  <ExternalLink size={13} />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleViewDetailedAnalytics}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  background: '#0f4c81',
+                  border: 'none',
+                  color: '#ffffff',
+                  fontSize: 11.5,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(15, 76, 129, 0.25)',
+                }}
+              >
+                <span>View Detailed Analytics</span>
+                <ExternalLink size={13} />
+              </button>
             </div>
           </div>
-        )}
+        </>
+      )}
       </div>
 
       {/* ── MODAL: View All Courses in Curricular Order ── */}
