@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -349,7 +350,15 @@ export default function QuickAnalysisDashboard() {
       (allOutcomes.reduce((acc, o) => acc + Number(o.target || 2.5), 0) / totalOutcomes).toFixed(2)
     ) || 2.5;
 
-    // Predecessor batch comparisons
+    // Predecessor batch comparisons: strictly check if comparisonData is valid
+    const hasPreviousBatch = Boolean(
+      comparisonData &&
+      comparisonData.batch1 &&
+      Array.isArray(comparisonData.outcomes) &&
+      comparisonData.outcomes.length > 0 &&
+      comparisonData.outcomes.some((co) => co.batch1 && co.batch1.finalAttainment !== null && co.batch1.finalAttainment !== undefined)
+    );
+
     let prevAvgAttainment = null;
     let prevPoAvg = null;
     let prevPsoAvg = null;
@@ -363,9 +372,9 @@ export default function QuickAnalysisDashboard() {
     let steadyCount = 0;
     let prevMetCount = null;
     let prevUnmetCount = null;
-    let prevBatchName = comparisonData?.batch1?.batchName || 'Previous Batch';
+    let prevBatchName = hasPreviousBatch ? (comparisonData?.batch1?.batchName || 'Previous Batch') : null;
 
-    if (comparisonData?.outcomes && comparisonData.outcomes.length > 0) {
+    if (hasPreviousBatch) {
       const compOutcomes = comparisonData.outcomes;
       let prevTotal = 0;
       let prevCount = 0;
@@ -431,23 +440,6 @@ export default function QuickAnalysisDashboard() {
           psoGrowthPercentage = Number((((currentPsoAvg - prevPsoAvg) / prevPsoAvg) * 100).toFixed(2));
         }
       }
-    } else {
-      // Graceful baseline comparison when predecessor batch is not yet recorded in the DB
-      // We calculate a realistic baseline from current metrics so charts render completely
-      prevPoAvg = Number((currentPoAvg * 0.90).toFixed(2));
-      prevPsoAvg = Number((currentPsoAvg * 0.90).toFixed(2));
-      prevAvgAttainment = Number((currentAvgAttainment * 0.90).toFixed(2));
-      prevAvgDirect = Number((currentAvgDirect * 0.92).toFixed(2));
-      prevAvgIndirect = Number((currentAvgIndirect * 0.88).toFixed(2));
-      poGrowthPercentage = Number((((currentPoAvg - prevPoAvg) / prevPoAvg) * 100).toFixed(2));
-      psoGrowthPercentage = Number((((currentPsoAvg - prevPsoAvg) / prevPsoAvg) * 100).toFixed(2));
-      yoyGrowthPercentage = Number((((currentAvgAttainment - prevAvgAttainment) / prevAvgAttainment) * 100).toFixed(2));
-      prevMetCount = Math.max(1, Math.round(totalMet * 0.7));
-      prevUnmetCount = totalOutcomes - prevMetCount;
-      improvedCount = Math.round(totalOutcomes * 0.55);
-      declinedCount = Math.round(totalOutcomes * 0.25);
-      steadyCount = totalOutcomes - improvedCount - declinedCount;
-      prevBatchName = 'Previous Batch (Estimated)';
     }
 
     // Direct / Indirect Weights (as per configuration)
@@ -468,12 +460,13 @@ export default function QuickAnalysisDashboard() {
     const attentionList = allOutcomes.filter((o) => !o.targetMet || Number(o.attainment) < Number(o.target || 2.5));
 
     // Section 2 Grouped Chart Data (PO1..PO12, PSO1..PSO3)
+    // Only supply previous value if a real predecessor batch exists!
     const poPsoChartData = allOutcomes.map((item) => {
       const code = item.poCode || item.psoCode || '';
       const compItem = comparisonData?.outcomes?.find((co) => co.outcomeCode === code);
-      const prevVal = compItem?.batch1?.finalAttainment != null
+      const prevVal = (hasPreviousBatch && compItem?.batch1?.finalAttainment != null)
         ? Number(Number(compItem.batch1.finalAttainment).toFixed(2))
-        : Number((Number(item.attainment || 0) * 0.88).toFixed(2));
+        : null;
 
       return {
         code,
@@ -484,74 +477,103 @@ export default function QuickAnalysisDashboard() {
     });
 
     // Section 3: PO & PSO Attainment Growth Mini-Charts Data
-    const poGrowthData = [
-      { name: `Previous`, value: prevPoAvg },
-      { name: `Current`, value: currentPoAvg },
-    ];
+    const poGrowthData = hasPreviousBatch
+      ? [
+          { name: `Previous`, value: prevPoAvg },
+          { name: `Current`, value: currentPoAvg },
+        ]
+      : [
+          { name: `Current`, value: currentPoAvg },
+        ];
 
-    const psoGrowthData = [
-      { name: `Previous`, value: prevPsoAvg },
-      { name: `Current`, value: currentPsoAvg },
-    ];
+    const psoGrowthData = hasPreviousBatch
+      ? [
+          { name: `Previous`, value: prevPsoAvg },
+          { name: `Current`, value: currentPsoAvg },
+        ]
+      : [
+          { name: `Current`, value: currentPsoAvg },
+        ];
 
     // Section 4: Target Status 100% Stacked Bar Data
-    const prevTotalOutcomes = (prevMetCount || 0) + (prevUnmetCount || 0) || totalOutcomes;
     const curTotalOutcomes = totalMet + totalUnmet || totalOutcomes;
+    const currentStatusEntry = {
+      batch: batchOverview?.batch?.batchName || 'Current Batch',
+      metCount: totalMet,
+      belowCount: totalUnmet,
+      metPct: Number(((totalMet / curTotalOutcomes) * 100).toFixed(1)),
+      belowPct: Number(((totalUnmet / curTotalOutcomes) * 100).toFixed(1)),
+    };
 
-    const targetStatusData = [
-      {
-        batch: comparisonData?.batch1?.batchName || '2021-2025',
-        metCount: prevMetCount || 7,
-        belowCount: prevUnmetCount || 8,
-        metPct: Number((((prevMetCount || 7) / prevTotalOutcomes) * 100).toFixed(1)),
-        belowPct: Number((((prevUnmetCount || 8) / prevTotalOutcomes) * 100).toFixed(1)),
-      },
-      {
-        batch: batchOverview?.batch?.batchName || '2022-2026',
-        metCount: totalMet,
-        belowCount: totalUnmet,
-        metPct: Number(((totalMet / curTotalOutcomes) * 100).toFixed(1)),
-        belowPct: Number(((totalUnmet / curTotalOutcomes) * 100).toFixed(1)),
-      },
-    ];
+    let targetStatusData = [currentStatusEntry];
+    if (hasPreviousBatch && prevMetCount !== null) {
+      const prevTotalOutcomes = (prevMetCount || 0) + (prevUnmetCount || 0) || totalOutcomes;
+      targetStatusData = [
+        {
+          batch: prevBatchName || 'Previous Batch',
+          metCount: prevMetCount,
+          belowCount: prevUnmetCount,
+          metPct: Number(((prevMetCount / prevTotalOutcomes) * 100).toFixed(1)),
+          belowPct: Number(((prevUnmetCount / prevTotalOutcomes) * 100).toFixed(1)),
+        },
+        currentStatusEntry,
+      ];
+    }
 
     // Section 5: Direct vs Indirect Attainment Grouped Bars Data
     const directIndirectData = [
       {
         category: 'Direct Attainment',
-        previous: prevAvgDirect !== null ? prevAvgDirect : 2.12,
+        previous: hasPreviousBatch ? prevAvgDirect : null,
         current: currentAvgDirect,
       },
       {
         category: 'Indirect Attainment',
-        previous: prevAvgIndirect !== null ? prevAvgIndirect : 1.94,
+        previous: hasPreviousBatch ? prevAvgIndirect : null,
         current: currentAvgIndirect,
       },
     ];
 
-    // Section 6: Outcome Progression Bars Data
-    const progressionData = [
-      { name: 'Increased', count: improvedCount, fill: '#22c55e' },
-      { name: 'Unchanged', count: steadyCount, fill: '#64748b' },
-      { name: 'Decreased', count: declinedCount, fill: '#ef4444' },
-    ];
+    // Section 6: Outcome Progression Bars Data (only populated when previous batch exists)
+    const progressionData = hasPreviousBatch
+      ? [
+          { name: 'Increased', count: improvedCount, fill: '#22c55e' },
+          { name: 'Unchanged', count: steadyCount, fill: '#64748b' },
+          { name: 'Decreased', count: declinedCount, fill: '#ef4444' },
+        ]
+      : [];
 
     // Section 7: Indirect Evidence Sources Data
+    // Compute genuine PO and PSO indirect averages from outcome data
+    const currentPoIndirectTotal = poHealth.reduce((acc, o) => acc + Number(o.indirectAttainment || 0), 0);
+    const poIndirectAvg = poHealth.length > 0 ? Number((currentPoIndirectTotal / poHealth.length).toFixed(2)) : currentAvgIndirect;
+
+    const currentPsoIndirectTotal = psoHealth.reduce((acc, o) => acc + Number(o.indirectAttainment || 0), 0);
+    const psoIndirectAvg = psoHealth.length > 0 ? Number((currentPsoIndirectTotal / psoHealth.length).toFixed(2)) : currentAvgIndirect;
+
+    // Use authoritative programmeIndirect summary from backend
+    const progIndirect = batchOverview.programmeIndirect || {};
+    const hasExitSurvey = Boolean(progIndirect.hasExitSurvey);
+    const indirectAssessmentCount = Number(progIndirect.assessmentCount || 0);
+
     const indirectSourcesData = [
       {
         name: 'Programme End Survey',
-        poAvg: Number((currentPoAvg * 1.04).toFixed(2)),
-        psoAvg: Number((currentPsoAvg * 0.98).toFixed(2)),
+        poAvg: hasExitSurvey ? poIndirectAvg : poIndirectAvg,
+        psoAvg: hasExitSurvey ? psoIndirectAvg : psoIndirectAvg,
+        isRecorded: hasExitSurvey,
       },
       {
         name: 'Programme Events',
-        poAvg: Number((currentPoAvg * 0.96).toFixed(2)),
-        psoAvg: Number((currentPsoAvg * 0.92).toFixed(2)),
+        poAvg: indirectAssessmentCount > 1 ? poIndirectAvg : 0,
+        psoAvg: indirectAssessmentCount > 1 ? psoIndirectAvg : 0,
+        isRecorded: indirectAssessmentCount > 1,
       },
       {
         name: 'Other Surveys',
-        poAvg: Number((currentPoAvg * 1.01).toFixed(2)),
-        psoAvg: Number((currentPsoAvg * 1.02).toFixed(2)),
+        poAvg: indirectAssessmentCount > 2 ? poIndirectAvg : 0,
+        psoAvg: indirectAssessmentCount > 2 ? psoIndirectAvg : 0,
+        isRecorded: indirectAssessmentCount > 2,
       },
     ];
 
@@ -583,6 +605,7 @@ export default function QuickAnalysisDashboard() {
       prevMetCount,
       prevUnmetCount,
       prevBatchName,
+      hasPreviousBatch,
       directWeight,
       indirectWeight,
       courseContributions,
@@ -1446,10 +1469,12 @@ export default function QuickAnalysisDashboard() {
 
                   {/* Legend */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 10, fontWeight: 700 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 10, height: 10, background: '#93c5fd', borderRadius: 2 }} />
-                      <span style={{ color: '#475569' }}>Previous Batch ({metrics.prevBatchName.split(' ')[0]})</span>
-                    </div>
+                    {metrics.hasPreviousBatch && metrics.prevBatchName && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ width: 10, height: 10, background: '#93c5fd', borderRadius: 2 }} />
+                        <span style={{ color: '#475569' }}>Previous Batch ({metrics.prevBatchName.split(' ')[0]})</span>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <span style={{ width: 10, height: 10, background: '#0284c7', borderRadius: 2 }} />
                       <span style={{ color: '#0f172a' }}>Current Batch ({batchOverview?.batch?.batchName || 'Current'})</span>
@@ -1498,19 +1523,21 @@ export default function QuickAnalysisDashboard() {
                         strokeDasharray="4 4"
                         strokeWidth={2}
                       />
-                      <Bar
-                        dataKey="previous"
-                        name={metrics.prevBatchName}
-                        fill="#93c5fd"
-                        radius={[2, 2, 0, 0]}
-                        maxBarSize={16}
-                      />
+                      {metrics.hasPreviousBatch && (
+                        <Bar
+                          dataKey="previous"
+                          name={metrics.prevBatchName || 'Previous Batch'}
+                          fill="#93c5fd"
+                          radius={[2, 2, 0, 0]}
+                          maxBarSize={16}
+                        />
+                      )}
                       <Bar
                         dataKey="current"
                         name={batchOverview?.batch?.batchName || 'Current Batch'}
                         fill="#0284c7"
                         radius={[2, 2, 0, 0]}
-                        maxBarSize={16}
+                        maxBarSize={metrics.hasPreviousBatch ? 16 : 24}
                       />
                     </BarChart>
                   </ResponsiveContainer>
@@ -1585,11 +1612,23 @@ export default function QuickAnalysisDashboard() {
                       </ResponsiveContainer>
                     </div>
                     <div style={{ marginTop: 6 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: '#16a34a', fontSize: 16, fontWeight: 900 }}>
-                        <TrendingUp size={18} />
-                        <span>{metrics.poGrowthPercentage !== null ? `+${metrics.poGrowthPercentage.toFixed(2)}%` : '+11.06%'}</span>
-                      </div>
-                      <div style={{ fontSize: 9.5, fontWeight: 700, color: '#475569' }}>Growth in PO average</div>
+                      {metrics.hasPreviousBatch && metrics.poGrowthPercentage !== null ? (
+                        <>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: metrics.poGrowthPercentage >= 0 ? '#16a34a' : '#dc2626', fontSize: 16, fontWeight: 900 }}>
+                            {metrics.poGrowthPercentage >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+                            <span>{metrics.poGrowthPercentage >= 0 ? '+' : ''}{metrics.poGrowthPercentage.toFixed(2)}%</span>
+                          </div>
+                          <div style={{ fontSize: 9.5, fontWeight: 700, color: '#475569' }}>Growth in PO average</div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
+                            <Award size={13} />
+                            <span>Baseline Cohort</span>
+                          </div>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: '#64748b', marginTop: 2 }}>Initial evaluated batch</div>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -1609,7 +1648,7 @@ export default function QuickAnalysisDashboard() {
                               <Bar
                                 key={`pso-${index}`}
                                 dataKey="value"
-                                fill={index === 0 ? '#93c5fd' : '#0284c7'}
+                                fill={index === 0 && metrics.hasPreviousBatch ? '#93c5fd' : '#0284c7'}
                               />
                             ))}
                             <LabelList
@@ -1625,11 +1664,23 @@ export default function QuickAnalysisDashboard() {
                       </ResponsiveContainer>
                     </div>
                     <div style={{ marginTop: 6 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: '#16a34a', fontSize: 16, fontWeight: 900 }}>
-                        <TrendingUp size={18} />
-                        <span>{metrics.psoGrowthPercentage !== null ? `+${metrics.psoGrowthPercentage.toFixed(2)}%` : '+11.21%'}</span>
-                      </div>
-                      <div style={{ fontSize: 9.5, fontWeight: 700, color: '#475569' }}>Growth in PSO average</div>
+                      {metrics.hasPreviousBatch && metrics.psoGrowthPercentage !== null ? (
+                        <>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: metrics.psoGrowthPercentage >= 0 ? '#16a34a' : '#dc2626', fontSize: 16, fontWeight: 900 }}>
+                            {metrics.psoGrowthPercentage >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+                            <span>{metrics.psoGrowthPercentage >= 0 ? '+' : ''}{metrics.psoGrowthPercentage.toFixed(2)}%</span>
+                          </div>
+                          <div style={{ fontSize: 9.5, fontWeight: 700, color: '#475569' }}>Growth in PSO average</div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
+                            <Award size={13} />
+                            <span>Baseline Cohort</span>
+                          </div>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: '#64748b', marginTop: 2 }}>Initial evaluated batch</div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1779,10 +1830,12 @@ export default function QuickAnalysisDashboard() {
 
                 {/* Legend */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, fontSize: 10, fontWeight: 700, marginBottom: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ width: 10, height: 10, background: '#93c5fd', borderRadius: 2 }} />
-                    <span style={{ color: '#475569' }}>Previous Batch</span>
-                  </div>
+                  {metrics.hasPreviousBatch && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ width: 10, height: 10, background: '#93c5fd', borderRadius: 2 }} />
+                      <span style={{ color: '#475569' }}>Previous Batch</span>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ width: 10, height: 10, background: '#0284c7', borderRadius: 2 }} />
                     <span style={{ color: '#0f172a' }}>Current Batch</span>
@@ -1801,17 +1854,19 @@ export default function QuickAnalysisDashboard() {
                       <XAxis dataKey="category" tick={{ fontSize: 9.5, fill: '#334155', fontWeight: 700 }} tickLine={false} axisLine={{ stroke: '#cbd5e1' }} />
                       <YAxis domain={[0, 3]} ticks={[0.0, 1.0, 2.0, 3.0]} tick={{ fontSize: 8.5, fill: '#64748b' }} axisLine={false} tickLine={false} />
                       <Tooltip content={<GroupedTooltip unit="/3.00" />} />
-                      <Bar dataKey="previous" name="Previous Batch" fill="#93c5fd" radius={[2, 2, 0, 0]} maxBarSize={28}>
-                        <LabelList
-                          dataKey="previous"
-                          position="top"
-                          fill="#0f172a"
-                          fontSize={10}
-                          fontWeight={900}
-                          formatter={(v) => (v != null ? Number(v).toFixed(2) : '')}
-                        />
-                      </Bar>
-                      <Bar dataKey="current" name="Current Batch" fill="#0284c7" radius={[2, 2, 0, 0]} maxBarSize={28}>
+                      {metrics.hasPreviousBatch && (
+                        <Bar dataKey="previous" name="Previous Batch" fill="#93c5fd" radius={[2, 2, 0, 0]} maxBarSize={28}>
+                          <LabelList
+                            dataKey="previous"
+                            position="top"
+                            fill="#0f172a"
+                            fontSize={10}
+                            fontWeight={900}
+                            formatter={(v) => (v != null ? Number(v).toFixed(2) : '')}
+                          />
+                        </Bar>
+                      )}
+                      <Bar dataKey="current" name="Current Batch" fill="#0284c7" radius={[2, 2, 0, 0]} maxBarSize={metrics.hasPreviousBatch ? 28 : 40}>
                         <LabelList
                           dataKey="current"
                           position="top"
@@ -1858,43 +1913,68 @@ export default function QuickAnalysisDashboard() {
                       OUTCOME PROGRESSION (POs + PSOs)
                     </h3>
                     <div style={{ fontSize: 9.5, color: '#64748b', fontWeight: 600 }}>
-                      Change in attainment from previous to current batch
+                      {metrics.hasPreviousBatch ? 'Change in attainment from previous to current batch' : 'Cohort baseline distribution'}
                     </div>
                   </div>
                 </div>
 
-                {/* Vertical Bar Chart with 3 Bars: Increased, Unchanged, Decreased */}
-                <div style={{ width: '100%', height: 175 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={metrics.progressionData}
-                      margin={{ top: 16, right: 10, left: -24, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="name" tick={{ fontSize: 9.5, fill: '#334155', fontWeight: 700 }} tickLine={false} axisLine={{ stroke: '#cbd5e1' }} />
-                      <YAxis
-                        domain={[0, Math.max(12, metrics.totalOutcomes)]}
-                        ticks={[0, 3, 6, 9, 12]}
-                        tick={{ fontSize: 8.5, fill: '#64748b' }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <Tooltip formatter={(val) => [`${val} outcomes`, 'Cohort Shift']} />
-                      <Bar dataKey="count" radius={[3, 3, 0, 0]} maxBarSize={36}>
-                        {metrics.progressionData.map((entry, idx) => (
-                          <Bar key={`prog-${idx}`} dataKey="count" fill={entry.fill} />
-                        ))}
-                        <LabelList
-                          dataKey="count"
-                          position="top"
-                          fill="#0f172a"
-                          fontSize={11.5}
-                          fontWeight={900}
+                {metrics.hasPreviousBatch ? (
+                  /* Vertical Bar Chart with 3 Bars: Increased, Unchanged, Decreased */
+                  <div style={{ width: '100%', height: 175 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={metrics.progressionData}
+                        margin={{ top: 16, right: 10, left: -24, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="name" tick={{ fontSize: 9.5, fill: '#334155', fontWeight: 700 }} tickLine={false} axisLine={{ stroke: '#cbd5e1' }} />
+                        <YAxis
+                          domain={[0, Math.max(12, metrics.totalOutcomes)]}
+                          ticks={[0, 3, 6, 9, 12]}
+                          tick={{ fontSize: 8.5, fill: '#64748b' }}
+                          axisLine={false}
+                          tickLine={false}
                         />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                        <Tooltip formatter={(val) => [`${val} outcomes`, 'Cohort Shift']} />
+                        <Bar dataKey="count" radius={[3, 3, 0, 0]} maxBarSize={36}>
+                          {metrics.progressionData.map((entry, idx) => (
+                            <Cell key={`prog-${idx}`} fill={entry.fill} />
+                          ))}
+                          <LabelList
+                            dataKey="count"
+                            position="top"
+                            fill="#0f172a"
+                            fontSize={11.5}
+                            fontWeight={900}
+                          />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      height: 175,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      textAlign: 'center',
+                      padding: '12px 18px',
+                      background: '#f8fafc',
+                      borderRadius: 10,
+                      border: '1px dashed #cbd5e1',
+                    }}
+                  >
+                    <Sparkles size={24} color="#0284c7" style={{ marginBottom: 6 }} />
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', marginBottom: 3 }}>
+                      Baseline Cohort Established
+                    </div>
+                    <div style={{ fontSize: 10, color: '#64748b', lineHeight: 1.45, maxWidth: 280 }}>
+                      All {metrics.totalOutcomes} outcomes ({metrics.totalMet} met, {metrics.totalUnmet} below target) establish the initial cohort benchmarks. Longitudinal progression tracking will activate when subsequent batches are evaluated.
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2359,20 +2439,39 @@ export default function QuickAnalysisDashboard() {
                       lineHeight: 1.45,
                     }}
                   >
-                    <li style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-                      <span style={{ color: '#0284c7', fontWeight: 900 }}>&bull;</span>
-                      <span>
-                        Average PO attainment improved by{' '}
-                        <strong>{metrics.poGrowthPercentage !== null ? `${metrics.poGrowthPercentage.toFixed(2)}%` : '11.06%'}</strong>{' '}
-                        compared to previous batch.
-                      </span>
-                    </li>
-                    <li style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-                      <span style={{ color: '#0284c7', fontWeight: 900 }}>&bull;</span>
-                      <span>
-                        <strong>{metrics.improvedCount}</strong> out of <strong>{metrics.totalOutcomes}</strong> outcomes show positive improvement.
-                      </span>
-                    </li>
+                    {metrics.hasPreviousBatch && metrics.poGrowthPercentage !== null ? (
+                      <>
+                        <li style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                          <span style={{ color: '#0284c7', fontWeight: 900 }}>&bull;</span>
+                          <span>
+                            Average PO attainment improved by{' '}
+                            <strong>{metrics.poGrowthPercentage >= 0 ? `+${metrics.poGrowthPercentage.toFixed(2)}%` : `${metrics.poGrowthPercentage.toFixed(2)}%`}</strong>{' '}
+                            compared to previous batch.
+                          </span>
+                        </li>
+                        <li style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                          <span style={{ color: '#0284c7', fontWeight: 900 }}>&bull;</span>
+                          <span>
+                            <strong>{metrics.improvedCount}</strong> out of <strong>{metrics.totalOutcomes}</strong> outcomes show positive improvement.
+                          </span>
+                        </li>
+                      </>
+                    ) : (
+                      <>
+                        <li style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                          <span style={{ color: '#0284c7', fontWeight: 900 }}>&bull;</span>
+                          <span>
+                            Initial baseline cohort for <strong>{batchOverview?.batch?.batchName || 'this programme'}</strong>.
+                          </span>
+                        </li>
+                        <li style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                          <span style={{ color: '#0284c7', fontWeight: 900 }}>&bull;</span>
+                          <span>
+                            <strong>{metrics.totalMet}</strong> out of <strong>{metrics.totalOutcomes}</strong> outcomes met or exceeded target benchmarks.
+                          </span>
+                        </li>
+                      </>
+                    )}
                     <li style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                       <span style={{ color: '#0284c7', fontWeight: 900 }}>&bull;</span>
                       <span>
@@ -2381,19 +2480,25 @@ export default function QuickAnalysisDashboard() {
                     </li>
                     <li style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                       <span style={{ color: '#0284c7', fontWeight: 900 }}>&bull;</span>
-                      <span>Programme end survey response rate is <strong>85%</strong>.</span>
+                      <span>
+                        Indirect evidence weighting is configured at <strong>{metrics.indirectWeight}%</strong>.
+                      </span>
                     </li>
                     <li style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                       <span style={{ color: '#0284c7', fontWeight: 900 }}>&bull;</span>
                       <span>
                         {metrics.attentionList.length > 0
-                          ? `${metrics.attentionList.slice(0, 3).map((o) => o.poCode || o.psoCode).join(', ')} require focused improvement.`
+                          ? `${metrics.attentionList.slice(0, 3).map((o) => o.poCode || o.psoCode).join(', ')} require focused faculty action plans.`
                           : 'All outcomes are performing at or above configured benchmark targets.'}
                       </span>
                     </li>
                     <li style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                       <span style={{ color: '#0284c7', fontWeight: 900 }}>&bull;</span>
-                      <span>Events and other surveys are contributing meaningfully to indirect attainment.</span>
+                      <span>
+                        {metrics.hasPreviousBatch
+                          ? 'Events and other surveys are contributing meaningfully to indirect attainment.'
+                          : 'Multi-cohort longitudinal progression will activate when subsequent cohorts graduate.'}
+                      </span>
                     </li>
                   </ul>
                 </div>
