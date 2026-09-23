@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { useAcademic } from '../../../context/AcademicContext';
 import { analyticsApi, academicApi } from '../../../api';
+import { compareOutcomeCodes } from '../../../utils/outcomeOrder';
 import { toPng } from 'html-to-image';
 import {
   ResponsiveContainer,
@@ -319,8 +320,9 @@ export default function QuickAnalysisDashboard() {
   const metrics = useMemo(() => {
     if (!batchOverview) return null;
 
-    const poHealth = batchOverview.poHealth || [];
-    const psoHealth = batchOverview.psoHealth || [];
+    // Strictly sort POs and PSOs in natural numerical ascending order (PO1..PO12, PSO1..PSO3)
+    const poHealth = [...(batchOverview.poHealth || [])].sort(compareOutcomeCodes);
+    const psoHealth = [...(batchOverview.psoHealth || [])].sort(compareOutcomeCodes);
     const allOutcomes = [...poHealth, ...psoHealth];
     const totalOutcomes = allOutcomes.length || 1;
 
@@ -456,10 +458,11 @@ export default function QuickAnalysisDashboard() {
       ? Math.round(Number(batchOverview.directIndirect.programmeIndirectWeight) * 100)
       : 20;
 
-    // Course Contributions (curricular order or descending direct attainment)
+    // Course Contributions (sorted descending by direct attainment as top contributing courses)
     const rawContributions = batchOverview.courseContributions || [];
     const courseContributions = [...rawContributions]
       .filter((c) => c && (c.courseName || c.courseCode))
+      .sort((a, b) => Number(b.overallCourseAttainment || 0) - Number(a.overallCourseAttainment || 0))
       .slice(0, 6);
 
     // Deficit / Attention Areas (outcomes where attainment < target)
@@ -2220,11 +2223,27 @@ export default function QuickAnalysisDashboard() {
                         8
                       </div>
                       <div>
-                        <h3 style={{ fontSize: 12, fontWeight: 900, color: '#0f2b5c', margin: 0 }}>
-                          COURSE CONTRIBUTIONS TO PROGRAMME DIRECT ATTAINMENT
-                        </h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <h3 style={{ fontSize: 12, fontWeight: 900, color: '#0f2b5c', margin: 0 }}>
+                            COURSE CONTRIBUTIONS TO PROGRAMME DIRECT ATTAINMENT
+                          </h3>
+                          <span
+                            style={{
+                              background: '#e0f2fe',
+                              color: '#0369a1',
+                              border: '1px solid #bae6fd',
+                              borderRadius: 4,
+                              padding: '1px 6px',
+                              fontSize: 9,
+                              fontWeight: 800,
+                              letterSpacing: '0.02em',
+                            }}
+                          >
+                            Top Contributing Courses
+                          </span>
+                        </div>
                         <div style={{ fontSize: 9.5, color: '#64748b', fontWeight: 600 }}>
-                          Average contribution of courses to PO/PSO attainment
+                          Top contributing courses &bull; Average contribution of courses to PO/PSO attainment
                         </div>
                       </div>
                     </div>
