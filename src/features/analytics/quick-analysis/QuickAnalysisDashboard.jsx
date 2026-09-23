@@ -1194,50 +1194,134 @@ export default function QuickAnalysisDashboard() {
               </div>
             </div>
 
-            {/* ── HERO BANNER: Campus Hero Image with Left-Side Blue Blur ── */}
+            {/* ── HERO BANNER: Wide Horizontal Executive Campus Banner ── */}
             <div
               style={{
                 width: '100%',
-                height: 96,
-                borderRadius: 12,
+                height: 155,
+                borderRadius: 14,
                 overflow: 'hidden',
                 position: 'relative',
                 backgroundImage: `url(${dypiuCampusHero})`,
                 backgroundSize: 'cover',
-                backgroundPosition: 'center 38%',
+                backgroundPosition: 'right 36%',
                 border: '1px solid #cbd5e1',
-                boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)',
+                boxShadow: '0 2px 10px rgba(15, 23, 42, 0.08)',
                 display: 'flex',
                 alignItems: 'center',
               }}
             >
-              {/* Left-side Blue Blur Container */}
+              {/* Dark Navy to Transparent Gradient Overlay (high contrast on left, bright photographic campus on right) */}
               <div
                 style={{
                   position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: '56%',
-                  background: 'linear-gradient(90deg, rgba(15, 43, 92, 0.94) 0%, rgba(15, 76, 129, 0.88) 55%, rgba(2, 132, 199, 0.65) 82%, transparent 100%)',
-                  backdropFilter: 'blur(10px)',
-                  WebkitBackdropFilter: 'blur(10px)',
+                  inset: 0,
+                  background:
+                    'linear-gradient(90deg, rgba(10, 25, 55, 0.96) 0%, rgba(12, 34, 72, 0.93) 34%, rgba(15, 43, 92, 0.82) 48%, rgba(15, 43, 92, 0.40) 65%, rgba(15, 43, 92, 0.05) 82%, transparent 100%)',
                   display: 'flex',
                   flexDirection: 'column',
-                  justifyContent: 'center',
-                  padding: '0 24px',
+                  justifyContent: 'space-between',
+                  padding: '16px 26px',
                   color: '#ffffff',
                   zIndex: 2,
                 }}
               >
-                <div style={{ fontSize: 16.5, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.25 }}>
-                  Empowering Education <span style={{ color: '#fef08a' }}>for a Better Tomorrow</span>
+                {/* Top Row: Badge & Optional Right-side Micro Copy */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: 'rgba(255, 255, 255, 0.12)',
+                      border: '1px solid rgba(255, 255, 255, 0.22)',
+                      borderRadius: 9999,
+                      padding: '3px 11px',
+                      fontSize: 9,
+                      fontWeight: 700,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      color: '#e0f2fe',
+                    }}
+                  >
+                    <Sparkles size={11} style={{ color: '#38bdf8' }} />
+                    <span>CONTINUOUS ACADEMIC QUALITY IMPROVEMENT</span>
+                  </div>
+
+                  {/* Subtle Right-side Micro Copy */}
+                  <div
+                    style={{
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      color: 'rgba(255, 255, 255, 0.85)',
+                      letterSpacing: '0.03em',
+                      textShadow: '0 1px 3px rgba(0, 0, 0, 0.4)',
+                      paddingRight: 4,
+                    }}
+                  >
+                    Empowering Education <span style={{ color: '#fef08a' }}>for a Better Tomorrow</span>
+                  </div>
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#e0f2fe', marginTop: 3 }}>
-                  {batchOverview?.batch?.programme?.name || 'Programme'} &bull; {batchOverview?.batch?.batchName || 'Batch'}
+
+                {/* Main Headline & Supporting Description */}
+                <div style={{ maxWidth: '62%', marginTop: 2, marginBottom: 2 }}>
+                  <div
+                    style={{
+                      fontSize: 19,
+                      lineHeight: 1.2,
+                      letterSpacing: '-0.02em',
+                      color: '#ffffff',
+                    }}
+                  >
+                    <span style={{ fontWeight: 800 }}>A Data-Driven Roadmap</span>{' '}
+                    <span style={{ fontWeight: 600, color: '#e2e8f0' }}>for Attainment Excellence</span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: 400,
+                      color: 'rgba(241, 245, 249, 0.90)',
+                      marginTop: 4,
+                      lineHeight: 1.35,
+                      maxWidth: 580,
+                    }}
+                  >
+                    Authoritative evidence across direct and indirect assessment sources, historical attainment, and continuous improvement.
+                  </div>
                 </div>
-                <div style={{ fontSize: 9.5, fontWeight: 700, color: '#93c5fd', marginTop: 2, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                  D Y PATIL INTERNATIONAL UNIVERSITY &bull; AKURDI, PUNE
+
+                {/* Bottom Navigation / Identity Strip with Icons and Line Separators */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    fontSize: 8.5,
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: '#cbd5e1',
+                  }}
+                >
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <BarChart3 size={11} style={{ color: '#38bdf8' }} />
+                    <span style={{ color: '#f8fafc' }}>INSIGHTS</span>
+                  </div>
+                  <span style={{ color: 'rgba(255, 255, 255, 0.25)', fontWeight: 300 }}>|</span>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Target size={11} style={{ color: '#38bdf8' }} />
+                    <span style={{ color: '#f8fafc' }}>ATTAINMENT</span>
+                  </div>
+                  <span style={{ color: 'rgba(255, 255, 255, 0.25)', fontWeight: 300 }}>|</span>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Award size={11} style={{ color: '#38bdf8' }} />
+                    <span style={{ color: '#f8fafc' }}>ACTIONS</span>
+                  </div>
+                  <span style={{ color: 'rgba(255, 255, 255, 0.25)', fontWeight: 300 }}>|</span>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <TrendingUp size={11} style={{ color: '#38bdf8' }} />
+                    <span style={{ color: '#f8fafc' }}>CONTINUOUS IMPROVEMENT</span>
+                  </div>
                 </div>
               </div>
             </div>
