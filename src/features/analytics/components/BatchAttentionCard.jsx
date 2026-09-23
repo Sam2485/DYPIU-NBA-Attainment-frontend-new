@@ -160,7 +160,7 @@ export default function BatchAttentionCard({
             padding: 0,
           }}
         >
-          <span>View Batch Analytics</span>
+          <span>Quick Analysis</span>
           <ArrowRight size={15} />
         </button>
       </div>

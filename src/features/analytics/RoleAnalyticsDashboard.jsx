@@ -253,14 +253,17 @@ export default function RoleAnalyticsDashboard({ roleOverride = null }) {
     }
   }, [fetchAnalyticsData, isLoadingMetadata]);
 
-  // Handler for Selecting a Batch -> Transitions to Batch Analytics
+  // Handler for Selecting a Batch -> Transitions to Quick Analysis first (can navigate to Detailed Analytics later)
   const handleNavigateToBatch = useCallback(
     (batchId) => {
       if (!batchId) return;
       const basePath = isIqac ? '/admin' : '';
-      navigate(`${basePath}/analytics/batch/${batchId}`);
+      const params = new URLSearchParams();
+      if (selectedMasterProgrammeId) params.set('masterProgrammeId', selectedMasterProgrammeId);
+      params.set('programmeBatchId', batchId);
+      navigate(`${basePath}/analytics/quick-analysis?${params.toString()}`);
     },
-    [navigate, isIqac]
+    [navigate, isIqac, selectedMasterProgrammeId]
   );
 
   // Filter change handlers

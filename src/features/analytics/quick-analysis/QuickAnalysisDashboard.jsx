@@ -5,6 +5,7 @@ import { useAcademic } from '../../../context/AcademicContext';
 import { analyticsApi, academicApi } from '../../../api';
 import { compareOutcomeCodes } from '../../../utils/outcomeOrder';
 import { toPng } from 'html-to-image';
+import { jsPDF } from 'jspdf';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -139,6 +140,7 @@ export default function QuickAnalysisDashboard() {
   const [isLoadingReport, setIsLoadingReport] = useState(false);
   const [reportError, setReportError] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Modal State for "View all courses"
   const [showAllCoursesModal, setShowAllCoursesModal] = useState(false);
@@ -655,9 +657,50 @@ export default function QuickAnalysisDashboard() {
     }
   };
 
-  const handlePrintPdf = () => {
-    window.print();
+  const handleDownloadPdf = async () => {
+    if (!reportRef.current) return;
+    setIsExportingPdf(true);
+    try {
+      const dataUrl = await toPng(reportRef.current, {
+        quality: 0.98,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+      });
+
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      const imgWidth = img.width || 1200;
+      const imgHeight = img.height || 1600;
+
+      // Fit height proportionally to standard 210mm width so entire infographic is preserved seamlessly
+      const pdfWidth = 210;
+      const pdfHeight = Number(((imgHeight * pdfWidth) / imgWidth).toFixed(2));
+
+      const pdf = new jsPDF({
+        orientation: pdfHeight > pdfWidth ? 'portrait' : 'landscape',
+        unit: 'mm',
+        format: [pdfWidth, pdfHeight],
+      });
+
+      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+
+      const progName = batchOverview?.batch?.programme?.name || 'Programme';
+      const batchName = batchOverview?.batch?.batchName || 'Batch';
+      pdf.save(`OBE_Quick_Analysis_${progName.replace(/\s+/g, '_')}_${batchName}.pdf`);
+    } catch (err) {
+      console.error('[QuickAnalysis] Failed to export PDF via image:', err);
+      window.print();
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
+
+  const handlePrintPdf = handleDownloadPdf;
 
   const handleBackToAnalytics = () => {
     if (isIqac) navigate('/admin/dashboard');
@@ -770,8 +813,8 @@ export default function QuickAnalysisDashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
               type="button"
-              onClick={handlePrintPdf}
-              disabled={isLoadingReport || !batchOverview}
+              onClick={handleDownloadPdf}
+              disabled={isExportingPdf || isLoadingReport || !batchOverview}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -786,8 +829,8 @@ export default function QuickAnalysisDashboard() {
                 cursor: 'pointer',
               }}
             >
-              <Printer size={13} />
-              <span>Download PDF</span>
+              <Download size={13} />
+              <span>{isExportingPdf ? 'Exporting PDF...' : 'Download PDF'}</span>
             </button>
             <button
               type="button"
@@ -831,6 +874,167 @@ export default function QuickAnalysisDashboard() {
               <span>View Detailed Analytics</span>
               <ExternalLink size={12} />
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── SELECTOR BAR: Programme & Batch Selectors Below the Main Header (no-print) ── */}
+      <div
+        className="no-print"
+        style={{
+          background: '#ffffff',
+          borderBottom: '1px solid #e2e8f0',
+          padding: '12px 24px',
+          boxShadow: '0 2px 4px rgba(15, 23, 42, 0.03)',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1240,
+            margin: '0 auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 16,
+          }}
+        >
+          {/* Selectors Group */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', flex: 1 }}>
+            {/* Programme Selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 280, flex: 1, maxWidth: 460 }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: '#0f2b5c',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <BookOpen size={15} color="#0284c7" />
+                <span>Programme:</span>
+              </label>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <select
+                  value={selectedMasterProgrammeId}
+                  onChange={(e) => setSelectedMasterProgrammeId(e.target.value)}
+                  disabled={isLoadingMetadata || availableProgrammes.length === 0}
+                  style={{
+                    width: '100%',
+                    padding: '8px 32px 8px 12px',
+                    borderRadius: 8,
+                    border: '1px solid #cbd5e1',
+                    background: '#f8fafc',
+                    color: '#0f172a',
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    outline: 'none',
+                    cursor: 'pointer',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                  }}
+                >
+                  {availableProgrammes.map((p) => (
+                    <option key={p.id || p.masterProgrammeId} value={p.id || p.masterProgrammeId}>
+                      {p.name || p.programmeName || p.code} {p.code ? `(${p.code})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={15}
+                  color="#64748b"
+                  style={{
+                    position: 'absolute',
+                    right: 10,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    pointerEvents: 'none',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Batch Selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 240, flex: 1, maxWidth: 380 }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: '#0f2b5c',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <Calendar size={15} color="#0284c7" />
+                <span>Batch:</span>
+              </label>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <select
+                  value={selectedProgrammeBatchId}
+                  onChange={(e) => setSelectedProgrammeBatchId(e.target.value)}
+                  disabled={isLoadingBatches || batches.length === 0}
+                  style={{
+                    width: '100%',
+                    padding: '8px 32px 8px 12px',
+                    borderRadius: 8,
+                    border: '1px solid #cbd5e1',
+                    background: '#f8fafc',
+                    color: '#0f172a',
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    outline: 'none',
+                    cursor: 'pointer',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                  }}
+                >
+                  {batches.map((b) => (
+                    <option key={b.id || b.programmeBatchId} value={b.id || b.programmeBatchId}>
+                      {b.batchName || `Batch ${b.startYear}-${b.endYear}`}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={15}
+                  color="#64748b"
+                  style={{
+                    position: 'absolute',
+                    right: 10,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    pointerEvents: 'none',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Scope / Status Badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '5px 12px',
+                borderRadius: 20,
+                background: '#e0f2fe',
+                color: '#0369a1',
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: '0.02em',
+              }}
+            >
+              <ShieldCheck size={13} />
+              <span>{role ? `${role.replace(/_/g, ' ')} SCOPE` : 'ACADEMIC SCOPE'}</span>
+            </span>
           </div>
         </div>
       </div>
@@ -969,46 +1173,71 @@ export default function QuickAnalysisDashboard() {
                 </div>
               </div>
 
-              {/* Right: Campus Hero Card Overlay with User's Hero Image */}
+              {/* Right: IQAC Logo & Accreditation Branding */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: '#0f2b5c', lineHeight: 1.15 }}>
+                    INTERNAL QUALITY ASSURANCE CELL
+                  </div>
+                  <div style={{ fontSize: 9.5, fontWeight: 700, color: '#64748b', letterSpacing: '0.04em', textTransform: 'uppercase', marginTop: 2 }}>
+                    IQAC &bull; Quality Assurance
+                  </div>
+                  <div style={{ fontSize: 9.5, fontWeight: 600, color: '#0284c7', marginTop: 1 }}>
+                    Academic Excellence &amp; Accreditation
+                  </div>
+                </div>
+                <img
+                  src={iqacLogo}
+                  alt="IQAC Logo"
+                  style={{ height: 50, width: 'auto', objectFit: 'contain' }}
+                />
+              </div>
+            </div>
+
+            {/* ── HERO BANNER: Campus Hero Image with Left-Side Blue Blur ── */}
+            <div
+              style={{
+                width: '100%',
+                height: 96,
+                borderRadius: 12,
+                overflow: 'hidden',
+                position: 'relative',
+                backgroundImage: `url(${dypiuCampusHero})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center 38%',
+                border: '1px solid #cbd5e1',
+                boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              {/* Left-side Blue Blur Container */}
               <div
                 style={{
-                  height: 60,
-                  borderRadius: 10,
-                  overflow: 'hidden',
-                  position: 'relative',
-                  backgroundImage: `url(${dypiuCampusHero})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center 40%',
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: '56%',
+                  background: 'linear-gradient(90deg, rgba(15, 43, 92, 0.94) 0%, rgba(15, 76, 129, 0.88) 55%, rgba(2, 132, 199, 0.65) 82%, transparent 100%)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
                   display: 'flex',
-                  alignItems: 'center',
+                  flexDirection: 'column',
                   justifyContent: 'center',
-                  border: '1px solid #cbd5e1',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                  padding: '0 24px',
+                  color: '#ffffff',
+                  zIndex: 2,
                 }}
               >
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: 'linear-gradient(135deg, rgba(15, 43, 92, 0.78) 0%, rgba(2, 132, 199, 0.65) 100%)',
-                  }}
-                />
-                <div
-                  style={{
-                    position: 'relative',
-                    zIndex: 2,
-                    color: '#ffffff',
-                    fontSize: 11,
-                    fontWeight: 800,
-                    textAlign: 'center',
-                    padding: '0 12px',
-                    lineHeight: 1.3,
-                    textShadow: '0 1px 3px rgba(0,0,0,0.4)',
-                  }}
-                >
-                  Empowering Education
-                  <br />
-                  <span style={{ color: '#fef08a' }}>for a Better Tomorrow</span>
+                <div style={{ fontSize: 16.5, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.25 }}>
+                  Empowering Education <span style={{ color: '#fef08a' }}>for a Better Tomorrow</span>
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#e0f2fe', marginTop: 3 }}>
+                  {batchOverview?.batch?.programme?.name || 'Programme'} &bull; {batchOverview?.batch?.batchName || 'Batch'}
+                </div>
+                <div style={{ fontSize: 9.5, fontWeight: 700, color: '#93c5fd', marginTop: 2, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                  D Y PATIL INTERNATIONAL UNIVERSITY &bull; AKURDI, PUNE
                 </div>
               </div>
             </div>
@@ -2756,7 +2985,8 @@ export default function QuickAnalysisDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <button
                 type="button"
-                onClick={handlePrintPdf}
+                onClick={handleDownloadPdf}
+                disabled={isExportingPdf || isLoadingReport || !batchOverview}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -2773,7 +3003,7 @@ export default function QuickAnalysisDashboard() {
                 }}
               >
                 <Download size={14} />
-                <span>Download PDF</span>
+                <span>{isExportingPdf ? 'Exporting PDF...' : 'Download PDF'}</span>
               </button>
 
               <button
