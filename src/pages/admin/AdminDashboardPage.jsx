@@ -134,8 +134,6 @@ export default function AdminDashboardPage() {
   const {
     schools = [],
     loadSchools = () => Promise.resolve([]),
-    loadDepartments = () => Promise.resolve([]),
-    loadProgrammes = () => Promise.resolve([]),
   } = useAcademic();
 
   const [selectedRole, setSelectedRole] = useState('ALL');
@@ -150,13 +148,11 @@ export default function AdminDashboardPage() {
   const [editingAssignment, setEditingAssignment] = useState(null);
   const [isAddingAssignment, setIsAddingAssignment] = useState(false);
   const [assignmentForm, setAssignmentForm] = useState({
-    role: 'DIRECTOR',
+    role: 'FACULTY',
     schoolId: '',
-    departmentId: '',
-    masterProgrammeId: '',
+    departmentId: null,
+    masterProgrammeId: null,
   });
-  const [formDepartments, setFormDepartments] = useState([]);
-  const [formProgrammes, setFormProgrammes] = useState([]);
 
   // Add User Modal state
   const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -183,76 +179,13 @@ export default function AdminDashboardPage() {
   // ---------------------------------------------------------------------------
   // Dynamic department and programme loaders for assignment forms
   // ---------------------------------------------------------------------------
-  const handleAssignmentSchoolChange = async (targetSchoolId) => {
+  const handleAssignmentSchoolChange = (targetSchoolId) => {
     setAssignmentForm((prev) => ({
       ...prev,
       schoolId: targetSchoolId,
-      departmentId: '',
-      masterProgrammeId: '',
+      departmentId: null,
+      masterProgrammeId: null,
     }));
-    setFormDepartments([]);
-    setFormProgrammes([]);
-    if (targetSchoolId) {
-      try {
-        const depts = await loadDepartments(targetSchoolId, true);
-        setFormDepartments(depts || []);
-      } catch (e) {
-        setFormDepartments([]);
-      }
-    }
-  };
-
-  const handleAssignmentDeptChange = async (targetDeptId) => {
-    setAssignmentForm((prev) => ({
-      ...prev,
-      departmentId: targetDeptId,
-      masterProgrammeId: '',
-    }));
-    setFormProgrammes([]);
-    if (targetDeptId) {
-      try {
-        const progs = await loadProgrammes(targetDeptId, null, true);
-        setFormProgrammes(progs || []);
-      } catch (e) {
-        setFormProgrammes([]);
-      }
-    }
-  };
-
-  const handleAddModalSchoolChange = async (targetSchoolId) => {
-    setCurrentAddAssignment((prev) => ({
-      ...prev,
-      schoolId: targetSchoolId,
-      departmentId: '',
-      masterProgrammeId: '',
-    }));
-    setFormDepartments([]);
-    setFormProgrammes([]);
-    if (targetSchoolId) {
-      try {
-        const depts = await loadDepartments(targetSchoolId, true);
-        setFormDepartments(depts || []);
-      } catch (e) {
-        setFormDepartments([]);
-      }
-    }
-  };
-
-  const handleAddModalDeptChange = async (targetDeptId) => {
-    setCurrentAddAssignment((prev) => ({
-      ...prev,
-      departmentId: targetDeptId,
-      masterProgrammeId: '',
-    }));
-    setFormProgrammes([]);
-    if (targetDeptId) {
-      try {
-        const progs = await loadProgrammes(targetDeptId, null, true);
-        setFormProgrammes(progs || []);
-      } catch (e) {
-        setFormProgrammes([]);
-      }
-    }
   };
 
   // ---------------------------------------------------------------------------
@@ -269,19 +202,13 @@ export default function AdminDashboardPage() {
   const startAddAssignment = () => {
     setEditingAssignment(null);
     setAssignmentForm({
-      role: 'DIRECTOR',
+      role: 'FACULTY',
       schoolId: schools[0]?.id ?? schools[0]?.schoolId ?? '',
-      departmentId: '',
-      masterProgrammeId: '',
+      departmentId: null,
+      masterProgrammeId: null,
     });
     setFormDepartments([]);
     setFormProgrammes([]);
-    if (schools.length > 0) {
-      const defaultSchoolId = schools[0]?.id ?? schools[0]?.schoolId;
-      loadDepartments(defaultSchoolId, true)
-        .then((d) => setFormDepartments(d || []))
-        .catch(() => {});
-    }
     setIsAddingAssignment(true);
   };
 
@@ -291,22 +218,12 @@ export default function AdminDashboardPage() {
     const initialRole = assignment.role || 'FACULTY';
     setAssignmentForm({
       role: initialRole,
-      schoolId: assignment.schoolId || '',
-      departmentId: assignment.departmentId || '',
-      masterProgrammeId: assignment.masterProgrammeId || '',
+      schoolId: assignment.schoolId || (schools[0]?.id ?? schools[0]?.schoolId ?? ''),
+      departmentId: null,
+      masterProgrammeId: null,
     });
-    if (assignment.schoolId) {
-      loadDepartments(assignment.schoolId, true)
-        .then((depts) => {
-          setFormDepartments(depts || []);
-          if (assignment.departmentId) {
-            loadProgrammes(assignment.departmentId, null, true)
-              .then((progs) => setFormProgrammes(progs || []))
-              .catch(() => {});
-          }
-        })
-        .catch(() => {});
-    }
+    setFormDepartments([]);
+    setFormProgrammes([]);
   };
 
   const saveAssignmentAction = async (e) => {
@@ -319,23 +236,17 @@ export default function AdminDashboardPage() {
       setError('School is required for this role assignment.');
       return;
     }
-    if (assignmentForm.role === 'HOD' && !assignmentForm.departmentId) {
-      setError('Department is required for HOD assignment.');
-      return;
-    }
-    if (assignmentForm.role === 'PROGRAMME_COORDINATOR' && (!assignmentForm.departmentId || !assignmentForm.masterProgrammeId)) {
-      setError('Department and Programme are required for Programme Coordinator assignment.');
-      return;
-    }
 
     setSaving(true);
     setError('');
     try {
+      const targetSchoolName = assignmentForm.role === 'IQAC' ? 'Institution-wide' : schoolName(assignmentForm.schoolId);
       const payload = {
         role: assignmentForm.role,
-        schoolId: assignmentForm.schoolId || null,
-        departmentId: assignmentForm.departmentId || null,
-        masterProgrammeId: assignmentForm.masterProgrammeId || null,
+        schoolId: assignmentForm.role === 'IQAC' ? null : (assignmentForm.schoolId || null),
+        schoolName: targetSchoolName,
+        departmentId: null,
+        masterProgrammeId: null,
       };
 
       if (editingAssignment) {
@@ -489,6 +400,7 @@ export default function AdminDashboardPage() {
           await addAssignment(targetUserId, {
             role: row.role,
             schoolId: row.schoolId,
+            schoolName: row.schoolName || schoolName(row.schoolId),
             departmentId: null,
             masterProgrammeId: null,
           });
@@ -517,16 +429,19 @@ export default function AdminDashboardPage() {
     try {
       const payload = {
         name: addUserForm.name.trim(),
+        username: addUserForm.email.trim(),
         email: addUserForm.email.trim(),
         password: addUserForm.password.trim(),
         assignments: addAssignmentRows.map((r) => ({
           role: r.role,
           schoolId: r.schoolId,
+          schoolName: r.schoolName || schoolName(r.schoolId),
           departmentId: null,
           masterProgrammeId: null,
         })),
         roles: [...new Set(addAssignmentRows.map((r) => r.role))],
         schools: [...new Set(addAssignmentRows.map((r) => r.schoolId).filter(Boolean))],
+        schoolIds: [...new Set(addAssignmentRows.map((r) => r.schoolId).filter(Boolean))],
         role: addAssignmentRows[0]?.role || 'FACULTY',
         schoolId: addAssignmentRows[0]?.schoolId || null,
         departmentId: null,
@@ -575,20 +490,25 @@ export default function AdminDashboardPage() {
   // ---------------------------------------------------------------------------
   const roleMatches = (member, role) => role === 'ALL' || userRoles(member).includes(role);
 
+  const activeUsers = useMemo(
+    () => users.filter((m) => m.isActive !== false && m.status !== 'INACTIVE'),
+    [users]
+  );
+
   const roleTabs = [
-    { id: 'ALL', label: 'All Users', count: users.length },
-    { id: 'IQAC', label: 'IQAC', count: users.filter((m) => userRoles(m).includes('IQAC')).length },
-    { id: 'DIRECTOR', label: 'Directors', count: users.filter((m) => userRoles(m).includes('DIRECTOR')).length },
-    { id: 'HOD', label: 'HODs', count: users.filter((m) => userRoles(m).includes('HOD')).length },
+    { id: 'ALL', label: 'All Users', count: activeUsers.length },
+    { id: 'IQAC', label: 'IQAC', count: activeUsers.filter((m) => userRoles(m).includes('IQAC')).length },
+    { id: 'DIRECTOR', label: 'Directors', count: activeUsers.filter((m) => userRoles(m).includes('DIRECTOR')).length },
+    { id: 'HOD', label: 'HODs', count: activeUsers.filter((m) => userRoles(m).includes('HOD')).length },
     {
       id: 'PROGRAMME_COORDINATOR',
       label: 'Programme Coordinators',
-      count: users.filter((m) => userRoles(m).includes('PROGRAMME_COORDINATOR')).length,
+      count: activeUsers.filter((m) => userRoles(m).includes('PROGRAMME_COORDINATOR')).length,
     },
-    { id: 'FACULTY', label: 'Faculty', count: users.filter((m) => userRoles(m).includes('FACULTY')).length },
+    { id: 'FACULTY', label: 'Faculty', count: activeUsers.filter((m) => userRoles(m).includes('FACULTY')).length },
   ];
 
-  const filteredUsers = users.filter((member) => {
+  const filteredUsers = activeUsers.filter((member) => {
     if (!roleMatches(member, selectedRole)) return false;
     const query = searchQuery.trim().toLowerCase();
     if (!query) return true;
@@ -1137,7 +1057,7 @@ export default function AdminDashboardPage() {
                 </label>
 
                 {/* School (required for all non-IQAC) */}
-                {assignmentForm.role !== 'IQAC' && (
+                {assignmentForm.role !== 'IQAC' ? (
                   <label style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
                     School *
                     <select
@@ -1153,44 +1073,19 @@ export default function AdminDashboardPage() {
                       ))}
                     </select>
                   </label>
-                )}
-
-                {/* Department (only for HOD, Programme Coordinator, Faculty) */}
-                {['HOD', 'PROGRAMME_COORDINATOR', 'FACULTY'].includes(assignmentForm.role) && (
-                  <label style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
-                    Department {assignmentForm.role === 'HOD' ? '*' : ''}
-                    <select
-                      value={assignmentForm.departmentId}
-                      onChange={(e) => handleAssignmentDeptChange(e.target.value)}
-                      style={{ ...fieldStyle, marginTop: 4 }}
-                    >
-                      <option value="">Select Department</option>
-                      {formDepartments.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-
-                {/* Programme (only for Programme Coordinator or Faculty) */}
-                {['PROGRAMME_COORDINATOR', 'FACULTY'].includes(assignmentForm.role) && (
-                  <label style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
-                    Programme {assignmentForm.role === 'PROGRAMME_COORDINATOR' ? '*' : '(optional)'}
-                    <select
-                      value={assignmentForm.masterProgrammeId}
-                      onChange={(e) => setAssignmentForm({ ...assignmentForm, masterProgrammeId: e.target.value })}
-                      style={{ ...fieldStyle, marginTop: 4 }}
-                    >
-                      <option value="">Select Programme</option>
-                      {formProgrammes.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                ) : (
+                  <div
+                    style={{
+                      padding: '8px 12px',
+                      background: '#eff6ff',
+                      border: '1px solid #bfdbfe',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      color: '#1e40af',
+                    }}
+                  >
+                    IQAC role operates institution-wide across all schools.
+                  </div>
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>

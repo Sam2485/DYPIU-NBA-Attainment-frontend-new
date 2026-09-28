@@ -348,7 +348,8 @@ export function UserProvider({
         const mapped =
           list
             .map(mapBackendUser)
-            .filter(Boolean);
+            .filter(Boolean)
+            .filter((u) => u.isActive !== false && u.status !== 'INACTIVE');
 
         setUsers(mapped);
 
@@ -691,6 +692,27 @@ export function UserProvider({
                 newUser.masterProgrammeId,
             }
           : {}),
+
+        ...(Array.isArray(newUser.assignments) && newUser.assignments.length > 0
+          ? {
+              assignments:
+                newUser.assignments,
+            }
+          : {}),
+
+        ...(Array.isArray(newUser.schools) && newUser.schools.length > 0
+          ? {
+              schools:
+                newUser.schools,
+            }
+          : {}),
+
+        ...(Array.isArray(newUser.schoolIds) && newUser.schoolIds.length > 0
+          ? {
+              schoolIds:
+                newUser.schoolIds,
+            }
+          : {}),
       };
 
       try {
@@ -845,10 +867,7 @@ export function UserProvider({
           (prev) =>
             prev.filter(
               (user) =>
-                user.id !==
-                String(
-                  userId
-                )
+                String(user.id ?? user.userId) !== String(userId)
             )
         );
 
