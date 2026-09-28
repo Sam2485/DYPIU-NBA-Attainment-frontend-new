@@ -20,7 +20,7 @@ import { ScreenLoadingState, ScreenErrorState } from '../../components/common/Sc
 
 // ── Director 4-Step Setup Workflow Definition ────────────────────────────────
 const DIRECTOR_STEPS = [
-  { step: 1, label: 'School Info',     desc: 'Configure metadata & Dean allocation',      path: '/director/school-structure',     icon: Building2,     color: '#4f46e5', bg: '#eef2ff' },
+  { step: 1, label: 'School Info',     desc: 'Configure metadata & Director allocation',      path: '/director/school-structure',     icon: Building2,     color: '#4f46e5', bg: '#eef2ff' },
   { step: 2, label: 'Departments',     desc: 'Department hierarchy & HOD assignments',  path: '/director/department-management', icon: Users,         color: '#0284c7', bg: '#f0f9ff' },
   { step: 3, label: 'Programmes',      desc: 'Map degree programmes & durations',        path: '/director/programme-overview',    icon: GraduationCap, color: '#7c3aed', bg: '#f5f3ff' },
   { step: 4, label: 'Review & Verify', desc: 'Audit structure & complete setup',        path: '/director/reports',              icon: CheckCircle2,  color: '#059669', bg: '#f0fdf4' },

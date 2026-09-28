@@ -79,12 +79,12 @@ const normalizeSchool = (school) => ({
   schoolId: school?.schoolId ?? school?.id ?? null,
   code: school?.code ?? null,
   name: school?.name ?? null,
-  dean:
-    school?.dean ??
+  director:
+    school?.director ??
     school?.directorName ??
     school?.director ??
     '',
-  deanEmail: school?.deanEmail ?? '',
+  directorEmail: school?.directorEmail ?? '',
   director:
     school?.directorName ??
     school?.director ??
@@ -349,6 +349,23 @@ export function AcademicProvider({ children }) {
   const [hodCoordinatorAssignments, setHodCoordinatorAssignments] = useState([]);
   const [students, setStudents] = useState([]);
   const masterProgrammeRequestsRef = useRef(new Map());
+
+  useEffect(() => {
+    const handleSchoolChanged = (event) => {
+      const newSchoolId = event?.detail?.schoolId;
+      academicCache.invalidate('all');
+      if (newSchoolId) {
+        setSelectedSchoolId(newSchoolId);
+      }
+      setSelectedDepartmentId(null);
+      setSelectedProgrammeId(null);
+      setSelectedBatchId(null);
+      setSelectedOfferingId(null);
+    };
+
+    window.addEventListener('nba-school-changed', handleSchoolChanged);
+    return () => window.removeEventListener('nba-school-changed', handleSchoolChanged);
+  }, [setSelectedDepartmentId, setSelectedProgrammeId, setSelectedBatchId, setSelectedOfferingId]);
 
   useEffect(() => {
     if (role !== 'HOD' || programmeId) return;
@@ -1559,6 +1576,12 @@ export function AcademicProvider({ children }) {
     return item;
   }, []);
 
+  const deleteSchool = useCallback(async (id) => {
+    await apiClient.delete(`/academic/schools/${id}`);
+    academicCache.invalidate('schools');
+    setSchools((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
   /* --- Department CRUD --- */
   const createDepartment = useCallback(async (data) => {
     const res = await apiClient.post('/academic/departments', data);
@@ -2180,6 +2203,7 @@ export function AcademicProvider({ children }) {
     createSchool,
     addSchool: createSchool,
     updateSchool,
+    deleteSchool,
 
     /* Departments */
     departments,
@@ -2371,7 +2395,7 @@ export function AcademicProvider({ children }) {
     deleteStudent,
   }), [
     loading, role, user,
-    schools, selectedSchool, selectedSchoolId, setSelectedSchoolId, loadSchools, createSchool, updateSchool,
+    schools, selectedSchool, selectedSchoolId, setSelectedSchoolId, loadSchools, createSchool, updateSchool, deleteSchool,
     departments, selectedDepartment, selectedDepartmentId, setSelectedDepartmentId, loadDepartments, createDepartment, updateDepartment, deleteDepartment,
     programmes, selectedProgramme, programmeId, setProgrammeId, loadProgrammes, loadMasterProgrammes, loadCoordinatorMasterProgrammes, createProgramme, updateProgramme, deleteProgramme, createMasterProgramme, updateMasterProgramme, deleteMasterProgramme,
     batches, batchId, setBatchId, selectedBatch, loadBatches, loadProgrammeBatches, loadCoordinatorProgrammeBatches, loadCourseCoordinatorProgrammeBatches, createBatch, updateBatch, deleteBatch, createProgrammeBatch, updateProgrammeBatch, deleteProgrammeBatch, updateProgrammeBatchStatus, reopenProgrammeBatch, closeProgrammeBatchReopening, assignProgrammeBatchCoordinator, activeSemester, semestersStatusOverview, loadSemestersStatusOverview, loadSemesterReadiness, executeCompleteSemester, executeReopenSemester,

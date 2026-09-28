@@ -105,6 +105,11 @@ const toAuthenticatedUser = (backendUser, fallbackEmail = null) => {
     department: backendUser.department ?? null,
     programme: backendUser.programme ?? null,
     isActive: backendUser.isActive ?? backendUser.is_active ?? true,
+    schools: Array.isArray(backendUser.schools) ? backendUser.schools : [],
+    schoolIds: Array.isArray(backendUser.schoolIds) ? backendUser.schoolIds : [],
+    schoolNames: Array.isArray(backendUser.schoolNames) ? backendUser.schoolNames : [],
+    assignments: Array.isArray(backendUser.assignments) ? backendUser.assignments : [],
+    roles: Array.isArray(backendUser.roles) ? backendUser.roles : [role],
     ...(backendUser.hodEmail !== undefined ? { hodEmail: backendUser.hodEmail } : {}),
     ...(backendUser.coordinatorEmail !== undefined
       ? { coordinatorEmail: backendUser.coordinatorEmail }
@@ -519,6 +524,18 @@ export function AuthProvider({ children }) {
       setUser(nextUser);
       setRole(nextUser.role);
       void loadAvailableProfiles();
+
+      try {
+        window.dispatchEvent(
+          new CustomEvent('nba-school-changed', {
+            detail: {
+              schoolId: nextUser.schoolId,
+              role: nextUser.role,
+              departmentId: nextUser.departmentId,
+            },
+          })
+        );
+      } catch {}
 
       return {
         success: true,

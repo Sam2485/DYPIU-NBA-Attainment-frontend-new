@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { Bell, Check, ChevronRight, Clock3, Eye, LockKeyhole, Monitor, Moon, ShieldCheck, SlidersHorizontal, UserRound, X } from 'lucide-react';
+import { Bell, Building2, Check, ChevronRight, Clock3, Eye, LockKeyhole, Monitor, Moon, ShieldCheck, SlidersHorizontal, UserRound, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const tabs = [
@@ -74,6 +74,7 @@ function AccountPanelSection({
   const { role, availableProfiles = [], isLoadingProfiles, loadAvailableProfiles, switchProfile } = useAuth();
   const [profileSwitchError, setProfileSwitchError] = useState('');
   const [switchingProfileKey, setSwitchingProfileKey] = useState(null);
+  const [switchingSchoolId, setSwitchingSchoolId] = useState(null);
   const toggle = onTogglePreference || ((key) => setPreferences?.((prev) => ({ ...prev, [key]: !prev[key] })));
   const userName = user?.name || user?.username || 'Academic User';
   const initials = userName.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
@@ -90,19 +91,137 @@ function AccountPanelSection({
     if (enableProfileSwitching) void loadAvailableProfiles();
   }, [enableProfileSwitching, loadAvailableProfiles]);
 
-  const handleSwitchProfile = async (profile, profileKey) => {
-    if (profile.isCurrent || profile.role === role) return;
+  const schoolList = useMemo(() => {
+    const map = new Map();
+    if (Array.isArray(user?.schools)) {
+      user.schools.forEach((s) => {
+        if (s?.id) {
+          const id = String(s.id);
+          map.set(id, {
+            id,
+            name: s.name || s.schoolName || s.code || `School ${id}`,
+            code: s.code || '',
+          });
+        }
+      });
+    }
+    if (Array.isArray(user?.assignments)) {
+      user.assignments.forEach((a) => {
+        if (a?.schoolId) {
+          const id = String(a.schoolId);
+          if (!map.has(id)) {
+            map.set(id, {
+              id,
+              name: a.schoolName || `School ${id}`,
+              code: '',
+            });
+          }
+        }
+      });
+    }
+    if (Array.isArray(availableProfiles)) {
+      availableProfiles.forEach((p) => {
+        if (p?.schoolId) {
+          const id = String(p.schoolId);
+          if (!map.has(id)) {
+            map.set(id, {
+              id,
+              name: p.schoolName || id,
+              code: '',
+            });
+          } else if (p.schoolName && map.get(id).name.startsWith('School ')) {
+            map.get(id).name = p.schoolName;
+          }
+        }
+      });
+    }
+    if (user?.schoolId && !map.has(String(user.schoolId))) {
+      const id = String(user.schoolId);
+      map.set(id, {
+        id,
+        name: user.schoolName || (typeof user.school === 'object' ? user.school?.name : null) || `School ${id}`,
+        code: (typeof user.school === 'object' ? user.school?.code : '') || '',
+      });
+    }
+    return Array.from(map.values());
+  }, [user?.schools, user?.assignments, user?.schoolId, user?.schoolName, user?.school, availableProfiles]);
+
+  const rolesForCurrentSchool = useMemo(() => {
+    if (!Array.isArray(availableProfiles) || availableProfiles.length === 0) return [];
+    const currentSchoolId = user?.schoolId ? String(user.schoolId) : null;
+
+    const filtered = availableProfiles.filter((p) => {
+      if (p.role === 'IQAC') return true;
+      if (currentSchoolId && p.schoolId) {
+        return String(p.schoolId) === currentSchoolId;
+      }
+      if (!p.schoolId) return true;
+      if (!currentSchoolId) return true;
+      return false;
+    });
+
+    return filtered.length > 0 ? filtered : availableProfiles;
+  }, [availableProfiles, user?.schoolId]);
+
+  const isProfileCurrent = (profile) => {
+    if (Boolean(profile.isCurrent)) return true;
+    const roleMatches = profile.role === role;
+    if (!roleMatches) return false;
+    if (profile.schoolId) {
+      return String(profile.schoolId) === String(user?.schoolId);
+    }
+    if (profile.departmentId && user?.departmentId) {
+      return String(profile.departmentId) === String(user.departmentId);
+    }
+    return true;
+  };
+
+  const executeSwitch = async (profile, profileKey) => {
     setProfileSwitchError('');
     setSwitchingProfileKey(profileKey);
     const result = await switchProfile(profile);
     if (!result.success) {
       setProfileSwitchError(result.error || 'Unable to switch profile.');
       setSwitchingProfileKey(null);
+      setSwitchingSchoolId(null);
       return;
     }
 
     const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
     window.location.assign(`${basePath}${result.targetPath}`);
+  };
+
+  const handleSwitchProfile = async (profile, profileKey) => {
+    if (isProfileCurrent(profile)) return;
+    await executeSwitch(profile, profileKey);
+  };
+
+  const handleSwitchSchool = async (targetSchoolId) => {
+    const currentSchoolId = user?.schoolId ? String(user.schoolId) : null;
+    if (currentSchoolId && String(targetSchoolId) === currentSchoolId) return;
+
+    setProfileSwitchError('');
+    setSwitchingSchoolId(targetSchoolId);
+
+    let targetProfile = availableProfiles.find(
+      (p) => String(p.schoolId) === String(targetSchoolId) && p.role === role
+    );
+
+    if (!targetProfile) {
+      targetProfile = availableProfiles.find(
+        (p) => String(p.schoolId) === String(targetSchoolId)
+      );
+    }
+
+    if (!targetProfile) {
+      targetProfile = {
+        role: role || 'DIRECTOR',
+        schoolId: targetSchoolId,
+      };
+    }
+
+    const profileKey = `school-${targetSchoolId}-${targetProfile.role}`;
+    await executeSwitch(targetProfile, profileKey);
   };
 
   const notificationItems = useMemo(
@@ -214,8 +333,8 @@ function AccountPanelSection({
 
         {/* TAB 1: Profile */}
         {tab === 'profile' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '210px minmax(0, 1fr)', gap: 22, paddingTop: 20 }}>
-            <aside style={{ textAlign: 'center', borderRight: '1px solid #e7edf5', padding: '10px 22px 10px 2px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '228px minmax(0, 1fr)', gap: 22, paddingTop: 20 }}>
+            <aside style={{ textAlign: 'center', borderRight: '1px solid #e7edf5', padding: '10px 18px 10px 2px' }}>
               <div
                 style={{
                   width: 84,
@@ -252,27 +371,137 @@ function AccountPanelSection({
                 <Check size={12} />
                 Active
               </span>
-              {enableProfileSwitching && availableProfiles.length > 1 && (
+
+              {enableProfileSwitching && (schoolList.length > 1 || rolesForCurrentSchool.length > 1) && (
                 <div style={{ marginTop: 18, paddingTop: 15, borderTop: '1px solid #e7edf5', textAlign: 'left' }}>
-                  <div style={{ color: '#64748b', fontSize: 10, fontWeight: 850, letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 8 }}>Switch profile</div>
-                  <div style={{ display: 'grid', gap: 6 }}>
-                    {availableProfiles.map((profile, index) => {
-                      const profileKey = `${profile.role}-${profile.departmentId ?? profile.programmeBatchId ?? index}`;
-                      const isCurrent = Boolean(profile.isCurrent) || profile.role === role;
-                      const isSwitching = switchingProfileKey === profileKey;
-                      return (
-                        <button
-                          key={profileKey}
-                          type="button"
-                          onClick={() => handleSwitchProfile(profile, profileKey)}
-                          disabled={isCurrent || isLoadingProfiles || Boolean(switchingProfileKey)}
-                          style={{ width: '100%', minHeight: 32, padding: '6px 8px', borderRadius: 8, border: isCurrent ? '1px solid #a5b4fc' : '1px solid #e2e8f0', background: isCurrent ? '#eef2ff' : '#fff', color: isCurrent ? '#4338ca' : '#334155', textAlign: 'left', cursor: isCurrent || isLoadingProfiles || Boolean(switchingProfileKey) ? 'default' : 'pointer', fontSize: 11, fontWeight: 800, fontFamily: 'inherit' }}
-                        >
-                          {isSwitching ? 'Switching…' : profileRoleName(profile.role)}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {/* TIER 1: SCHOOL SWITCHER (if >1 school assigned) */}
+                  {schoolList.length > 1 && (
+                    <div style={{ marginBottom: rolesForCurrentSchool.length > 1 ? 16 : 0 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          color: '#475569',
+                          fontSize: 10,
+                          fontWeight: 850,
+                          letterSpacing: '.06em',
+                          textTransform: 'uppercase',
+                          marginBottom: 8,
+                        }}
+                      >
+                        <Building2 size={13} style={{ color: '#4f46e5' }} />
+                        <span>Switch School</span>
+                      </div>
+                      <div style={{ display: 'grid', gap: 6, maxHeight: 150, overflowY: 'auto', paddingRight: 2 }}>
+                        {schoolList.map((s) => {
+                          const isCurrent = user?.schoolId && String(s.id) === String(user.schoolId);
+                          const isSwitching = switchingSchoolId === s.id;
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => handleSwitchSchool(s.id)}
+                              disabled={isCurrent || isLoadingProfiles || Boolean(switchingProfileKey)}
+                              title={s.name}
+                              style={{
+                                width: '100%',
+                                minHeight: 32,
+                                padding: '6px 8px',
+                                borderRadius: 8,
+                                border: isCurrent ? '1.5px solid #818cf8' : '1px solid #e2e8f0',
+                                background: isCurrent ? '#eef2ff' : '#fff',
+                                color: isCurrent ? '#3730a3' : '#334155',
+                                textAlign: 'left',
+                                cursor: isCurrent || isLoadingProfiles || Boolean(switchingProfileKey) ? 'default' : 'pointer',
+                                fontSize: 11,
+                                fontWeight: isCurrent ? 800 : 600,
+                                fontFamily: 'inherit',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 6,
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                                {isSwitching ? 'Switching…' : s.name}
+                              </span>
+                              {isCurrent && <Check size={12} style={{ color: '#4f46e5', flexShrink: 0 }} />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TIER 2: ROLE SWITCHER (filtered to current school, if >1 role available) */}
+                  {rolesForCurrentSchool.length > 1 && (
+                    <div style={{ marginTop: schoolList.length > 1 ? 14 : 0, paddingTop: schoolList.length > 1 ? 14 : 0, borderTop: schoolList.length > 1 ? '1px dashed #e2e8f0' : 'none' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          color: '#475569',
+                          fontSize: 10,
+                          fontWeight: 850,
+                          letterSpacing: '.06em',
+                          textTransform: 'uppercase',
+                          marginBottom: 8,
+                        }}
+                      >
+                        <ShieldCheck size={13} style={{ color: '#4f46e5' }} />
+                        <span>Switch Role</span>
+                      </div>
+                      <div style={{ display: 'grid', gap: 6, maxHeight: 150, overflowY: 'auto', paddingRight: 2 }}>
+                        {rolesForCurrentSchool.map((profile, index) => {
+                          const profileKey = `${profile.role}-${profile.schoolId ?? ''}-${profile.departmentId ?? profile.programmeBatchId ?? index}`;
+                          const isCurrent = isProfileCurrent(profile);
+                          const isSwitching = switchingProfileKey === profileKey;
+                          return (
+                            <button
+                              key={profileKey}
+                              type="button"
+                              onClick={() => handleSwitchProfile(profile, profileKey)}
+                              disabled={isCurrent || isLoadingProfiles || Boolean(switchingProfileKey)}
+                              title={profile.displayName || profileRoleName(profile.role)}
+                              style={{
+                                width: '100%',
+                                minHeight: 32,
+                                padding: '6px 8px',
+                                borderRadius: 8,
+                                border: isCurrent ? '1.5px solid #818cf8' : '1px solid #e2e8f0',
+                                background: isCurrent ? '#eef2ff' : '#fff',
+                                color: isCurrent ? '#3730a3' : '#334155',
+                                textAlign: 'left',
+                                cursor: isCurrent || isLoadingProfiles || Boolean(switchingProfileKey) ? 'default' : 'pointer',
+                                fontSize: 11,
+                                fontWeight: isCurrent ? 800 : 600,
+                                fontFamily: 'inherit',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 6,
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                                <div>{isSwitching ? 'Switching…' : profileRoleName(profile.role)}</div>
+                                {profile.departmentName && (
+                                  <div style={{ fontSize: 9.5, color: '#64748b', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {profile.departmentName}
+                                  </div>
+                                )}
+                              </div>
+                              {isCurrent && <Check size={12} style={{ color: '#4f46e5', flexShrink: 0 }} />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {profileSwitchError && <div style={{ marginTop: 8, color: '#b91c1c', fontSize: 10.5, fontWeight: 700 }}>{profileSwitchError}</div>}
                 </div>
               )}

@@ -60,7 +60,7 @@ export default function DirectorSchoolStructure() {
 
   const schoolDisplayName = selectedSchool?.name ?? '—';
   const schoolDisplayCode = selectedSchool?.code ?? '—';
-  const schoolDeanName = selectedSchool?.dean ?? '—';
+  const schoolDirectorName = selectedSchool?.director ?? '—';
   const schoolEstYear = selectedSchool?.estYear ?? '—';
 
   return (
@@ -88,7 +88,7 @@ export default function DirectorSchoolStructure() {
           <div>
             <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{schoolDisplayName}</div>
             <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>
-              Dean: <strong style={{ color: ink }}>{schoolDeanName}</strong>
+              Director: <strong style={{ color: ink }}>{schoolDirectorName}</strong>
               &nbsp;·&nbsp; Est. {schoolEstYear}
             </div>
           </div>

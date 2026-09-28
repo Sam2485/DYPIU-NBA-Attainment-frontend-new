@@ -6,7 +6,7 @@ import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
 
 const STEPS = [
-  { number: 1, title: 'School Info',     desc: 'Metadata & Dean allocation',      path: '/director/school-structure',     icon: Building2,     color: '#4f46e5', bg: '#eef2ff' },
+  { number: 1, title: 'School Info',     desc: 'Metadata & Director allocation',      path: '/director/school-structure',     icon: Building2,     color: '#4f46e5', bg: '#eef2ff' },
   { number: 2, title: 'Departments',     desc: 'Department hierarchy & HODs',     path: '/director/department-management', icon: Users,         color: '#0284c7', bg: '#f0f9ff' },
   { number: 3, title: 'Programmes',      desc: 'Degree programmes & duration',    path: '/director/programme-overview',    icon: GraduationCap, color: '#7c3aed', bg: '#f5f3ff' },
   { number: 4, title: 'Review & Verify', desc: 'Audit structure & complete setup', path: '/director/reports',              icon: CheckCircle2,  color: '#059669', bg: '#f0fdf4' },
@@ -68,7 +68,7 @@ export default function DirectorSetupWorkflow() {
   // Step 1
   const [schoolName, setSchoolName] = useState('');
   const [schoolCode, setSchoolCode] = useState('');
-  const [deanName, setDeanName] = useState('');
+  const [directorName, setDirectorName] = useState('');
   const [estYear, setEstYear] = useState('');
 
   // Step 2
@@ -89,7 +89,7 @@ export default function DirectorSetupWorkflow() {
     if (!selectedSchool) return;
     setSchoolName(selectedSchool.name ?? '');
     setSchoolCode(selectedSchool.code ?? '');
-    setDeanName(selectedSchool.dean ?? '');
+    setDirectorName(selectedSchool.director ?? '');
     setEstYear(selectedSchool.estYear ?? '');
   }, [selectedSchool]);
 
@@ -306,9 +306,9 @@ export default function DirectorSetupWorkflow() {
       await updateSchool(selectedSchool.id, {
         name: schoolName,
         code: schoolCode.toUpperCase(),
-        dean: deanName,
+        director: directorName,
         estYear: estYear.trim(),
-        deanEmail: selectedSchool.deanEmail ?? '',
+        directorEmail: selectedSchool.directorEmail ?? '',
         directorName: selectedSchool.director ?? '',
         directorEmail: selectedSchool.directorEmail ?? '',
         status: selectedSchool.status ?? 'ACTIVE',
@@ -454,7 +454,7 @@ export default function DirectorSetupWorkflow() {
           <div>
             <div style={{ marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: ink }}>School Information</h3>
-              <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>Set the school name, code, and Dean/Director details.</p>
+              <p style={{ margin: '3px 0 0', fontSize: '12px', color: muted }}>Set the school name, code, and Director details.</p>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxWidth: '700px' }}>
@@ -467,8 +467,8 @@ export default function DirectorSetupWorkflow() {
                 <input type="text" value={schoolCode} onChange={(e) => setSchoolCode(e.target.value)} style={{ ...inputStyle, fontWeight: '700', color: accent }} />
               </div>
               <div>
-                <label style={labelStyle}>Dean / School Director *</label>
-                <input type="text" value={deanName} onChange={(e) => setDeanName(e.target.value)} style={inputStyle} />
+                <label style={labelStyle}>School Director *</label>
+                <input type="text" value={directorName} onChange={(e) => setDirectorName(e.target.value)} style={inputStyle} />
               </div>
               <div>
                 <label style={labelStyle}>Establishment Year</label>
@@ -681,7 +681,7 @@ export default function DirectorSetupWorkflow() {
                 <div style={{ fontSize: '11px', fontWeight: '700', color: muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>School</div>
                 <div style={{ fontSize: '15px', fontWeight: '800', color: ink }}>{schoolName}</div>
                 <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>Code: <strong style={{ color: ink }}>{schoolCode}</strong></div>
-                <div style={{ fontSize: '12px', color: muted, marginTop: '1px' }}>Dean: <strong style={{ color: ink }}>{deanName}</strong></div>
+                <div style={{ fontSize: '12px', color: muted, marginTop: '1px' }}>Director: <strong style={{ color: ink }}>{directorName}</strong></div>
                 <div style={{ fontSize: '12px', color: muted, marginTop: '1px' }}>Est. {estYear}</div>
               </div>
               <div style={{ ...surface, padding: '16px' }}>

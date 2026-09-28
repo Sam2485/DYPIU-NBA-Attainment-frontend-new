@@ -10,6 +10,7 @@ import {
   Mail,
   UserCheck,
   Edit2,
+  Trash2,
   X,
   Save,
   CheckCircle2,
@@ -126,6 +127,7 @@ export default function IqacSchoolsPage() {
     loadMasterProgrammes = () => Promise.resolve([]),
     createSchool = () => Promise.resolve(null),
     updateSchool = () => Promise.resolve(null),
+    deleteSchool = () => Promise.resolve(),
   } = useAcademic();
 
   const { users = [], refreshUsers = () => Promise.resolve([]) } = useUser();
@@ -133,6 +135,8 @@ export default function IqacSchoolsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingSchool, setEditingSchool] = useState(null);
+  const [deletingSchool, setDeletingSchool] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -159,7 +163,10 @@ export default function IqacSchoolsPage() {
   const directorUsers = useMemo(() => {
     return users.filter((u) => {
       const roles = Array.isArray(u.roles) && u.roles.length ? u.roles : [u.role];
-      return roles.includes('DIRECTOR');
+      const hasRole = roles.includes('DIRECTOR');
+      const hasAssignment = Array.isArray(u.assignments) &&
+        u.assignments.some((a) => a.role === 'DIRECTOR' && a.isActive !== false);
+      return hasRole || hasAssignment;
     });
   }, [users]);
 
@@ -256,6 +263,24 @@ export default function IqacSchoolsPage() {
       setError(err?.response?.data?.message || err?.message || 'Unable to save school details.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingSchool) return;
+    const targetId = deletingSchool.id ?? deletingSchool.schoolId;
+    setIsDeleting(true);
+    setError('');
+    try {
+      await deleteSchool(targetId);
+      setSuccessMessage(`Successfully deleted school: ${deletingSchool.name}`);
+      setDeletingSchool(null);
+      await loadSchools(true);
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || 'Failed to delete school.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -657,28 +682,50 @@ export default function IqacSchoolsPage() {
                               </div>
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(school)}
-                            title="Edit School Details"
-                            style={{
-                              height: '32px',
-                              padding: '0 10px',
-                              background: '#ffffff',
-                              border: '1px solid #cbd5e1',
-                              color: '#334155',
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              fontWeight: 700,
-                              fontSize: '12px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              flexShrink: 0,
-                            }}
-                          >
-                            <Edit2 size={12} /> Edit
-                          </button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(school)}
+                              title="Edit School Details"
+                              style={{
+                                height: '32px',
+                                padding: '0 10px',
+                                background: '#ffffff',
+                                border: '1px solid #cbd5e1',
+                                color: '#334155',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontWeight: 700,
+                                fontSize: '12px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                            >
+                              <Edit2 size={12} /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingSchool(school)}
+                              title="Delete School"
+                              style={{
+                                height: '32px',
+                                padding: '0 10px',
+                                background: '#ffffff',
+                                border: '1px solid #fecaca',
+                                color: '#dc2626',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontWeight: 700,
+                                fontSize: '12px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                            >
+                              <Trash2 size={12} /> Delete
+                            </button>
+                          </div>
                         </div>
 
                         {/* Card Body */}
@@ -925,29 +972,12 @@ export default function IqacSchoolsPage() {
                     })}
                   </select>
                 </label>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 600, color: '#475569' }}>
-                  Director Name
-                  <input
-                    value={form.directorName}
-                    onChange={(e) => setForm({ ...form, directorName: e.target.value })}
-                    placeholder="Director / Dean Name"
-                    style={fieldStyle}
-                  />
-                </label>
-
-                <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 600, color: '#475569' }}>
-                  Director Email
-                  <input
-                    type="email"
-                    value={form.directorEmail}
-                    onChange={(e) => setForm({ ...form, directorEmail: e.target.value })}
-                    placeholder="director@dypiu.ac.in"
-                    style={fieldStyle}
-                  />
-                </label>
+                {form.directorId && (form.directorName || form.directorEmail) && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '6px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <UserCheck size={14} style={{ color: '#4f46e5' }} />
+                    <span>Assigned: <strong>{form.directorName || 'Director'}</strong> {form.directorEmail ? `(${form.directorEmail})` : ''}</span>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
@@ -992,6 +1022,123 @@ export default function IqacSchoolsPage() {
               </div>
             </form>
           </SchoolModal>
+        )}
+
+        {/* ── Delete School Confirmation Modal ────────────────────────────── */}
+        {deletingSchool && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 1000,
+              background: 'rgba(15, 23, 42, 0.45)',
+              backdropFilter: 'blur(4px)',
+              display: 'grid',
+              placeItems: 'center',
+              padding: '20px',
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !isDeleting) setDeletingSchool(null);
+            }}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: '440px',
+                ...surface,
+                boxShadow: '0 24px 60px rgba(15, 23, 42, 0.22)',
+                padding: '24px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                <div
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '10px',
+                    background: '#fef2f2',
+                    color: '#dc2626',
+                    display: 'grid',
+                    placeItems: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Trash2 size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                    Delete School
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#64748b' }}>
+                    Are you sure you want to delete this school?
+                  </p>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  fontSize: '13px',
+                  color: '#334155',
+                  marginBottom: '20px',
+                }}
+              >
+                <div style={{ fontWeight: 700, color: '#0f172a' }}>{deletingSchool.name}</div>
+                <div style={{ color: '#64748b', fontSize: '12px', marginTop: '2px' }}>
+                  Code: {deletingSchool.code}
+                </div>
+                <div style={{ color: '#b45309', fontSize: '12px', marginTop: '6px' }}>
+                  Note: This will soft-delete the school and deactivate all user assignments associated with it.
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setDeletingSchool(null)}
+                  style={{
+                    height: '36px',
+                    padding: '0 14px',
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    color: '#475569',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleConfirmDelete}
+                  style={{
+                    height: '36px',
+                    padding: '0 16px',
+                    background: '#dc2626',
+                    border: 0,
+                    borderRadius: '8px',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    cursor: isDeleting ? 'wait' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 6px rgba(220, 38, 38, 0.25)',
+                  }}
+                >
+                  <Trash2 size={14} /> {isDeleting ? 'Deleting…' : 'Confirm Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>

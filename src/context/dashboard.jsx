@@ -29,7 +29,7 @@ export const CC_WORKFLOW_STEPS = [
 ];
 
 export const DIRECTOR_WORKFLOW_STEPS = [
-  { number: 1, title: 'School Info', desc: 'Metadata & Dean allocation', path: '/director/school-structure', stepKey: 'step-1' },
+  { number: 1, title: 'School Info', desc: 'Metadata & Director allocation', path: '/director/school-structure', stepKey: 'step-1' },
   { number: 2, title: 'Departments', desc: 'Department hierarchy & HODs', path: '/director/department-management', stepKey: 'step-2' },
   { number: 3, title: 'Programmes', desc: 'Degree programmes & duration', path: '/director/programme-overview', stepKey: 'step-3' },
   { number: 4, title: 'Review & Verify', desc: 'Audit structure & complete setup', path: '/director/reports', stepKey: 'step-4' },

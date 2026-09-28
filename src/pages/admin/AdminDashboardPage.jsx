@@ -167,11 +167,8 @@ export default function AdminDashboardPage() {
   });
   const [addAssignmentRows, setAddAssignmentRows] = useState([]);
   const [currentAddAssignment, setCurrentAddAssignment] = useState({
-    role: 'DIRECTOR',
-    schoolIds: [], // multi-select for Director (Requirement 8)
-    schoolId: '',
-    departmentId: '',
-    masterProgrammeId: '',
+    role: 'FACULTY',
+    schoolIds: [],
   });
   const [existingUserFound, setExistingUserFound] = useState(null);
 
@@ -391,16 +388,11 @@ export default function AdminDashboardPage() {
     setAddUserForm({ name: '', email: '', password: '' });
     setAddAssignmentRows([]);
     setCurrentAddAssignment({
-      role: 'DIRECTOR',
+      role: 'FACULTY',
       schoolIds: [],
-      schoolId: '',
-      departmentId: '',
-      masterProgrammeId: '',
     });
     setExistingUserFound(null);
     setError('');
-    setFormDepartments([]);
-    setFormProgrammes([]);
     setShowAddUserModal(true);
   };
 
@@ -415,7 +407,7 @@ export default function AdminDashboardPage() {
     setExistingUserFound(matched || null);
   };
 
-  const toggleDirectorSchoolSelect = (schoolId) => {
+  const toggleSchoolSelect = (schoolId) => {
     setCurrentAddAssignment((prev) => {
       const current = prev.schoolIds || [];
       const next = current.includes(schoolId)
@@ -426,60 +418,54 @@ export default function AdminDashboardPage() {
   };
 
   const addAssignmentToNewUser = () => {
-    if (currentAddAssignment.role === 'DIRECTOR') {
-      if (!currentAddAssignment.schoolIds || currentAddAssignment.schoolIds.length === 0) {
-        setError('Please select at least one school for Director assignment.');
+    if (currentAddAssignment.role === 'IQAC') {
+      if (addAssignmentRows.some((r) => r.role === 'IQAC')) {
+        setError('IQAC role is already added.');
         return;
       }
-      const newItems = currentAddAssignment.schoolIds.map((sId) => ({
-        role: 'DIRECTOR',
-        schoolId: sId,
-        schoolName: schoolName(sId),
-        departmentId: null,
-        masterProgrammeId: null,
-      }));
-      setAddAssignmentRows((prev) => [...prev, ...newItems]);
-      setCurrentAddAssignment((prev) => ({ ...prev, schoolIds: [] }));
-      setError('');
-    } else {
-      if (currentAddAssignment.role !== 'IQAC' && !currentAddAssignment.schoolId) {
-        setError('School is required.');
-        return;
-      }
-      if (currentAddAssignment.role === 'HOD' && !currentAddAssignment.departmentId) {
-        setError('Department is required for HOD assignment.');
-        return;
-      }
-      if (
-        currentAddAssignment.role === 'PROGRAMME_COORDINATOR' &&
-        (!currentAddAssignment.departmentId || !currentAddAssignment.masterProgrammeId)
-      ) {
-        setError('Department and Programme are required for Programme Coordinator.');
-        return;
-      }
-      const dept = formDepartments.find((d) => d.id === currentAddAssignment.departmentId);
-      const prog = formProgrammes.find((p) => p.id === currentAddAssignment.masterProgrammeId);
       setAddAssignmentRows((prev) => [
         ...prev,
         {
-          role: currentAddAssignment.role,
-          schoolId: currentAddAssignment.schoolId || null,
-          schoolName: currentAddAssignment.schoolId ? schoolName(currentAddAssignment.schoolId) : 'Institution-wide',
-          departmentId: currentAddAssignment.departmentId || null,
-          departmentName: dept?.name || null,
-          masterProgrammeId: currentAddAssignment.masterProgrammeId || null,
-          masterProgrammeName: prog?.name || null,
+          role: 'IQAC',
+          schoolId: null,
+          schoolName: 'Institution-wide',
+          departmentId: null,
+          masterProgrammeId: null,
         },
       ]);
-      setCurrentAddAssignment({
-        role: 'FACULTY',
-        schoolIds: [],
-        schoolId: '',
-        departmentId: '',
-        masterProgrammeId: '',
-      });
       setError('');
+      return;
     }
+
+    if (!currentAddAssignment.schoolIds || currentAddAssignment.schoolIds.length === 0) {
+      setError('Please select at least one school.');
+      return;
+    }
+
+    const newItems = [];
+    for (const sId of currentAddAssignment.schoolIds) {
+      const alreadyExists = addAssignmentRows.some(
+        (r) => r.role === currentAddAssignment.role && String(r.schoolId) === String(sId)
+      );
+      if (!alreadyExists) {
+        newItems.push({
+          role: currentAddAssignment.role,
+          schoolId: sId,
+          schoolName: schoolName(sId),
+          departmentId: null,
+          masterProgrammeId: null,
+        });
+      }
+    }
+
+    if (newItems.length === 0) {
+      setError('The selected role and school assignment(s) are already in the list.');
+      return;
+    }
+
+    setAddAssignmentRows((prev) => [...prev, ...newItems]);
+    setCurrentAddAssignment((prev) => ({ ...prev, schoolIds: [] }));
+    setError('');
   };
 
   const removeAssignmentFromNewUser = (index) => {
@@ -493,7 +479,7 @@ export default function AdminDashboardPage() {
     // If existing user was found, extend organizational access
     if (existingUserFound) {
       if (addAssignmentRows.length === 0) {
-        setError('Please configure and add at least one organizational assignment to extend access.');
+        setError('Please configure and add at least one role & school assignment to extend access.');
         return;
       }
       setSaving(true);
@@ -503,8 +489,8 @@ export default function AdminDashboardPage() {
           await addAssignment(targetUserId, {
             role: row.role,
             schoolId: row.schoolId,
-            departmentId: row.departmentId,
-            masterProgrammeId: row.masterProgrammeId,
+            departmentId: null,
+            masterProgrammeId: null,
           });
         }
         await refreshUsers();
@@ -523,7 +509,7 @@ export default function AdminDashboardPage() {
       return;
     }
     if (addAssignmentRows.length === 0) {
-      setError('Please add at least one organizational assignment for the new user.');
+      setError('Please add at least one role and school assignment for the new user.');
       return;
     }
 
@@ -536,14 +522,15 @@ export default function AdminDashboardPage() {
         assignments: addAssignmentRows.map((r) => ({
           role: r.role,
           schoolId: r.schoolId,
-          departmentId: r.departmentId,
-          masterProgrammeId: r.masterProgrammeId,
+          departmentId: null,
+          masterProgrammeId: null,
         })),
         roles: [...new Set(addAssignmentRows.map((r) => r.role))],
+        schools: [...new Set(addAssignmentRows.map((r) => r.schoolId).filter(Boolean))],
         role: addAssignmentRows[0]?.role || 'FACULTY',
         schoolId: addAssignmentRows[0]?.schoolId || null,
-        departmentId: addAssignmentRows[0]?.departmentId || null,
-        masterProgrammeId: addAssignmentRows[0]?.masterProgrammeId || null,
+        departmentId: null,
+        masterProgrammeId: null,
       };
 
       await addUser(payload);
@@ -1300,7 +1287,6 @@ export default function AdminDashboardPage() {
                       <li key={a.id}>
                         <strong>{a.schoolName || schoolName(a.schoolId) || 'Institution-wide'}</strong> →{' '}
                         {ROLE_OPTIONS.find((o) => o.value === a.role)?.label || a.role}
-                        {a.departmentName ? ` — ${a.departmentName}` : ''}
                       </li>
                     ))}
                   </ul>
@@ -1367,13 +1353,11 @@ export default function AdminDashboardPage() {
                         fontSize: 12,
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontWeight: 800, color: '#4338ca', background: '#eef2ff', padding: '2px 5px', borderRadius: 4 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontWeight: 800, color: '#4338ca', background: '#eef2ff', padding: '2px 7px', borderRadius: 4 }}>
                           {ROLE_OPTIONS.find((o) => o.value === row.role)?.label || row.role}
                         </span>
                         <strong style={{ color: '#0f172a' }}>{row.schoolName}</strong>
-                        {row.departmentName && <span style={{ color: '#475569' }}>— {row.departmentName}</span>}
-                        {row.masterProgrammeName && <span style={{ color: '#64748b' }}>({row.masterProgrammeName})</span>}
                       </div>
                       <button
                         type="button"
@@ -1390,7 +1374,7 @@ export default function AdminDashboardPage() {
               {/* Assignment Form Section */}
               <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 9, padding: 12, display: 'grid', gap: 10 }}>
                 <div style={{ fontSize: 12, fontWeight: 750, color: '#1e293b' }}>
-                  + Configure Assignment
+                  + Configure Role & School
                 </div>
 
                 <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
@@ -1402,9 +1386,6 @@ export default function AdminDashboardPage() {
                         ...currentAddAssignment,
                         role: e.target.value,
                         schoolIds: [],
-                        schoolId: '',
-                        departmentId: '',
-                        masterProgrammeId: '',
                       })
                     }
                     style={{ ...fieldStyle, height: 35, marginTop: 3 }}
@@ -1417,103 +1398,51 @@ export default function AdminDashboardPage() {
                   </select>
                 </label>
 
-                {/* Multi-School Checkbox List for Director (Requirement 8) */}
-                {currentAddAssignment.role === 'DIRECTOR' ? (
-                  <div>
-                    <div style={{ fontSize: 11.5, fontWeight: 700, color: '#475569', marginBottom: 5 }}>
-                      Schools (Multi-Select) *
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 6 }}>
-                      {schools.map((s) => {
-                        const sId = s.id ?? s.schoolId;
-                        const checked = (currentAddAssignment.schoolIds || []).includes(sId);
-                        return (
-                          <label
-                            key={sId}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 7,
-                              padding: '6px 9px',
-                              border: `1px solid ${checked ? '#6366f1' : '#cbd5e1'}`,
-                              background: checked ? '#eef2ff' : '#fff',
-                              borderRadius: 6,
-                              cursor: 'pointer',
-                              fontSize: 12,
-                              color: checked ? '#3730a3' : '#334155',
-                              fontWeight: 650,
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleDirectorSchoolSelect(sId)}
-                            />
-                            {s.name}
-                          </label>
-                        );
-                      })}
-                    </div>
+                {currentAddAssignment.role === 'IQAC' ? (
+                  <div style={{ fontSize: 12, color: '#4338ca', background: '#eef2ff', padding: '8px 12px', borderRadius: 6, fontWeight: 650 }}>
+                    IQAC role operates institution-wide across all schools.
                   </div>
                 ) : (
-                  <>
-                    {/* Single School Select for other roles */}
-                    {currentAddAssignment.role !== 'IQAC' && (
-                      <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
-                        School *
-                        <select
-                          value={currentAddAssignment.schoolId}
-                          onChange={(e) => handleAddModalSchoolChange(e.target.value)}
-                          style={{ ...fieldStyle, height: 35, marginTop: 3 }}
-                        >
-                          <option value="">Select School</option>
-                          {schools.map((s) => (
-                            <option key={s.id ?? s.schoolId} value={s.id ?? s.schoolId}>
+                  <div>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, color: '#475569', marginBottom: 5 }}>
+                      School(s) *
+                    </div>
+                    {schools.length === 0 ? (
+                      <div style={{ fontSize: 12, color: '#64748b' }}>No schools available.</div>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 6 }}>
+                        {schools.map((s) => {
+                          const sId = s.id ?? s.schoolId;
+                          const checked = (currentAddAssignment.schoolIds || []).includes(sId);
+                          return (
+                            <label
+                              key={sId}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 7,
+                                padding: '6px 9px',
+                                border: `1px solid ${checked ? '#6366f1' : '#cbd5e1'}`,
+                                background: checked ? '#eef2ff' : '#fff',
+                                borderRadius: 6,
+                                cursor: 'pointer',
+                                fontSize: 12,
+                                color: checked ? '#3730a3' : '#334155',
+                                fontWeight: 650,
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleSchoolSelect(sId)}
+                              />
                               {s.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                            </label>
+                          );
+                        })}
+                      </div>
                     )}
-
-                    {['HOD', 'PROGRAMME_COORDINATOR', 'FACULTY'].includes(currentAddAssignment.role) && (
-                      <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
-                        Department {currentAddAssignment.role === 'HOD' ? '*' : ''}
-                        <select
-                          value={currentAddAssignment.departmentId}
-                          onChange={(e) => handleAddModalDeptChange(e.target.value)}
-                          style={{ ...fieldStyle, height: 35, marginTop: 3 }}
-                        >
-                          <option value="">Select Department</option>
-                          {formDepartments.map((d) => (
-                            <option key={d.id} value={d.id}>
-                              {d.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-
-                    {['PROGRAMME_COORDINATOR', 'FACULTY'].includes(currentAddAssignment.role) && (
-                      <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
-                        Programme {currentAddAssignment.role === 'PROGRAMME_COORDINATOR' ? '*' : '(optional)'}
-                        <select
-                          value={currentAddAssignment.masterProgrammeId}
-                          onChange={(e) =>
-                            setCurrentAddAssignment({ ...currentAddAssignment, masterProgrammeId: e.target.value })
-                          }
-                          style={{ ...fieldStyle, height: 35, marginTop: 3 }}
-                        >
-                          <option value="">Select Programme</option>
-                          {formProgrammes.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                  </>
+                  </div>
                 )}
 
                 <button
