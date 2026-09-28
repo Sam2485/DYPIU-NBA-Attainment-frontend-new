@@ -154,6 +154,26 @@ const mapBackendUser = (user) => {
       user.is_active ??
       true,
 
+    assignments:
+      Array.isArray(user.assignments)
+        ? user.assignments
+        : [],
+
+    schools:
+      Array.isArray(user.schools)
+        ? user.schools
+        : [],
+
+    schoolIds:
+      Array.isArray(user.schoolIds)
+        ? user.schoolIds
+        : [],
+
+    schoolNames:
+      Array.isArray(user.schoolNames)
+        ? user.schoolNames
+        : [],
+
     /*
      * Preserve backend values when they exist.
      */
@@ -844,6 +864,69 @@ export function UserProvider({
     };
 
   /* ------------------------------------------------------------------------ */
+  /* Organizational Assignments                                               */
+  /* ------------------------------------------------------------------------ */
+
+  const getUserAssignments = useCallback(async (userId) => {
+    if (!userId) return [];
+    try {
+      const response = await apiClient.get(`/users/${userId}/assignments`);
+      return response?.data?.data ?? response?.data ?? [];
+    } catch (err) {
+      console.error('Failed to load user assignments:', err);
+      return [];
+    }
+  }, []);
+
+  const addAssignment = useCallback(async (userId, assignmentData) => {
+    if (!userId) throw new Error('userId is required');
+    try {
+      const response = await apiClient.post(`/users/${userId}/assignments`, assignmentData);
+      await refreshUsers();
+      return response?.data?.data ?? response?.data;
+    } catch (err) {
+      console.error('Failed to add assignment:', err);
+      throw err;
+    }
+  }, [refreshUsers]);
+
+  const updateAssignment = useCallback(async (userId, assignmentId, assignmentData) => {
+    if (!assignmentId) throw new Error('assignmentId is required');
+    try {
+      const response = await apiClient.put(`/users/${userId}/assignments/${assignmentId}`, assignmentData);
+      await refreshUsers();
+      return response?.data?.data ?? response?.data;
+    } catch (err) {
+      console.error('Failed to update assignment:', err);
+      throw err;
+    }
+  }, [refreshUsers]);
+
+  const removeAssignment = useCallback(async (userId, assignmentId) => {
+    if (!assignmentId) throw new Error('assignmentId is required');
+    try {
+      await apiClient.delete(`/users/${userId}/assignments/${assignmentId}`);
+      await refreshUsers();
+      return true;
+    } catch (err) {
+      console.error('Failed to remove assignment:', err);
+      throw err;
+    }
+  }, [refreshUsers]);
+
+  const checkEmail = useCallback(async (email) => {
+    if (!email || !email.trim()) return null;
+    try {
+      const response = await apiClient.get('/users/check-email', { params: { email: email.trim() } });
+      const data = response?.data?.data ?? response?.data;
+      return data ? mapBackendUser(data) : null;
+    } catch (err) {
+      console.error('Failed to check email:', err);
+      return null;
+    }
+  }, []);
+
+  /* ------------------------------------------------------------------------ */
   /* Provider                                                                 */
   /* ------------------------------------------------------------------------ */
 
@@ -892,6 +975,19 @@ export function UserProvider({
         deleteUser,
 
         refreshUsers,
+
+        /*
+         * Organizational Assignments
+         */
+        getUserAssignments,
+
+        addAssignment,
+
+        updateAssignment,
+
+        removeAssignment,
+
+        checkEmail,
 
         /*
          * Role label helper

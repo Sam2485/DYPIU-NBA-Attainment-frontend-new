@@ -1397,8 +1397,8 @@ export default function AppSidebar({
         </span>
         <div style={{ minWidth: 0 }}>
           <div style={{ color: '#f9fafb', fontWeight: 900, fontSize: 12, marginBottom: 3 }}>Need Help?</div>
-          <a href="mailto:obe@dypiu.ac.in" style={{ color: '#c7d2fe', fontWeight: 800, fontSize: 10.5, wordBreak: 'break-all', textDecoration: 'none' }}>
-            obe@dypiu.ac.in
+          <a href="mailto:iqac@dypiu.ac.in" style={{ color: '#c7d2fe', fontWeight: 800, fontSize: 10.5, wordBreak: 'break-all', textDecoration: 'none' }}>
+            iqac@dypiu.ac.in
           </a>
         </div>
       </div>

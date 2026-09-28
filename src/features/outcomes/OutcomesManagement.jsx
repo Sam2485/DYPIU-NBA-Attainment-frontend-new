@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck, Send, Lock } from 'lucide-react';
+import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck, Send, Lock, Download, AlertCircle, X, ChevronDown } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import RowButtons from '../../components/common/RowButtons';
@@ -57,6 +57,8 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
     updateProgrammePSOs = () => {},
     updateProgrammePEOs = () => {},
     loadCourseOutcomes = () => Promise.resolve([]),
+    loadAvailableCoSources = () => Promise.resolve([]),
+    importCourseOutcomesFromSource = () => Promise.resolve([]),
     updateCourseCOs = () => {},
     coTargets = {},
     updateCourseCoTargets = () => {},
@@ -122,6 +124,66 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
     if (targetCourseId) {
       updateCourseCoTargets(targetCourseId, localCoTargets);
       alert(`CO Target Levels (1.00 - 3.00 scale) for ${courseScope?.courseCode || courseScope?.code || 'the selected offering'} saved successfully!`);
+    }
+  };
+
+  const [availableCoSources, setAvailableCoSources] = useState([]);
+  const [isImportCoModalOpen, setIsImportCoModalOpen] = useState(false);
+  const [selectedSourceOfferingId, setSelectedSourceOfferingId] = useState('');
+  const [includeMappings, setIncludeMappings] = useState(true);
+  const [importCoLoading, setImportCoLoading] = useState(false);
+  const [importCoBanner, setImportCoBanner] = useState(null);
+
+  useEffect(() => {
+    if (!targetCourseId) {
+      setAvailableCoSources([]);
+      return;
+    }
+    loadAvailableCoSources(targetCourseId)
+      .then((sources) => {
+        setAvailableCoSources(sources || []);
+        if (sources && sources.length > 0) {
+          const defaultSrc = sources.find((s) => s.sameProgramme) || sources[0];
+          setSelectedSourceOfferingId(defaultSrc.offeringId);
+        }
+      })
+      .catch(() => setAvailableCoSources([]));
+  }, [loadAvailableCoSources, targetCourseId]);
+
+  const handleOpenImportCoModal = () => {
+    if (!availableCoSources || availableCoSources.length === 0) {
+      setImportCoBanner({
+        type: 'error',
+        message: 'No previous batch offerings with defined Course Outcomes found for this course code.',
+      });
+      setTimeout(() => setImportCoBanner(null), 5000);
+      return;
+    }
+    setIsImportCoModalOpen(true);
+  };
+
+  const handleConfirmImportCo = async () => {
+    if (!targetCourseId || !selectedSourceOfferingId) return;
+    try {
+      setImportCoLoading(true);
+      await importCourseOutcomesFromSource(targetCourseId, selectedSourceOfferingId, includeMappings);
+      await loadCourseOutcomes(targetCourseId);
+      const srcObj = availableCoSources.find((s) => s.offeringId === selectedSourceOfferingId);
+      setIsImportCoModalOpen(false);
+      setImportCoBanner({
+        type: 'success',
+        message: `Successfully imported Course Outcomes${includeMappings ? ' and mappings' : ''} from ${srcObj?.batchName || 'previous batch'}!`,
+      });
+      setTimeout(() => setImportCoBanner(null), 6000);
+    } catch (err) {
+      console.error('Failed to import course outcomes:', err);
+      setImportCoBanner({
+        type: 'error',
+        message: err?.response?.data?.message || err?.message || 'Failed to import Course Outcomes from previous batch.',
+      });
+      setTimeout(() => setImportCoBanner(null), 6000);
+    } finally {
+      setImportCoLoading(false);
     }
   };
 
@@ -665,6 +727,34 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
             </select>}
             {!isCoReviewLocked ? (
               <>
+                <button
+                  type="button"
+                  onClick={handleOpenImportCoModal}
+                  disabled={!targetCourseId || availableCoSources.length === 0 || isSavingOutcomes || importCoLoading}
+                  title={availableCoSources.length === 0 ? "No previous offerings with Course Outcomes found for this course code" : "Import Course Outcomes from a previous batch offering"}
+                  style={{
+                    height: '38px',
+                    padding: '0 14px',
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    background: '#f8fafc',
+                    color: availableCoSources.length > 0 ? '#4338ca' : '#94a3b8',
+                    border: availableCoSources.length > 0 ? '1px solid #c7d2fe' : '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    cursor: availableCoSources.length === 0 || importCoLoading ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <Download size={14} /> Import from Previous Batch
+                  {availableCoSources.length > 0 && (
+                    <span style={{ background: '#e0e7ff', color: '#4338ca', fontSize: '10px', padding: '1px 6px', borderRadius: '10px', fontWeight: '800' }}>
+                      {availableCoSources.length}
+                    </span>
+                  )}
+                </button>
                 <button
                   className="btn btn-primary"
                   onClick={handleSaveOutcomes}
@@ -1221,7 +1311,68 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
             return null;
           })()}
 
+          {/* Import Notification Banner */}
+          {importCoBanner && (
+            <div style={{
+              padding: '12px 16px',
+              marginBottom: '16px',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              fontSize: '13px',
+              fontWeight: '600',
+              background: importCoBanner.type === 'error' ? '#fef2f2' : '#f0fdf4',
+              color: importCoBanner.type === 'error' ? '#991b1b' : '#166534',
+              border: `1px solid ${importCoBanner.type === 'error' ? '#fecaca' : '#bbf7d0'}`,
+            }}>
+              {importCoBanner.type === 'error' ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
+              <span>{importCoBanner.message}</span>
+            </div>
+          )}
+
           <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '14px', marginBottom: '14px', borderBottom: '1px solid #f1f5f9', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '15px', color: '#0f172a', fontWeight: '800' }}>
+                  Course Outcomes (COs)
+                </h3>
+                <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
+                  {courseScope?.courseCode || courseScope?.code || 'Course'} &nbsp;·&nbsp; {courseScope?.courseName || courseScope?.name || 'Programme-Batch Course'}
+                </p>
+              </div>
+              {!isCoReviewLocked && (
+                <button
+                  type="button"
+                  onClick={handleOpenImportCoModal}
+                  disabled={!targetCourseId || availableCoSources.length === 0 || isSavingOutcomes || importCoLoading}
+                  title={availableCoSources.length === 0 ? "No previous offerings with Course Outcomes found for this course code" : "Import Course Outcomes from a previous batch offering"}
+                  style={{
+                    height: '34px',
+                    padding: '0 12px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    background: '#f8fafc',
+                    color: availableCoSources.length > 0 ? '#4338ca' : '#94a3b8',
+                    border: availableCoSources.length > 0 ? '1px solid #c7d2fe' : '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    cursor: availableCoSources.length === 0 || importCoLoading ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <Download size={13} /> Import from Previous Batch
+                  {availableCoSources.length > 0 && (
+                    <span style={{ background: '#e0e7ff', color: '#4338ca', fontSize: '10px', padding: '1px 6px', borderRadius: '10px', fontWeight: '800' }}>
+                      {availableCoSources.length}
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
+
             <div style={{ overflowX: 'auto', width: '100%' }}>
               <table className="audit-data-table">
                 <thead>
@@ -1236,8 +1387,44 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                 <tbody>
                   {coList.length === 0 ? (
                     <tr>
-                      <td colSpan={readOnly ? 4 : 5} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
-                        No Course Outcomes defined for this course yet. Click "+ Submit New CO Proposal".
+                      <td colSpan={readOnly ? 4 : 5} style={{ textAlign: 'center', padding: '32px 16px', color: '#64748b' }}>
+                        <p style={{ margin: '0 0 10px 0', fontSize: '13px' }}>
+                          No Course Outcomes defined for this course yet.
+                        </p>
+                        {!isCoReviewLocked && (
+                          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              style={{ fontSize: '12px', padding: '6px 14px' }}
+                              onClick={handleAddCO}
+                            >
+                              <Plus size={14} /> Add First Course Outcome
+                            </button>
+                            {availableCoSources.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={handleOpenImportCoModal}
+                                style={{
+                                  height: '32px',
+                                  padding: '0 14px',
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  background: '#e0e7ff',
+                                  color: '#4338ca',
+                                  border: '1px solid #c7d2fe',
+                                  borderRadius: '8px',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                }}
+                              >
+                                <Download size={13} /> Import from Previous Batch ({availableCoSources.length})
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ) : (
@@ -1400,6 +1587,145 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
           locked={isCoReviewLocked}
         />
       )}
+      {/* ── IMPORT CO MODAL ─────────────────────────────────────────────────── */}
+      {isImportCoModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(3px)',
+          display: 'grid',
+          placeItems: 'center',
+          zIndex: 1050,
+          padding: '16px',
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '540px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            overflow: 'hidden',
+            border: '1px solid #e2e8f0',
+          }}>
+            <div style={{
+              padding: '18px 24px',
+              borderBottom: '1px solid #f1f5f9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: '#f8fafc',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#e0e7ff', color: '#4338ca', display: 'grid', placeItems: 'center' }}>
+                  <Download size={18} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
+                    Import Course Outcomes
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+                    Copy outcomes from a previous batch offering of this course
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsImportCoModalOpen(false)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '24px' }}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>
+                  Target Course Offering
+                </label>
+                <div style={{ height: '38px', padding: '0 12px', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', color: '#0f172a', fontWeight: '700', fontSize: '13px', display: 'flex', alignItems: 'center' }}>
+                  {courseScope?.courseCode || courseScope?.code || 'Course'} — {courseScope?.courseName || courseScope?.name || 'Offering'}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>
+                  Select Previous Offering to Import From
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={selectedSourceOfferingId}
+                    onChange={(e) => setSelectedSourceOfferingId(e.target.value)}
+                    style={{
+                      height: '38px',
+                      width: '100%',
+                      padding: '0 30px 0 12px',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      fontWeight: '600',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      appearance: 'none',
+                    }}
+                  >
+                    {availableCoSources.map((s) => (
+                      <option key={s.offeringId} value={s.offeringId}>
+                        {s.batchName || s.batchId} · Sem {s.semester ?? '—'} ({s.coCount} Course Outcomes) {s.sameProgramme ? '★ Same Programme' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>
+                  <input
+                    type="checkbox"
+                    checked={includeMappings}
+                    onChange={(e) => setIncludeMappings(e.target.checked)}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#4f46e5' }}
+                  />
+                  <span>Also import CO–PO and CO–PSO mapping matrix</span>
+                </label>
+                <p style={{ margin: '4px 0 0 24px', fontSize: '11.5px', color: '#64748b' }}>
+                  Copies corresponding correlation levels (1, 2, 3) mapped to identical outcome codes.
+                </p>
+              </div>
+
+              <div style={{ padding: '12px 14px', borderRadius: '8px', background: '#fffbeb', border: '1px solid #fef3c7', color: '#92400e', fontSize: '12px', lineHeight: '1.5', display: 'flex', gap: '8px' }}>
+                <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px', color: '#d97706' }} />
+                <div>
+                  <strong>Notice:</strong> This action will copy all Course Outcome statements, target attainment levels, and Bloom&apos;s taxonomies with status <strong>DRAFT</strong>. Any existing unsaved drafts will be replaced.
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setIsImportCoModalOpen(false)}
+                disabled={importCoLoading}
+                style={{ height: '38px', padding: '0 16px', fontSize: '13px', fontWeight: '700', background: '#ffffff', color: '#475569', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmImportCo}
+                disabled={importCoLoading || !selectedSourceOfferingId}
+                style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '800', background: '#4f46e5', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: importCoLoading ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Download size={14} />
+                {importCoLoading ? 'Importing…' : 'Confirm Import'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal for Course Outcomes */}
       <DeleteConfirmModal
         isOpen={showCODeleteModal && deletingCOIndex !== null}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, X, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, X, CheckCircle2, ChevronDown, Download, AlertCircle, History } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
@@ -38,6 +38,8 @@ export default function HodProgrammeOutcomes() {
     batches = [],
     loadProgrammeBatches = () => Promise.resolve([]),
     loadProgrammeBatchOutcomes = () => Promise.resolve(null),
+    loadAvailableOutcomeSourceBatches = () => Promise.resolve([]),
+    importBatchOutcomesFromSource = () => Promise.resolve(null),
     saveProgrammeBatchOutcomeDefinitions = () => Promise.resolve(null),
     activePOs = [],
     activePSOs = [],
@@ -50,6 +52,11 @@ export default function HodProgrammeOutcomes() {
   const [selectedBatchId, setSelectedBatchId] = useState('');
   const [savedSignature, setSavedSignature] = useState(null);
   const [saveState, setSaveState] = useState('idle');
+  const [availableBatchSources, setAvailableBatchSources] = useState([]);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedSourceBatchId, setSelectedSourceBatchId] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importBanner, setImportBanner] = useState(null);
 
   const outcomesSignature = (pos = activePOs, psos = activePSOs, peos = activePEOs) => JSON.stringify({
     pos: pos.map(({ code, statement, description, competencies = [] }) => ({ code, statement: statement ?? description ?? '', competencies })),
@@ -101,6 +108,59 @@ export default function HodProgrammeOutcomes() {
       })
       .catch(() => {});
   }, [loadProgrammeBatchOutcomes, programmeId, selectedBatchId]);
+
+  useEffect(() => {
+    if (!selectedBatchId) {
+      setAvailableBatchSources([]);
+      return;
+    }
+    loadAvailableOutcomeSourceBatches(selectedBatchId)
+      .then((sources) => {
+        setAvailableBatchSources(sources || []);
+        if (sources && sources.length > 0) {
+          const defaultSrc = sources.find((s) => s.isDirectPredecessor) || sources[0];
+          setSelectedSourceBatchId(defaultSrc.batchId);
+        }
+      })
+      .catch(() => setAvailableBatchSources([]));
+  }, [loadAvailableOutcomeSourceBatches, selectedBatchId]);
+
+  const handleOpenImportModal = () => {
+    if (!availableBatchSources || availableBatchSources.length === 0) {
+      setImportBanner({
+        type: 'error',
+        message: 'No previous batches with defined outcomes found for this master programme.',
+      });
+      setTimeout(() => setImportBanner(null), 5000);
+      return;
+    }
+    setIsImportModalOpen(true);
+  };
+
+  const handleConfirmImport = async () => {
+    if (!selectedBatchId || !selectedSourceBatchId) return;
+    try {
+      setImportLoading(true);
+      await importBatchOutcomesFromSource(selectedBatchId, selectedSourceBatchId);
+      const srcObj = availableBatchSources.find((s) => s.batchId === selectedSourceBatchId);
+      setIsImportModalOpen(false);
+      setImportBanner({
+        type: 'success',
+        message: `Successfully imported outcomes from ${srcObj?.name || 'previous batch'} into current batch!`,
+      });
+      setSaveState('idle');
+      setTimeout(() => setImportBanner(null), 6000);
+    } catch (err) {
+      console.error('Failed to import outcomes:', err);
+      setImportBanner({
+        type: 'error',
+        message: err?.response?.data?.message || err?.message || 'Failed to import outcomes from previous batch.',
+      });
+      setTimeout(() => setImportBanner(null), 6000);
+    } finally {
+      setImportLoading(false);
+    }
+  };
 
   const selectedProgramme =
     masterProgrammes.find((p) => p.id === programmeId) ||
@@ -348,10 +408,30 @@ export default function HodProgrammeOutcomes() {
         </div>
       </div>
 
+      {/* ── IMPORT NOTIFICATION BANNER ──────────────────────────────────────── */}
+      {importBanner && (
+        <div style={{
+          padding: '12px 16px',
+          marginBottom: '16px',
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '13px',
+          fontWeight: '600',
+          background: importBanner.type === 'error' ? '#fef2f2' : '#f0fdf4',
+          color: importBanner.type === 'error' ? '#991b1b' : '#166534',
+          border: `1px solid ${importBanner.type === 'error' ? '#fecaca' : '#bbf7d0'}`,
+        }}>
+          {importBanner.type === 'error' ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
+          <span>{importBanner.message}</span>
+        </div>
+      )}
+
       {/* ── BATCH SELECTOR + TAB STRIP + SAVE OUTCOMES ───────────────────────── */}
       <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         {/* Tab strip */}
-        <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px', marginLeft: 'auto' }}>
+        <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '9px' }}>
           {[
             ['PO',  `POs (${activePOs.length})`],
             ['PSO', `PSOs (${normalisedPSOs.length})`],
@@ -379,9 +459,40 @@ export default function HodProgrammeOutcomes() {
           ))}
         </div>
 
-        <button onClick={handleSaveOutcomes} disabled={!selectedBatchId || isSaved || saveState === 'saving'} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '800', background: isSaved ? '#f0fdf4' : accent, color: isSaved ? '#15803d' : '#fff', border: isSaved ? '1px solid #86efac' : 'none', borderRadius: '8px', cursor: !selectedBatchId || isSaved || saveState === 'saving' ? 'not-allowed' : 'pointer', opacity: !selectedBatchId ? 0.55 : 1, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-          <CheckCircle2 size={14} /> {saveState === 'saving' ? 'Saving…' : isSaved ? 'Saved' : 'Save Outcomes'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={handleOpenImportModal}
+            disabled={!selectedBatchId || availableBatchSources.length === 0 || saveState === 'saving' || importLoading}
+            title={availableBatchSources.length === 0 ? "No previous batches with outcomes found" : "Import POs, PSOs & PEOs from a previous batch"}
+            style={{
+              height: '36px',
+              padding: '0 14px',
+              fontSize: '12.5px',
+              fontWeight: '700',
+              background: '#f8fafc',
+              color: availableBatchSources.length > 0 ? '#4338ca' : '#94a3b8',
+              border: availableBatchSources.length > 0 ? '1px solid #c7d2fe' : '1px solid #e2e8f0',
+              borderRadius: '8px',
+              cursor: availableBatchSources.length === 0 || importLoading ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontFamily: 'inherit',
+            }}
+          >
+            <Download size={14} /> Import from Previous Batch
+            {availableBatchSources.length > 0 && (
+              <span style={{ background: '#e0e7ff', color: '#4338ca', fontSize: '10px', padding: '1px 6px', borderRadius: '10px', fontWeight: '800' }}>
+                {availableBatchSources.length}
+              </span>
+            )}
+          </button>
+
+          <button onClick={handleSaveOutcomes} disabled={!selectedBatchId || isSaved || saveState === 'saving'} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '800', background: isSaved ? '#f0fdf4' : accent, color: isSaved ? '#15803d' : '#fff', border: isSaved ? '1px solid #86efac' : 'none', borderRadius: '8px', cursor: !selectedBatchId || isSaved || saveState === 'saving' ? 'not-allowed' : 'pointer', opacity: !selectedBatchId ? 0.55 : 1, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <CheckCircle2 size={14} /> {saveState === 'saving' ? 'Saving…' : isSaved ? 'Saved' : 'Save Outcomes'}
+          </button>
+        </div>
       </div>
 
       {/* ── TAB: PO ───────────────────────────────────────────────────────────── */}
@@ -608,6 +719,86 @@ export default function HodProgrammeOutcomes() {
           >
             <Plus size={15} /> Add Programme Educational Objective (PEO{activePEOs.length + 1})
           </button>
+        </div>
+      )}
+
+      {/* ── IMPORT OUTCOMES MODAL ────────────────────────────────────────── */}
+      {isImportModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#ffffff', borderRadius: '16px', maxWidth: '520px', width: '100%', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#e0e7ff', color: '#4338ca', display: 'grid', placeItems: 'center' }}>
+                  <Download size={18} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>Import from Previous Batch</h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>Copy POs, PSOs, PEOs, targets & competencies</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '24px' }}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ ...labelStyle, fontSize: '12px' }}>Target Batch</label>
+                <div style={{ ...inputStyle, background: '#f8fafc', color: '#0f172a', fontWeight: '700', display: 'flex', alignItems: 'center' }}>
+                  {batches.find(b => b.id === selectedBatchId)?.name || selectedBatchId}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ ...labelStyle, fontSize: '12px' }}>Select Source Batch to Import From</label>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={selectedSourceBatchId}
+                    onChange={(e) => setSelectedSourceBatchId(e.target.value)}
+                    style={{ ...inputStyle, cursor: 'pointer', appearance: 'none', paddingRight: '30px', fontWeight: '600' }}
+                  >
+                    {availableBatchSources.map((s) => (
+                      <option key={s.batchId} value={s.batchId}>
+                        {s.name} ({s.poCount} POs, {s.psoCount} PSOs{s.peoCount > 0 ? `, ${s.peoCount} PEOs` : ''}) {s.isDirectPredecessor ? '★ Preceding Batch' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+                </div>
+              </div>
+
+              <div style={{ padding: '12px 14px', borderRadius: '8px', background: '#fffbeb', border: '1px solid #fef3c7', color: '#92400e', fontSize: '12px', lineHeight: '1.5', display: 'flex', gap: '8px' }}>
+                <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px', color: '#d97706' }} />
+                <div>
+                  <strong>Notice:</strong> This action will copy all outcome statements, target benchmarks, and competencies into this batch with status <strong>DRAFT</strong>. Any existing unsaved drafts in this batch will be replaced.
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+                disabled={importLoading}
+                style={{ height: '38px', padding: '0 16px', fontSize: '13px', fontWeight: '700', background: '#ffffff', color: '#475569', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmImport}
+                disabled={importLoading || !selectedSourceBatchId}
+                style={{ height: '38px', padding: '0 18px', fontSize: '13px', fontWeight: '800', background: '#4f46e5', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: importLoading ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Download size={14} />
+                {importLoading ? 'Importing…' : 'Confirm Import'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -1,5 +1,19 @@
-import { useEffect, useState } from 'react';
-import { Save, Search, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import {
+  Save,
+  Search,
+  Trash2,
+  UserPlus,
+  Users,
+  X,
+  Plus,
+  Edit2,
+  Building2,
+  Check,
+  AlertCircle,
+  Shield,
+  Layers,
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useUser } from '../../context/user';
 import { useAcademic } from '../../context/AcademicContext';
@@ -11,64 +25,540 @@ const ROLE_OPTIONS = [
   { value: 'PROGRAMME_COORDINATOR', label: 'Programme Coordinator' },
   { value: 'FACULTY', label: 'Faculty' },
 ];
-const surface = { background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px' };
-const fieldStyle = { width: '100%', height: 39, border: '1px solid #cbd5e1', borderRadius: 7, padding: '0 10px', boxSizing: 'border-box', fontFamily: 'inherit' };
-const normalizeRole = (role) => role === 'COURSE_COORDINATOR' ? 'FACULTY' : role;
-const userRoles = (member) => [...new Set((Array.isArray(member?.roles) && member.roles.length ? member.roles : [member?.role]).filter(Boolean).map(normalizeRole))];
-const emptyUser = { name: '', email: '', password: '', role: 'FACULTY', roles: ['FACULTY'], schoolId: '', isActive: true };
 
-function Modal({ title, onClose, children }) {
-  return <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,.45)', display: 'grid', placeItems: 'center', padding: 20 }}><div style={{ width: '100%', maxWidth: 520, ...surface, boxShadow: '0 24px 60px rgba(15,23,42,.22)' }}><header style={{ padding: '17px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><strong style={{ color: '#0f172a' }}>{title}</strong><button type="button" onClick={onClose} style={{ border: 0, background: 'none', cursor: 'pointer' }}><X size={18} /></button></header>{children}</div></div>;
-}
+const surface = {
+  background: '#fff',
+  border: '1px solid #e2e8f0',
+  borderRadius: '14px',
+};
 
-function RoleMultiSelector({ value, onChange }) {
-  const selected = Array.isArray(value) ? value : [];
-  const toggleRole = (role) => {
-    const next = selected.includes(role) ? selected.filter((item) => item !== role) : [...selected, role];
-    onChange(next);
-  };
-  return <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-    {ROLE_OPTIONS.map((option) => {
-      const checked = selected.includes(option.value);
-      return <label key={option.value} style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 38, padding: '0 10px', border: `1px solid ${checked ? '#818cf8' : '#cbd5e1'}`, background: checked ? '#eef2ff' : '#fff', borderRadius: 8, cursor: 'pointer', color: checked ? '#3730a3' : '#334155', fontSize: 12, fontWeight: 750 }}><input type="checkbox" checked={checked} onChange={() => toggleRole(option.value)} />{option.label}</label>;
-    })}
-  </div>;
+const fieldStyle = {
+  width: '100%',
+  height: 39,
+  border: '1px solid #cbd5e1',
+  borderRadius: 7,
+  padding: '0 10px',
+  boxSizing: 'border-box',
+  fontFamily: 'inherit',
+  fontSize: 13,
+  color: '#0f172a',
+};
+
+const normalizeRole = (role) => (role === 'COURSE_COORDINATOR' ? 'FACULTY' : role);
+
+const userRoles = (member) => {
+  const list = [];
+  if (member?.role) list.push(member.role);
+  if (Array.isArray(member?.roles)) list.push(...member.roles);
+  if (Array.isArray(member?.assignments)) {
+    member.assignments.forEach((a) => {
+      if (a?.role) list.push(a.role);
+    });
+  }
+  return [...new Set(list.filter(Boolean).map(normalizeRole))];
+};
+
+function Modal({ title, onClose, maxWidth = 560, children }) {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        background: 'rgba(15,23,42,.45)',
+        display: 'grid',
+        placeItems: 'center',
+        padding: 20,
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth,
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          ...surface,
+          boxShadow: '0 24px 60px rgba(15,23,42,.22)',
+        }}
+      >
+        <header
+          style={{
+            padding: '17px 20px',
+            borderBottom: '1px solid #e2e8f0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexShrink: 0,
+            background: '#fff',
+            borderTopLeftRadius: '14px',
+            borderTopRightRadius: '14px',
+          }}
+        >
+          <strong style={{ color: '#0f172a', fontSize: 16 }}>{title}</strong>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              border: 0,
+              background: 'none',
+              cursor: 'pointer',
+              color: '#64748b',
+              padding: 4,
+              display: 'grid',
+              placeItems: 'center',
+            }}
+          >
+            <X size={18} />
+          </button>
+        </header>
+        <div style={{ overflowY: 'auto', padding: 20 }}>{children}</div>
+      </div>
+    </div>
+  );
 }
 
 export default function AdminDashboardPage() {
   const { user, logout } = useAuth();
-  const { users = [], refreshUsers = () => Promise.resolve([]), addUser = () => Promise.resolve(null), updateUser = () => Promise.resolve(null), deleteUser = () => Promise.resolve(null) } = useUser();
-  const { schools = [], loadSchools = () => Promise.resolve([]) } = useAcademic();
-  const [userForm, setUserForm] = useState(emptyUser);
-  const [editingUser, setEditingUser] = useState(null);
-  const [showUserModal, setShowUserModal] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [deletingUserId, setDeletingUserId] = useState(null);
-  const [error, setError] = useState('');
+  const {
+    users = [],
+    refreshUsers = () => Promise.resolve([]),
+    addUser = () => Promise.resolve(null),
+    updateUser = () => Promise.resolve(null),
+    deleteUser = () => Promise.resolve(null),
+    addAssignment = () => Promise.resolve(null),
+    updateAssignment = () => Promise.resolve(null),
+    removeAssignment = () => Promise.resolve(null),
+  } = useUser();
+
+  const {
+    schools = [],
+    loadSchools = () => Promise.resolve([]),
+    loadDepartments = () => Promise.resolve([]),
+    loadProgrammes = () => Promise.resolve([]),
+  } = useAcademic();
+
   const [selectedRole, setSelectedRole] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState(null);
+
+  // Edit Access Modal state
+  const [showEditAccessModal, setShowEditAccessModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [editingAssignment, setEditingAssignment] = useState(null);
+  const [isAddingAssignment, setIsAddingAssignment] = useState(false);
+  const [assignmentForm, setAssignmentForm] = useState({
+    role: 'DIRECTOR',
+    schoolId: '',
+    departmentId: '',
+    masterProgrammeId: '',
+  });
+  const [formDepartments, setFormDepartments] = useState([]);
+  const [formProgrammes, setFormProgrammes] = useState([]);
+
+  // Add User Modal state
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [addUserForm, setAddUserForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+  });
+  const [addAssignmentRows, setAddAssignmentRows] = useState([]);
+  const [currentAddAssignment, setCurrentAddAssignment] = useState({
+    role: 'DIRECTOR',
+    schoolIds: [], // multi-select for Director (Requirement 8)
+    schoolId: '',
+    departmentId: '',
+    masterProgrammeId: '',
+  });
+  const [existingUserFound, setExistingUserFound] = useState(null);
 
   useEffect(() => {
     Promise.all([refreshUsers(), loadSchools()]).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const openAddUser = () => { setEditingUser(null); setUserForm(emptyUser); setError(''); setShowUserModal(true); };
-  const openEditUser = (target) => { const roles = userRoles(target); setEditingUser(target); setUserForm({ name: target.name || '', email: target.email || '', password: '', role: roles[0] || 'FACULTY', roles: roles.length ? roles : ['FACULTY'], schoolId: target.schoolId || '', isActive: target.isActive !== false }); setError(''); setShowUserModal(true); };
-  const saveUser = async (event) => {
-    event.preventDefault();
-    if (!userForm.name.trim() || !userForm.email.trim() || !userForm.roles.length || !userForm.schoolId || (!editingUser && !userForm.password)) { setError('Name, email, password (for a new user), at least one role, and school are required.'); return; }
-    setSaving(true); setError('');
-    try {
-      const payload = { name: userForm.name.trim(), email: userForm.email.trim(), role: userForm.roles[0], roles: userForm.roles, schoolId: userForm.schoolId, isActive: userForm.isActive };
-      if (editingUser) {
-        if (userForm.password) payload.password = userForm.password;
-        await updateUser(editingUser.id, payload);
-      } else {
-        await addUser({ ...payload, password: userForm.password });
+
+  const schoolName = (schoolId) =>
+    schools.find((school) => (school.id ?? school.schoolId) === schoolId)?.name || '—';
+
+  // ---------------------------------------------------------------------------
+  // Dynamic department and programme loaders for assignment forms
+  // ---------------------------------------------------------------------------
+  const handleAssignmentSchoolChange = async (targetSchoolId) => {
+    setAssignmentForm((prev) => ({
+      ...prev,
+      schoolId: targetSchoolId,
+      departmentId: '',
+      masterProgrammeId: '',
+    }));
+    setFormDepartments([]);
+    setFormProgrammes([]);
+    if (targetSchoolId) {
+      try {
+        const depts = await loadDepartments(targetSchoolId, true);
+        setFormDepartments(depts || []);
+      } catch (e) {
+        setFormDepartments([]);
       }
-      await refreshUsers(); setShowUserModal(false);
-    } catch (err) { setError(err?.response?.data?.message || err?.message || 'Unable to save user.'); } finally { setSaving(false); }
+    }
   };
+
+  const handleAssignmentDeptChange = async (targetDeptId) => {
+    setAssignmentForm((prev) => ({
+      ...prev,
+      departmentId: targetDeptId,
+      masterProgrammeId: '',
+    }));
+    setFormProgrammes([]);
+    if (targetDeptId) {
+      try {
+        const progs = await loadProgrammes(targetDeptId, null, true);
+        setFormProgrammes(progs || []);
+      } catch (e) {
+        setFormProgrammes([]);
+      }
+    }
+  };
+
+  const handleAddModalSchoolChange = async (targetSchoolId) => {
+    setCurrentAddAssignment((prev) => ({
+      ...prev,
+      schoolId: targetSchoolId,
+      departmentId: '',
+      masterProgrammeId: '',
+    }));
+    setFormDepartments([]);
+    setFormProgrammes([]);
+    if (targetSchoolId) {
+      try {
+        const depts = await loadDepartments(targetSchoolId, true);
+        setFormDepartments(depts || []);
+      } catch (e) {
+        setFormDepartments([]);
+      }
+    }
+  };
+
+  const handleAddModalDeptChange = async (targetDeptId) => {
+    setCurrentAddAssignment((prev) => ({
+      ...prev,
+      departmentId: targetDeptId,
+      masterProgrammeId: '',
+    }));
+    setFormProgrammes([]);
+    if (targetDeptId) {
+      try {
+        const progs = await loadProgrammes(targetDeptId, null, true);
+        setFormProgrammes(progs || []);
+      } catch (e) {
+        setFormProgrammes([]);
+      }
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Edit Access Workflow
+  // ---------------------------------------------------------------------------
+  const openEditAccess = (target) => {
+    setEditingUser(target);
+    setIsAddingAssignment(false);
+    setEditingAssignment(null);
+    setError('');
+    setShowEditAccessModal(true);
+  };
+
+  const startAddAssignment = () => {
+    setEditingAssignment(null);
+    setAssignmentForm({
+      role: 'DIRECTOR',
+      schoolId: schools[0]?.id ?? schools[0]?.schoolId ?? '',
+      departmentId: '',
+      masterProgrammeId: '',
+    });
+    setFormDepartments([]);
+    setFormProgrammes([]);
+    if (schools.length > 0) {
+      const defaultSchoolId = schools[0]?.id ?? schools[0]?.schoolId;
+      loadDepartments(defaultSchoolId, true)
+        .then((d) => setFormDepartments(d || []))
+        .catch(() => {});
+    }
+    setIsAddingAssignment(true);
+  };
+
+  const startEditAssignment = (assignment) => {
+    setIsAddingAssignment(false);
+    setEditingAssignment(assignment);
+    const initialRole = assignment.role || 'FACULTY';
+    setAssignmentForm({
+      role: initialRole,
+      schoolId: assignment.schoolId || '',
+      departmentId: assignment.departmentId || '',
+      masterProgrammeId: assignment.masterProgrammeId || '',
+    });
+    if (assignment.schoolId) {
+      loadDepartments(assignment.schoolId, true)
+        .then((depts) => {
+          setFormDepartments(depts || []);
+          if (assignment.departmentId) {
+            loadProgrammes(assignment.departmentId, null, true)
+              .then((progs) => setFormProgrammes(progs || []))
+              .catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
+  };
+
+  const saveAssignmentAction = async (e) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    const targetUserId = editingUser.id ?? editingUser.userId;
+    if (!targetUserId) return;
+
+    if (assignmentForm.role !== 'IQAC' && !assignmentForm.schoolId) {
+      setError('School is required for this role assignment.');
+      return;
+    }
+    if (assignmentForm.role === 'HOD' && !assignmentForm.departmentId) {
+      setError('Department is required for HOD assignment.');
+      return;
+    }
+    if (assignmentForm.role === 'PROGRAMME_COORDINATOR' && (!assignmentForm.departmentId || !assignmentForm.masterProgrammeId)) {
+      setError('Department and Programme are required for Programme Coordinator assignment.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    try {
+      const payload = {
+        role: assignmentForm.role,
+        schoolId: assignmentForm.schoolId || null,
+        departmentId: assignmentForm.departmentId || null,
+        masterProgrammeId: assignmentForm.masterProgrammeId || null,
+      };
+
+      if (editingAssignment) {
+        await updateAssignment(targetUserId, editingAssignment.id, payload);
+      } else {
+        await addAssignment(targetUserId, payload);
+      }
+
+      const refreshed = await refreshUsers();
+      const updatedUser = refreshed.find((u) => (u.id ?? u.userId) === targetUserId);
+      if (updatedUser) {
+        setEditingUser(updatedUser);
+      }
+      setIsAddingAssignment(false);
+      setEditingAssignment(null);
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || 'Failed to save organizational assignment.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemoveAssignmentAction = async (assignment) => {
+    if (!editingUser || !assignment?.id) return;
+    const targetUserId = editingUser.id ?? editingUser.userId;
+    if (!window.confirm('Remove this organizational assignment? The user identity will remain active.')) {
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    try {
+      await removeAssignment(targetUserId, assignment.id);
+      const refreshed = await refreshUsers();
+      const updatedUser = refreshed.find((u) => (u.id ?? u.userId) === targetUserId);
+      if (updatedUser) {
+        setEditingUser(updatedUser);
+      }
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || 'Failed to remove assignment.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Add User Workflow (with Existing User Detection & Multi-School Support)
+  // ---------------------------------------------------------------------------
+  const openAddUser = () => {
+    setAddUserForm({ name: '', email: '', password: '' });
+    setAddAssignmentRows([]);
+    setCurrentAddAssignment({
+      role: 'DIRECTOR',
+      schoolIds: [],
+      schoolId: '',
+      departmentId: '',
+      masterProgrammeId: '',
+    });
+    setExistingUserFound(null);
+    setError('');
+    setFormDepartments([]);
+    setFormProgrammes([]);
+    setShowAddUserModal(true);
+  };
+
+  const handleEmailChange = (newEmail) => {
+    setAddUserForm((prev) => ({ ...prev, email: newEmail }));
+    const trimmed = newEmail.trim().toLowerCase();
+    if (!trimmed) {
+      setExistingUserFound(null);
+      return;
+    }
+    const matched = users.find((u) => u.email?.trim().toLowerCase() === trimmed);
+    setExistingUserFound(matched || null);
+  };
+
+  const toggleDirectorSchoolSelect = (schoolId) => {
+    setCurrentAddAssignment((prev) => {
+      const current = prev.schoolIds || [];
+      const next = current.includes(schoolId)
+        ? current.filter((id) => id !== schoolId)
+        : [...current, schoolId];
+      return { ...prev, schoolIds: next };
+    });
+  };
+
+  const addAssignmentToNewUser = () => {
+    if (currentAddAssignment.role === 'DIRECTOR') {
+      if (!currentAddAssignment.schoolIds || currentAddAssignment.schoolIds.length === 0) {
+        setError('Please select at least one school for Director assignment.');
+        return;
+      }
+      const newItems = currentAddAssignment.schoolIds.map((sId) => ({
+        role: 'DIRECTOR',
+        schoolId: sId,
+        schoolName: schoolName(sId),
+        departmentId: null,
+        masterProgrammeId: null,
+      }));
+      setAddAssignmentRows((prev) => [...prev, ...newItems]);
+      setCurrentAddAssignment((prev) => ({ ...prev, schoolIds: [] }));
+      setError('');
+    } else {
+      if (currentAddAssignment.role !== 'IQAC' && !currentAddAssignment.schoolId) {
+        setError('School is required.');
+        return;
+      }
+      if (currentAddAssignment.role === 'HOD' && !currentAddAssignment.departmentId) {
+        setError('Department is required for HOD assignment.');
+        return;
+      }
+      if (
+        currentAddAssignment.role === 'PROGRAMME_COORDINATOR' &&
+        (!currentAddAssignment.departmentId || !currentAddAssignment.masterProgrammeId)
+      ) {
+        setError('Department and Programme are required for Programme Coordinator.');
+        return;
+      }
+      const dept = formDepartments.find((d) => d.id === currentAddAssignment.departmentId);
+      const prog = formProgrammes.find((p) => p.id === currentAddAssignment.masterProgrammeId);
+      setAddAssignmentRows((prev) => [
+        ...prev,
+        {
+          role: currentAddAssignment.role,
+          schoolId: currentAddAssignment.schoolId || null,
+          schoolName: currentAddAssignment.schoolId ? schoolName(currentAddAssignment.schoolId) : 'Institution-wide',
+          departmentId: currentAddAssignment.departmentId || null,
+          departmentName: dept?.name || null,
+          masterProgrammeId: currentAddAssignment.masterProgrammeId || null,
+          masterProgrammeName: prog?.name || null,
+        },
+      ]);
+      setCurrentAddAssignment({
+        role: 'FACULTY',
+        schoolIds: [],
+        schoolId: '',
+        departmentId: '',
+        masterProgrammeId: '',
+      });
+      setError('');
+    }
+  };
+
+  const removeAssignmentFromNewUser = (index) => {
+    setAddAssignmentRows((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveAddUser = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    // If existing user was found, extend organizational access
+    if (existingUserFound) {
+      if (addAssignmentRows.length === 0) {
+        setError('Please configure and add at least one organizational assignment to extend access.');
+        return;
+      }
+      setSaving(true);
+      try {
+        const targetUserId = existingUserFound.id ?? existingUserFound.userId;
+        for (const row of addAssignmentRows) {
+          await addAssignment(targetUserId, {
+            role: row.role,
+            schoolId: row.schoolId,
+            departmentId: row.departmentId,
+            masterProgrammeId: row.masterProgrammeId,
+          });
+        }
+        await refreshUsers();
+        setShowAddUserModal(false);
+      } catch (err) {
+        setError(err?.response?.data?.message || err?.message || 'Failed to extend user access.');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // Creating a brand new user
+    if (!addUserForm.name.trim() || !addUserForm.email.trim() || !addUserForm.password.trim()) {
+      setError('Name, email, and password are required for a new user.');
+      return;
+    }
+    if (addAssignmentRows.length === 0) {
+      setError('Please add at least one organizational assignment for the new user.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        name: addUserForm.name.trim(),
+        email: addUserForm.email.trim(),
+        password: addUserForm.password.trim(),
+        assignments: addAssignmentRows.map((r) => ({
+          role: r.role,
+          schoolId: r.schoolId,
+          departmentId: r.departmentId,
+          masterProgrammeId: r.masterProgrammeId,
+        })),
+        roles: [...new Set(addAssignmentRows.map((r) => r.role))],
+        role: addAssignmentRows[0]?.role || 'FACULTY',
+        schoolId: addAssignmentRows[0]?.schoolId || null,
+        departmentId: addAssignmentRows[0]?.departmentId || null,
+        masterProgrammeId: addAssignmentRows[0]?.masterProgrammeId || null,
+      };
+
+      await addUser(payload);
+      await refreshUsers();
+      setShowAddUserModal(false);
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || 'Failed to create user.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // User Deletion (Identity Level)
+  // ---------------------------------------------------------------------------
   const handleDeleteUser = async (targetUser) => {
     const targetUserId = targetUser?.id ?? targetUser?.userId;
     if (!targetUserId) return;
@@ -86,38 +576,992 @@ export default function AdminDashboardPage() {
       setDeletingUserId(null);
     }
   };
+
   const getUserId = (member) => member?.id ?? member?.userId ?? null;
   const isDeletingUser = (member) => {
     const memberId = getUserId(member);
     return deletingUserId != null && memberId != null && String(deletingUserId) === String(memberId);
   };
-  const schoolName = (schoolId) => schools.find((school) => (school.id ?? school.schoolId) === schoolId)?.name || '—';
+
+  // ---------------------------------------------------------------------------
+  // Statistics and Filters
+  // ---------------------------------------------------------------------------
   const roleMatches = (member, role) => role === 'ALL' || userRoles(member).includes(role);
+
   const roleTabs = [
     { id: 'ALL', label: 'All Users', count: users.length },
-    { id: 'IQAC', label: 'IQAC', count: users.filter((member) => userRoles(member).includes('IQAC')).length },
-    { id: 'DIRECTOR', label: 'Directors', count: users.filter((member) => userRoles(member).includes('DIRECTOR')).length },
-    { id: 'HOD', label: 'HODs', count: users.filter((member) => userRoles(member).includes('HOD')).length },
-    { id: 'PROGRAMME_COORDINATOR', label: 'Programme Coordinators', count: users.filter((member) => userRoles(member).includes('PROGRAMME_COORDINATOR')).length },
-    { id: 'FACULTY', label: 'Faculty', count: users.filter((member) => userRoles(member).includes('FACULTY')).length },
+    { id: 'IQAC', label: 'IQAC', count: users.filter((m) => userRoles(m).includes('IQAC')).length },
+    { id: 'DIRECTOR', label: 'Directors', count: users.filter((m) => userRoles(m).includes('DIRECTOR')).length },
+    { id: 'HOD', label: 'HODs', count: users.filter((m) => userRoles(m).includes('HOD')).length },
+    {
+      id: 'PROGRAMME_COORDINATOR',
+      label: 'Programme Coordinators',
+      count: users.filter((m) => userRoles(m).includes('PROGRAMME_COORDINATOR')).length,
+    },
+    { id: 'FACULTY', label: 'Faculty', count: users.filter((m) => userRoles(m).includes('FACULTY')).length },
   ];
+
   const filteredUsers = users.filter((member) => {
     if (!roleMatches(member, selectedRole)) return false;
     const query = searchQuery.trim().toLowerCase();
     if (!query) return true;
-    return [member.name, member.username, member.email, ...userRoles(member), member.school, schoolName(member.schoolId)]
-      .some((value) => String(value ?? '').toLowerCase().includes(query));
+
+    const searchableValues = [
+      member.name,
+      member.username,
+      member.email,
+      ...userRoles(member),
+      schoolName(member.schoolId),
+    ];
+
+    if (Array.isArray(member.assignments)) {
+      member.assignments.forEach((a) => {
+        if (a.role) searchableValues.push(a.role, normalizeRole(a.role));
+        if (a.schoolName) searchableValues.push(a.schoolName);
+        if (a.schoolId) searchableValues.push(schoolName(a.schoolId));
+        if (a.departmentName) searchableValues.push(a.departmentName);
+        if (a.masterProgrammeName) searchableValues.push(a.masterProgrammeName);
+      });
+    }
+
+    return searchableValues.some((value) => String(value ?? '').toLowerCase().includes(query));
   });
 
-  return <main style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px', boxSizing: 'border-box', fontFamily: 'Inter, system-ui, sans-serif' }}><div style={{ maxWidth: 1180, margin: '0 auto' }}>
-    <header style={{ ...surface, padding: '22px 26px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}><div><div style={{ color: '#4f46e5', fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase' }}>System Administration</div><h1 style={{ margin: '5px 0 0', color: '#0f172a', fontSize: 24 }}>User Management</h1><p style={{ margin: '5px 0 0', color: '#64748b', fontSize: 13 }}>Manage institutional users, credentials, and their assigned roles and schools.</p></div><button type="button" onClick={logout} style={{ height: 38, padding: '0 13px', background: '#fff', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 8, fontWeight: 700 }}>Sign out</button></header>
-    {error && <div style={{ marginTop: 16, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 12px', fontSize: 13 }}>{error}</div>}
-    <section style={{ ...surface, marginTop: 20, padding: '18px 20px' }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><div><h2 style={{ margin: 0, fontSize: 16, color: '#0f172a' }}><Users size={17} style={{ verticalAlign: '-3px', marginRight: 6 }} />Institutional Users</h2><p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#64748b' }}>Add users by role and school, or edit their email, password, role, and school access.</p></div><div style={{ display: 'flex', gap: 8 }}><button type="button" onClick={openAddUser} style={{ height: 38, padding: '0 12px', background: '#4f46e5', border: 0, color: '#fff', borderRadius: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}><UserPlus size={14} /> Add User</button></div></div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginTop: 18 }}>{roleTabs.map((tab) => <button key={tab.id} type="button" onClick={() => setSelectedRole(tab.id)} style={{ textAlign: 'left', padding: '12px', borderRadius: 9, border: `1.5px solid ${selectedRole === tab.id ? '#6366f1' : '#e2e8f0'}`, background: selectedRole === tab.id ? '#eef2ff' : '#fff', color: '#0f172a', cursor: 'pointer' }}><span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: selectedRole === tab.id ? '#4f46e5' : '#64748b' }}>{tab.label}</span><strong style={{ display: 'block', marginTop: 3, fontSize: 22 }}>{tab.count}</strong></button>)}</div>
-      <div style={{ position: 'relative', marginTop: 14 }}><Search size={16} style={{ position: 'absolute', left: 11, top: 11, color: '#64748b' }} /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search name, email, username, role, or school" style={{ ...fieldStyle, paddingLeft: 36 }} /></div>
-      <div style={{ overflowX: 'auto', marginTop: 14 }}><table className="audit-data-table"><thead><tr><th>Name</th><th>Email</th><th>Roles</th><th>School</th><th style={{ textAlign: 'right' }}>Action</th></tr></thead><tbody>{filteredUsers.length === 0 ? <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#64748b' }}>No users match this filter.</td></tr> : filteredUsers.map((member) => <tr key={getUserId(member) ?? member.email}><td style={{ fontWeight: 700 }}>{member.name || member.username || '—'}</td><td>{member.email || '—'}</td><td><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{userRoles(member).map((memberRole) => <span key={memberRole} style={{ fontSize: 10.5, fontWeight: 800, color: '#4338ca', background: '#eef2ff', borderRadius: 5, padding: '3px 6px' }}>{ROLE_OPTIONS.find((option) => option.value === memberRole)?.label || memberRole}</span>)}</div></td><td>{schoolName(member.schoolId)}</td><td style={{ textAlign: 'right' }}><div style={{ display: 'inline-flex', gap: 8 }}><button type="button" onClick={() => openEditUser(member)} style={{ color: '#2563eb', background: '#fff', border: '1px solid #93c5fd', borderRadius: 6, padding: '6px 9px', fontWeight: 700 }}>Edit access</button><button type="button" onClick={() => handleDeleteUser(member)} disabled={isDeletingUser(member)} style={{ color: '#b91c1c', background: '#fff', border: '1px solid #fecaca', borderRadius: 6, padding: '6px 9px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5, cursor: isDeletingUser(member) ? 'wait' : 'pointer', opacity: isDeletingUser(member) ? 0.65 : 1 }}><Trash2 size={13} />{isDeletingUser(member) ? 'Deleting…' : 'Delete'}</button></div></td></tr>)}</tbody></table></div>
-    </section>
-  </div>
-  {showUserModal && <Modal title={editingUser ? `Edit access — ${editingUser.name || editingUser.email}` : 'Add user'} onClose={() => setShowUserModal(false)}><form onSubmit={saveUser} style={{ padding: 20, display: 'grid', gap: 13 }}><label>Name<input value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} style={fieldStyle} /></label><label>Email<input type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} style={fieldStyle} /></label><label>Password {editingUser && <span style={{ color: '#64748b', fontWeight: 400 }}>(leave blank to keep unchanged)</span>}<input type="password" value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} style={fieldStyle} /></label><div><div style={{ fontSize: 12, fontWeight: 800, color: '#334155', marginBottom: 7 }}>Roles *</div><RoleMultiSelector value={userForm.roles} onChange={(roles) => setUserForm({ ...userForm, roles, role: roles[0] || '' })} /></div><label>School<select value={userForm.schoolId} onChange={(e) => setUserForm({ ...userForm, schoolId: e.target.value })} style={fieldStyle}><option value="">Select school</option>{schools.map((school) => <option key={school.id ?? school.schoolId} value={school.id ?? school.schoolId}>{school.name}</option>)}</select></label><button disabled={saving} style={{ height: 40, border: 0, borderRadius: 8, background: '#4f46e5', color: '#fff', fontWeight: 800 }}><Save size={14} /> {saving ? 'Saving…' : 'Save User'}</button></form></Modal>}
-  </main>;
+  // Grouped assignments for Edit Access Modal
+  const groupedAssignments = useMemo(() => {
+    const groups = {};
+    const list = editingUser?.assignments || [];
+    list.forEach((a) => {
+      const sId = a.schoolId || '__institution__';
+      const sName = a.schoolName || (a.schoolId ? schoolName(a.schoolId) : 'Institution-wide');
+      if (!groups[sId]) groups[sId] = { schoolId: a.schoolId, schoolName: sName, items: [] };
+      groups[sId].items.push(a);
+    });
+    return Object.values(groups);
+  }, [editingUser?.assignments, schools]);
+
+  // ---------------------------------------------------------------------------
+  // Render Compact School Summary in Table (Requirement 3 & 14)
+  // ---------------------------------------------------------------------------
+  const renderSchoolSummary = (member) => {
+    const assignedSchools = [];
+
+    if (Array.isArray(member?.assignments) && member.assignments.length > 0) {
+      member.assignments.forEach((a) => {
+        const sName = a.schoolName || schoolName(a.schoolId);
+        if (sName && sName !== '—' && !assignedSchools.includes(sName)) {
+          assignedSchools.push(sName);
+        }
+      });
+    } else if (member?.schoolId) {
+      const sName = schoolName(member.schoolId);
+      if (sName && sName !== '—') {
+        assignedSchools.push(sName);
+      }
+    }
+
+    if (assignedSchools.length === 0) {
+      return <span style={{ color: '#64748b' }}>—</span>;
+    }
+
+    if (assignedSchools.length === 1) {
+      return <span style={{ color: '#334155', fontWeight: 600 }}>{assignedSchools[0]}</span>;
+    }
+
+    const firstTwo = assignedSchools.slice(0, 2);
+    const remaining = assignedSchools.length - 2;
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {firstTwo.map((name) => (
+          <span key={name} style={{ color: '#334155', fontSize: 13, lineHeight: '18px', fontWeight: 600 }}>
+            {name}
+          </span>
+        ))}
+        {remaining > 0 && (
+          <span style={{ color: '#4f46e5', fontSize: 11.5, fontWeight: 800 }}>+{remaining} more</span>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <main
+      style={{
+        minHeight: '100vh',
+        background: '#f8fafc',
+        padding: '32px',
+        boxSizing: 'border-box',
+        fontFamily: 'Inter, system-ui, sans-serif',
+      }}
+    >
+      <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+        {/* Header */}
+        <header
+          style={{
+            ...surface,
+            padding: '22px 26px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <div style={{ color: '#4f46e5', fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase' }}>
+              System Administration
+            </div>
+            <h1 style={{ margin: '5px 0 0', color: '#0f172a', fontSize: 24, fontWeight: 800 }}>User Management</h1>
+            <p style={{ margin: '5px 0 0', color: '#64748b', fontSize: 13 }}>
+              Manage institutional users, credentials, and their multi-school organizational assignments.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            style={{
+              height: 38,
+              padding: '0 13px',
+              background: '#fff',
+              color: '#b91c1c',
+              border: '1px solid #fecaca',
+              borderRadius: 8,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Sign out
+          </button>
+        </header>
+
+        {error && (
+          <div
+            style={{
+              marginTop: 16,
+              color: '#b91c1c',
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: 8,
+              padding: '10px 12px',
+              fontSize: 13,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <AlertCircle size={16} /> {error}
+          </div>
+        )}
+
+        {/* Section: Institutional Users */}
+        <section style={{ ...surface, marginTop: 20, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 16, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 750 }}>
+                <Users size={17} style={{ color: '#4f46e5' }} /> Institutional Users
+              </h2>
+              <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#64748b' }}>
+                Add users with single or multi-school assignments, or manage their organizational access.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={openAddUser}
+                style={{
+                  height: 38,
+                  padding: '0 14px',
+                  background: '#4f46e5',
+                  border: 0,
+                  color: '#fff',
+                  borderRadius: 8,
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  cursor: 'pointer',
+                }}
+              >
+                <UserPlus size={14} /> Add User
+              </button>
+            </div>
+          </div>
+
+          {/* Role Statistic Cards (Requirement 4) */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+              gap: 8,
+              marginTop: 18,
+            }}
+          >
+            {roleTabs.map((tab) => {
+              const active = selectedRole === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setSelectedRole(tab.id)}
+                  style={{
+                    textAlign: 'left',
+                    padding: '12px 14px',
+                    borderRadius: 9,
+                    border: `1.5px solid ${active ? '#6366f1' : '#e2e8f0'}`,
+                    background: active ? '#eef2ff' : '#fff',
+                    color: '#0f172a',
+                    cursor: 'pointer',
+                    transition: 'all .15s ease',
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'block',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: active ? '#4f46e5' : '#64748b',
+                    }}
+                  >
+                    {tab.label}
+                  </span>
+                  <strong style={{ display: 'block', marginTop: 3, fontSize: 22, fontWeight: 800 }}>
+                    {tab.count}
+                  </strong>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search bar (Requirement 5) */}
+          <div style={{ position: 'relative', marginTop: 14 }}>
+            <Search size={16} style={{ position: 'absolute', left: 11, top: 11, color: '#64748b' }} />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search name, email, username, role, or school"
+              style={{ ...fieldStyle, paddingLeft: 36 }}
+            />
+          </div>
+
+          {/* Table (Requirement 3: Name, Email, Roles, School, Action) */}
+          <div style={{ overflowX: 'auto', marginTop: 14 }}>
+            <table className="audit-data-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '22%' }}>Name</th>
+                  <th style={{ width: '25%' }}>Email</th>
+                  <th style={{ width: '22%' }}>Roles</th>
+                  <th style={{ width: '20%' }}>School</th>
+                  <th style={{ textAlign: 'right', width: '11%' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#64748b' }}>
+                      No users match this filter.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredUsers.map((member) => (
+                    <tr key={getUserId(member) ?? member.email}>
+                      <td style={{ fontWeight: 700, color: '#0f172a' }}>
+                        {member.name || member.username || '—'}
+                      </td>
+                      <td style={{ color: '#475569' }}>{member.email || '—'}</td>
+                      <td>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                          {userRoles(member).map((memberRole) => (
+                            <span
+                              key={memberRole}
+                              style={{
+                                fontSize: 10.5,
+                                fontWeight: 800,
+                                color: '#4338ca',
+                                background: '#eef2ff',
+                                borderRadius: 5,
+                                padding: '3px 6px',
+                              }}
+                            >
+                              {ROLE_OPTIONS.find((option) => option.value === memberRole)?.label || memberRole}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td>{renderSchoolSummary(member)}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: 8 }}>
+                          <button
+                            type="button"
+                            onClick={() => openEditAccess(member)}
+                            style={{
+                              color: '#2563eb',
+                              background: '#fff',
+                              border: '1px solid #93c5fd',
+                              borderRadius: 6,
+                              padding: '6px 9px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              fontSize: 12,
+                            }}
+                          >
+                            Edit access
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteUser(member)}
+                            disabled={isDeletingUser(member)}
+                            style={{
+                              color: '#b91c1c',
+                              background: '#fff',
+                              border: '1px solid #fecaca',
+                              borderRadius: 6,
+                              padding: '6px 9px',
+                              fontWeight: 700,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              cursor: isDeletingUser(member) ? 'wait' : 'pointer',
+                              opacity: isDeletingUser(member) ? 0.65 : 1,
+                              fontSize: 12,
+                            }}
+                          >
+                            <Trash2 size={13} />
+                            {isDeletingUser(member) ? 'Deleting…' : 'Delete'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      {/* ---------------------------------------------------------------------- */}
+      {/* EDIT ACCESS MODAL (Requirements 6, 7, 11, 12, 13)                      */}
+      {/* ---------------------------------------------------------------------- */}
+      {showEditAccessModal && editingUser && (
+        <Modal
+          title={`Edit access — ${editingUser.name || editingUser.email}`}
+          onClose={() => setShowEditAccessModal(false)}
+          maxWidth={620}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* User identity */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 9, padding: '12px 14px' }}>
+              <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: '#64748b', letterSpacing: '.04em' }}>
+                User Identity
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginTop: 3 }}>
+                {editingUser.name || editingUser.username}
+              </div>
+              <div style={{ fontSize: 12.5, color: '#475569', marginTop: 1 }}>{editingUser.email}</div>
+            </div>
+
+            {error && (
+              <div style={{ color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+                {error}
+              </div>
+            )}
+
+            {/* Organizational Access Section */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+              <div>
+                <strong style={{ color: '#0f172a', fontSize: 14.5 }}>Organizational Access</strong>
+                <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>
+                  Assignments grouped by school. Each assignment has independent scope.
+                </p>
+              </div>
+              {!isAddingAssignment && !editingAssignment && (
+                <button
+                  type="button"
+                  onClick={startAddAssignment}
+                  style={{
+                    height: 32,
+                    padding: '0 10px',
+                    background: '#eef2ff',
+                    color: '#4338ca',
+                    border: '1px solid #c7d2fe',
+                    borderRadius: 7,
+                    fontWeight: 750,
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                  }}
+                >
+                  <Plus size={13} /> Add Organizational Access
+                </button>
+              )}
+            </div>
+
+            {/* List grouped assignments */}
+            {groupedAssignments.length === 0 && !isAddingAssignment && !editingAssignment && (
+              <div style={{ padding: 24, textAlign: 'center', background: '#f8fafc', borderRadius: 9, border: '1px dashed #cbd5e1', color: '#64748b', fontSize: 13 }}>
+                No active organizational assignments for this user.
+              </div>
+            )}
+
+            {groupedAssignments.map((group) => (
+              <div
+                key={group.schoolName}
+                style={{
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 10,
+                  overflow: 'hidden',
+                  background: '#fff',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '9px 13px',
+                    background: '#f8fafc',
+                    borderBottom: '1px solid #e2e8f0',
+                    fontSize: 13,
+                    fontWeight: 800,
+                    color: '#1e293b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 7,
+                  }}
+                >
+                  <Building2 size={14} style={{ color: '#4f46e5' }} />
+                  {group.schoolName}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', divideY: '1px solid #f1f5f9' }}>
+                  {group.items.map((assignment) => (
+                    <div
+                      key={assignment.id}
+                      style={{
+                        padding: '10px 14px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        borderBottom: '1px solid #f1f5f9',
+                        gap: 12,
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span
+                            style={{
+                              fontSize: 10.5,
+                              fontWeight: 800,
+                              color: '#3730a3',
+                              background: '#e0e7ff',
+                              borderRadius: 4,
+                              padding: '2px 6px',
+                            }}
+                          >
+                            {ROLE_OPTIONS.find((o) => o.value === assignment.role)?.label || assignment.role}
+                          </span>
+                          {assignment.departmentName && (
+                            <span style={{ fontSize: 12.5, fontWeight: 650, color: '#334155' }}>
+                              — {assignment.departmentName}
+                            </span>
+                          )}
+                          {assignment.masterProgrammeName && (
+                            <span style={{ fontSize: 12, color: '#64748b' }}>
+                              ({assignment.masterProgrammeName})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          type="button"
+                          onClick={() => startEditAssignment(assignment)}
+                          style={{
+                            height: 28,
+                            padding: '0 8px',
+                            background: '#fff',
+                            color: '#2563eb',
+                            border: '1px solid #bfdbfe',
+                            borderRadius: 6,
+                            fontWeight: 700,
+                            fontSize: 11.5,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAssignmentAction(assignment)}
+                          style={{
+                            height: 28,
+                            padding: '0 8px',
+                            background: '#fff',
+                            color: '#b91c1c',
+                            border: '1px solid #fecaca',
+                            borderRadius: 6,
+                            fontWeight: 700,
+                            fontSize: 11.5,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {/* Assignment Editor Form (Inline inside Edit Access) */}
+            {(isAddingAssignment || editingAssignment) && (
+              <form
+                onSubmit={saveAssignmentAction}
+                style={{
+                  border: '1.5px solid #818cf8',
+                  borderRadius: 10,
+                  padding: 16,
+                  background: '#f8fafc',
+                  display: 'grid',
+                  gap: 11,
+                  marginTop: 6,
+                }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#1e293b' }}>
+                  {editingAssignment ? 'Edit Assignment' : 'Add Organizational Access'}
+                </div>
+
+                {/* Role */}
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
+                  Role *
+                  <select
+                    value={assignmentForm.role}
+                    onChange={(e) => setAssignmentForm({ ...assignmentForm, role: e.target.value })}
+                    style={{ ...fieldStyle, marginTop: 4 }}
+                  >
+                    {ROLE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {/* School (required for all non-IQAC) */}
+                {assignmentForm.role !== 'IQAC' && (
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
+                    School *
+                    <select
+                      value={assignmentForm.schoolId}
+                      onChange={(e) => handleAssignmentSchoolChange(e.target.value)}
+                      style={{ ...fieldStyle, marginTop: 4 }}
+                    >
+                      <option value="">Select School</option>
+                      {schools.map((s) => (
+                        <option key={s.id ?? s.schoolId} value={s.id ?? s.schoolId}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                {/* Department (only for HOD, Programme Coordinator, Faculty) */}
+                {['HOD', 'PROGRAMME_COORDINATOR', 'FACULTY'].includes(assignmentForm.role) && (
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
+                    Department {assignmentForm.role === 'HOD' ? '*' : ''}
+                    <select
+                      value={assignmentForm.departmentId}
+                      onChange={(e) => handleAssignmentDeptChange(e.target.value)}
+                      style={{ ...fieldStyle, marginTop: 4 }}
+                    >
+                      <option value="">Select Department</option>
+                      {formDepartments.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                {/* Programme (only for Programme Coordinator or Faculty) */}
+                {['PROGRAMME_COORDINATOR', 'FACULTY'].includes(assignmentForm.role) && (
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
+                    Programme {assignmentForm.role === 'PROGRAMME_COORDINATOR' ? '*' : '(optional)'}
+                    <select
+                      value={assignmentForm.masterProgrammeId}
+                      onChange={(e) => setAssignmentForm({ ...assignmentForm, masterProgrammeId: e.target.value })}
+                      style={{ ...fieldStyle, marginTop: 4 }}
+                    >
+                      <option value="">Select Programme</option>
+                      {formProgrammes.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingAssignment(false);
+                      setEditingAssignment(null);
+                    }}
+                    style={{
+                      height: 34,
+                      padding: '0 12px',
+                      background: '#fff',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: 7,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    style={{
+                      height: 34,
+                      padding: '0 14px',
+                      background: '#4f46e5',
+                      color: '#fff',
+                      border: 0,
+                      borderRadius: 7,
+                      fontSize: 12,
+                      fontWeight: 800,
+                      cursor: saving ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {saving ? 'Saving…' : 'Save Assignment'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* ---------------------------------------------------------------------- */}
+      {/* ADD USER MODAL (Requirements 8, 9, 10, 11)                             */}
+      {/* ---------------------------------------------------------------------- */}
+      {showAddUserModal && (
+        <Modal title="Add User" onClose={() => setShowAddUserModal(false)} maxWidth={580}>
+          <form onSubmit={handleSaveAddUser} style={{ display: 'grid', gap: 14 }}>
+            {error && (
+              <div style={{ color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '9px 12px', fontSize: 12.5 }}>
+                {error}
+              </div>
+            )}
+
+            {/* Email Field with Instant Existing User Detection (Requirement 10) */}
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
+              Email Address *
+              <input
+                type="email"
+                required
+                value={addUserForm.email}
+                onChange={(e) => handleEmailChange(e.target.value)}
+                placeholder="name@dypiu.ac.in"
+                style={{ ...fieldStyle, marginTop: 4 }}
+              />
+            </label>
+
+            {/* Existing User Found Banner (Requirement 10) */}
+            {existingUserFound ? (
+              <div
+                style={{
+                  background: '#f0fdf4',
+                  border: '1.5px solid #86efac',
+                  borderRadius: 9,
+                  padding: '12px 14px',
+                }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#166534', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <Check size={16} /> Existing User Found
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 750, color: '#1e293b' }}>
+                  {existingUserFound.name || existingUserFound.username}
+                </div>
+                <div style={{ fontSize: 12.5, color: '#475569', marginBottom: 8 }}>{existingUserFound.email}</div>
+
+                <div style={{ fontSize: 12, fontWeight: 750, color: '#334155', marginBottom: 4 }}>Current access:</div>
+                {existingUserFound.assignments && existingUserFound.assignments.length > 0 ? (
+                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: '#1e293b' }}>
+                    {existingUserFound.assignments.map((a) => (
+                      <li key={a.id}>
+                        <strong>{a.schoolName || schoolName(a.schoolId) || 'Institution-wide'}</strong> →{' '}
+                        {ROLE_OPTIONS.find((o) => o.value === a.role)?.label || a.role}
+                        {a.departmentName ? ` — ${a.departmentName}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div style={{ fontSize: 12, color: '#64748b' }}>
+                    {existingUserFound.schoolId ? `${schoolName(existingUserFound.schoolId)} → ` : ''}
+                    {userRoles(existingUserFound).join(', ') || 'No organizational assignments'}
+                  </div>
+                )}
+                <div style={{ fontSize: 11.5, color: '#15803d', marginTop: 8, fontWeight: 650 }}>
+                  Add assignments below to extend this existing user's organizational access.
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Full Name & Password for new user */}
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
+                  Full Name *
+                  <input
+                    required
+                    value={addUserForm.name}
+                    onChange={(e) => setAddUserForm({ ...addUserForm, name: e.target.value })}
+                    placeholder="Prof. Raj Sharma"
+                    style={{ ...fieldStyle, marginTop: 4 }}
+                  />
+                </label>
+
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
+                  Password *
+                  <input
+                    type="password"
+                    required
+                    value={addUserForm.password}
+                    onChange={(e) => setAddUserForm({ ...addUserForm, password: e.target.value })}
+                    placeholder="••••••••"
+                    style={{ ...fieldStyle, marginTop: 4 }}
+                  />
+                </label>
+              </>
+            )}
+
+            {/* Configured Assignments List */}
+            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>
+                Organizational Assignments to Add
+              </div>
+              <p style={{ margin: '0 0 10px', fontSize: 12, color: '#64748b' }}>
+                Configure role and organizational scope. Multi-school or multiple roles are supported.
+              </p>
+
+              {addAssignmentRows.length > 0 && (
+                <div style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
+                  {addAssignmentRows.map((row, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: '8px 11px',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: 7,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        fontSize: 12,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontWeight: 800, color: '#4338ca', background: '#eef2ff', padding: '2px 5px', borderRadius: 4 }}>
+                          {ROLE_OPTIONS.find((o) => o.value === row.role)?.label || row.role}
+                        </span>
+                        <strong style={{ color: '#0f172a' }}>{row.schoolName}</strong>
+                        {row.departmentName && <span style={{ color: '#475569' }}>— {row.departmentName}</span>}
+                        {row.masterProgrammeName && <span style={{ color: '#64748b' }}>({row.masterProgrammeName})</span>}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeAssignmentFromNewUser(idx)}
+                        style={{ border: 0, background: 'none', color: '#b91c1c', cursor: 'pointer', fontWeight: 700 }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Assignment Form Section */}
+              <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 9, padding: 12, display: 'grid', gap: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 750, color: '#1e293b' }}>
+                  + Configure Assignment
+                </div>
+
+                <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
+                  Role *
+                  <select
+                    value={currentAddAssignment.role}
+                    onChange={(e) =>
+                      setCurrentAddAssignment({
+                        ...currentAddAssignment,
+                        role: e.target.value,
+                        schoolIds: [],
+                        schoolId: '',
+                        departmentId: '',
+                        masterProgrammeId: '',
+                      })
+                    }
+                    style={{ ...fieldStyle, height: 35, marginTop: 3 }}
+                  >
+                    {ROLE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {/* Multi-School Checkbox List for Director (Requirement 8) */}
+                {currentAddAssignment.role === 'DIRECTOR' ? (
+                  <div>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, color: '#475569', marginBottom: 5 }}>
+                      Schools (Multi-Select) *
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 6 }}>
+                      {schools.map((s) => {
+                        const sId = s.id ?? s.schoolId;
+                        const checked = (currentAddAssignment.schoolIds || []).includes(sId);
+                        return (
+                          <label
+                            key={sId}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 7,
+                              padding: '6px 9px',
+                              border: `1px solid ${checked ? '#6366f1' : '#cbd5e1'}`,
+                              background: checked ? '#eef2ff' : '#fff',
+                              borderRadius: 6,
+                              cursor: 'pointer',
+                              fontSize: 12,
+                              color: checked ? '#3730a3' : '#334155',
+                              fontWeight: 650,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleDirectorSchoolSelect(sId)}
+                            />
+                            {s.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Single School Select for other roles */}
+                    {currentAddAssignment.role !== 'IQAC' && (
+                      <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
+                        School *
+                        <select
+                          value={currentAddAssignment.schoolId}
+                          onChange={(e) => handleAddModalSchoolChange(e.target.value)}
+                          style={{ ...fieldStyle, height: 35, marginTop: 3 }}
+                        >
+                          <option value="">Select School</option>
+                          {schools.map((s) => (
+                            <option key={s.id ?? s.schoolId} value={s.id ?? s.schoolId}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+
+                    {['HOD', 'PROGRAMME_COORDINATOR', 'FACULTY'].includes(currentAddAssignment.role) && (
+                      <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
+                        Department {currentAddAssignment.role === 'HOD' ? '*' : ''}
+                        <select
+                          value={currentAddAssignment.departmentId}
+                          onChange={(e) => handleAddModalDeptChange(e.target.value)}
+                          style={{ ...fieldStyle, height: 35, marginTop: 3 }}
+                        >
+                          <option value="">Select Department</option>
+                          {formDepartments.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+
+                    {['PROGRAMME_COORDINATOR', 'FACULTY'].includes(currentAddAssignment.role) && (
+                      <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
+                        Programme {currentAddAssignment.role === 'PROGRAMME_COORDINATOR' ? '*' : '(optional)'}
+                        <select
+                          value={currentAddAssignment.masterProgrammeId}
+                          onChange={(e) =>
+                            setCurrentAddAssignment({ ...currentAddAssignment, masterProgrammeId: e.target.value })
+                          }
+                          style={{ ...fieldStyle, height: 35, marginTop: 3 }}
+                        >
+                          <option value="">Select Programme</option>
+                          {formProgrammes.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                  </>
+                )}
+
+                <button
+                  type="button"
+                  onClick={addAssignmentToNewUser}
+                  style={{
+                    height: 33,
+                    background: '#eef2ff',
+                    color: '#4338ca',
+                    border: '1px solid #c7d2fe',
+                    borderRadius: 6,
+                    fontWeight: 750,
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 5,
+                    marginTop: 4,
+                  }}
+                >
+                  <Plus size={13} /> Add to Assignment List
+                </button>
+              </div>
+            </div>
+
+            <button
+              disabled={saving}
+              style={{
+                height: 40,
+                border: 0,
+                borderRadius: 8,
+                background: '#4f46e5',
+                color: '#fff',
+                fontWeight: 800,
+                cursor: saving ? 'wait' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                marginTop: 6,
+              }}
+            >
+              <Save size={14} /> {saving ? 'Saving…' : existingUserFound ? 'Save & Extend Access' : 'Create User'}
+            </button>
+          </form>
+        </Modal>
+      )}
+    </main>
+  );
 }

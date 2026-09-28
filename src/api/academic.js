@@ -188,6 +188,20 @@ export const academicApi = {
   saveCourseOutcomes: (offeringId, data) =>
     apiClient.post(`/academic/programme-batch-courses/${offeringId}/course-outcomes`, data),
 
+  getAvailableCoSources: (offeringId) =>
+    apiClient.get(`/academic/programme-batch-courses/${offeringId}/available-co-sources`),
+
+  copyCourseOutcomes: (targetOfferingId, sourceOfferingId, includeMappings = true) =>
+    apiClient.post(`/academic/programme-batch-courses/${targetOfferingId}/copy-cos-from/${sourceOfferingId}`, null, {
+      params: { includeMappings },
+    }),
+
+  getAvailableOutcomeSourceBatches: (programmeBatchId) =>
+    apiClient.get(`/outcomes/programme-batches/${programmeBatchId}/available-outcome-sources`),
+
+  copyBatchOutcomes: (targetBatchId, sourceBatchId) =>
+    apiClient.post(`/outcomes/programme-batches/${targetBatchId}/copy-outcomes-from/${sourceBatchId}`),
+
   // =========================
   // Course Offering Mapping
   // =========================

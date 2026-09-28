@@ -33,6 +33,34 @@ export const usersApi = {
     apiClient.delete(
       `/users/${id}`
     ),
+
+  getUserAssignments: (userId) =>
+    apiClient.get(
+      `/users/${userId}/assignments`
+    ),
+
+  addAssignment: (userId, data) =>
+    apiClient.post(
+      `/users/${userId}/assignments`,
+      data
+    ),
+
+  updateAssignment: (userId, assignmentId, data) =>
+    apiClient.put(
+      `/users/${userId}/assignments/${assignmentId}`,
+      data
+    ),
+
+  removeAssignment: (userId, assignmentId) =>
+    apiClient.delete(
+      `/users/${userId}/assignments/${assignmentId}`
+    ),
+
+  checkEmail: (email) =>
+    apiClient.get(
+      '/users/check-email',
+      { params: { email } }
+    ),
 };
 
 export default usersApi;

@@ -1082,6 +1082,39 @@ export function AcademicProvider({ children }) {
     }
   }, []);
 
+  const loadAvailableOutcomeSourceBatches = useCallback(async (targetBatchId = batchId) => {
+    if (!targetBatchId) return [];
+    try {
+      const response = await apiClient.get(`/outcomes/programme-batches/${targetBatchId}/available-outcome-sources`);
+      return unwrapList(response);
+    } catch (err) {
+      console.warn(`loadAvailableOutcomeSourceBatches(${targetBatchId}) failed:`, err);
+      return [];
+    }
+  }, [batchId]);
+
+  const importBatchOutcomesFromSource = useCallback(async (targetBatchId, sourceBatchId) => {
+    if (!targetBatchId || !sourceBatchId) throw new Error('Target and source batch IDs are required.');
+    const response = await apiClient.post(`/outcomes/programme-batches/${targetBatchId}/copy-outcomes-from/${sourceBatchId}`);
+    const bundle = unwrap(response) ?? {};
+    const withStatement = (outcomes = []) => outcomes.map((outcome) => ({
+      ...outcome,
+      statement: outcome?.statement ?? outcome?.description ?? outcome?.name ?? '',
+    }));
+    const pos = sortOutcomes(withStatement(bundle.pos ?? []));
+    const psos = sortOutcomes(withStatement(bundle.psos ?? []));
+    const peos = sortOutcomes(withStatement(bundle.peos ?? []));
+    const targets = {
+      poTargets: bundle.poTargets ?? {},
+      psoTargets: bundle.psoTargets ?? {},
+    };
+    setActivePOs(pos);
+    setActivePSOs(psos);
+    setActivePEOs(peos);
+    setPoPsoTargets(targets);
+    return { pos, psos, peos, targets, bundle };
+  }, []);
+
   /* --- Programme Targets --- */
   const loadProgrammeTargets = useCallback(
     async (targetProgrammeId = programmeId, targetBatchId = batchId) => {
@@ -1124,6 +1157,35 @@ export function AcademicProvider({ children }) {
     },
     [courseOfferingId]
   );
+
+  const loadAvailableCoSources = useCallback(async (offeringId = courseOfferingId) => {
+    if (!offeringId) return [];
+    try {
+      const response = await apiClient.get(`/academic/programme-batch-courses/${offeringId}/available-co-sources`);
+      return unwrapList(response);
+    } catch (err) {
+      console.warn(`loadAvailableCoSources(${offeringId}) failed:`, err);
+      return [];
+    }
+  }, [courseOfferingId]);
+
+  const importCourseOutcomesFromSource = useCallback(async (targetOfferingId, sourceOfferingId, includeMappings = true) => {
+    if (!targetOfferingId || !sourceOfferingId) throw new Error('Target and source offering IDs are required.');
+    const response = await apiClient.post(
+      `/academic/programme-batch-courses/${targetOfferingId}/copy-cos-from/${sourceOfferingId}`,
+      null,
+      { params: { includeMappings } }
+    );
+    const data = sortOutcomes(unwrapList(response));
+    setActiveCOs(data);
+    if (includeMappings) {
+      try {
+        const mappingRes = await apiClient.get(`/programme-batch-courses/${targetOfferingId}/co-po-pso-mappings`);
+        setCoMapping(unwrap(mappingRes));
+      } catch (e) {}
+    }
+    return data;
+  }, []);
 
   /* --- CO Mapping --- */
   const loadCourseMapping = useCallback(
@@ -2240,6 +2302,8 @@ export function AcademicProvider({ children }) {
     poPsoTargets,
     loadProgrammeOutcomes,
     loadProgrammeBatchOutcomes,
+    loadAvailableOutcomeSourceBatches,
+    importBatchOutcomesFromSource,
     updateProgrammePOs,
     updateProgrammePSOs,
     updateProgrammePEOs,
@@ -2254,6 +2318,8 @@ export function AcademicProvider({ children }) {
     activeCOs,
     coTargets,
     loadCourseOutcomes,
+    loadAvailableCoSources,
+    importCourseOutcomesFromSource,
     updateCourseCOs,
 
     /* CO Mapping */
@@ -2313,8 +2379,8 @@ export function AcademicProvider({ children }) {
     courseOfferings, availableCourseOfferings, selectedCourseOffering, courseOfferingId, setCourseOfferingId, selectCourseOffering, loadCourseOfferings, loadAssignedCourseOfferings, loadCourseOffering, addCourseOffering, updateCourseOffering, addProgrammeBatchCourse, updateProgrammeBatchCourse, deleteProgrammeBatchCourse, assignCourseCoordinator, allocateCourses,
     courseCoordinators, facultyList, loadCourseCoordinators, hods, loadHods, programmeCoordinators, loadProgrammeCoordinators, hodCoordinatorAssignments, loadHodCoordinators, assignHodCoordinator,
     students, loadStudents, getStudentsByBatch, addStudentToBatch, updateStudentInBatch, deleteStudentFromBatch,
-    activePOs, activePSOs, activePEOs, poPsoTargets, loadProgrammeOutcomes, loadProgrammeBatchOutcomes, updateProgrammePOs, updateProgrammePSOs, updateProgrammePEOs, saveProgrammeOutcomeDefinitions, saveProgrammeBatchOutcomeDefinitions, loadProgrammeTargets, updatePoPsoTargets, updateProgrammeOutcomeTargets,
-    activeCOs, coTargets, loadCourseOutcomes, updateCourseCOs,
+    activePOs, activePSOs, activePEOs, poPsoTargets, loadProgrammeOutcomes, loadProgrammeBatchOutcomes, loadAvailableOutcomeSourceBatches, importBatchOutcomesFromSource, updateProgrammePOs, updateProgrammePSOs, updateProgrammePEOs, saveProgrammeOutcomeDefinitions, saveProgrammeBatchOutcomeDefinitions, loadProgrammeTargets, updatePoPsoTargets, updateProgrammeOutcomeTargets,
+    activeCOs, coTargets, loadCourseOutcomes, loadAvailableCoSources, importCourseOutcomesFromSource, updateCourseCOs,
     coMapping, loadCourseMapping, updateCourseMapping,
     attainmentSettings, loadAttainmentSettings, updateAttainmentSettings, coAttainment, loadCOAttainment,
     programmeATR, loadProgrammeATR, saveProgrammeATR, submitProgrammeATR, courseATR, loadCourseATR,
