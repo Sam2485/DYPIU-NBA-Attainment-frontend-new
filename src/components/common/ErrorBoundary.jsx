@@ -20,9 +20,7 @@ export class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     this.setState({ errorInfo });
-    if (process.env.NODE_ENV !== 'production') {
-      console.error('ErrorBoundary caught an error:', error, errorInfo);
-    }
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
   }
 
   handleRetry = () => {
@@ -51,8 +49,8 @@ export class ErrorBoundary extends Component {
         return this.props.fallback;
       }
 
-      const title = 'No data available';
-      const message = 'There is no information to display right now.';
+      const title = this.props.fallbackTitle || 'No data available';
+      const message = this.props.fallbackMessage || 'There is no information to display right now.';
 
       return (
         <div
@@ -112,6 +110,27 @@ export class ErrorBoundary extends Component {
             >
               {message}
             </p>
+
+            {this.state.error && (
+              <details
+                style={{
+                  margin: '12px 0 0',
+                  padding: '8px 12px',
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: '8px',
+                  color: '#991b1b',
+                  fontSize: '11px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                <summary style={{ fontWeight: 700 }}>Technical Details</summary>
+                <pre style={{ marginTop: '8px', overflowX: 'auto', whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                  {this.state.error?.toString()}
+                </pre>
+              </details>
+            )}
 
           </div>
         </div>

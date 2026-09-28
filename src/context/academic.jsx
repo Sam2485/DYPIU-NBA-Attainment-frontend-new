@@ -72,36 +72,34 @@ const academicCache = {
 /* Normalizers                                                                */
 /* ========================================================================== */
 
-const normalizeSchool = (school) => ({
-  // The current school API returns schoolId; retain id as the application-wide
-  // selector key so Director Step 1 can resolve the loaded school.
-  id: school?.id ?? school?.schoolId ?? null,
-  schoolId: school?.schoolId ?? school?.id ?? null,
-  code: school?.code ?? null,
-  name: school?.name ?? null,
-  director:
+const normalizeSchool = (school) => {
+  const director =
     school?.director ??
     school?.directorName ??
-    school?.director ??
-    '',
-  directorEmail: school?.directorEmail ?? '',
-  director:
-    school?.directorName ??
-    school?.director ??
-    '',
-  directorEmail:
+    school?.dean ??
+    '';
+  const directorEmail =
     school?.directorEmail ??
+    school?.deanEmail ??
     school?.email ??
-    '',
-  estYear: school?.estYear ?? null,
-  email:
-    school?.email ??
-    school?.directorEmail ??
-    '',
-  status: school?.status ?? null,
-  createdAt: school?.createdAt ?? null,
-  updatedAt: school?.updatedAt ?? null,
-});
+    '';
+  return {
+    id: school?.id ?? school?.schoolId ?? null,
+    schoolId: school?.schoolId ?? school?.id ?? null,
+    code: school?.code ?? null,
+    name: school?.name ?? null,
+    director,
+    directorName: director,
+    directorEmail,
+    dean: director,
+    deanEmail: directorEmail,
+    estYear: school?.estYear ?? null,
+    email: school?.email ?? directorEmail,
+    status: school?.status ?? null,
+    createdAt: school?.createdAt ?? null,
+    updatedAt: school?.updatedAt ?? null,
+  };
+};
 
 const normalizeDepartment = (department) => ({
   // Department endpoints return departmentId in the current API contract.
@@ -357,15 +355,16 @@ export function AcademicProvider({ children }) {
       if (newSchoolId) {
         setSelectedSchoolId(newSchoolId);
       }
-      setSelectedDepartmentId(null);
-      setSelectedProgrammeId(null);
-      setSelectedBatchId(null);
-      setSelectedOfferingId(null);
+      setSelectedDepartmentIdState(null);
+      setProgrammeIdState(null);
+      setBatchIdState(null);
+      setCourseIdState(null);
+      setCourseOfferingId(null);
     };
 
     window.addEventListener('nba-school-changed', handleSchoolChanged);
     return () => window.removeEventListener('nba-school-changed', handleSchoolChanged);
-  }, [setSelectedDepartmentId, setSelectedProgrammeId, setSelectedBatchId, setSelectedOfferingId]);
+  }, []);
 
   useEffect(() => {
     if (role !== 'HOD' || programmeId) return;
