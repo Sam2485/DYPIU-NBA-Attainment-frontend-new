@@ -45,7 +45,15 @@ export default function OutcomeExcelImportModal({
   const [errorMessage, setErrorMessage] = useState(null);
   const [selectedFilterTab, setSelectedFilterTab] = useState('ALL'); // ALL, PO, PSO
 
-  if (!isOpen) return null;
+  const filteredItems = useMemo(() => {
+    if (selectedFilterTab === 'PO') {
+      return editableItems.filter((i) => i.category === 'PO');
+    }
+    if (selectedFilterTab === 'PSO') {
+      return editableItems.filter((i) => i.category === 'PSO');
+    }
+    return editableItems;
+  }, [editableItems, selectedFilterTab]);
 
   const handleReset = () => {
     setSelectedFile(null);
@@ -189,21 +197,13 @@ export default function OutcomeExcelImportModal({
     }
   };
 
-  const filteredItems = useMemo(() => {
-    if (selectedFilterTab === 'PO') {
-      return editableItems.filter((i) => i.category === 'PO');
-    }
-    if (selectedFilterTab === 'PSO') {
-      return editableItems.filter((i) => i.category === 'PSO');
-    }
-    return editableItems;
-  }, [editableItems, selectedFilterTab]);
-
   const poCount = editableItems.filter((i) => i.category === 'PO').length;
   const psoCount = editableItems.filter((i) => i.category === 'PSO').length;
   const totalCompetencies = editableItems.reduce((acc, curr) => acc + (curr.competencies?.length || 0), 0);
   const errorCount = editableItems.filter((i) => i.status === 'INVALID').length;
   const warningCount = editableItems.filter((i) => i.status === 'WARNING').length;
+
+  if (!isOpen) return null;
 
   return createPortal(
     <div

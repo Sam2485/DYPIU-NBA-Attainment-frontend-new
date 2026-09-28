@@ -41,8 +41,6 @@ export default function CourseExcelImportModal({
   const [errorMessage, setErrorMessage] = useState(null);
   const [selectedSemesterTab, setSelectedSemesterTab] = useState('ALL');
 
-  if (!isOpen) return null;
-
   const handleReset = () => {
     setSelectedFile(null);
     setPreviewData(null);
@@ -140,6 +138,8 @@ export default function CourseExcelImportModal({
     }
     return previewData.coursesBySemester[Number(selectedSemesterTab)] || [];
   };
+
+  if (!isOpen) return null;
 
   return createPortal(
     <div
