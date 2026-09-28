@@ -153,6 +153,11 @@ export default function AdminDashboardPage() {
     departmentId: null,
     masterProgrammeId: null,
   });
+  const [editAccessStagedRows, setEditAccessStagedRows] = useState([]);
+  const [editAccessCurrent, setEditAccessCurrent] = useState({
+    schoolId: '',
+    roles: ['FACULTY'],
+  });
 
   // Add User Modal state
   const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -163,8 +168,8 @@ export default function AdminDashboardPage() {
   });
   const [addAssignmentRows, setAddAssignmentRows] = useState([]);
   const [currentAddAssignment, setCurrentAddAssignment] = useState({
-    role: 'FACULTY',
-    schoolIds: [],
+    schoolId: '',
+    roles: ['FACULTY'],
   });
   const [existingUserFound, setExistingUserFound] = useState(null);
 
@@ -201,6 +206,11 @@ export default function AdminDashboardPage() {
 
   const startAddAssignment = () => {
     setEditingAssignment(null);
+    setEditAccessStagedRows([]);
+    setEditAccessCurrent({
+      schoolId: '',
+      roles: ['FACULTY'],
+    });
     setAssignmentForm({
       role: 'FACULTY',
       schoolId: schools[0]?.id ?? schools[0]?.schoolId ?? '',
@@ -210,6 +220,102 @@ export default function AdminDashboardPage() {
     setFormDepartments([]);
     setFormProgrammes([]);
     setIsAddingAssignment(true);
+    setError('');
+  };
+
+  const toggleEditAccessRole = (roleValue) => {
+    setEditAccessCurrent((prev) => {
+      const current = prev.roles || [];
+      const next = current.includes(roleValue)
+        ? current.filter((r) => r !== roleValue)
+        : [...current, roleValue];
+      return { ...prev, roles: next };
+    });
+  };
+
+  const addStagedEditAccessRows = () => {
+    const selectedSchoolId = editAccessCurrent.schoolId;
+    const selectedRoles = editAccessCurrent.roles || [];
+
+    if (!selectedRoles || selectedRoles.length === 0) {
+      setError('Please select at least one role.');
+      return;
+    }
+
+    const isInstitutionOnly = selectedSchoolId === 'INSTITUTION' || (selectedRoles.length === 1 && selectedRoles[0] === 'IQAC');
+
+    if (!selectedSchoolId && !isInstitutionOnly) {
+      setError('Please select a school for the chosen role(s).');
+      return;
+    }
+
+    const newItems = [];
+    const existingUserAssignments = editingUser?.assignments || [];
+
+    const pushUnique = (role, sId, sName) => {
+      const alreadyInUser = existingUserAssignments.some(
+        (a) => a.role === role && (sId ? String(a.schoolId) === String(sId) : (a.schoolId === null || a.schoolId === ''))
+      );
+      const alreadyInStaged = editAccessStagedRows.some(
+        (r) => r.role === role && (sId ? String(r.schoolId) === String(sId) : (r.schoolId === null || r.schoolId === ''))
+      );
+      const alreadyInNew = newItems.some(
+        (r) => r.role === role && (sId ? String(r.schoolId) === String(sId) : (r.schoolId === null || r.schoolId === ''))
+      );
+
+      if (alreadyInUser) return;
+      if (!alreadyInStaged && !alreadyInNew) {
+        newItems.push({
+          role,
+          schoolId: sId,
+          schoolName: sName,
+          departmentId: null,
+          masterProgrammeId: null,
+        });
+      }
+    };
+
+    if (selectedSchoolId === 'ALL_SCHOOLS') {
+      if (schools.length === 0) {
+        setError('No schools available.');
+        return;
+      }
+      for (const s of schools) {
+        const sId = s.id ?? s.schoolId;
+        for (const role of selectedRoles) {
+          if (role === 'IQAC') {
+            pushUnique('IQAC', null, 'Institution-wide');
+          } else {
+            pushUnique(role, sId, schoolName(sId));
+          }
+        }
+      }
+    } else if (selectedSchoolId === 'INSTITUTION') {
+      for (const role of selectedRoles) {
+        pushUnique(role, null, 'Institution-wide');
+      }
+    } else {
+      for (const role of selectedRoles) {
+        if (role === 'IQAC') {
+          pushUnique('IQAC', null, 'Institution-wide');
+        } else {
+          pushUnique(role, selectedSchoolId, schoolName(selectedSchoolId));
+        }
+      }
+    }
+
+    if (newItems.length === 0) {
+      setError('The selected role(s) and school are already assigned to this user or in the list.');
+      return;
+    }
+
+    setEditAccessStagedRows((prev) => [...prev, ...newItems]);
+    setEditAccessCurrent((prev) => ({ ...prev, roles: [] }));
+    setError('');
+  };
+
+  const removeStagedEditAccessRow = (index) => {
+    setEditAccessStagedRows((prev) => prev.filter((_, i) => i !== index));
   };
 
   const startEditAssignment = (assignment) => {
@@ -232,27 +338,110 @@ export default function AdminDashboardPage() {
     const targetUserId = editingUser.id ?? editingUser.userId;
     if (!targetUserId) return;
 
-    if (assignmentForm.role !== 'IQAC' && !assignmentForm.schoolId) {
-      setError('School is required for this role assignment.');
+    if (editingAssignment) {
+      if (assignmentForm.role !== 'IQAC' && !assignmentForm.schoolId) {
+        setError('School is required for this role assignment.');
+        return;
+      }
+
+      setSaving(true);
+      setError('');
+      try {
+        const targetSchoolName = assignmentForm.role === 'IQAC' ? 'Institution-wide' : schoolName(assignmentForm.schoolId);
+        const payload = {
+          role: assignmentForm.role,
+          schoolId: assignmentForm.role === 'IQAC' ? null : (assignmentForm.schoolId || null),
+          schoolName: targetSchoolName,
+          departmentId: null,
+          masterProgrammeId: null,
+        };
+
+        await updateAssignment(targetUserId, editingAssignment.id, payload);
+        const refreshed = await refreshUsers();
+        const updatedUser = refreshed.find((u) => (u.id ?? u.userId) === targetUserId);
+        if (updatedUser) {
+          setEditingUser(updatedUser);
+        }
+        setIsAddingAssignment(false);
+        setEditingAssignment(null);
+      } catch (err) {
+        setError(err?.response?.data?.message || err?.message || 'Failed to update assignment.');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // Adding multiple organizational access assignments
+    let itemsToSave = [...editAccessStagedRows];
+
+    if (itemsToSave.length === 0) {
+      const selectedSchoolId = editAccessCurrent.schoolId;
+      const selectedRoles = editAccessCurrent.roles || [];
+
+      if (!selectedRoles || selectedRoles.length === 0) {
+        setError('Please select at least one role to add.');
+        return;
+      }
+
+      const isInstitutionOnly = selectedSchoolId === 'INSTITUTION' || (selectedRoles.length === 1 && selectedRoles[0] === 'IQAC');
+      if (!selectedSchoolId && !isInstitutionOnly) {
+        setError('Please select a school for the chosen role(s).');
+        return;
+      }
+
+      if (selectedSchoolId === 'ALL_SCHOOLS') {
+        for (const s of schools) {
+          const sId = s.id ?? s.schoolId;
+          for (const role of selectedRoles) {
+            itemsToSave.push({
+              role: role === 'IQAC' ? 'IQAC' : role,
+              schoolId: role === 'IQAC' ? null : sId,
+              schoolName: role === 'IQAC' ? 'Institution-wide' : schoolName(sId),
+              departmentId: null,
+              masterProgrammeId: null,
+            });
+          }
+        }
+      } else if (selectedSchoolId === 'INSTITUTION') {
+        for (const role of selectedRoles) {
+          itemsToSave.push({
+            role,
+            schoolId: null,
+            schoolName: 'Institution-wide',
+            departmentId: null,
+            masterProgrammeId: null,
+          });
+        }
+      } else {
+        for (const role of selectedRoles) {
+          itemsToSave.push({
+            role,
+            schoolId: role === 'IQAC' ? null : selectedSchoolId,
+            schoolName: role === 'IQAC' ? 'Institution-wide' : schoolName(selectedSchoolId),
+            departmentId: null,
+            masterProgrammeId: null,
+          });
+        }
+      }
+    }
+
+    if (itemsToSave.length === 0) {
+      setError('Please configure at least one role and school assignment.');
       return;
     }
 
     setSaving(true);
     setError('');
     try {
-      const targetSchoolName = assignmentForm.role === 'IQAC' ? 'Institution-wide' : schoolName(assignmentForm.schoolId);
-      const payload = {
-        role: assignmentForm.role,
-        schoolId: assignmentForm.role === 'IQAC' ? null : (assignmentForm.schoolId || null),
-        schoolName: targetSchoolName,
-        departmentId: null,
-        masterProgrammeId: null,
-      };
-
-      if (editingAssignment) {
-        await updateAssignment(targetUserId, editingAssignment.id, payload);
-      } else {
-        await addAssignment(targetUserId, payload);
+      for (const item of itemsToSave) {
+        await addAssignment(targetUserId, {
+          role: item.role,
+          schoolId: item.schoolId,
+          schoolName: item.schoolName,
+          departmentId: null,
+          masterProgrammeId: null,
+        });
       }
 
       const refreshed = await refreshUsers();
@@ -262,8 +451,9 @@ export default function AdminDashboardPage() {
       }
       setIsAddingAssignment(false);
       setEditingAssignment(null);
+      setEditAccessStagedRows([]);
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Failed to save organizational assignment.');
+      setError(err?.response?.data?.message || err?.message || 'Failed to save organizational access assignment(s).');
     } finally {
       setSaving(false);
     }
@@ -299,8 +489,8 @@ export default function AdminDashboardPage() {
     setAddUserForm({ name: '', email: '', password: '' });
     setAddAssignmentRows([]);
     setCurrentAddAssignment({
-      role: 'FACULTY',
-      schoolIds: [],
+      schoolId: '',
+      roles: ['FACULTY'],
     });
     setExistingUserFound(null);
     setError('');
@@ -318,54 +508,78 @@ export default function AdminDashboardPage() {
     setExistingUserFound(matched || null);
   };
 
-  const toggleSchoolSelect = (schoolId) => {
+  const toggleRoleSelect = (roleValue) => {
     setCurrentAddAssignment((prev) => {
-      const current = prev.schoolIds || [];
-      const next = current.includes(schoolId)
-        ? current.filter((id) => id !== schoolId)
-        : [...current, schoolId];
-      return { ...prev, schoolIds: next };
+      const current = prev.roles || [];
+      const next = current.includes(roleValue)
+        ? current.filter((r) => r !== roleValue)
+        : [...current, roleValue];
+      return { ...prev, roles: next };
     });
   };
 
   const addAssignmentToNewUser = () => {
-    if (currentAddAssignment.role === 'IQAC') {
-      if (addAssignmentRows.some((r) => r.role === 'IQAC')) {
-        setError('IQAC role is already added.');
-        return;
-      }
-      setAddAssignmentRows((prev) => [
-        ...prev,
-        {
-          role: 'IQAC',
-          schoolId: null,
-          schoolName: 'Institution-wide',
-          departmentId: null,
-          masterProgrammeId: null,
-        },
-      ]);
-      setError('');
+    const selectedSchoolId = currentAddAssignment.schoolId;
+    const selectedRoles = currentAddAssignment.roles || [];
+
+    if (!selectedRoles || selectedRoles.length === 0) {
+      setError('Please select at least one role.');
       return;
     }
 
-    if (!currentAddAssignment.schoolIds || currentAddAssignment.schoolIds.length === 0) {
-      setError('Please select at least one school.');
+    const isInstitutionOnly = selectedSchoolId === 'INSTITUTION' || (selectedRoles.length === 1 && selectedRoles[0] === 'IQAC');
+
+    if (!selectedSchoolId && !isInstitutionOnly) {
+      setError('Please select a school for the chosen role(s).');
       return;
     }
 
     const newItems = [];
-    for (const sId of currentAddAssignment.schoolIds) {
-      const alreadyExists = addAssignmentRows.some(
-        (r) => r.role === currentAddAssignment.role && String(r.schoolId) === String(sId)
+
+    const pushUniqueAssignment = (role, sId, sName) => {
+      const alreadyInList = addAssignmentRows.some(
+        (r) => r.role === role && (sId ? String(r.schoolId) === String(sId) : (r.schoolId === null || r.schoolId === ''))
       );
-      if (!alreadyExists) {
+      const alreadyInNew = newItems.some(
+        (r) => r.role === role && (sId ? String(r.schoolId) === String(sId) : (r.schoolId === null || r.schoolId === ''))
+      );
+      if (!alreadyInList && !alreadyInNew) {
         newItems.push({
-          role: currentAddAssignment.role,
+          role,
           schoolId: sId,
-          schoolName: schoolName(sId),
+          schoolName: sName,
           departmentId: null,
           masterProgrammeId: null,
         });
+      }
+    };
+
+    if (selectedSchoolId === 'ALL_SCHOOLS') {
+      if (schools.length === 0) {
+        setError('No schools available.');
+        return;
+      }
+      for (const s of schools) {
+        const sId = s.id ?? s.schoolId;
+        for (const role of selectedRoles) {
+          if (role === 'IQAC') {
+            pushUniqueAssignment('IQAC', null, 'Institution-wide');
+          } else {
+            pushUniqueAssignment(role, sId, schoolName(sId));
+          }
+        }
+      }
+    } else if (selectedSchoolId === 'INSTITUTION') {
+      for (const role of selectedRoles) {
+        pushUniqueAssignment(role, null, 'Institution-wide');
+      }
+    } else {
+      for (const role of selectedRoles) {
+        if (role === 'IQAC') {
+          pushUniqueAssignment('IQAC', null, 'Institution-wide');
+        } else {
+          pushUniqueAssignment(role, selectedSchoolId, schoolName(selectedSchoolId));
+        }
       }
     }
 
@@ -375,7 +589,7 @@ export default function AdminDashboardPage() {
     }
 
     setAddAssignmentRows((prev) => [...prev, ...newItems]);
-    setCurrentAddAssignment((prev) => ({ ...prev, schoolIds: [] }));
+    setCurrentAddAssignment((prev) => ({ ...prev, roles: [] }));
     setError('');
   };
 
@@ -1040,60 +1254,188 @@ export default function AdminDashboardPage() {
                   {editingAssignment ? 'Edit Assignment' : 'Add Organizational Access'}
                 </div>
 
-                {/* Role */}
-                <label style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
-                  Role *
-                  <select
-                    value={assignmentForm.role}
-                    onChange={(e) => setAssignmentForm({ ...assignmentForm, role: e.target.value })}
-                    style={{ ...fieldStyle, marginTop: 4 }}
-                  >
-                    {ROLE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {editingAssignment ? (
+                  <>
+                    {/* Editing single assignment: School selector first, Role second */}
+                    {assignmentForm.role !== 'IQAC' ? (
+                      <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
+                        School *
+                        <select
+                          value={assignmentForm.schoolId}
+                          onChange={(e) => handleAssignmentSchoolChange(e.target.value)}
+                          style={{ ...fieldStyle, height: 36, marginTop: 3 }}
+                        >
+                          <option value="">Select School</option>
+                          {schools.map((s) => (
+                            <option key={s.id ?? s.schoolId} value={s.id ?? s.schoolId}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : (
+                      <div style={{ padding: '8px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 12, color: '#1e40af' }}>
+                        IQAC role operates institution-wide across all schools.
+                      </div>
+                    )}
 
-                {/* School (required for all non-IQAC) */}
-                {assignmentForm.role !== 'IQAC' ? (
-                  <label style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
-                    School *
-                    <select
-                      value={assignmentForm.schoolId}
-                      onChange={(e) => handleAssignmentSchoolChange(e.target.value)}
-                      style={{ ...fieldStyle, marginTop: 4 }}
-                    >
-                      <option value="">Select School</option>
-                      {schools.map((s) => (
-                        <option key={s.id ?? s.schoolId} value={s.id ?? s.schoolId}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                    <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
+                      Role *
+                      <select
+                        value={assignmentForm.role}
+                        onChange={(e) => setAssignmentForm({ ...assignmentForm, role: e.target.value })}
+                        style={{ ...fieldStyle, height: 36, marginTop: 3 }}
+                      >
+                        {ROLE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
                 ) : (
-                  <div
-                    style={{
-                      padding: '8px 12px',
-                      background: '#eff6ff',
-                      border: '1px solid #bfdbfe',
-                      borderRadius: 6,
-                      fontSize: 12,
-                      color: '#1e40af',
-                    }}
-                  >
-                    IQAC role operates institution-wide across all schools.
-                  </div>
+                  <>
+                    {/* Staged assignments to add */}
+                    {editAccessStagedRows.length > 0 && (
+                      <div style={{ display: 'grid', gap: 6, marginBottom: 6 }}>
+                        <div style={{ fontSize: 11.5, fontWeight: 750, color: '#334155' }}>
+                          Staged Access to Add:
+                        </div>
+                        {editAccessStagedRows.map((row, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              padding: '7px 11px',
+                              background: '#ffffff',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: 7,
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              fontSize: 12,
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontWeight: 800, color: '#4338ca', background: '#eef2ff', padding: '2px 7px', borderRadius: 4, fontSize: 11 }}>
+                                {ROLE_OPTIONS.find((o) => o.value === row.role)?.label || row.role}
+                              </span>
+                              <strong style={{ color: '#0f172a' }}>{row.schoolName}</strong>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeStagedEditAccessRow(idx)}
+                              style={{ border: 0, background: 'none', color: '#b91c1c', cursor: 'pointer', padding: 2 }}
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 1. School Selector First */}
+                    <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
+                      School *
+                      <select
+                        value={editAccessCurrent.schoolId}
+                        onChange={(e) =>
+                          setEditAccessCurrent({
+                            ...editAccessCurrent,
+                            schoolId: e.target.value,
+                          })
+                        }
+                        style={{ ...fieldStyle, height: 36, marginTop: 3 }}
+                      >
+                        <option value="">-- Select a School --</option>
+                        <option value="ALL_SCHOOLS">All Schools (Apply across all schools)</option>
+                        <option value="INSTITUTION">Institution-wide (IQAC)</option>
+                        {schools.map((s) => {
+                          const sId = s.id ?? s.schoolId;
+                          return (
+                            <option key={sId} value={sId}>
+                              {s.name} {s.code ? `(${s.code})` : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </label>
+
+                    {/* 2. Role Multiple Selector Second */}
+                    <div>
+                      <div style={{ fontSize: 11.5, fontWeight: 700, color: '#475569', marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span>Role(s) * (Select one or more)</span>
+                        {editAccessCurrent.roles && editAccessCurrent.roles.length > 0 && (
+                          <span style={{ fontSize: 11, color: '#4338ca', fontWeight: 700 }}>
+                            {editAccessCurrent.roles.length} selected
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 6 }}>
+                        {ROLE_OPTIONS.map((opt) => {
+                          const checked = (editAccessCurrent.roles || []).includes(opt.value);
+                          return (
+                            <label
+                              key={opt.value}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 7,
+                                padding: '6px 9px',
+                                border: `1px solid ${checked ? '#6366f1' : '#cbd5e1'}`,
+                                background: checked ? '#eef2ff' : '#ffffff',
+                                borderRadius: 6,
+                                cursor: 'pointer',
+                                fontSize: 12,
+                                color: checked ? '#3730a3' : '#334155',
+                                fontWeight: 650,
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleEditAccessRole(opt.value)}
+                              />
+                              {opt.label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 2 }}>
+                      <button
+                        type="button"
+                        onClick={addStagedEditAccessRows}
+                        style={{
+                          height: 33,
+                          background: '#eef2ff',
+                          color: '#4338ca',
+                          border: '1px solid #c7d2fe',
+                          borderRadius: 6,
+                          fontWeight: 750,
+                          fontSize: 12,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 5,
+                        }}
+                      >
+                        <Plus size={13} /> Add to Assignment List
+                      </button>
+                    </div>
+                  </>
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8, borderTop: '1px solid #e2e8f0', paddingTop: 10 }}>
                   <button
                     type="button"
                     onClick={() => {
                       setIsAddingAssignment(false);
                       setEditingAssignment(null);
+                      setEditAccessStagedRows([]);
                     }}
                     style={{
                       height: 34,
@@ -1113,7 +1455,7 @@ export default function AdminDashboardPage() {
                     disabled={saving}
                     style={{
                       height: 34,
-                      padding: '0 14px',
+                      padding: '0 16px',
                       background: '#4f46e5',
                       color: '#fff',
                       border: 0,
@@ -1121,11 +1463,22 @@ export default function AdminDashboardPage() {
                       fontSize: 12,
                       fontWeight: 800,
                       cursor: saving ? 'wait' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
                     }}
                   >
-                    {saving ? 'Saving…' : 'Save Assignment'}
+                    <Check size={14} />
+                    {saving
+                      ? 'Saving…'
+                      : editingAssignment
+                      ? 'Update Assignment'
+                      : editAccessStagedRows.length > 0
+                      ? `Save & Apply Access (${editAccessStagedRows.length})`
+                      : 'Save & Apply Access'}
                   </button>
                 </div>
+
               </form>
             )}
           </div>
@@ -1266,79 +1619,82 @@ export default function AdminDashboardPage() {
                 </div>
               )}
 
-              {/* Assignment Form Section */}
+              {/* Assignment Form Section: SCHOOL SELECTOR FIRST, THEN ROLE MULTIPLE SELECTOR */}
               <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 9, padding: 12, display: 'grid', gap: 10 }}>
                 <div style={{ fontSize: 12, fontWeight: 750, color: '#1e293b' }}>
-                  + Configure Role & School
+                  + Configure School & Role(s)
                 </div>
 
+                {/* 1. School Selector First */}
                 <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
-                  Role *
+                  School *
                   <select
-                    value={currentAddAssignment.role}
+                    value={currentAddAssignment.schoolId}
                     onChange={(e) =>
                       setCurrentAddAssignment({
                         ...currentAddAssignment,
-                        role: e.target.value,
-                        schoolIds: [],
+                        schoolId: e.target.value,
                       })
                     }
-                    style={{ ...fieldStyle, height: 35, marginTop: 3 }}
+                    style={{ ...fieldStyle, height: 36, marginTop: 3 }}
                   >
-                    {ROLE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
+                    <option value="">-- Select a School --</option>
+                    <option value="ALL_SCHOOLS">All Schools (Apply across all schools)</option>
+                    <option value="INSTITUTION">Institution-wide (IQAC)</option>
+                    {schools.map((s) => {
+                      const sId = s.id ?? s.schoolId;
+                      return (
+                        <option key={sId} value={sId}>
+                          {s.name} {s.code ? `(${s.code})` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </label>
 
-                {currentAddAssignment.role === 'IQAC' ? (
-                  <div style={{ fontSize: 12, color: '#4338ca', background: '#eef2ff', padding: '8px 12px', borderRadius: 6, fontWeight: 650 }}>
-                    IQAC role operates institution-wide across all schools.
-                  </div>
-                ) : (
-                  <div>
-                    <div style={{ fontSize: 11.5, fontWeight: 700, color: '#475569', marginBottom: 5 }}>
-                      School(s) *
-                    </div>
-                    {schools.length === 0 ? (
-                      <div style={{ fontSize: 12, color: '#64748b' }}>No schools available.</div>
-                    ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 6 }}>
-                        {schools.map((s) => {
-                          const sId = s.id ?? s.schoolId;
-                          const checked = (currentAddAssignment.schoolIds || []).includes(sId);
-                          return (
-                            <label
-                              key={sId}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 7,
-                                padding: '6px 9px',
-                                border: `1px solid ${checked ? '#6366f1' : '#cbd5e1'}`,
-                                background: checked ? '#eef2ff' : '#fff',
-                                borderRadius: 6,
-                                cursor: 'pointer',
-                                fontSize: 12,
-                                color: checked ? '#3730a3' : '#334155',
-                                fontWeight: 650,
-                              }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => toggleSchoolSelect(sId)}
-                              />
-                              {s.name}
-                            </label>
-                          );
-                        })}
-                      </div>
+                {/* 2. Role Multiple Selector Second */}
+                <div>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, color: '#475569', marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>Role(s) * (Select one or more)</span>
+                    {currentAddAssignment.roles && currentAddAssignment.roles.length > 0 && (
+                      <span style={{ fontSize: 11, color: '#4338ca', fontWeight: 700 }}>
+                        {currentAddAssignment.roles.length} selected
+                      </span>
                     )}
                   </div>
-                )}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 6 }}>
+                    {ROLE_OPTIONS.map((opt) => {
+                      const checked = (currentAddAssignment.roles || []).includes(opt.value);
+                      return (
+                        <label
+                          key={opt.value}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 7,
+                            padding: '6px 9px',
+                            border: `1px solid ${checked ? '#6366f1' : '#cbd5e1'}`,
+                            background: checked ? '#eef2ff' : '#fff',
+                            borderRadius: 6,
+                            cursor: 'pointer',
+                            fontSize: 12,
+                            color: checked ? '#3730a3' : '#334155',
+                            fontWeight: 650,
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleRoleSelect(opt.value)}
+                          />
+                          {opt.label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
 
                 <button
                   type="button"

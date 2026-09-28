@@ -4,7 +4,7 @@ import {
   BookOpen, Target, CheckCircle2,
   ArrowRight, ArrowLeft, Check, Plus, X,
   ChevronDown, AlertCircle, Save, Clock, Layers, Send, Lock, ClipboardList, Upload, Download, Loader2,
-  Award, Edit3, Trash2, HelpCircle, Sparkles, FileText,
+  Award, Edit3, Trash2, HelpCircle, Sparkles, FileText, FileSpreadsheet,
 } from 'lucide-react';
 import { useAcademic, MASTER_FACULTY_LIST } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -14,6 +14,7 @@ import ProgrammeATR from '../atr/ProgrammeATR';
 import { useAttainment } from '../../context/attainment';
 import { approvalsApi } from '../../api/approvals';
 import IndirectAssessmentModal from './IndirectAssessmentModal';
+import CourseExcelImportModal from './CourseExcelImportModal';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 
 // ── Style tokens (identical to HodSetupWorkflow) ─────────────────────────────
@@ -109,10 +110,25 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     semestersStatusOverview = {},
     loadSemestersStatusOverview = () => Promise.resolve([]),
     allocateCourses = () => Promise.resolve(null),
+    downloadCourseTemplate = () => Promise.resolve(null),
   } = useAcademic();
   const loadedBatchScopeRef = useRef(null);
   const loadedCourseCoordinatorsRef = useRef(false);
   const [locallySubmittedSemesters, setLocallySubmittedSemesters] = useState(() => new Set());
+  const [isExcelImportModalOpen, setIsExcelImportModalOpen] = useState(false);
+  const [isDownloadingCourseTemplate, setIsDownloadingCourseTemplate] = useState(false);
+
+  const handleDirectDownloadTemplate = async () => {
+    if (!batchId) return;
+    try {
+      setIsDownloadingCourseTemplate(true);
+      await downloadCourseTemplate(batchId);
+    } catch (err) {
+      alert(err?.response?.data?.message || err.message || 'Failed to download course template.');
+    } finally {
+      setIsDownloadingCourseTemplate(false);
+    }
+  };
 
   // Context data is initially empty while the selected programme is restored.
   // Defaults in destructuring do not cover an explicit null value, so normalize
@@ -921,24 +937,82 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   Create programme-batch courses and assign their Course Coordinators.
                 </p>
               </div>
-              {!isBatchFrozen && !isAllocationReviewLocked && !approvalReadOnly ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <button
-                  className="btn btn-primary"
                   type="button"
-                  onClick={handleSubmitAllocations}
+                  onClick={handleDirectDownloadTemplate}
+                  disabled={isDownloadingCourseTemplate || !batchId}
                   style={{
-                    height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700',
-                    cursor: 'pointer',
-                    display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit'
+                    height: '36px',
+                    padding: '0 12px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    background: '#ffffff',
+                    color: '#334155',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    cursor: isDownloadingCourseTemplate ? 'wait' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontFamily: 'inherit',
                   }}
+                  title="Download pre-formatted Excel template for this programme batch"
                 >
-                  <Send size={14} /> Submit Allocations for HOD Review
+                  {isDownloadingCourseTemplate ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Download size={13} color={accent} />
+                  )}
+                  Download Sample Template
                 </button>
-              ) : (
-                <span style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Lock size={13} /> {isAllocationApproved ? 'Course & Coordinator Locked' : 'Submitted — Pending HOD Review'}
-                </span>
-              )}
+
+                {!isBatchFrozen && !approvalReadOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setIsExcelImportModalOpen(true)}
+                    disabled={!batchId}
+                    style={{
+                      height: '36px',
+                      padding: '0 14px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      background: '#f8fafc',
+                      color: accent,
+                      border: `1.5px solid ${accent}`,
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontFamily: 'inherit',
+                    }}
+                    title="Import courses for all semesters from an Excel file"
+                  >
+                    <FileSpreadsheet size={15} color={accent} />
+                    Import Excel
+                  </button>
+                )}
+
+                {!isBatchFrozen && !isAllocationReviewLocked && !approvalReadOnly ? (
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    onClick={handleSubmitAllocations}
+                    style={{
+                      height: '36px', padding: '0 16px', fontSize: '12.5px', fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit'
+                    }}
+                  >
+                    <Send size={14} /> Submit Allocations for HOD Review
+                  </button>
+                ) : (
+                  <span style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Lock size={13} /> {isAllocationApproved ? 'Course & Coordinator Locked' : 'Submitted — Pending HOD Review'}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
@@ -2079,6 +2153,22 @@ export default function ProgrammeCoordinatorSetupWorkflow({
         onConfirm={handleConfirmDeleteAssessment}
         onClose={() => {
           if (!isDeletingAssessment) setDeletingAssessment(null);
+        }}
+      />
+
+      {/* Course Excel Import Modal */}
+      <CourseExcelImportModal
+        isOpen={isExcelImportModalOpen}
+        onClose={() => setIsExcelImportModalOpen(false)}
+        batchId={batchId}
+        batchName={selectedBatch?.name}
+        programmeName={selectedProgramme?.name}
+        maxSemesters={totalSemesters}
+        onImportSuccess={() => {
+          if (batchId) {
+            loadCourseOfferings(batchId).catch(() => {});
+            loadSemestersStatusOverview(batchId).catch(() => {});
+          }
         }}
       />
     </div>

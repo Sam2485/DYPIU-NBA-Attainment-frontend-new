@@ -179,6 +179,58 @@ export const academicApi = {
   deleteCourseOffering: (id) =>
     apiClient.delete(`/programme-batch-courses/${id}`),
 
+  downloadCourseTemplate: (programmeBatchId) =>
+    apiClient.get(`/academic/programme-batches/${programmeBatchId}/courses/template`, {
+      responseType: 'blob',
+    }),
+
+  previewCourseExcel: (programmeBatchId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post(
+      `/academic/programme-batches/${programmeBatchId}/courses/import-excel/preview`,
+      formData
+    );
+  },
+
+  importCourseExcel: (programmeBatchId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post(
+      `/academic/programme-batches/${programmeBatchId}/courses/import-excel`,
+      formData
+    );
+  },
+
+  downloadOutcomeTemplate: (programmeBatchId) =>
+    apiClient.get(`/academic/programme-batches/${programmeBatchId}/outcomes/template`, {
+      responseType: 'blob',
+    }),
+
+  previewOutcomeExcel: (programmeBatchId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post(
+      `/academic/programme-batches/${programmeBatchId}/outcomes/import-excel/preview`,
+      formData
+    );
+  },
+
+  importOutcomeExcel: (programmeBatchId, payload) => {
+    if (payload instanceof File || payload instanceof Blob) {
+      const formData = new FormData();
+      formData.append('file', payload);
+      return apiClient.post(
+        `/academic/programme-batches/${programmeBatchId}/outcomes/import-excel`,
+        formData
+      );
+    }
+    return apiClient.post(
+      `/academic/programme-batches/${programmeBatchId}/outcomes/import-excel`,
+      payload
+    );
+  },
+
   // =========================
   // Course Offering Outcomes
   // =========================

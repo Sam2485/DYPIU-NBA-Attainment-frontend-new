@@ -1873,6 +1873,89 @@ export function AcademicProvider({ children }) {
     }
   }, [courseOfferingId, setCourseId]);
 
+  const downloadCourseTemplate = useCallback(async (targetBatchId = batchId) => {
+    if (!targetBatchId) throw new Error('Programme batch is required to download template.');
+    const response = await apiClient.get(`/academic/programme-batches/${targetBatchId}/courses/template`, {
+      responseType: 'blob',
+    });
+    const blob = response instanceof Blob ? response : (response?.data instanceof Blob ? response.data : new Blob([response.data || response]));
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Course_Import_Template.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    return true;
+  }, [batchId]);
+
+  const previewCourseExcel = useCallback(async (targetBatchId, file) => {
+    const bId = targetBatchId || batchId;
+    if (!bId) throw new Error('Programme batch is required for course preview.');
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post(`/academic/programme-batches/${bId}/courses/import-excel/preview`, formData);
+    return unwrap(response);
+  }, [batchId]);
+
+  const importCourseExcel = useCallback(async (targetBatchId, file) => {
+    const bId = targetBatchId || batchId;
+    if (!bId) throw new Error('Programme batch is required for course import.');
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post(`/academic/programme-batches/${bId}/courses/import-excel`, formData);
+    const result = unwrap(response);
+    await loadCourseOfferings(bId).catch(() => {});
+    await loadSemestersStatusOverview(bId).catch(() => {});
+    return result;
+  }, [batchId, loadCourseOfferings, loadSemestersStatusOverview]);
+
+  const downloadOutcomeTemplate = useCallback(async (targetBatchId) => {
+    const bId = targetBatchId || batchId;
+    if (!bId) throw new Error('Programme batch is required to download outcome template.');
+    const response = await apiClient.get(`/academic/programme-batches/${bId}/outcomes/template`, {
+      responseType: 'blob',
+    });
+    const blob = response instanceof Blob ? response : (response?.data instanceof Blob ? response.data : new Blob([response.data || response]));
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `PO_PSO_Competency_Template.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    return true;
+  }, [batchId]);
+
+  const previewOutcomeExcel = useCallback(async (targetBatchId, file) => {
+    const bId = targetBatchId || batchId;
+    if (!bId) throw new Error('Programme batch is required for outcome preview.');
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post(`/academic/programme-batches/${bId}/outcomes/import-excel/preview`, formData);
+    return unwrap(response);
+  }, [batchId]);
+
+  const importOutcomeExcel = useCallback(async (targetBatchId, payload, targetProgrammeId = programmeId) => {
+    const bId = targetBatchId || batchId;
+    if (!bId) throw new Error('Programme batch is required for outcome import.');
+    let response;
+    if (payload instanceof File || payload instanceof Blob) {
+      const formData = new FormData();
+      formData.append('file', payload);
+      response = await apiClient.post(`/academic/programme-batches/${bId}/outcomes/import-excel`, formData);
+    } else {
+      response = await apiClient.post(`/academic/programme-batches/${bId}/outcomes/import-excel`, payload);
+    }
+    const result = unwrap(response);
+    if (targetProgrammeId && bId) {
+      await loadProgrammeBatchOutcomes(targetProgrammeId, bId).catch(() => {});
+    }
+    return result;
+  }, [batchId, programmeId, loadProgrammeBatchOutcomes]);
+
   const assignCourseCoordinator = useCallback(
     async (targetCourseId, coordinatorId, targetBatchId = batchId) => {
       const offering = courseOfferings.find(
@@ -2297,6 +2380,9 @@ export function AcademicProvider({ children }) {
     deleteProgrammeBatchCourse,
     assignCourseCoordinator,
     allocateCourses,
+    downloadCourseTemplate,
+    previewCourseExcel,
+    importCourseExcel,
 
     /* Course Coordinators & Faculty */
     courseCoordinators,
@@ -2332,6 +2418,9 @@ export function AcademicProvider({ children }) {
     updateProgrammePEOs,
     saveProgrammeOutcomeDefinitions,
     saveProgrammeBatchOutcomeDefinitions,
+    downloadOutcomeTemplate,
+    previewOutcomeExcel,
+    importOutcomeExcel,
     loadProgrammeTargets,
     updatePoPsoTargets,
     updateProgrammeOutcomeTargets,
@@ -2399,10 +2488,10 @@ export function AcademicProvider({ children }) {
     programmes, selectedProgramme, programmeId, setProgrammeId, loadProgrammes, loadMasterProgrammes, loadCoordinatorMasterProgrammes, createProgramme, updateProgramme, deleteProgramme, createMasterProgramme, updateMasterProgramme, deleteMasterProgramme,
     batches, batchId, setBatchId, selectedBatch, loadBatches, loadProgrammeBatches, loadCoordinatorProgrammeBatches, loadCourseCoordinatorProgrammeBatches, createBatch, updateBatch, deleteBatch, createProgrammeBatch, updateProgrammeBatch, deleteProgrammeBatch, updateProgrammeBatchStatus, reopenProgrammeBatch, closeProgrammeBatchReopening, assignProgrammeBatchCoordinator, activeSemester, semestersStatusOverview, loadSemestersStatusOverview, loadSemesterReadiness, executeCompleteSemester, executeReopenSemester,
     academicYear, courses, availableCourses, selectedCourse, courseId, setCourseId, loadCourses, createCourse, updateCourse, deleteCourse,
-    courseOfferings, availableCourseOfferings, selectedCourseOffering, courseOfferingId, setCourseOfferingId, selectCourseOffering, loadCourseOfferings, loadAssignedCourseOfferings, loadCourseOffering, addCourseOffering, updateCourseOffering, addProgrammeBatchCourse, updateProgrammeBatchCourse, deleteProgrammeBatchCourse, assignCourseCoordinator, allocateCourses,
+    courseOfferings, availableCourseOfferings, selectedCourseOffering, courseOfferingId, setCourseOfferingId, selectCourseOffering, loadCourseOfferings, loadAssignedCourseOfferings, loadCourseOffering, addCourseOffering, updateCourseOffering, addProgrammeBatchCourse, updateProgrammeBatchCourse, deleteProgrammeBatchCourse, assignCourseCoordinator, allocateCourses, downloadCourseTemplate, previewCourseExcel, importCourseExcel,
     courseCoordinators, facultyList, loadCourseCoordinators, hods, loadHods, programmeCoordinators, loadProgrammeCoordinators, hodCoordinatorAssignments, loadHodCoordinators, assignHodCoordinator,
     students, loadStudents, getStudentsByBatch, addStudentToBatch, updateStudentInBatch, deleteStudentFromBatch,
-    activePOs, activePSOs, activePEOs, poPsoTargets, loadProgrammeOutcomes, loadProgrammeBatchOutcomes, loadAvailableOutcomeSourceBatches, importBatchOutcomesFromSource, updateProgrammePOs, updateProgrammePSOs, updateProgrammePEOs, saveProgrammeOutcomeDefinitions, saveProgrammeBatchOutcomeDefinitions, loadProgrammeTargets, updatePoPsoTargets, updateProgrammeOutcomeTargets,
+    activePOs, activePSOs, activePEOs, poPsoTargets, loadProgrammeOutcomes, loadProgrammeBatchOutcomes, loadAvailableOutcomeSourceBatches, importBatchOutcomesFromSource, updateProgrammePOs, updateProgrammePSOs, updateProgrammePEOs, saveProgrammeOutcomeDefinitions, saveProgrammeBatchOutcomeDefinitions, downloadOutcomeTemplate, previewOutcomeExcel, importOutcomeExcel, loadProgrammeTargets, updatePoPsoTargets, updateProgrammeOutcomeTargets,
     activeCOs, coTargets, loadCourseOutcomes, loadAvailableCoSources, importCourseOutcomesFromSource, updateCourseCOs,
     coMapping, loadCourseMapping, updateCourseMapping,
     attainmentSettings, loadAttainmentSettings, updateAttainmentSettings, coAttainment, loadCOAttainment,

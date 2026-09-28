@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, X, CheckCircle2, ChevronDown, Download, AlertCircle, History } from 'lucide-react';
+import { Plus, Trash2, X, CheckCircle2, ChevronDown, Download, AlertCircle, History, Upload, FileSpreadsheet } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
+import OutcomeExcelImportModal from './OutcomeExcelImportModal';
 
 // ── Style tokens (identical to HodSetupWorkflow) ─────────────────────────────
 const surface  = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -47,6 +48,7 @@ export default function HodProgrammeOutcomes() {
     updateProgrammePOs  = () => {},
     updateProgrammePSOs = () => {},
     updateProgrammePEOs = () => {},
+    downloadOutcomeTemplate = () => Promise.resolve(null),
   } = useAcademic();
 
   const [selectedBatchId, setSelectedBatchId] = useState('');
@@ -54,6 +56,7 @@ export default function HodProgrammeOutcomes() {
   const [saveState, setSaveState] = useState('idle');
   const [availableBatchSources, setAvailableBatchSources] = useState([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isExcelImportModalOpen, setIsExcelImportModalOpen] = useState(false);
   const [selectedSourceBatchId, setSelectedSourceBatchId] = useState('');
   const [importLoading, setImportLoading] = useState(false);
   const [importBanner, setImportBanner] = useState(null);
@@ -489,6 +492,60 @@ export default function HodProgrammeOutcomes() {
             )}
           </button>
 
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await downloadOutcomeTemplate(selectedBatchId);
+              } catch (err) {
+                alert(err?.response?.data?.message || err.message || 'Failed to download template.');
+              }
+            }}
+            disabled={!selectedBatchId}
+            title="Download PO and Competency Excel template (.xlsx)"
+            style={{
+              height: '36px',
+              padding: '0 12px',
+              fontSize: '12px',
+              fontWeight: '700',
+              background: '#ffffff',
+              color: '#4338ca',
+              border: '1px solid #c7d2fe',
+              borderRadius: '8px',
+              cursor: !selectedBatchId ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontFamily: 'inherit',
+            }}
+          >
+            <Download size={13} /> Sample Template
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsExcelImportModalOpen(true)}
+            disabled={!selectedBatchId}
+            title="Import POs, PSOs & Competencies from Excel workbook"
+            style={{
+              height: '36px',
+              padding: '0 13px',
+              fontSize: '12px',
+              fontWeight: '700',
+              background: '#f5f3ff',
+              color: '#6d28d9',
+              border: '1px solid #ddd6fe',
+              borderRadius: '8px',
+              cursor: !selectedBatchId ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontFamily: 'inherit',
+            }}
+          >
+            <Upload size={13} /> Import Excel
+          </button>
+
           <button onClick={handleSaveOutcomes} disabled={!selectedBatchId || isSaved || saveState === 'saving'} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '800', background: isSaved ? '#f0fdf4' : accent, color: isSaved ? '#15803d' : '#fff', border: isSaved ? '1px solid #86efac' : 'none', borderRadius: '8px', cursor: !selectedBatchId || isSaved || saveState === 'saving' ? 'not-allowed' : 'pointer', opacity: !selectedBatchId ? 0.55 : 1, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <CheckCircle2 size={14} /> {saveState === 'saving' ? 'Saving…' : isSaved ? 'Saved' : 'Save Outcomes'}
           </button>
@@ -801,6 +858,24 @@ export default function HodProgrammeOutcomes() {
           </div>
         </div>
       )}
+
+      {/* ── EXCEL BULK IMPORT MODAL ────────────────────────────────────────── */}
+      <OutcomeExcelImportModal
+        isOpen={isExcelImportModalOpen}
+        onClose={() => setIsExcelImportModalOpen(false)}
+        batchId={selectedBatchId}
+        batchName={batches.find((b) => b.id === selectedBatchId)?.name || selectedBatchId}
+        programmeId={programmeId}
+        programmeName={selectedProgramme?.name}
+        onImportSuccess={(result) => {
+          setImportBanner({
+            type: 'success',
+            message: `Successfully imported ${result.totalPOsImported || 0} POs and ${result.totalPSOsImported || 0} PSOs with ${result.totalCompetenciesImported || 0} competencies from Excel!`,
+          });
+          loadProgrammeBatchOutcomes(programmeId, selectedBatchId);
+          setTimeout(() => setImportBanner(null), 6000);
+        }}
+      />
 
       {/* ── DELETE CONFIRM MODAL ──────────────────────────────────────────────── */}
       <DeleteConfirmModal
