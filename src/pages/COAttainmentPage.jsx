@@ -1,5 +1,6 @@
 import AppHeader from '../components/layout/AppHeader';
 import AppSidebar from '../components/layout/AppSidebar';
+import CourseOfferingSelector from '../components/course/CourseOfferingSelector';
 import COAttainmentEngine from '../features/coAttainment/COAttainmentEngine';
 
 export default function COAttainmentPage() {
@@ -9,6 +10,7 @@ export default function COAttainmentPage() {
       <main className="nba-layout-main">
         <AppHeader />
         <div className="page-container">
+          <CourseOfferingSelector />
           <COAttainmentEngine hideFooter={true} />
         </div>
       </main>

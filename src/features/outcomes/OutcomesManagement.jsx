@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck, Send, Lock, Download, AlertCircle, X, ChevronDown } from 'lucide-react';
+import { Target, FileSpreadsheet, Plus, Trash2, Save, CheckCircle2, Clock, XCircle, UserCheck, ShieldCheck, Send, Lock, Download, AlertCircle, AlertTriangle, X, ChevronDown } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import RowButtons from '../../components/common/RowButtons';
@@ -32,7 +32,7 @@ const isCompleteCourseOutcome = (outcome) => {
 export default function OutcomesManagement({ hideFooter = false, hideHeader = false, readOnly = false, reviewCourseId = null, suppressPendingMessage = false }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const isStandalone = searchParams.get('mode') === 'standalone';
+  const isStandalone = searchParams.get('mode') === 'standalone' || (typeof window !== 'undefined' && window.location.pathname.endsWith('/outcomes'));
 
   const { role, user } = useAuth();
   const {
@@ -78,7 +78,10 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
     : directCoStatus;
   const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
   const assignedOfferings = useMemo(
-    () => courseOfferings.filter((offering) => String(offering.batchId ?? offering.programmeBatchId) === String(batchId)),
+    () => {
+      const matched = courseOfferings.filter((offering) => !batchId || String(offering.batchId ?? offering.programmeBatchId) === String(batchId));
+      return matched.length > 0 ? matched : courseOfferings;
+    },
     [batchId, courseOfferings],
   );
 
@@ -278,7 +281,17 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
     );
   }, [programmeId, activePSOs]);
 
+  const lastTargetCourseIdRef = useRef(targetCourseId);
+
   useEffect(() => {
+    const courseChanged = lastTargetCourseIdRef.current !== targetCourseId;
+    if (courseChanged) {
+      lastTargetCourseIdRef.current = targetCourseId;
+    } else if (savedOutcomeSignature !== null && outcomeSignature(coList) !== savedOutcomeSignature) {
+      // Preserve active un-saved edits while background re-fetch completes for the current course
+      return;
+    }
+
     const targetData = courseVerificationStore[targetCourseId] || {};
     const globalStatus = targetData.coStatus || currentCoVerificationStatus || 'DRAFT';
     const courseTargets = safeCoTargets[targetCourseId] || {};
@@ -714,16 +727,16 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginLeft: 'auto' }}>
-            {isStandalone && isCourseCoordinator && <select
-              value={selectedCourseOffering?.id ?? ''}
+            {isStandalone && isCourseCoordinator && !reviewCourseId && <select
+              value={selectedCourseOffering?.id ?? targetCourseId ?? ''}
               onChange={(event) => {
                 const offering = assignedOfferings.find((item) => String(item.id) === event.target.value);
                 if (offering) selectCourseOffering(offering);
               }}
-              disabled={!batchId || assignedOfferings.length === 0}
+              disabled={assignedOfferings.length === 0}
               style={{ height: '38px', minWidth: '260px', padding: '0 10px', border: '1px solid #cbd5e1', borderRadius: '8px', color: '#0f172a', background: '#ffffff', fontWeight: '700', fontFamily: 'inherit' }}
             >
-              {assignedOfferings.length === 0 ? <option value="">No assigned courses for this programme batch</option> : assignedOfferings.map((offering) => <option key={offering.id} value={offering.id}>{offering.courseCode ?? offering.code ?? 'Course'} — {offering.courseName ?? offering.name ?? 'Programme-Batch Course'} · Sem {offering.semester ?? '—'}</option>)}
+              {assignedOfferings.length === 0 ? <option value="">No courses assigned yet</option> : assignedOfferings.map((offering) => <option key={offering.id} value={offering.id}>{offering.courseCode ?? offering.code ?? 'Course'} — {offering.courseName ?? offering.name ?? 'Programme-Batch Course'} · Sem {offering.semester ?? '—'}</option>)}
             </select>}
             {!isCoReviewLocked ? (
               <>
@@ -782,6 +795,32 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
           </div>
         </div>
       </div>}
+
+      {/* ── NO COURSES ASSIGNED ALERT BANNER ───────────────────────────────── */}
+      {isCourseCoordinator && assignedOfferings.length === 0 && (
+        <div style={{
+          margin: '0 0 20px 0',
+          padding: '16px 20px',
+          borderRadius: '12px',
+          background: '#fffbeb',
+          border: '1px solid #fde68a',
+          borderLeft: '5px solid #d97706',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px',
+          boxShadow: '0 2px 4px rgba(245, 158, 11, 0.08)',
+        }}>
+          <AlertTriangle size={24} style={{ color: '#d97706', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: '800', fontSize: '14px', color: '#92400e' }}>
+              No courses assigned yet
+            </div>
+            <div style={{ fontSize: '13px', color: '#b45309', marginTop: '3px', lineHeight: '1.4' }}>
+              You currently have no course offerings allocated to you or course allocations are awaiting HOD approval. Once your course coordinator assignments are approved by the HOD, your assigned courses will appear here automatically.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Director Pending Verifications Banner */}
       {(role === 'DIRECTOR' || role === 'IQAC') && (pendingPoCount > 0 || pendingPsoCount > 0) && (

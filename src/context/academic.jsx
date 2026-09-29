@@ -48,6 +48,8 @@ const academicCache = {
   departments: new Map(),
   programmes: new Map(),
   batches: new Map(),
+  courseOutcomes: new Map(),
+  courseMappings: new Map(),
   TTL: 60 * 1000, // 60 seconds
 
   invalidate(key = 'all') {
@@ -56,6 +58,8 @@ const academicCache = {
       academicCache.departments.clear();
       academicCache.programmes.clear();
       academicCache.batches.clear();
+      academicCache.courseOutcomes.clear();
+      academicCache.courseMappings.clear();
     } else if (key === 'schools') {
       academicCache.schools = { data: null, timestamp: 0 };
     } else if (key === 'departments') {
@@ -64,6 +68,10 @@ const academicCache = {
       academicCache.programmes.clear();
     } else if (key === 'batches') {
       academicCache.batches.clear();
+    } else if (key === 'courseOutcomes') {
+      academicCache.courseOutcomes.clear();
+    } else if (key === 'courseMappings') {
+      academicCache.courseMappings.clear();
     }
   },
 };
@@ -1154,20 +1162,40 @@ export function AcademicProvider({ children }) {
 
   /* --- Course Outcomes --- */
   const loadCourseOutcomes = useCallback(
-    async (offeringId = courseOfferingId) => {
+    async (offeringId = courseOfferingId, options = {}) => {
+      const { forceRefresh = false } = options;
       if (!offeringId) {
         setActiveCOs([]);
         return [];
       }
+
+      // Check client-side cache first to serve immediately (0ms latency)
+      const cached = academicCache.courseOutcomes.get(offeringId);
+      if (cached && !forceRefresh) {
+        setActiveCOs(cached.data);
+      }
+
+      // Always fetch realtime data from the authoritative API
       try {
         const response = await apiClient.get(
           `/programme-batch-courses/${offeringId}/course-outcomes`
         );
         const data = sortOutcomes(unwrapList(response));
-        setActiveCOs(data);
+        const signature = JSON.stringify(data);
+
+        // Update cache and state if fresh data is new or changed
+        if (!cached || cached.signature !== signature) {
+          academicCache.courseOutcomes.set(offeringId, {
+            data,
+            signature,
+            timestamp: Date.now(),
+          });
+          setActiveCOs(data);
+        }
         return data;
       } catch (err) {
         console.warn(`loadCourseOutcomes(${offeringId}) failed:`, err);
+        if (cached) return cached.data;
         return [];
       }
     },
@@ -1193,11 +1221,24 @@ export function AcademicProvider({ children }) {
       { params: { includeMappings } }
     );
     const data = sortOutcomes(unwrapList(response));
+    academicCache.courseOutcomes.set(targetOfferingId, {
+      data,
+      signature: JSON.stringify(data),
+      timestamp: Date.now(),
+    });
+    // Invalidate stale mapping cache since COs have been re-imported
+    academicCache.courseMappings.delete(targetOfferingId);
     setActiveCOs(data);
     if (includeMappings) {
       try {
         const mappingRes = await apiClient.get(`/programme-batch-courses/${targetOfferingId}/co-po-pso-mappings`);
-        setCoMapping(unwrap(mappingRes));
+        const mappingData = unwrap(mappingRes);
+        academicCache.courseMappings.set(targetOfferingId, {
+          data: mappingData,
+          signature: JSON.stringify(mappingData),
+          timestamp: Date.now(),
+        });
+        setCoMapping(mappingData);
       } catch (e) {}
     }
     return data;
@@ -1205,23 +1246,42 @@ export function AcademicProvider({ children }) {
 
   /* --- CO Mapping --- */
   const loadCourseMapping = useCallback(
-    async (programmeBatchCourseId = courseOfferingId) => {
+    async (programmeBatchCourseId = courseOfferingId, options = {}) => {
+      const { forceRefresh = false } = options;
       if (!programmeBatchCourseId) {
         setCoMapping(null);
         return null;
       }
-      try {
-        // Do not render a previously selected course's matrix while the new
-        // programme-batch-course mapping request is in flight.
+
+      // Check client-side cache to serve instantly without flash
+      const cached = academicCache.courseMappings.get(programmeBatchCourseId);
+      if (cached && !forceRefresh) {
+        setCoMapping(cached.data);
+      } else if (!cached) {
+        // Only clear if this course is not yet cached, avoiding cross-course matrix display
         setCoMapping(null);
+      }
+
+      // Always fetch fresh realtime data from API
+      try {
         const response = await apiClient.get(
           `/programme-batch-courses/${programmeBatchCourseId}/co-po-pso-mappings`
         );
         const data = unwrap(response);
-        setCoMapping(data);
+        const signature = JSON.stringify(data);
+
+        if (!cached || cached.signature !== signature) {
+          academicCache.courseMappings.set(programmeBatchCourseId, {
+            data,
+            signature,
+            timestamp: Date.now(),
+          });
+          setCoMapping(data);
+        }
         return data;
       } catch (err) {
         console.warn(`loadCourseMapping(${programmeBatchCourseId}) failed:`, err);
+        if (cached) return cached.data;
         return null;
       }
     },
@@ -2025,6 +2085,13 @@ export function AcademicProvider({ children }) {
       );
       const data = unwrapList(response);
       const sorted = sortOutcomes(data);
+      academicCache.courseOutcomes.set(offeringId, {
+        data: sorted,
+        signature: JSON.stringify(sorted),
+        timestamp: Date.now(),
+      });
+      // Changing COs invalidates the corresponding mapping matrix for this offering
+      academicCache.courseMappings.delete(offeringId);
       setActiveCOs(sorted);
       return sorted;
     },
@@ -2042,6 +2109,11 @@ export function AcademicProvider({ children }) {
         mappingPayload
       );
       const data = unwrap(response);
+      academicCache.courseMappings.set(programmeBatchCourseId, {
+        data,
+        signature: JSON.stringify(data),
+        timestamp: Date.now(),
+      });
       setCoMapping(data);
       return data;
     },

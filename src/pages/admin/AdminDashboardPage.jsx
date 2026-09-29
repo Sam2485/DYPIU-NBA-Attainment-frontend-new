@@ -126,6 +126,7 @@ export default function AdminDashboardPage() {
     addUser = () => Promise.resolve(null),
     updateUser = () => Promise.resolve(null),
     deleteUser = () => Promise.resolve(null),
+    getUserAssignments = () => Promise.resolve([]),
     addAssignment = () => Promise.resolve(null),
     updateAssignment = () => Promise.resolve(null),
     removeAssignment = () => Promise.resolve(null),
@@ -196,12 +197,36 @@ export default function AdminDashboardPage() {
   // ---------------------------------------------------------------------------
   // Edit Access Workflow
   // ---------------------------------------------------------------------------
-  const openEditAccess = (target) => {
+  const openEditAccess = async (target) => {
     setEditingUser(target);
     setIsAddingAssignment(false);
     setEditingAssignment(null);
+    setEditAccessStagedRows([]);
+    setEditAccessCurrent({
+      schoolId: '',
+      roles: ['FACULTY'],
+    });
     setError('');
     setShowEditAccessModal(true);
+
+    const targetUserId = target?.id ?? target?.userId;
+    if (targetUserId) {
+      try {
+        const fresh = await getUserAssignments(targetUserId);
+        if (Array.isArray(fresh)) {
+          setEditingUser((prev) => {
+            if (!prev) return prev;
+            const prevId = prev.id ?? prev.userId;
+            if (String(prevId) === String(targetUserId)) {
+              return { ...prev, assignments: fresh };
+            }
+            return prev;
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load user assignments on open:', err);
+      }
+    }
   };
 
   const startAddAssignment = () => {
@@ -249,6 +274,11 @@ export default function AdminDashboardPage() {
       return;
     }
 
+    if (selectedSchoolId === 'INSTITUTION' && selectedRoles.some((r) => r !== 'IQAC')) {
+      setError('Institution-wide scope is only valid for IQAC. For other roles, please select a school or "All Schools".');
+      return;
+    }
+
     const newItems = [];
     const existingUserAssignments = editingUser?.assignments || [];
 
@@ -292,7 +322,9 @@ export default function AdminDashboardPage() {
       }
     } else if (selectedSchoolId === 'INSTITUTION') {
       for (const role of selectedRoles) {
-        pushUnique(role, null, 'Institution-wide');
+        if (role === 'IQAC') {
+          pushUnique('IQAC', null, 'Institution-wide');
+        }
       }
     } else {
       for (const role of selectedRoles) {
@@ -357,10 +389,17 @@ export default function AdminDashboardPage() {
         };
 
         await updateAssignment(targetUserId, editingAssignment.id, payload);
+        const freshAssignments = await getUserAssignments(targetUserId);
+        if (Array.isArray(freshAssignments)) {
+          setEditingUser((prev) => (prev ? { ...prev, assignments: freshAssignments } : prev));
+        }
         const refreshed = await refreshUsers();
-        const updatedUser = refreshed.find((u) => (u.id ?? u.userId) === targetUserId);
+        const updatedUser = refreshed?.find?.((u) => String(u.id ?? u.userId) === String(targetUserId));
         if (updatedUser) {
-          setEditingUser(updatedUser);
+          setEditingUser((prev) => ({
+            ...updatedUser,
+            assignments: Array.isArray(freshAssignments) && freshAssignments.length > 0 ? freshAssignments : (updatedUser.assignments || []),
+          }));
         }
         setIsAddingAssignment(false);
         setEditingAssignment(null);
@@ -380,13 +419,18 @@ export default function AdminDashboardPage() {
       const selectedRoles = editAccessCurrent.roles || [];
 
       if (!selectedRoles || selectedRoles.length === 0) {
-        setError('Please select at least one role to add.');
+        setError('Please configure and add at least one role & school assignment.');
         return;
       }
 
       const isInstitutionOnly = selectedSchoolId === 'INSTITUTION' || (selectedRoles.length === 1 && selectedRoles[0] === 'IQAC');
       if (!selectedSchoolId && !isInstitutionOnly) {
         setError('Please select a school for the chosen role(s).');
+        return;
+      }
+
+      if (selectedSchoolId === 'INSTITUTION' && selectedRoles.some((r) => r !== 'IQAC')) {
+        setError('Institution-wide scope is only valid for IQAC. For other roles, please select a school or "All Schools".');
         return;
       }
 
@@ -405,18 +449,20 @@ export default function AdminDashboardPage() {
         }
       } else if (selectedSchoolId === 'INSTITUTION') {
         for (const role of selectedRoles) {
-          itemsToSave.push({
-            role,
-            schoolId: null,
-            schoolName: 'Institution-wide',
-            departmentId: null,
-            masterProgrammeId: null,
-          });
+          if (role === 'IQAC') {
+            itemsToSave.push({
+              role: 'IQAC',
+              schoolId: null,
+              schoolName: 'Institution-wide',
+              departmentId: null,
+              masterProgrammeId: null,
+            });
+          }
         }
       } else {
         for (const role of selectedRoles) {
           itemsToSave.push({
-            role,
+            role: role === 'IQAC' ? 'IQAC' : role,
             schoolId: role === 'IQAC' ? null : selectedSchoolId,
             schoolName: role === 'IQAC' ? 'Institution-wide' : schoolName(selectedSchoolId),
             departmentId: null,
@@ -444,14 +490,26 @@ export default function AdminDashboardPage() {
         });
       }
 
+      const freshAssignments = await getUserAssignments(targetUserId);
+      if (Array.isArray(freshAssignments)) {
+        setEditingUser((prev) => (prev ? { ...prev, assignments: freshAssignments } : prev));
+      }
+
       const refreshed = await refreshUsers();
-      const updatedUser = refreshed.find((u) => (u.id ?? u.userId) === targetUserId);
+      const updatedUser = refreshed?.find?.((u) => String(u.id ?? u.userId) === String(targetUserId));
       if (updatedUser) {
-        setEditingUser(updatedUser);
+        setEditingUser((prev) => ({
+          ...updatedUser,
+          assignments: Array.isArray(freshAssignments) && freshAssignments.length > 0 ? freshAssignments : (updatedUser.assignments || []),
+        }));
       }
       setIsAddingAssignment(false);
       setEditingAssignment(null);
       setEditAccessStagedRows([]);
+      setEditAccessCurrent({
+        schoolId: '',
+        roles: ['FACULTY'],
+      });
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Failed to save organizational access assignment(s).');
     } finally {
@@ -470,10 +528,17 @@ export default function AdminDashboardPage() {
     setError('');
     try {
       await removeAssignment(targetUserId, assignment.id);
+      const freshAssignments = await getUserAssignments(targetUserId);
+      if (Array.isArray(freshAssignments)) {
+        setEditingUser((prev) => (prev ? { ...prev, assignments: freshAssignments } : prev));
+      }
       const refreshed = await refreshUsers();
-      const updatedUser = refreshed.find((u) => (u.id ?? u.userId) === targetUserId);
+      const updatedUser = refreshed?.find?.((u) => String(u.id ?? u.userId) === String(targetUserId));
       if (updatedUser) {
-        setEditingUser(updatedUser);
+        setEditingUser((prev) => ({
+          ...updatedUser,
+          assignments: Array.isArray(freshAssignments) ? freshAssignments : (updatedUser.assignments || []),
+        }));
       }
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Failed to remove assignment.');
@@ -1068,10 +1133,21 @@ export default function AdminDashboardPage() {
       {showEditAccessModal && editingUser && (
         <Modal
           title={`Edit access — ${editingUser.name || editingUser.email}`}
-          onClose={() => setShowEditAccessModal(false)}
+          onClose={() => {
+            setShowEditAccessModal(false);
+            setEditingAssignment(null);
+            setEditAccessStagedRows([]);
+            setError('');
+          }}
           maxWidth={620}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <form onSubmit={saveAssignmentAction} style={{ display: 'grid', gap: 14 }}>
+            {error && (
+              <div style={{ color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '9px 12px', fontSize: 12.5 }}>
+                {error}
+              </div>
+            )}
+
             {/* User identity */}
             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 9, padding: '12px 14px' }}>
               <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: '#64748b', letterSpacing: '.04em' }}>
@@ -1083,405 +1159,375 @@ export default function AdminDashboardPage() {
               <div style={{ fontSize: 12.5, color: '#475569', marginTop: 1 }}>{editingUser.email}</div>
             </div>
 
-            {error && (
-              <div style={{ color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
-                {error}
-              </div>
-            )}
-
-            {/* Organizational Access Section */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-              <div>
-                <strong style={{ color: '#0f172a', fontSize: 14.5 }}>Organizational Access</strong>
+            {/* Current Active Organizational Access */}
+            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
+              <div style={{ marginBottom: 8 }}>
+                <strong style={{ color: '#0f172a', fontSize: 13.5 }}>Current Organizational Access</strong>
                 <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>
                   Assignments grouped by school. Each assignment has independent scope.
                 </p>
               </div>
-              {!isAddingAssignment && !editingAssignment && (
-                <button
-                  type="button"
-                  onClick={startAddAssignment}
-                  style={{
-                    height: 32,
-                    padding: '0 10px',
-                    background: '#eef2ff',
-                    color: '#4338ca',
-                    border: '1px solid #c7d2fe',
-                    borderRadius: 7,
-                    fontWeight: 750,
-                    fontSize: 12,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 5,
-                  }}
-                >
-                  <Plus size={13} /> Add Organizational Access
-                </button>
-              )}
-            </div>
 
-            {/* List grouped assignments */}
-            {groupedAssignments.length === 0 && !isAddingAssignment && !editingAssignment && (
-              <div style={{ padding: 24, textAlign: 'center', background: '#f8fafc', borderRadius: 9, border: '1px dashed #cbd5e1', color: '#64748b', fontSize: 13 }}>
-                No active organizational assignments for this user.
-              </div>
-            )}
-
-            {groupedAssignments.map((group) => (
-              <div
-                key={group.schoolName}
-                style={{
-                  border: '1px solid #e2e8f0',
-                  borderRadius: 10,
-                  overflow: 'hidden',
-                  background: '#fff',
-                }}
-              >
-                <div
-                  style={{
-                    padding: '9px 13px',
-                    background: '#f8fafc',
-                    borderBottom: '1px solid #e2e8f0',
-                    fontSize: 13,
-                    fontWeight: 800,
-                    color: '#1e293b',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 7,
-                  }}
-                >
-                  <Building2 size={14} style={{ color: '#4f46e5' }} />
-                  {group.schoolName}
+              {groupedAssignments.length === 0 ? (
+                <div style={{ padding: 18, textAlign: 'center', background: '#f8fafc', borderRadius: 9, border: '1px dashed #cbd5e1', color: '#64748b', fontSize: 12.5 }}>
+                  No active organizational assignments for this user.
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', divideY: '1px solid #f1f5f9' }}>
-                  {group.items.map((assignment) => (
+              ) : (
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {groupedAssignments.map((group) => (
                     <div
-                      key={assignment.id}
+                      key={group.schoolName}
                       style={{
-                        padding: '10px 14px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        borderBottom: '1px solid #f1f5f9',
-                        gap: 12,
+                        border: '1px solid #e2e8f0',
+                        borderRadius: 10,
+                        overflow: 'hidden',
+                        background: '#fff',
                       }}
                     >
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          <span
+                      <div
+                        style={{
+                          padding: '9px 13px',
+                          background: '#f8fafc',
+                          borderBottom: '1px solid #e2e8f0',
+                          fontSize: 13,
+                          fontWeight: 800,
+                          color: '#1e293b',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 7,
+                        }}
+                      >
+                        <Building2 size={14} style={{ color: '#4f46e5' }} />
+                        {group.schoolName}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {group.items.map((assignment) => (
+                          <div
+                            key={assignment.id}
                             style={{
-                              fontSize: 10.5,
-                              fontWeight: 800,
-                              color: '#3730a3',
-                              background: '#e0e7ff',
-                              borderRadius: 4,
-                              padding: '2px 6px',
+                              padding: '10px 14px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              borderBottom: '1px solid #f1f5f9',
+                              gap: 12,
                             }}
                           >
-                            {ROLE_OPTIONS.find((o) => o.value === assignment.role)?.label || assignment.role}
-                          </span>
-                          {assignment.departmentName && (
-                            <span style={{ fontSize: 12.5, fontWeight: 650, color: '#334155' }}>
-                              — {assignment.departmentName}
-                            </span>
-                          )}
-                          {assignment.masterProgrammeName && (
-                            <span style={{ fontSize: 12, color: '#64748b' }}>
-                              ({assignment.masterProgrammeName})
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                <span
+                                  style={{
+                                    fontSize: 10.5,
+                                    fontWeight: 800,
+                                    color: '#3730a3',
+                                    background: '#e0e7ff',
+                                    borderRadius: 4,
+                                    padding: '2px 6px',
+                                  }}
+                                >
+                                  {ROLE_OPTIONS.find((o) => o.value === assignment.role)?.label || assignment.role}
+                                </span>
+                                {assignment.departmentName && (
+                                  <span style={{ fontSize: 12.5, fontWeight: 650, color: '#334155' }}>
+                                    — {assignment.departmentName}
+                                  </span>
+                                )}
+                                {assignment.masterProgrammeName && (
+                                  <span style={{ fontSize: 12, color: '#64748b' }}>
+                                    ({assignment.masterProgrammeName})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
 
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button
-                          type="button"
-                          onClick={() => startEditAssignment(assignment)}
-                          style={{
-                            height: 28,
-                            padding: '0 8px',
-                            background: '#fff',
-                            color: '#2563eb',
-                            border: '1px solid #bfdbfe',
-                            borderRadius: 6,
-                            fontWeight: 700,
-                            fontSize: 11.5,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAssignmentAction(assignment)}
-                          style={{
-                            height: 28,
-                            padding: '0 8px',
-                            background: '#fff',
-                            color: '#b91c1c',
-                            border: '1px solid #fecaca',
-                            borderRadius: 6,
-                            fontWeight: 700,
-                            fontSize: 11.5,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Remove
-                        </button>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button
+                                type="button"
+                                onClick={() => startEditAssignment(assignment)}
+                                style={{
+                                  height: 28,
+                                  padding: '0 8px',
+                                  background: '#fff',
+                                  color: '#2563eb',
+                                  border: '1px solid #bfdbfe',
+                                  borderRadius: 6,
+                                  fontWeight: 750,
+                                  fontSize: 11.5,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAssignmentAction(assignment)}
+                                disabled={saving}
+                                style={{
+                                  height: 28,
+                                  padding: '0 8px',
+                                  background: '#fff',
+                                  color: '#b91c1c',
+                                  border: '1px solid #fecaca',
+                                  borderRadius: 6,
+                                  fontWeight: 750,
+                                  fontSize: 11.5,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            ))}
+              )}
+            </div>
 
-            {/* Assignment Editor Form (Inline inside Edit Access) */}
-            {(isAddingAssignment || editingAssignment) && (
-              <form
-                onSubmit={saveAssignmentAction}
+            {/* Edit Single Assignment Form (if editing an existing item) */}
+            {editingAssignment && (
+              <div
                 style={{
                   border: '1.5px solid #818cf8',
-                  borderRadius: 10,
-                  padding: 16,
+                  borderRadius: 9,
+                  padding: 14,
                   background: '#f8fafc',
                   display: 'grid',
-                  gap: 11,
-                  marginTop: 6,
+                  gap: 10,
                 }}
               >
-                <div style={{ fontSize: 13, fontWeight: 800, color: '#1e293b' }}>
-                  {editingAssignment ? 'Edit Assignment' : 'Add Organizational Access'}
-                </div>
-
-                {editingAssignment ? (
-                  <>
-                    {/* Editing single assignment: School selector first, Role second */}
-                    {assignmentForm.role !== 'IQAC' ? (
-                      <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
-                        School *
-                        <select
-                          value={assignmentForm.schoolId}
-                          onChange={(e) => handleAssignmentSchoolChange(e.target.value)}
-                          style={{ ...fieldStyle, height: 36, marginTop: 3 }}
-                        >
-                          <option value="">Select School</option>
-                          {schools.map((s) => (
-                            <option key={s.id ?? s.schoolId} value={s.id ?? s.schoolId}>
-                              {s.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    ) : (
-                      <div style={{ padding: '8px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 12, color: '#1e40af' }}>
-                        IQAC role operates institution-wide across all schools.
-                      </div>
-                    )}
-
-                    <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
-                      Role *
-                      <select
-                        value={assignmentForm.role}
-                        onChange={(e) => setAssignmentForm({ ...assignmentForm, role: e.target.value })}
-                        style={{ ...fieldStyle, height: 36, marginTop: 3 }}
-                      >
-                        {ROLE_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </>
-                ) : (
-                  <>
-                    {/* Staged assignments to add */}
-                    {editAccessStagedRows.length > 0 && (
-                      <div style={{ display: 'grid', gap: 6, marginBottom: 6 }}>
-                        <div style={{ fontSize: 11.5, fontWeight: 750, color: '#334155' }}>
-                          Staged Access to Add:
-                        </div>
-                        {editAccessStagedRows.map((row, idx) => (
-                          <div
-                            key={idx}
-                            style={{
-                              padding: '7px 11px',
-                              background: '#ffffff',
-                              border: '1px solid #e2e8f0',
-                              borderRadius: 7,
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              fontSize: 12,
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ fontWeight: 800, color: '#4338ca', background: '#eef2ff', padding: '2px 7px', borderRadius: 4, fontSize: 11 }}>
-                                {ROLE_OPTIONS.find((o) => o.value === row.role)?.label || row.role}
-                              </span>
-                              <strong style={{ color: '#0f172a' }}>{row.schoolName}</strong>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeStagedEditAccessRow(idx)}
-                              style={{ border: 0, background: 'none', color: '#b91c1c', cursor: 'pointer', padding: 2 }}
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* 1. School Selector First */}
-                    <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
-                      School *
-                      <select
-                        value={editAccessCurrent.schoolId}
-                        onChange={(e) =>
-                          setEditAccessCurrent({
-                            ...editAccessCurrent,
-                            schoolId: e.target.value,
-                          })
-                        }
-                        style={{ ...fieldStyle, height: 36, marginTop: 3 }}
-                      >
-                        <option value="">-- Select a School --</option>
-                        <option value="ALL_SCHOOLS">All Schools (Apply across all schools)</option>
-                        <option value="INSTITUTION">Institution-wide (IQAC)</option>
-                        {schools.map((s) => {
-                          const sId = s.id ?? s.schoolId;
-                          return (
-                            <option key={sId} value={sId}>
-                              {s.name} {s.code ? `(${s.code})` : ''}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </label>
-
-                    {/* 2. Role Multiple Selector Second */}
-                    <div>
-                      <div style={{ fontSize: 11.5, fontWeight: 700, color: '#475569', marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span>Role(s) * (Select one or more)</span>
-                        {editAccessCurrent.roles && editAccessCurrent.roles.length > 0 && (
-                          <span style={{ fontSize: 11, color: '#4338ca', fontWeight: 700 }}>
-                            {editAccessCurrent.roles.length} selected
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 6 }}>
-                        {ROLE_OPTIONS.map((opt) => {
-                          const checked = (editAccessCurrent.roles || []).includes(opt.value);
-                          return (
-                            <label
-                              key={opt.value}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 7,
-                                padding: '6px 9px',
-                                border: `1px solid ${checked ? '#6366f1' : '#cbd5e1'}`,
-                                background: checked ? '#eef2ff' : '#ffffff',
-                                borderRadius: 6,
-                                cursor: 'pointer',
-                                fontSize: 12,
-                                color: checked ? '#3730a3' : '#334155',
-                                fontWeight: 650,
-                                transition: 'all 0.15s ease',
-                              }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => toggleEditAccessRole(opt.value)}
-                              />
-                              {opt.label}
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 2 }}>
-                      <button
-                        type="button"
-                        onClick={addStagedEditAccessRows}
-                        style={{
-                          height: 33,
-                          background: '#eef2ff',
-                          color: '#4338ca',
-                          border: '1px solid #c7d2fe',
-                          borderRadius: 6,
-                          fontWeight: 750,
-                          fontSize: 12,
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 5,
-                        }}
-                      >
-                        <Plus size={13} /> Add to Assignment List
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8, borderTop: '1px solid #e2e8f0', paddingTop: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: '#1e293b' }}>
+                    Edit Assignment
+                  </div>
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsAddingAssignment(false);
-                      setEditingAssignment(null);
-                      setEditAccessStagedRows([]);
-                    }}
-                    style={{
-                      height: 34,
-                      padding: '0 12px',
-                      background: '#fff',
-                      border: '1px solid #cbd5e1',
-                      borderRadius: 7,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
+                    onClick={() => setEditingAssignment(null)}
+                    style={{ border: 0, background: 'none', color: '#64748b', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    style={{
-                      height: 34,
-                      padding: '0 16px',
-                      background: '#4f46e5',
-                      color: '#fff',
-                      border: 0,
-                      borderRadius: 7,
-                      fontSize: 12,
-                      fontWeight: 800,
-                      cursor: saving ? 'wait' : 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <Check size={14} />
-                    {saving
-                      ? 'Saving…'
-                      : editingAssignment
-                      ? 'Update Assignment'
-                      : editAccessStagedRows.length > 0
-                      ? `Save & Apply Access (${editAccessStagedRows.length})`
-                      : 'Save & Apply Access'}
-                  </button>
                 </div>
 
-              </form>
+                {assignmentForm.role !== 'IQAC' ? (
+                  <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
+                    School *
+                    <select
+                      value={assignmentForm.schoolId}
+                      onChange={(e) => handleAssignmentSchoolChange(e.target.value)}
+                      style={{ ...fieldStyle, height: 36, marginTop: 3 }}
+                    >
+                      <option value="">Select School</option>
+                      {schools.map((s) => (
+                        <option key={s.id ?? s.schoolId} value={s.id ?? s.schoolId}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <div style={{ padding: '8px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 12, color: '#1e40af' }}>
+                    IQAC role operates institution-wide across all schools.
+                  </div>
+                )}
+
+                <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
+                  Role *
+                  <select
+                    value={assignmentForm.role}
+                    onChange={(e) => setAssignmentForm({ ...assignmentForm, role: e.target.value })}
+                    style={{ ...fieldStyle, height: 36, marginTop: 3 }}
+                  >
+                    {ROLE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             )}
-          </div>
+
+            {/* Organizational Assignments to Add (Exact same UI as Add User modal!) */}
+            {!editingAssignment && (
+              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>
+                  Organizational Assignments to Add
+                </div>
+                <p style={{ margin: '0 0 10px', fontSize: 12, color: '#64748b' }}>
+                  Configure role and organizational scope. Multi-school or multiple roles are supported.
+                </p>
+
+                {editAccessStagedRows.length > 0 && (
+                  <div style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
+                    {editAccessStagedRows.map((row, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '8px 11px',
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: 7,
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          fontSize: 12,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontWeight: 800, color: '#4338ca', background: '#eef2ff', padding: '2px 7px', borderRadius: 4 }}>
+                            {ROLE_OPTIONS.find((o) => o.value === row.role)?.label || row.role}
+                          </span>
+                          <strong style={{ color: '#0f172a' }}>{row.schoolName}</strong>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeStagedEditAccessRow(idx)}
+                          style={{ border: 0, background: 'none', color: '#b91c1c', cursor: 'pointer', fontWeight: 700 }}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Assignment Form Section: SCHOOL SELECTOR FIRST, THEN ROLE MULTIPLE SELECTOR */}
+                <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 9, padding: 12, display: 'grid', gap: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 750, color: '#1e293b' }}>
+                    + Configure School & Role(s)
+                  </div>
+
+                  {/* 1. School Selector First */}
+                  <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
+                    School *
+                    <select
+                      value={editAccessCurrent.schoolId}
+                      onChange={(e) => {
+                        const sId = e.target.value;
+                        setEditAccessCurrent((prev) => ({
+                          ...prev,
+                          schoolId: sId,
+                          roles: sId === 'INSTITUTION' ? ['IQAC'] : (prev.roles && prev.roles.length > 0 ? prev.roles : ['FACULTY']),
+                        }));
+                      }}
+                      style={{ ...fieldStyle, height: 36, marginTop: 3 }}
+                    >
+                      <option value="">-- Select a School --</option>
+                      <option value="ALL_SCHOOLS">All Schools (Apply across all schools)</option>
+                      <option value="INSTITUTION">Institution-wide (IQAC)</option>
+                      {schools.map((s) => {
+                        const sId = s.id ?? s.schoolId;
+                        return (
+                          <option key={sId} value={sId}>
+                            {s.name} {s.code ? `(${s.code})` : ''}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </label>
+
+                  {/* 2. Role Multiple Selector Second */}
+                  <div>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, color: '#475569', marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>Role(s) * (Select one or more)</span>
+                      {editAccessCurrent.roles && editAccessCurrent.roles.length > 0 && (
+                        <span style={{ fontSize: 11, color: '#4338ca', fontWeight: 700 }}>
+                          {editAccessCurrent.roles.length} selected
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 6 }}>
+                      {ROLE_OPTIONS.map((opt) => {
+                        const isInstitution = editAccessCurrent.schoolId === 'INSTITUTION';
+                        const disabled = isInstitution && opt.value !== 'IQAC';
+                        const checked = (editAccessCurrent.roles || []).includes(opt.value);
+                        return (
+                          <label
+                            key={opt.value}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 7,
+                              padding: '6px 9px',
+                              border: `1px solid ${checked ? '#6366f1' : '#cbd5e1'}`,
+                              background: disabled ? '#f1f5f9' : (checked ? '#eef2ff' : '#fff'),
+                              borderRadius: 6,
+                              cursor: disabled ? 'not-allowed' : 'pointer',
+                              fontSize: 12,
+                              color: disabled ? '#94a3b8' : (checked ? '#3730a3' : '#334155'),
+                              fontWeight: 650,
+                              opacity: disabled ? 0.6 : 1,
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              disabled={disabled}
+                              checked={checked}
+                              onChange={() => toggleEditAccessRole(opt.value)}
+                            />
+                            {opt.label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={addStagedEditAccessRows}
+                    style={{
+                      height: 33,
+                      background: '#eef2ff',
+                      color: '#4338ca',
+                      border: '1px solid #c7d2fe',
+                      borderRadius: 6,
+                      fontWeight: 750,
+                      fontSize: 12,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 5,
+                      marginTop: 4,
+                    }}
+                  >
+                    <Plus size={13} /> Add to Assignment List
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button
+              disabled={saving}
+              style={{
+                height: 40,
+                border: 0,
+                borderRadius: 8,
+                background: '#4f46e5',
+                color: '#fff',
+                fontWeight: 800,
+                cursor: saving ? 'wait' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                marginTop: 6,
+              }}
+            >
+              <Save size={14} />
+              {saving
+                ? 'Saving…'
+                : editingAssignment
+                ? 'Update Assignment'
+                : editAccessStagedRows.length > 0
+                ? `Save & Apply Access (${editAccessStagedRows.length})`
+                : 'Save & Apply Access'}
+            </button>
+          </form>
         </Modal>
       )}
 

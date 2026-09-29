@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   BookOpen, Map, Upload, ClipboardList,
   BarChart2, FileText, Check, ArrowRight, ArrowLeft, X, ChevronDown,
-  CheckCircle2,
+  CheckCircle2, AlertTriangle,
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -183,19 +183,24 @@ export default function CourseCoordinatorWorkflow() {
                 const nextStepNum = nextIncompleteIdx !== -1 ? nextIncompleteIdx + 1 : 1;
                 goToStep(nextStepNum);
               }}
+              disabled={courseOfferings.length === 0}
               style={{
                 height: '38px', fontSize: '13px', fontWeight: '700', color: accent,
                 border: '1.5px solid #c7d2fe', borderRadius: '8px',
                 padding: '0 32px 0 12px', background: '#f5f3ff',
                 minWidth: '240px', outline: 'none', appearance: 'none',
-                cursor: 'pointer', fontFamily: 'inherit',
+                cursor: courseOfferings.length === 0 ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
               }}
             >
-              {courseOfferings.map((offering) => (
-                <option key={offering.id} value={offering.id}>
-                  {offering.courseCode || 'Course'} — {offering.courseName || 'Programme Batch Course'} · Sem {offering.semester ?? '—'}
-                </option>
-              ))}
+              {courseOfferings.length === 0 ? (
+                <option value="">No courses assigned yet</option>
+              ) : (
+                courseOfferings.map((offering) => (
+                  <option key={offering.id} value={offering.id}>
+                    {offering.courseCode || 'Course'} — {offering.courseName || 'Programme Batch Course'} · Sem {offering.semester ?? '—'}
+                  </option>
+                ))
+              )}
             </select>
             <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: accent, pointerEvents: 'none' }} />
           </div>
@@ -213,6 +218,32 @@ export default function CourseCoordinatorWorkflow() {
           </button>
         </div>
       </div>
+
+      {/* ── NO COURSES ASSIGNED ALERT BANNER ───────────────────────────────────── */}
+      {courseOfferings.length === 0 && (
+        <div style={{
+          margin: '16px 0',
+          padding: '16px 20px',
+          borderRadius: '12px',
+          background: '#fffbeb',
+          border: '1px solid #fde68a',
+          borderLeft: '5px solid #d97706',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px',
+          boxShadow: '0 2px 4px rgba(245, 158, 11, 0.08)',
+        }}>
+          <AlertTriangle size={24} style={{ color: '#d97706', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: '800', fontSize: '14px', color: '#92400e' }}>
+              No courses assigned yet
+            </div>
+            <div style={{ fontSize: '13px', color: '#b45309', marginTop: '3px', lineHeight: '1.4' }}>
+              You currently have no course offerings allocated to you or course allocations are awaiting HOD approval. Once your course coordinator assignments are approved by the HOD, your assigned courses will appear here automatically.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── STEP STEPPER (icon circles) ───────────────────────────────────────── */}
       <div style={{ ...surface, padding: '16px 20px', marginBottom: '20px' }}>

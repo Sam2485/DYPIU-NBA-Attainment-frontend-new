@@ -403,8 +403,6 @@ export default function AppSidebar({
     if (item.path === fullPath) return true;
     return item.path.split('?')[0] === location.pathname;
   });
-  const facultyAllocationLocked = (role === 'FACULTY' || role === 'COURSE_COORDINATOR')
-    && courseOfferings.length === 0;
 
   const roleText = {
     IQAC: 'IQAC Admin',
@@ -1249,14 +1247,11 @@ export default function AppSidebar({
               >
                 {FACULTY_NAV.map((item) => {
                   const isActive = fullPath === item.path || item.path.split('?')[0] === location.pathname;
-                  const isLocked = facultyAllocationLocked && item.id !== 'dashboard';
                   return (
                     <button
                       key={item.id}
                       type="button"
-                      disabled={isLocked}
                       onClick={() => {
-                        if (isLocked) return;
                         navigate(item.path);
                         setNavOpenFaculty(false);
                       }}
@@ -1266,17 +1261,16 @@ export default function AppSidebar({
                         border: isActive ? '1px solid rgba(165,180,252,0.24)' : '1px solid transparent',
                         borderRadius: 10,
                         background: isActive ? 'rgba(99,102,241,0.18)' : 'transparent',
-                        color: isLocked ? '#64748b' : '#f8fafc',
-                        cursor: isLocked ? 'not-allowed' : 'pointer',
+                        color: '#f8fafc',
+                        cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         gap: 10,
                         padding: '8px 10px',
                         textAlign: 'left',
                         boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none',
-                        opacity: isLocked ? 0.58 : 1,
                       }}
-                      title={isLocked ? 'Awaiting HOD approval of the course allocation' : item.label}
+                      title={item.label}
                     >
                       <span
                         style={{
@@ -1293,7 +1287,7 @@ export default function AppSidebar({
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: 12.5, lineHeight: 1.1, color: '#f8fafc' }}>
-                          {item.label}{isLocked ? ' · Locked' : ''}
+                          {item.label}
                         </div>
                       </div>
                     </button>

@@ -331,7 +331,7 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
                 disabled={selectorDisabled || assignedOfferings.length === 0}
                 style={{ ...inputStyle, height: '38px', width: '220px', padding: '0 8px', fontWeight: '700', color: ink, cursor: selectorDisabled || assignedOfferings.length === 0 ? 'not-allowed' : 'pointer' }}
               >
-                {assignedOfferings.length === 0 ? <option value="">No assigned courses for this programme batch</option> : assignedOfferings.map((offering) => <option key={offering.id} value={offering.id}>{offering.courseCode ?? offering.code ?? 'Course'} — {offering.courseName ?? offering.name ?? 'Programme-Batch Course'} · Sem {offering.semester ?? '—'}</option>)}
+                {assignedOfferings.length === 0 ? <option value="">No courses assigned yet</option> : assignedOfferings.map((offering) => <option key={offering.id} value={offering.id}>{offering.courseCode ?? offering.code ?? 'Course'} — {offering.courseName ?? offering.name ?? 'Programme-Batch Course'} · Sem {offering.semester ?? '—'}</option>)}
               </select>}
               {/* Course selector */}
               {showCourseSelector && !courseId && (
