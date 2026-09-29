@@ -1911,17 +1911,21 @@ export function AcademicProvider({ children }) {
     return result;
   }, [batchId, loadCourseOfferings, loadSemestersStatusOverview]);
 
-  const downloadOutcomeTemplate = useCallback(async (targetBatchId) => {
+  const downloadOutcomeTemplate = useCallback(async (targetBatchId, scope = 'ALL') => {
     const bId = targetBatchId || batchId;
     if (!bId) throw new Error('Programme batch is required to download outcome template.');
     const response = await apiClient.get(`/academic/programme-batches/${bId}/outcomes/template`, {
+      params: { scope },
       responseType: 'blob',
     });
     const blob = response instanceof Blob ? response : (response?.data instanceof Blob ? response.data : new Blob([response.data || response]));
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `PO_PSO_Competency_Template.xlsx`);
+    let filename = 'PO_PSO_Competency_Template.xlsx';
+    if (scope === 'PO') filename = 'PO_Competency_Template.xlsx';
+    else if (scope === 'PSO') filename = 'PSO_Competency_Template.xlsx';
+    link.setAttribute('download', filename);
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -1929,25 +1933,33 @@ export function AcademicProvider({ children }) {
     return true;
   }, [batchId]);
 
-  const previewOutcomeExcel = useCallback(async (targetBatchId, file) => {
+  const previewOutcomeExcel = useCallback(async (targetBatchId, file, scope = 'ALL') => {
     const bId = targetBatchId || batchId;
     if (!bId) throw new Error('Programme batch is required for outcome preview.');
     const formData = new FormData();
     formData.append('file', file);
-    const response = await apiClient.post(`/academic/programme-batches/${bId}/outcomes/import-excel/preview`, formData);
+    const response = await apiClient.post(`/academic/programme-batches/${bId}/outcomes/import-excel/preview`, formData, {
+      params: { scope },
+    });
     return unwrap(response);
   }, [batchId]);
 
-  const importOutcomeExcel = useCallback(async (targetBatchId, payload, targetProgrammeId = programmeId) => {
+  const importOutcomeExcel = useCallback(async (targetBatchId, payload, targetProgrammeId = programmeId, scope = 'ALL') => {
     const bId = targetBatchId || batchId;
     if (!bId) throw new Error('Programme batch is required for outcome import.');
     let response;
+    const finalScope = (typeof scope === 'string' && scope) ? scope : (payload?.scope || 'ALL');
     if (payload instanceof File || payload instanceof Blob) {
       const formData = new FormData();
       formData.append('file', payload);
-      response = await apiClient.post(`/academic/programme-batches/${bId}/outcomes/import-excel`, formData);
+      response = await apiClient.post(`/academic/programme-batches/${bId}/outcomes/import-excel`, formData, {
+        params: { scope: finalScope },
+      });
     } else {
-      response = await apiClient.post(`/academic/programme-batches/${bId}/outcomes/import-excel`, payload);
+      const body = { ...payload, scope: finalScope };
+      response = await apiClient.post(`/academic/programme-batches/${bId}/outcomes/import-excel`, body, {
+        params: { scope: finalScope },
+      });
     }
     const result = unwrap(response);
     if (targetProgrammeId && bId) {

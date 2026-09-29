@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { BookOpen, UserCheck, Calendar, Layers, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, Trash2, Edit3, X, AlertCircle, ChevronDown, GraduationCap, Download, Upload } from 'lucide-react';
+import { BookOpen, UserCheck, Calendar, Layers, CheckCircle2, ArrowRight, ArrowLeft, Save, Check, Plus, Trash2, Edit3, X, AlertCircle, ChevronDown, GraduationCap, Download, Upload, FileSpreadsheet, Sparkles } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
@@ -229,6 +229,9 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
   const [availableBatchSources, setAvailableBatchSources] = useState([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isExcelImportModalOpen, setIsExcelImportModalOpen] = useState(false);
+  const [excelImportScope, setExcelImportScope] = useState('ALL');
+  const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(false);
+  const [isImportMenuOpen, setIsImportMenuOpen] = useState(false);
   const [selectedSourceBatchId, setSelectedSourceBatchId] = useState('');
   const [importLoading, setImportLoading] = useState(false);
   const [importBanner, setImportBanner] = useState(null);
@@ -1299,59 +1302,302 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
                   )}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await downloadOutcomeTemplate(outcomesBatchId);
-                    } catch (err) {
-                      alert(err?.response?.data?.message || err.message || 'Failed to download template.');
-                    }
-                  }}
-                  disabled={!outcomesBatchId}
-                  title="Download PO and Competency Excel template (.xlsx)"
-                  style={{
-                    height: '38px',
-                    padding: '0 12px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    background: '#ffffff',
-                    color: '#4338ca',
-                    border: '1px solid #c7d2fe',
-                    borderRadius: '8px',
-                    cursor: !outcomesBatchId ? 'not-allowed' : 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  <Download size={13} /> Sample Template
-                </button>
+                {/* Template Download Dropdown */}
+                <div style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsTemplateMenuOpen((v) => !v);
+                      setIsImportMenuOpen(false);
+                    }}
+                    disabled={!outcomesBatchId}
+                    title="Download Excel templates (.xlsx)"
+                    style={{
+                      height: '38px',
+                      padding: '0 12px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      background: '#ffffff',
+                      color: '#4338ca',
+                      border: '1px solid #c7d2fe',
+                      borderRadius: '8px',
+                      cursor: !outcomesBatchId ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    <Download size={13} /> Sample Template <ChevronDown size={13} />
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => setIsExcelImportModalOpen(true)}
-                  disabled={!outcomesBatchId}
-                  title="Import POs, PSOs & Competencies from Excel workbook"
-                  style={{
-                    height: '38px',
-                    padding: '0 13px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    background: '#f5f3ff',
-                    color: '#6d28d9',
-                    border: '1px solid #ddd6fe',
-                    borderRadius: '8px',
-                    cursor: !outcomesBatchId ? 'not-allowed' : 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  <Upload size={13} /> Import Excel
-                </button>
+                  {isTemplateMenuOpen && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        marginTop: '4px',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '10px',
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                        zIndex: 50,
+                        minWidth: '240px',
+                        padding: '6px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '2px',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setIsTemplateMenuOpen(false);
+                          try {
+                            await downloadOutcomeTemplate(outcomesBatchId, 'ALL');
+                          } catch (err) {
+                            alert(err?.response?.data?.message || err.message || 'Failed to download template.');
+                          }
+                        }}
+                        style={{
+                          padding: '8px 12px',
+                          textAlign: 'left',
+                          background: 'transparent',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: '#1e293b',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <FileSpreadsheet size={14} color="#4338ca" />
+                        <div>
+                          <div style={{ fontWeight: '700' }}>PO &amp; PSO Template</div>
+                          <div style={{ fontSize: '10.5px', color: '#64748b' }}>Combined (2 Sheets)</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setIsTemplateMenuOpen(false);
+                          try {
+                            await downloadOutcomeTemplate(outcomesBatchId, 'PO');
+                          } catch (err) {
+                            alert(err?.response?.data?.message || err.message || 'Failed to download template.');
+                          }
+                        }}
+                        style={{
+                          padding: '8px 12px',
+                          textAlign: 'left',
+                          background: 'transparent',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: '#1e293b',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <CheckCircle2 size={14} color="#4338ca" />
+                        <div>
+                          <div style={{ fontWeight: '700' }}>PO Template Only</div>
+                          <div style={{ fontSize: '10.5px', color: '#64748b' }}>Single Sheet (.xlsx)</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setIsTemplateMenuOpen(false);
+                          try {
+                            await downloadOutcomeTemplate(outcomesBatchId, 'PSO');
+                          } catch (err) {
+                            alert(err?.response?.data?.message || err.message || 'Failed to download template.');
+                          }
+                        }}
+                        style={{
+                          padding: '8px 12px',
+                          textAlign: 'left',
+                          background: 'transparent',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: '#1e293b',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <Sparkles size={14} color="#0891b2" />
+                        <div>
+                          <div style={{ fontWeight: '700' }}>PSO Template Only</div>
+                          <div style={{ fontSize: '10.5px', color: '#64748b' }}>Single Sheet (.xlsx)</div>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Import Excel Dropdown */}
+                <div style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsImportMenuOpen((v) => !v);
+                      setIsTemplateMenuOpen(false);
+                    }}
+                    disabled={!outcomesBatchId}
+                    title="Import POs, PSOs & Competencies from Excel workbook"
+                    style={{
+                      height: '38px',
+                      padding: '0 13px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      background: '#f5f3ff',
+                      color: '#6d28d9',
+                      border: '1px solid #ddd6fe',
+                      borderRadius: '8px',
+                      cursor: !outcomesBatchId ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    <Upload size={13} /> Import Excel <ChevronDown size={13} />
+                  </button>
+
+                  {isImportMenuOpen && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        marginTop: '4px',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '10px',
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                        zIndex: 50,
+                        minWidth: '250px',
+                        padding: '6px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '2px',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsImportMenuOpen(false);
+                          setExcelImportScope('ALL');
+                          setIsExcelImportModalOpen(true);
+                        }}
+                        style={{
+                          padding: '8px 12px',
+                          textAlign: 'left',
+                          background: 'transparent',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: '#1e293b',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f5f3ff')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <FileSpreadsheet size={14} color="#6d28d9" />
+                        <div>
+                          <div style={{ fontWeight: '700' }}>Import PO &amp; PSO</div>
+                          <div style={{ fontSize: '10.5px', color: '#64748b' }}>Combined (2 Sheets)</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsImportMenuOpen(false);
+                          setExcelImportScope('PO');
+                          setIsExcelImportModalOpen(true);
+                        }}
+                        style={{
+                          padding: '8px 12px',
+                          textAlign: 'left',
+                          background: 'transparent',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: '#1e293b',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f5f3ff')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <CheckCircle2 size={14} color="#4338ca" />
+                        <div>
+                          <div style={{ fontWeight: '700' }}>Import PO Only</div>
+                          <div style={{ fontSize: '10.5px', color: '#64748b' }}>Single Sheet · Preserves PSOs</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsImportMenuOpen(false);
+                          setExcelImportScope('PSO');
+                          setIsExcelImportModalOpen(true);
+                        }}
+                        style={{
+                          padding: '8px 12px',
+                          textAlign: 'left',
+                          background: 'transparent',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: '#1e293b',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f5f3ff')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <Sparkles size={14} color="#0891b2" />
+                        <div>
+                          <div style={{ fontWeight: '700' }}>Import PSO Only</div>
+                          <div style={{ fontSize: '10.5px', color: '#64748b' }}>Single Sheet · Preserves POs</div>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
 
                 <button
                   type="button"
@@ -1806,10 +2052,17 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
         batchName={programmeBatches.find((b) => b.id === outcomesBatchId)?.name || outcomesBatchId}
         programmeId={programmeId}
         programmeName={selectedProgramme?.name}
-        onImportSuccess={async (result) => {
+        initialScope={excelImportScope}
+        onImportSuccess={async (result, scope) => {
+          const successMsg = scope === 'PO'
+            ? `Successfully imported ${result.totalPOsImported || 0} POs and ${result.totalCompetenciesImported || 0} PO competencies (PSOs preserved)!`
+            : scope === 'PSO'
+            ? `Successfully imported ${result.totalPSOsImported || 0} PSOs and ${result.totalCompetenciesImported || 0} PSO competencies (POs preserved)!`
+            : `Successfully imported ${result.totalPOsImported || 0} POs and ${result.totalPSOsImported || 0} PSOs with ${result.totalCompetenciesImported || 0} competencies from Excel!`;
+
           setImportBanner({
             type: 'success',
-            message: `Successfully imported ${result.totalPOsImported || 0} POs and ${result.totalPSOsImported || 0} PSOs with ${result.totalCompetenciesImported || 0} competencies from Excel!`,
+            message: successMsg,
           });
           if (programmeId && outcomesBatchId) {
             await loadProgrammeBatchOutcomes(programmeId, outcomesBatchId);

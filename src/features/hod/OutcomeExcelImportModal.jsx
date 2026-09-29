@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -14,7 +14,9 @@ import {
   Info,
   ChevronDown,
   Layers,
-  Sparkles
+  Sparkles,
+  ShieldCheck,
+  FileText
 } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 
@@ -29,11 +31,13 @@ export default function OutcomeExcelImportModal({
   batchName,
   programmeId,
   programmeName,
+  initialScope = 'ALL', // 'ALL', 'PO', or 'PSO'
   onImportSuccess,
 }) {
   const { downloadOutcomeTemplate, previewOutcomeExcel, importOutcomeExcel } = useAcademic();
   const fileInputRef = useRef(null);
 
+  const [importScope, setImportScope] = useState(initialScope || 'ALL');
   const [selectedFile, setSelectedFile] = useState(null);
   const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -44,6 +48,13 @@ export default function OutcomeExcelImportModal({
   const [importResult, setImportResult] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [selectedFilterTab, setSelectedFilterTab] = useState('ALL'); // ALL, PO, PSO
+
+  // Sync initialScope when modal opens or initialScope prop changes
+  useEffect(() => {
+    if (isOpen) {
+      setImportScope(initialScope || 'ALL');
+    }
+  }, [isOpen, initialScope]);
 
   const filteredItems = useMemo(() => {
     if (selectedFilterTab === 'PO') {
@@ -65,6 +76,12 @@ export default function OutcomeExcelImportModal({
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleScopeChange = (newScope) => {
+    if (newScope === importScope) return;
+    setImportScope(newScope);
+    handleReset();
+  };
+
   const handleClose = () => {
     handleReset();
     onClose();
@@ -74,7 +91,7 @@ export default function OutcomeExcelImportModal({
     try {
       setIsDownloadingTemplate(true);
       setErrorMessage(null);
-      await downloadOutcomeTemplate(batchId);
+      await downloadOutcomeTemplate(batchId, importScope);
     } catch (err) {
       setErrorMessage(err?.response?.data?.message || err.message || 'Failed to download template.');
     } finally {
@@ -99,11 +116,20 @@ export default function OutcomeExcelImportModal({
     setErrorMessage(null);
   };
 
-  const recomputeCodes = (items) => {
+  const recomputeCodes = (items, currentScope = importScope) => {
     let poIndex = 1;
     let psoIndex = 1;
     return items.map((item) => {
-      const isPSO = item.category === 'PSO';
+      let isPSO;
+      if (currentScope === 'PO') {
+        isPSO = false;
+      } else if (currentScope === 'PSO') {
+        isPSO = true;
+      } else {
+        isPSO = item.category === 'PSO';
+      }
+
+      const category = isPSO ? 'PSO' : 'PO';
       const code = isPSO ? `PSO${psoIndex++}` : `PO${poIndex++}`;
       const renumberedCompetencies = (item.competencies || []).map((comp, cIdx) => ({
         ...comp,
@@ -123,6 +149,7 @@ export default function OutcomeExcelImportModal({
 
       return {
         ...item,
+        category,
         code,
         competencies: renumberedCompetencies,
         issues,
@@ -140,11 +167,11 @@ export default function OutcomeExcelImportModal({
     try {
       setIsPreviewing(true);
       setErrorMessage(null);
-      const preview = await previewOutcomeExcel(batchId, selectedFile);
+      const preview = await previewOutcomeExcel(batchId, selectedFile, importScope);
       setPreviewData(preview);
-      const items = recomputeCodes(preview?.items || []);
+      const items = recomputeCodes(preview?.items || [], importScope);
       setEditableItems(items);
-      setSelectedFilterTab('ALL');
+      setSelectedFilterTab(importScope === 'PO' ? 'PO' : importScope === 'PSO' ? 'PSO' : 'ALL');
     } catch (err) {
       const msg = err?.response?.data?.message || err.message || 'Failed to parse Excel workbook.';
       setErrorMessage(msg);
@@ -154,13 +181,14 @@ export default function OutcomeExcelImportModal({
   };
 
   const handleToggleCategory = (index, newCategory) => {
+    if (importScope !== 'ALL') return; // Locked to the selected scope in single-sheet mode
     setEditableItems((prev) => {
       const updated = [...prev];
       updated[index] = {
         ...updated[index],
         category: newCategory,
       };
-      return recomputeCodes(updated);
+      return recomputeCodes(updated, importScope);
     });
   };
 
@@ -171,7 +199,7 @@ export default function OutcomeExcelImportModal({
         ...updated[index],
         statement: newStatement,
       };
-      return recomputeCodes(updated);
+      return recomputeCodes(updated, importScope);
     });
   };
 
@@ -182,12 +210,13 @@ export default function OutcomeExcelImportModal({
       setIsImporting(true);
       setErrorMessage(null);
       const payload = {
+        scope: importScope,
         items: editableItems,
       };
-      const result = await importOutcomeExcel(batchId, payload, programmeId);
+      const result = await importOutcomeExcel(batchId, payload, programmeId, importScope);
       setImportResult(result);
       if (onImportSuccess) {
-        onImportSuccess(result);
+        onImportSuccess(result, importScope);
       }
     } catch (err) {
       const msg = err?.response?.data?.message || err.message || 'Import failed. No outcomes were modified.';
@@ -267,9 +296,23 @@ export default function OutcomeExcelImportModal({
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: ink, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                Import PO / PSO & Competencies from Excel
-                <span style={{ fontSize: '11px', background: '#ecfdf5', color: '#047857', padding: '2px 8px', borderRadius: '12px', fontWeight: '700', border: '1px solid #a7f3d0' }}>
-                  Smart Detection
+                {importScope === 'PO'
+                  ? 'Import Programme Outcomes (PO) & Competencies'
+                  : importScope === 'PSO'
+                  ? 'Import Programme Specific Outcomes (PSO) & Competencies'
+                  : 'Import PO / PSO & Competencies from Excel'}
+                <span
+                  style={{
+                    fontSize: '11px',
+                    background: importScope === 'ALL' ? '#ecfdf5' : '#e0e7ff',
+                    color: importScope === 'ALL' ? '#047857' : '#4338ca',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontWeight: '700',
+                    border: `1px solid ${importScope === 'ALL' ? '#a7f3d0' : '#c7d2fe'}`,
+                  }}
+                >
+                  {importScope === 'ALL' ? 'Combined (2 Sheets)' : `${importScope} Scope`}
                 </span>
               </h3>
               <p style={{ margin: '2px 0 0', fontSize: '12px', color: muted }}>
@@ -299,6 +342,142 @@ export default function OutcomeExcelImportModal({
 
         {/* Modal Body */}
         <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
+          {/* Mode Switcher Tabs */}
+          {!importResult && (
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: muted, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Select Import Workflow:
+              </div>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => handleScopeChange('ALL')}
+                  disabled={isImporting || isPreviewing}
+                  style={{
+                    flex: '1 1 200px',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid',
+                    borderColor: importScope === 'ALL' ? accent : '#e2e8f0',
+                    background: importScope === 'ALL' ? '#eef2ff' : '#ffffff',
+                    color: importScope === 'ALL' ? accent : ink,
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    cursor: isImporting || isPreviewing ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    textAlign: 'left',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '6px',
+                      background: importScope === 'ALL' ? accent : '#f1f5f9',
+                      color: importScope === 'ALL' ? '#ffffff' : muted,
+                      display: 'grid',
+                      placeItems: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Layers size={15} />
+                  </div>
+                  <div>
+                    <div>PO &amp; PSO (2 Sheets)</div>
+                    <div style={{ fontSize: '11px', color: muted, fontWeight: '500' }}>Both PO &amp; PSO workbook</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleScopeChange('PO')}
+                  disabled={isImporting || isPreviewing}
+                  style={{
+                    flex: '1 1 200px',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid',
+                    borderColor: importScope === 'PO' ? accent : '#e2e8f0',
+                    background: importScope === 'PO' ? '#eef2ff' : '#ffffff',
+                    color: importScope === 'PO' ? accent : ink,
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    cursor: isImporting || isPreviewing ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    textAlign: 'left',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '6px',
+                      background: importScope === 'PO' ? accent : '#f1f5f9',
+                      color: importScope === 'PO' ? '#ffffff' : muted,
+                      display: 'grid',
+                      placeItems: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <CheckCircle2 size={15} />
+                  </div>
+                  <div>
+                    <div>PO Only (1 Sheet)</div>
+                    <div style={{ fontSize: '11px', color: muted, fontWeight: '500' }}>Only POs · Preserves PSOs</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleScopeChange('PSO')}
+                  disabled={isImporting || isPreviewing}
+                  style={{
+                    flex: '1 1 200px',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid',
+                    borderColor: importScope === 'PSO' ? '#0891b2' : '#e2e8f0',
+                    background: importScope === 'PSO' ? '#ecfeff' : '#ffffff',
+                    color: importScope === 'PSO' ? '#0891b2' : ink,
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    cursor: isImporting || isPreviewing ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    textAlign: 'left',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '6px',
+                      background: importScope === 'PSO' ? '#0891b2' : '#f1f5f9',
+                      color: importScope === 'PSO' ? '#ffffff' : muted,
+                      display: 'grid',
+                      placeItems: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Sparkles size={15} />
+                  </div>
+                  <div>
+                    <div>PSO Only (1 Sheet)</div>
+                    <div style={{ fontSize: '11px', color: muted, fontWeight: '500' }}>Only PSOs · Preserves POs</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Global Error Banner */}
           {errorMessage && (
             <div
@@ -339,36 +518,48 @@ export default function OutcomeExcelImportModal({
                 <CheckCircle2 size={34} />
               </div>
               <h4 style={{ margin: '0 0 8px', fontSize: '19px', fontWeight: '800', color: ink }}>
-                Outcomes Imported Successfully!
+                {importScope === 'PO'
+                  ? 'POs & Competencies Imported Successfully!'
+                  : importScope === 'PSO'
+                  ? 'PSOs & Competencies Imported Successfully!'
+                  : 'Outcomes Imported Successfully!'}
               </h4>
-              <p style={{ margin: '0 0 20px', fontSize: '13.5px', color: muted, maxWidth: '520px', marginInline: 'auto' }}>
-                All Programme Outcomes, Programme Specific Outcomes, and Competencies have been saved cleanly for batch <strong>{batchName || batchId}</strong>.
+              <p style={{ margin: '0 0 20px', fontSize: '13.5px', color: muted, maxWidth: '540px', marginInline: 'auto' }}>
+                All target outcome definitions and competencies have been saved cleanly for batch <strong>{batchName || batchId}</strong>.
               </p>
 
               <div
                 style={{
                   display: 'inline-flex',
+                  alignItems: 'center',
                   gap: '24px',
                   background: '#f8fafc',
                   border: '1px solid #e2e8f0',
                   borderRadius: '12px',
                   padding: '14px 28px',
-                  marginBottom: '24px',
+                  marginBottom: '20px',
                 }}
               >
-                <div>
-                  <div style={{ fontSize: '20px', fontWeight: '800', color: accent }}>
-                    {importResult.totalPOsImported || 0}
+                {(importScope === 'ALL' || importScope === 'PO') && (
+                  <div>
+                    <div style={{ fontSize: '20px', fontWeight: '800', color: accent }}>
+                      {importResult.totalPOsImported || 0}
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: muted, fontWeight: '600' }}>POs Imported</div>
                   </div>
-                  <div style={{ fontSize: '11.5px', color: muted, fontWeight: '600' }}>POs Imported</div>
-                </div>
-                <div style={{ width: '1px', background: '#cbd5e1' }} />
-                <div>
-                  <div style={{ fontSize: '20px', fontWeight: '800', color: '#0891b2' }}>
-                    {importResult.totalPSOsImported || 0}
+                )}
+
+                {importScope === 'ALL' && <div style={{ width: '1px', background: '#cbd5e1' }} />}
+
+                {(importScope === 'ALL' || importScope === 'PSO') && (
+                  <div>
+                    <div style={{ fontSize: '20px', fontWeight: '800', color: '#0891b2' }}>
+                      {importResult.totalPSOsImported || 0}
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: muted, fontWeight: '600' }}>PSOs Imported</div>
                   </div>
-                  <div style={{ fontSize: '11.5px', color: muted, fontWeight: '600' }}>PSOs Imported</div>
-                </div>
+                )}
+
                 <div style={{ width: '1px', background: '#cbd5e1' }} />
                 <div>
                   <div style={{ fontSize: '20px', fontWeight: '800', color: '#16a34a' }}>
@@ -377,6 +568,20 @@ export default function OutcomeExcelImportModal({
                   <div style={{ fontSize: '11.5px', color: muted, fontWeight: '600' }}>Competencies</div>
                 </div>
               </div>
+
+              {/* Scope Isolation Callout */}
+              {importScope === 'PO' && (
+                <div style={{ maxWidth: '480px', margin: '0 auto 24px', padding: '10px 14px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px', fontSize: '12px', color: '#047857', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                  <ShieldCheck size={16} />
+                  <span>Existing <strong>Programme Specific Outcomes (PSOs)</strong> in this batch were preserved without change.</span>
+                </div>
+              )}
+              {importScope === 'PSO' && (
+                <div style={{ maxWidth: '480px', margin: '0 auto 24px', padding: '10px 14px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px', fontSize: '12px', color: '#047857', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                  <ShieldCheck size={16} />
+                  <span>Existing <strong>Programme Outcomes (POs)</strong> in this batch were preserved without change.</span>
+                </div>
+              )}
 
               <div>
                 <button
@@ -443,7 +648,13 @@ export default function OutcomeExcelImportModal({
                       }}
                     >
                       <Upload size={15} color={accent} />
-                      {selectedFile ? 'Change File' : 'Choose Excel File (.xlsx)'}
+                      {selectedFile
+                        ? 'Change File'
+                        : importScope === 'PO'
+                        ? 'Choose PO Excel File (.xlsx)'
+                        : importScope === 'PSO'
+                        ? 'Choose PSO Excel File (.xlsx)'
+                        : 'Choose PO & PSO File (.xlsx)'}
                     </label>
 
                     {selectedFile && (
@@ -479,7 +690,11 @@ export default function OutcomeExcelImportModal({
                       }}
                     >
                       {isDownloadingTemplate ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-                      Download Sample Template
+                      {importScope === 'PO'
+                        ? 'Download PO Template (1 Sheet)'
+                        : importScope === 'PSO'
+                        ? 'Download PSO Template (1 Sheet)'
+                        : 'Download Template (2 Sheets)'}
                     </button>
 
                     <button
@@ -503,7 +718,7 @@ export default function OutcomeExcelImportModal({
                       }}
                     >
                       {isPreviewing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                      Inspect & Preview
+                      Inspect &amp; Preview
                     </button>
                   </div>
                 </div>
@@ -511,7 +726,21 @@ export default function OutcomeExcelImportModal({
                 <div style={{ marginTop: '10px', fontSize: '11.5px', color: muted, display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Info size={13} />
                   <span>
-                    Excel format: 2 continuous columns — <strong>Outcome Statement</strong> and <strong>Competency</strong>. Blank outcome rows attach dynamic competencies to the preceding outcome.
+                    {importScope === 'ALL' && (
+                      <>
+                        Workbook format: <strong>2 Sheets</strong> — Sheet 1: <strong>PO and Competency</strong>, Sheet 2: <strong>PSO and Competency</strong>. Each sheet has 2 columns: <strong>Outcome Statement</strong> and <strong>Competency</strong>.
+                      </>
+                    )}
+                    {importScope === 'PO' && (
+                      <>
+                        Workbook format: <strong>1 Sheet</strong> for <strong>Programme Outcomes (PO) &amp; Competencies</strong>. Existing PSOs in batch will be safely preserved.
+                      </>
+                    )}
+                    {importScope === 'PSO' && (
+                      <>
+                        Workbook format: <strong>1 Sheet</strong> for <strong>Programme Specific Outcomes (PSO) &amp; Competencies</strong>. Existing POs in batch will be safely preserved.
+                      </>
+                    )}
                   </span>
                 </div>
               </div>
@@ -536,14 +765,18 @@ export default function OutcomeExcelImportModal({
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '13px', fontWeight: '800', color: ink }}>
-                        Total: {editableItems.length} Outcomes
+                        Total: {editableItems.length} {importScope === 'PO' ? 'POs' : importScope === 'PSO' ? 'PSOs' : 'Outcomes'}
                       </span>
-                      <span style={{ fontSize: '12px', background: '#e0e7ff', color: '#4338ca', padding: '3px 9px', borderRadius: '12px', fontWeight: '700' }}>
-                        {poCount} POs
-                      </span>
-                      <span style={{ fontSize: '12px', background: '#e0f2fe', color: '#0369a1', padding: '3px 9px', borderRadius: '12px', fontWeight: '700' }}>
-                        {psoCount} PSOs
-                      </span>
+                      {(importScope === 'ALL' || importScope === 'PO') && (
+                        <span style={{ fontSize: '12px', background: '#e0e7ff', color: '#4338ca', padding: '3px 9px', borderRadius: '12px', fontWeight: '700' }}>
+                          {poCount} POs
+                        </span>
+                      )}
+                      {(importScope === 'ALL' || importScope === 'PSO') && (
+                        <span style={{ fontSize: '12px', background: '#e0f2fe', color: '#0369a1', padding: '3px 9px', borderRadius: '12px', fontWeight: '700' }}>
+                          {psoCount} PSOs
+                        </span>
+                      )}
                       <span style={{ fontSize: '12px', background: '#f0fdf4', color: '#15803d', padding: '3px 9px', borderRadius: '12px', fontWeight: '700' }}>
                         {totalCompetencies} Competencies
                       </span>
@@ -559,33 +792,35 @@ export default function OutcomeExcelImportModal({
                       )}
                     </div>
 
-                    {/* Filter tabs */}
-                    <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '3px', borderRadius: '8px' }}>
-                      {[
-                        ['ALL', `All (${editableItems.length})`],
-                        ['PO', `POs (${poCount})`],
-                        ['PSO', `PSOs (${psoCount})`],
-                      ].map(([tabKey, label]) => (
-                        <button
-                          key={tabKey}
-                          type="button"
-                          onClick={() => setSelectedFilterTab(tabKey)}
-                          style={{
-                            padding: '5px 12px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            fontSize: '11.5px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            background: selectedFilterTab === tabKey ? '#ffffff' : 'transparent',
-                            color: selectedFilterTab === tabKey ? accent : muted,
-                            boxShadow: selectedFilterTab === tabKey ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                          }}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
+                    {/* Filter tabs (Only relevant in ALL mode) */}
+                    {importScope === 'ALL' && (
+                      <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '3px', borderRadius: '8px' }}>
+                        {[
+                          ['ALL', `All (${editableItems.length})`],
+                          ['PO', `POs (${poCount})`],
+                          ['PSO', `PSOs (${psoCount})`],
+                        ].map(([tabKey, label]) => (
+                          <button
+                            key={tabKey}
+                            type="button"
+                            onClick={() => setSelectedFilterTab(tabKey)}
+                            style={{
+                              padding: '5px 12px',
+                              borderRadius: '6px',
+                              border: 'none',
+                              fontSize: '11.5px',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                              background: selectedFilterTab === tabKey ? '#ffffff' : 'transparent',
+                              color: selectedFilterTab === tabKey ? accent : muted,
+                              boxShadow: selectedFilterTab === tabKey ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                            }}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Classification note banner */}
@@ -605,7 +840,19 @@ export default function OutcomeExcelImportModal({
                   >
                     <Info size={14} />
                     <span>
-                      Review the detected classification below. You can change any item between <strong>[PO]</strong> and <strong>[PSO]</strong> using the selector — codes will re-sequence automatically.
+                      {importScope === 'ALL' ? (
+                        <>
+                          Review the detected classification below. You can change any item between <strong>[PO]</strong> and <strong>[PSO]</strong> using the selector — codes will re-sequence automatically.
+                        </>
+                      ) : importScope === 'PO' ? (
+                        <>
+                          Importing in <strong>PO Only</strong> mode. All items below will be created/updated as Programme Outcomes (PO1, PO2, …). Existing PSOs are safe.
+                        </>
+                      ) : (
+                        <>
+                          Importing in <strong>PSO Only</strong> mode. All items below will be created/updated as Programme Specific Outcomes (PSO1, PSO2, …). Existing POs are safe.
+                        </>
+                      )}
                     </span>
                   </div>
 
@@ -619,7 +866,7 @@ export default function OutcomeExcelImportModal({
                       overflowY: 'auto',
                     }}
                   >
-                    {filteredItems.map((item, originalIndex) => {
+                    {filteredItems.map((item) => {
                       const actualIndex = editableItems.findIndex((i) => i.id === item.id);
                       const isPSO = item.category === 'PSO';
 
@@ -633,7 +880,7 @@ export default function OutcomeExcelImportModal({
                             transition: 'background 0.15s ease',
                           }}
                         >
-                          {/* Row Top: Category selector + Code + Detection Rule + Competency Count */}
+                          {/* Row Top: Category selector + Code + Sheet/Row info + Competency Count */}
                           <div
                             style={{
                               display: 'flex',
@@ -645,39 +892,54 @@ export default function OutcomeExcelImportModal({
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              {/* Classification dropdown / toggle */}
-                              <div style={{ display: 'inline-flex', borderRadius: '6px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleCategory(actualIndex, 'PO')}
+                              {importScope === 'ALL' ? (
+                                <div style={{ display: 'inline-flex', borderRadius: '6px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleCategory(actualIndex, 'PO')}
+                                    style={{
+                                      padding: '4px 10px',
+                                      fontSize: '11px',
+                                      fontWeight: '800',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      background: !isPSO ? accent : '#f8fafc',
+                                      color: !isPSO ? '#ffffff' : muted,
+                                    }}
+                                  >
+                                    PO
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleCategory(actualIndex, 'PSO')}
+                                    style={{
+                                      padding: '4px 10px',
+                                      fontSize: '11px',
+                                      fontWeight: '800',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      background: isPSO ? '#0891b2' : '#f8fafc',
+                                      color: isPSO ? '#ffffff' : muted,
+                                    }}
+                                  >
+                                    PSO
+                                  </button>
+                                </div>
+                              ) : (
+                                <span
                                   style={{
-                                    padding: '4px 10px',
+                                    padding: '3px 8px',
                                     fontSize: '11px',
                                     fontWeight: '800',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    background: !isPSO ? accent : '#f8fafc',
-                                    color: !isPSO ? '#ffffff' : muted,
+                                    borderRadius: '6px',
+                                    background: isPSO ? '#ecfeff' : '#eef2ff',
+                                    color: isPSO ? '#0891b2' : accent,
+                                    border: `1px solid ${isPSO ? '#a5f3fc' : '#c7d2fe'}`,
                                   }}
                                 >
-                                  PO
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleCategory(actualIndex, 'PSO')}
-                                  style={{
-                                    padding: '4px 10px',
-                                    fontSize: '11px',
-                                    fontWeight: '800',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    background: isPSO ? '#0891b2' : '#f8fafc',
-                                    color: isPSO ? '#ffffff' : muted,
-                                  }}
-                                >
-                                  PSO
-                                </button>
-                              </div>
+                                  {item.category}
+                                </span>
+                              )}
 
                               <span
                                 style={{
@@ -695,7 +957,7 @@ export default function OutcomeExcelImportModal({
                               </span>
 
                               <span style={{ fontSize: '11px', color: muted }}>
-                                (Row {item.rowNumber})
+                                {item.sheetName ? `[${item.sheetName}] ` : ''}Row {item.rowNumber}
                               </span>
 
                               {item.detectionRule && (
@@ -888,7 +1150,11 @@ export default function OutcomeExcelImportModal({
                 ) : (
                   <>
                     <Check size={15} />
-                    Confirm & Save Outcomes ({editableItems.length})
+                    {importScope === 'PO'
+                      ? `Confirm & Save POs (${editableItems.length})`
+                      : importScope === 'PSO'
+                      ? `Confirm & Save PSOs (${editableItems.length})`
+                      : `Confirm & Save Outcomes (${editableItems.length})`}
                   </>
                 )}
               </button>

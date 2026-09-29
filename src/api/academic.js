@@ -202,32 +202,37 @@ export const academicApi = {
     );
   },
 
-  downloadOutcomeTemplate: (programmeBatchId) =>
+  downloadOutcomeTemplate: (programmeBatchId, scope = 'ALL') =>
     apiClient.get(`/academic/programme-batches/${programmeBatchId}/outcomes/template`, {
+      params: { scope },
       responseType: 'blob',
     }),
 
-  previewOutcomeExcel: (programmeBatchId, file) => {
+  previewOutcomeExcel: (programmeBatchId, file, scope = 'ALL') => {
     const formData = new FormData();
     formData.append('file', file);
     return apiClient.post(
       `/academic/programme-batches/${programmeBatchId}/outcomes/import-excel/preview`,
-      formData
+      formData,
+      { params: { scope } }
     );
   },
 
-  importOutcomeExcel: (programmeBatchId, payload) => {
+  importOutcomeExcel: (programmeBatchId, payload, scope = 'ALL') => {
     if (payload instanceof File || payload instanceof Blob) {
       const formData = new FormData();
       formData.append('file', payload);
       return apiClient.post(
         `/academic/programme-batches/${programmeBatchId}/outcomes/import-excel`,
-        formData
+        formData,
+        { params: { scope } }
       );
     }
+    const body = { ...payload, scope: payload?.scope || scope };
     return apiClient.post(
       `/academic/programme-batches/${programmeBatchId}/outcomes/import-excel`,
-      payload
+      body,
+      { params: { scope } }
     );
   },
 
