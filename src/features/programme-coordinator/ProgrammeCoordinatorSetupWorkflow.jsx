@@ -267,7 +267,13 @@ export default function ProgrammeCoordinatorSetupWorkflow({
         allocations,
       });
       setLocallySubmittedSemesters((previous) => new Set([...previous, activeSemesterScope]));
-      await loadSemestersStatusOverview(batchId);
+      // Reload semester status overview, approval queue, courses, and setup progress to display correct status
+      await Promise.allSettled([
+        loadSemestersStatusOverview(batchId),
+        programmeId ? loadProgrammeCoordinatorApprovals(programmeId) : Promise.resolve(),
+        loadCourseOfferings(batchId),
+        loadSetupProgress(),
+      ]);
       alert(`Semester ${activeSemester} course allocations submitted for HOD approval.`);
     } catch (error) {
       console.error('Failed to submit course allocations for review:', error);
@@ -306,6 +312,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({
       });
       updateCourseVerificationStatus(targetsKey, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
       updateCourseVerificationStatus(allocationKey, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
+      // Reload approvals, batch outcome definitions, and setup progress to display correct status
+      await Promise.allSettled([
+        programmeId ? loadProgrammeCoordinatorApprovals(programmeId) : Promise.resolve(),
+        (programmeId && batchId) ? loadProgrammeBatchOutcomes(programmeId, batchId) : Promise.resolve(),
+        loadSetupProgress(),
+      ]);
       alert(`PO & PSO target benchmarks for ${selectedProgramme?.name} submitted for HOD approval!`);
     } catch (error) {
       console.error('Failed to submit PO/PSO targets for review:', error);

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -53,14 +53,29 @@ export default function CourseMappingExcelImportModal({
   const [previewData, setPreviewData] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [selectedFilterTab, setSelectedFilterTab] = useState('ALL'); // ALL, PO, PSO
+  const [activeInspectTab, setActiveInspectTab] = useState('SHEET_DATA'); // SHEET_DATA, MATRIX
 
   // Sync initialScope when modal opens or initialScope prop changes
   useEffect(() => {
     if (isOpen) {
       setImportScope(initialScope || 'ALL');
       setIsTemplateMenuOpen(false);
+      setSelectedFilterTab(initialScope === 'PO' ? 'PO' : initialScope === 'PSO' ? 'PSO' : 'ALL');
+      setActiveInspectTab('SHEET_DATA');
     }
   }, [isOpen, initialScope]);
+
+  const filteredItems = useMemo(() => {
+    const items = previewData?.items || [];
+    if (selectedFilterTab === 'PO') {
+      return items.filter((i) => i.category === 'PO');
+    }
+    if (selectedFilterTab === 'PSO') {
+      return items.filter((i) => i.category === 'PSO');
+    }
+    return items;
+  }, [previewData, selectedFilterTab]);
 
   const handleReset = () => {
     setSelectedFile(null);
@@ -68,6 +83,8 @@ export default function CourseMappingExcelImportModal({
     setImportResult(null);
     setErrorMessage(null);
     setIsTemplateMenuOpen(false);
+    setSelectedFilterTab('ALL');
+    setActiveInspectTab('SHEET_DATA');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -764,8 +781,10 @@ export default function CourseMappingExcelImportModal({
                       </div>
                       <div style={{ fontSize: '11px', color: muted, marginTop: '4px' }}>
                         {previewData.cosMatch
-                          ? `All expected COs matched: ${previewData.expectedCoCodes?.join(', ')}`
-                          : `Mismatch: Expected ${previewData.expectedCoCodes?.join(', ')}, found ${previewData.detectedCoCodes?.join(', ')}`}
+                          ? previewData.coCodeMapping && Object.keys(previewData.coCodeMapping).length > 0
+                            ? `Sheet COs mapped to course: ${Object.entries(previewData.coCodeMapping).map(([sheet, course]) => `${sheet} → ${course}`).join(', ')}`
+                            : `All expected COs matched: ${previewData.expectedCoCodes?.join(', ')}`
+                          : `Mismatch: Expected ${previewData.expectedCoCount} COs, found ${previewData.sheetCoCount} in sheet.`}
                       </div>
                     </div>
 
@@ -863,11 +882,391 @@ export default function CourseMappingExcelImportModal({
                     </div>
                   )}
 
-                  {/* Matrix Preview Table */}
-                  {previewData.matrix && Object.keys(previewData.matrix).length > 0 && (
+                  {/* Inspection View Mode Selector & Filters */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '14px',
+                      flexWrap: 'wrap',
+                      gap: '10px',
+                      padding: '8px 12px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    {/* View switcher tabs */}
+                    <div style={{ display: 'flex', gap: '4px', background: '#e2e8f0', padding: '3px', borderRadius: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setActiveInspectTab('SHEET_DATA')}
+                        style={{
+                          padding: '6px 14px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          background: activeInspectTab === 'SHEET_DATA' ? '#ffffff' : 'transparent',
+                          color: activeInspectTab === 'SHEET_DATA' ? accent : muted,
+                          boxShadow: activeInspectTab === 'SHEET_DATA' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <Layers size={14} />
+                        <span>Sheet Data View (Competencies &amp; Keywords)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveInspectTab('MATRIX')}
+                        style={{
+                          padding: '6px 14px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          background: activeInspectTab === 'MATRIX' ? '#ffffff' : 'transparent',
+                          color: activeInspectTab === 'MATRIX' ? accent : muted,
+                          boxShadow: activeInspectTab === 'MATRIX' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <FileSpreadsheet size={14} />
+                        <span>Mapping Matrix Table</span>
+                      </button>
+                    </div>
+
+                    {/* Filter tabs (ALL / PO / PSO) */}
+                    {importScope === 'ALL' && activeInspectTab === 'SHEET_DATA' && (
+                      <div style={{ display: 'flex', gap: '4px', background: '#e2e8f0', padding: '3px', borderRadius: '8px' }}>
+                        {[
+                          ['ALL', `All (${previewData?.items?.length || 0})`],
+                          ['PO', `POs (${previewData?.sheetPoCount || 0})`],
+                          ['PSO', `PSOs (${previewData?.sheetPsoCount || 0})`],
+                        ].map(([tabKey, label]) => (
+                          <button
+                            key={tabKey}
+                            type="button"
+                            onClick={() => setSelectedFilterTab(tabKey)}
+                            style={{
+                              padding: '5px 12px',
+                              borderRadius: '6px',
+                              border: 'none',
+                              fontSize: '11.5px',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                              background: selectedFilterTab === tabKey ? '#ffffff' : 'transparent',
+                              color: selectedFilterTab === tabKey ? accent : muted,
+                              boxShadow: selectedFilterTab === tabKey ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 1. Rich Sheet Data View (Like HOD PO/PSO Inspect) */}
+                  {activeInspectTab === 'SHEET_DATA' && (
+                    <div style={{ marginBottom: '20px' }}>
+                      {filteredItems && filteredItems.length > 0 ? (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px',
+                            maxHeight: '440px',
+                            overflowY: 'auto',
+                            paddingRight: '4px',
+                          }}
+                        >
+                          {filteredItems.map((item) => {
+                            const isPSO = item.category === 'PSO';
+                            const compCount = item.competencies?.length || 0;
+                            const strengths = item.mappingStrengths || {};
+
+                            return (
+                              <div
+                                key={item.id || item.code}
+                                style={{
+                                  padding: '16px 18px',
+                                  borderRadius: '12px',
+                                  border: '1px solid #e2e8f0',
+                                  background: isPSO ? '#fcfaff' : '#ffffff',
+                                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
+                                }}
+                              >
+                                {/* Outcome Card Header: Category, Code, Row, Competencies Count & Mapping Strengths */}
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    marginBottom: '10px',
+                                    flexWrap: 'wrap',
+                                    gap: '8px',
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                    <span
+                                      style={{
+                                        padding: '3px 8px',
+                                        fontSize: '11px',
+                                        fontWeight: '800',
+                                        borderRadius: '6px',
+                                        background: isPSO ? '#ecfeff' : '#eef2ff',
+                                        color: isPSO ? '#0891b2' : accent,
+                                        border: `1px solid ${isPSO ? '#a5f3fc' : '#c7d2fe'}`,
+                                      }}
+                                    >
+                                      {item.category}
+                                    </span>
+
+                                    <span
+                                      style={{
+                                        fontSize: '13px',
+                                        fontWeight: '800',
+                                        color: isPSO ? '#0891b2' : accent,
+                                        fontFamily: 'monospace',
+                                        background: isPSO ? '#ecfeff' : '#eef2ff',
+                                        padding: '2px 8px',
+                                        borderRadius: '6px',
+                                        border: `1px solid ${isPSO ? '#a5f3fc' : '#c7d2fe'}`,
+                                      }}
+                                    >
+                                      {item.code}
+                                    </span>
+
+                                    <span style={{ fontSize: '11px', color: muted }}>
+                                      Row {item.rowNumber}
+                                    </span>
+
+                                    <span
+                                      style={{
+                                        fontSize: '11px',
+                                        color: compCount > 0 ? '#15803d' : '#b45309',
+                                        background: compCount > 0 ? '#f0fdf4' : '#fef3c7',
+                                        padding: '2px 8px',
+                                        borderRadius: '6px',
+                                        fontWeight: '700',
+                                        border: `1px solid ${compCount > 0 ? '#bbf7d0' : '#fde68a'}`,
+                                      }}
+                                    >
+                                      {compCount} Competenc{compCount === 1 ? 'y' : 'ies'}
+                                    </span>
+                                  </div>
+
+                                  {/* Mapping Strengths Per CO */}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '11px', color: muted, marginRight: '2px', fontWeight: '600' }}>
+                                      Strength:
+                                    </span>
+                                    {previewData.detectedCoCodes?.map((sheetCoCode) => {
+                                      const courseCoCode = previewData.coCodeMapping?.[sheetCoCode] || sheetCoCode;
+                                      const strVal = strengths[courseCoCode] ?? strengths[sheetCoCode];
+                                      const isMapped = strVal && strVal > 0;
+                                      const label = courseCoCode !== sheetCoCode ? `${courseCoCode} (${sheetCoCode})` : sheetCoCode;
+                                      return (
+                                        <span
+                                          key={sheetCoCode}
+                                          style={{
+                                            fontSize: '11px',
+                                            fontFamily: 'monospace',
+                                            fontWeight: isMapped ? '800' : '500',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            background:
+                                              strVal === 3
+                                                ? '#dcfce7'
+                                                : strVal === 2
+                                                ? '#dbeafe'
+                                                : strVal === 1
+                                                ? '#fef3c7'
+                                                : '#f1f5f9',
+                                            color:
+                                              strVal === 3
+                                                ? '#15803d'
+                                                : strVal === 2
+                                                ? '#1d4ed8'
+                                                : strVal === 1
+                                                ? '#b45309'
+                                                : '#94a3b8',
+                                            border: `1px solid ${
+                                              strVal === 3
+                                                ? '#bbf7d0'
+                                                : strVal === 2
+                                                ? '#bfdbfe'
+                                                : strVal === 1
+                                                ? '#fde68a'
+                                                : '#e2e8f0'
+                                            }`,
+                                          }}
+                                          title={`${label} strength: ${isMapped ? `${strVal} (${strVal === 3 ? 'High' : strVal === 2 ? 'Medium' : 'Low'})` : 'No mapping'}`}
+                                        >
+                                          {label}: {isMapped ? strVal : '-'}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+
+                                {/* Outcome Statement Box */}
+                                <div
+                                  style={{
+                                    fontSize: '12.5px',
+                                    lineHeight: '1.5',
+                                    color: ink,
+                                    marginBottom: '10px',
+                                    background: '#f8fafc',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '8px',
+                                    padding: '8px 12px',
+                                    fontWeight: '500',
+                                  }}
+                                >
+                                  {item.statement}
+                                </div>
+
+                                {/* Competencies & Keywords Mapped */}
+                                {item.competencies && item.competencies.length > 0 && (
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: '8px',
+                                      paddingLeft: '14px',
+                                      borderLeft: `3px solid ${isPSO ? '#0891b2' : accent}`,
+                                    }}
+                                  >
+                                    {item.competencies.map((comp) => {
+                                      const kwEntries = Object.entries(comp.keywordsByCo || {}).filter(
+                                        ([, list]) => Array.isArray(list) && list.length > 0
+                                      );
+                                      return (
+                                        <div
+                                          key={comp.id || comp.code}
+                                          style={{
+                                            background: '#ffffff',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '8px',
+                                            padding: '8px 12px',
+                                          }}
+                                        >
+                                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '6px' }}>
+                                            <span
+                                              style={{
+                                                fontWeight: '800',
+                                                fontSize: '12px',
+                                                color: isPSO ? '#0891b2' : accent,
+                                                fontFamily: 'monospace',
+                                                flexShrink: 0,
+                                              }}
+                                            >
+                                              {comp.code}:
+                                            </span>
+                                            <span style={{ fontSize: '12px', color: '#1e293b', lineHeight: '1.4' }}>
+                                              {comp.statement}
+                                            </span>
+                                          </div>
+
+                                          {/* Keywords Grouped By CO */}
+                                          {previewData.detectedCoCodes?.some((sheetCoCode) => {
+                                            const courseCoCode = previewData.coCodeMapping?.[sheetCoCode] || sheetCoCode;
+                                            const kwList = comp.keywordsByCo?.[courseCoCode] || comp.keywordsByCo?.[sheetCoCode];
+                                            return Array.isArray(kwList) && kwList.length > 0;
+                                          }) ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
+                                              {previewData.detectedCoCodes?.map((sheetCoCode) => {
+                                                const courseCoCode = previewData.coCodeMapping?.[sheetCoCode] || sheetCoCode;
+                                                const kwList = comp.keywordsByCo?.[courseCoCode] || comp.keywordsByCo?.[sheetCoCode] || [];
+                                                if (!kwList || kwList.length === 0) return null;
+                                                const label = courseCoCode !== sheetCoCode ? `${courseCoCode} (${sheetCoCode})` : sheetCoCode;
+                                                return (
+                                                  <div
+                                                    key={sheetCoCode}
+                                                    style={{
+                                                      display: 'flex',
+                                                      alignItems: 'center',
+                                                      flexWrap: 'wrap',
+                                                      gap: '6px',
+                                                      background: '#f8fafc',
+                                                      padding: '4px 8px',
+                                                      borderRadius: '6px',
+                                                      border: '1px solid #f1f5f9',
+                                                    }}
+                                                  >
+                                                    <span
+                                                      style={{
+                                                        fontSize: '10.5px',
+                                                        fontWeight: '800',
+                                                        fontFamily: 'monospace',
+                                                        padding: '1px 6px',
+                                                        borderRadius: '4px',
+                                                        background: '#e0e7ff',
+                                                        color: accent,
+                                                      }}
+                                                    >
+                                                      {label}
+                                                    </span>
+                                                    {kwList.map((kw, kwIdx) => (
+                                                      <span
+                                                        key={kwIdx}
+                                                        style={{
+                                                          fontSize: '11px',
+                                                          background: '#ffffff',
+                                                          color: '#334155',
+                                                          border: '1px solid #cbd5e1',
+                                                          padding: '2px 8px',
+                                                          borderRadius: '12px',
+                                                          fontWeight: '500',
+                                                        }}
+                                                      >
+                                                        {kw}
+                                                      </span>
+                                                    ))}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          ) : (
+                                            <div style={{ fontSize: '11px', color: muted, fontStyle: 'italic', marginTop: '2px' }}>
+                                              No keywords mapped across COs for this competency.
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '24px', color: muted, fontSize: '13px' }}>
+                          No outcome statements or competencies found for the selected filter.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 2. Matrix Table View */}
+                  {activeInspectTab === 'MATRIX' && previewData.matrix && Object.keys(previewData.matrix).length > 0 && (
                     <div style={{ marginBottom: '20px' }}>
                       <div style={{ fontSize: '13px', fontWeight: '800', color: ink, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>Extracted CO-PO/PSO Mapping Strengths</span>
+                        <span>Extracted CO-PO/PSO Mapping Strengths Matrix</span>
                         <span style={{ fontSize: '11px', color: muted, fontWeight: '500' }}>
                           (Values: 3 = High, 2 = Medium, 1 = Low, - = No correlation)
                         </span>
@@ -876,8 +1275,8 @@ export default function CourseMappingExcelImportModal({
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'center' }}>
                           <thead>
                             <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
-                              <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: '700', color: ink, width: '90px' }}>
-                                CO Code
+                              <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: '700', color: ink, width: '120px' }}>
+                                Course CO (Sheet CO)
                               </th>
                               {Object.keys(Object.values(previewData.matrix)[0] || {}).map((code) => (
                                 <th key={code} style={{ padding: '8px 6px', fontWeight: '700', color: code.startsWith('PSO') ? '#0891b2' : accent }}>
@@ -887,26 +1286,34 @@ export default function CourseMappingExcelImportModal({
                             </tr>
                           </thead>
                           <tbody>
-                            {Object.entries(previewData.matrix).map(([coCode, row], rIdx) => (
-                              <tr key={coCode} style={{ borderBottom: '1px solid #f1f5f9', background: rIdx % 2 === 0 ? '#ffffff' : '#fafbfc' }}>
-                                <td style={{ padding: '8px 12px', textAlign: 'left', fontWeight: '700', color: ink }}>
-                                  {coCode}
-                                </td>
-                                {Object.entries(row).map(([outCode, val]) => (
-                                  <td
-                                    key={outCode}
-                                    style={{
-                                      padding: '8px 6px',
-                                      fontWeight: val && val !== '-' && val !== 0 && val !== '0' ? '800' : '400',
-                                      color: val && val !== '-' && val !== 0 && val !== '0' ? ink : '#94a3b8',
-                                      background: val === 3 || val === '3' ? '#eef2ff' : val === 2 || val === '2' ? '#f0fdf4' : 'transparent',
-                                    }}
-                                  >
-                                    {val || '-'}
+                            {previewData.detectedCoCodes?.map((sheetCoCode, rIdx) => {
+                              const courseCoCode = previewData.coCodeMapping?.[sheetCoCode] || sheetCoCode;
+                              const row = previewData.matrix[courseCoCode] || previewData.matrix[sheetCoCode] || {};
+                              const label = courseCoCode !== sheetCoCode ? `${courseCoCode} (${sheetCoCode})` : sheetCoCode;
+                              return (
+                                <tr key={sheetCoCode} style={{ borderBottom: '1px solid #f1f5f9', background: rIdx % 2 === 0 ? '#ffffff' : '#fafbfc' }}>
+                                  <td style={{ padding: '8px 12px', textAlign: 'left', fontWeight: '700', color: ink }}>
+                                    {label}
                                   </td>
-                                ))}
-                              </tr>
-                            ))}
+                                  {Object.keys(Object.values(previewData.matrix)[0] || {}).map((outCode) => {
+                                    const val = row[outCode];
+                                    return (
+                                      <td
+                                        key={outCode}
+                                        style={{
+                                          padding: '8px 6px',
+                                          fontWeight: val && val !== '-' && val !== 0 && val !== '0' ? '800' : '400',
+                                          color: val && val !== '-' && val !== 0 && val !== '0' ? ink : '#94a3b8',
+                                          background: val === 3 || val === '3' ? '#eef2ff' : val === 2 || val === '2' ? '#f0fdf4' : 'transparent',
+                                        }}
+                                      >
+                                        {val || '-'}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>

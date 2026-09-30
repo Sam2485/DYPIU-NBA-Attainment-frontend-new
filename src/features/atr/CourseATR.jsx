@@ -299,6 +299,11 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
       const saved = await handleSaveATR({ silent: true });
       if (!saved) return;
       await submitCourseATR(activeCourseId);
+      // Reload the Course ATR and approval workspace from backend to load the correct status
+      await Promise.allSettled([
+        loadCourseATR(activeCourseId),
+        loadProgrammeBatchCourseApprovalStatus(activeCourseId),
+      ]);
       setSubmittedForReview(true);
       alert(`Course ATR for ${currentCourse?.courseCode || currentCourse?.code || 'this course'} has been submitted for review.`);
     } catch (error) {

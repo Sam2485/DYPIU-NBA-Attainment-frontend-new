@@ -304,6 +304,13 @@ export function ApprovalProvider({ children }) {
           }));
         }
 
+        // Auto-fetch the authoritative batch-course approval workspace to ensure correct UI status
+        try {
+          await loadProgrammeBatchCourseApprovalStatus(courseOfferingId);
+        } catch (reloadErr) {
+          console.warn('Post-submit reload of approval workspace failed:', reloadErr);
+        }
+
         return result ?? data;
       } catch (err) {
         console.warn(`submitCourseVerification(${courseOfferingId}) failed:`, err);
@@ -311,7 +318,7 @@ export function ApprovalProvider({ children }) {
         throw err;
       }
     },
-    []
+    [loadProgrammeBatchCourseApprovalStatus]
   );
 
   /* ======================================================================== */
@@ -370,6 +377,12 @@ export function ApprovalProvider({ children }) {
           },
         }));
 
+        if (courseOfferingId) {
+          try {
+            await loadProgrammeBatchCourseApprovalStatus(courseOfferingId);
+          } catch (e) {}
+        }
+
         return data;
       } catch (err) {
         console.warn(`verifyStatus(${courseOfferingId}) failed:`, err);
@@ -377,7 +390,7 @@ export function ApprovalProvider({ children }) {
         throw err;
       }
     },
-    [user]
+    [user, loadProgrammeBatchCourseApprovalStatus]
   );
 
   /* ======================================================================== */
@@ -427,6 +440,12 @@ export function ApprovalProvider({ children }) {
           },
         }));
 
+        if (courseOfferingId) {
+          try {
+            await loadProgrammeBatchCourseApprovalStatus(courseOfferingId);
+          } catch (e) {}
+        }
+
         return data;
       } catch (err) {
         console.warn(`requestRevision(${courseOfferingId}) failed:`, err);
@@ -434,7 +453,7 @@ export function ApprovalProvider({ children }) {
         throw err;
       }
     },
-    [user]
+    [user, loadProgrammeBatchCourseApprovalStatus]
   );
 
   /* ======================================================================== */
@@ -497,6 +516,37 @@ export function ApprovalProvider({ children }) {
       } catch (err) {
         console.warn(`approveDirectorSubmission(${approvalId}) failed:`, err);
         setError(err?.response?.data?.message || err?.message || 'Failed to approve director submission.');
+        throw err;
+      }
+    },
+    [user, role, loadDirectorApprovals]
+  );
+
+  const rejectDirectorSubmission = useCallback(
+    async (approvalId, reason = 'Revision requested by Director', actorName) => {
+      if (!approvalId) {
+        throw new Error('approvalId is required');
+      }
+
+      try {
+        setError(null);
+        const response = await apiClient.post(`/approvals/${approvalId}/request-revision`, {
+          reason: reason || 'Revision requested by Director',
+          actorName:
+            actorName ??
+            user?.name ??
+            user?.username ??
+            user?.email ??
+            '',
+          actorRole: role ?? 'DIRECTOR',
+        });
+
+        const data = unwrapResponse(response);
+        await loadDirectorApprovals();
+        return data;
+      } catch (err) {
+        console.warn(`rejectDirectorSubmission(${approvalId}) failed:`, err);
+        setError(err?.response?.data?.message || err?.message || 'Failed to send back director submission.');
         throw err;
       }
     },
@@ -577,6 +627,8 @@ export function ApprovalProvider({ children }) {
           await loadHodApprovals();
         } else if (role === 'DIRECTOR' || role === 'IQAC') {
           await loadDirectorApprovals();
+        } else if (role === 'PROGRAMME_COORDINATOR') {
+          await loadProgrammeCoordinatorApprovals();
         }
 
         return data;
@@ -586,7 +638,7 @@ export function ApprovalProvider({ children }) {
         throw err;
       }
     },
-    [user, role, loadDirectorApprovals, loadHodApprovals]
+    [user, role, loadDirectorApprovals, loadHodApprovals, loadProgrammeCoordinatorApprovals]
   );
 
   /* ======================================================================== */
@@ -726,6 +778,7 @@ export function ApprovalProvider({ children }) {
 
     /* Formal approval actions */
     approveDirectorSubmission,
+    rejectDirectorSubmission,
     approveHodSubmission,
     actionApproval,
 

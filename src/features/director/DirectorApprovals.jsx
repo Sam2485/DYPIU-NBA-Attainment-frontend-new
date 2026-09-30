@@ -1,30 +1,47 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ShieldCheck, CheckCircle2, Clock, XCircle, FileText, Check, AlertCircle } from 'lucide-react';
-import { useAcademic } from '../../context/AcademicContext';
+import { useApproval } from '../../context/approval';
 import { useAuth } from '../../context/AuthContext';
 
 export default function DirectorApprovals() {
   const { user } = useAuth();
   const {
     directorApprovals = [],
-    approveDirectorSubmission,
-    rejectDirectorSubmission,
-  } = useAcademic();
+    loadDirectorApprovals = () => Promise.resolve([]),
+    approveDirectorSubmission = () => Promise.resolve(null),
+    rejectDirectorSubmission = () => Promise.resolve(null),
+  } = useApproval();
 
   const [remarksMap, setRemarksMap] = useState({});
 
-  const handleApprove = (appId) => {
-    approveDirectorSubmission(appId, user?.name);
-    alert(`✓ Submission approved by Director!`);
+  useEffect(() => {
+    loadDirectorApprovals(user?.schoolId).catch(() => {});
+  }, [loadDirectorApprovals, user?.schoolId]);
+
+  const handleApprove = async (appId) => {
+    try {
+      await approveDirectorSubmission(appId, user?.name);
+      await loadDirectorApprovals(user?.schoolId);
+      alert(`✓ Submission approved by Director!`);
+    } catch (err) {
+      console.error('Failed to approve submission:', err);
+      alert(err?.response?.data?.message || err?.message || 'Failed to approve submission.');
+    }
   };
 
-  const handleSendBack = (appId) => {
+  const handleSendBack = async (appId) => {
     const remarks = remarksMap[appId] || 'Please review and resubmit.';
-    rejectDirectorSubmission(appId, remarks);
-    alert(`Submission sent back to HOD with remarks: "${remarks}"`);
+    try {
+      await rejectDirectorSubmission(appId, remarks, user?.name);
+      await loadDirectorApprovals(user?.schoolId);
+      alert(`Submission sent back to HOD with remarks: "${remarks}"`);
+    } catch (err) {
+      console.error('Failed to send back submission:', err);
+      alert(err?.response?.data?.message || err?.message || 'Failed to send back submission.');
+    }
   };
 
-  const pendingCount = approvalList.filter((a) => a.status === 'PENDING').length;
+  const pendingCount = directorApprovals.filter((a) => a.status === 'PENDING').length;
 
   return (
     <div className="animated-page" style={{ paddingBottom: '40px' }}>

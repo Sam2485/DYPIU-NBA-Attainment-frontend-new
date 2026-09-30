@@ -118,8 +118,12 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
             : [{ code: outcome.code, statement: outcome.statement || `${outcome.code} keyword mapping` }];
           return [outcome.code, competencies.map((competency, competencyIndex) => ({
             ...competency,
-            keywords: Object.fromEntries(courseOutcomes.map((co) => {
-              const storedKeywords = apiStore?.[co.code]?.[outcome.code];
+            keywords: Object.fromEntries(courseOutcomes.map((co, coIndex) => {
+              const coIdx = coIndex + 1;
+              const storedKeywords = apiStore?.[co.code]?.[outcome.code]
+                ?? apiStore?.[`CO${coIdx}`]?.[outcome.code]
+                ?? apiStore?.[`co${coIdx}`]?.[outcome.code]
+                ?? apiStore?.[String(coIdx)]?.[outcome.code];
               const competencyCode = competency.code ?? `${outcome.code}.${competencyIndex + 1}`;
               // Canonical format: PO/PSO -> keyword[][], indexed by each
               // sub-competency. Also understand the documented keyed-object
@@ -128,7 +132,10 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
                 ? storedKeywords[competencyIndex]
                 : Array.isArray(storedKeywords)
                 ? (competencyIndex === 0 ? storedKeywords : [])
-                : apiStore?.[co.code]?.[competencyCode] ?? storedKeywords?.[competencyCode] ?? [];
+                : apiStore?.[co.code]?.[competencyCode]
+                ?? apiStore?.[`CO${coIdx}`]?.[competencyCode]
+                ?? storedKeywords?.[competencyCode]
+                ?? [];
               return [co.code, Array.isArray(keywords) ? keywords.join(', ') : ''];
             })),
           }))];

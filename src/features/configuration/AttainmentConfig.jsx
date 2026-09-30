@@ -314,6 +314,12 @@ export default function AttainmentConfig({
         resourceId: programmeBatchCourseId,
       });
 
+      // Reload config and approval status from backend to display the correct status
+      await Promise.allSettled([
+        loadAttainmentConfig(programmeBatchCourseId),
+        loadProgrammeBatchCourseApprovalStatus(programmeBatchCourseId),
+      ]);
+
       setLocalCourseConfig({ ...config, status: 'SUBMITTED' });
       alert('Attainment settings submitted for Programme Coordinator review.');
     } catch (error) {

@@ -21,6 +21,7 @@ const semesterOf = (item) => {
 const programmeIdOf = (item) => item?.masterProgrammeId ?? item?.programmeId ?? null;
 const isPendingApproval = (item) => ['PENDING', 'SUBMITTED', 'SUBMITTED_FOR_VERIFICATION', 'PENDING_APPROVAL'].includes(item?.status ?? 'PENDING');
 const prettyType = (type) => TYPE_META[type]?.label ?? String(type ?? '').replaceAll('_', ' ');
+const dateText = (value) => value ? new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '—';
 const extractBatchNameFromTitle = (title) => {
   if (!title || typeof title !== 'string') return null;
   const trimmed = title.trim();

@@ -137,6 +137,9 @@ export default function CourseCoordinatorWorkflow() {
     }
     if (courseId) {
       await markWorkflowStepComplete(courseOfferingId || courseId, STEPS[currentStep - 1].path);
+      if (batchId && user?.email) {
+        await loadCcSetupProgress(batchId, user.email).catch(() => {});
+      }
     }
     if (currentStep < STEPS.length) {
       goToStep(currentStep + 1);
@@ -153,6 +156,9 @@ export default function CourseCoordinatorWorkflow() {
     }
     if (courseId) {
       await markWorkflowStepComplete(courseOfferingId || courseId, STEPS[STEPS.length - 1].path);
+      if (batchId && user?.email) {
+        await loadCcSetupProgress(batchId, user.email).catch(() => {});
+      }
     }
     navigate('/dashboard');
   };

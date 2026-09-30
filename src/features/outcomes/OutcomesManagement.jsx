@@ -713,6 +713,11 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
         programmeBatchCourseId: targetCourseId,
         title: `CO Submission for ${courseScope?.courseCode || courseScope?.code || 'Course'}`,
       });
+      // Fetch latest Course Outcomes and approval workspace from backend to load the correct status
+      await Promise.allSettled([
+        loadCourseOutcomes(targetCourseId),
+        loadProgrammeBatchCourseApprovalStatus(targetCourseId),
+      ]);
       setCoList((current) => current.map((co) => ({ ...co, status: 'SUBMITTED' })));
       setIsSubmittedForReview(true);
       alert('Course Outcomes submitted for review.');

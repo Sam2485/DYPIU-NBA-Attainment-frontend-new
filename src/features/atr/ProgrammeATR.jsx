@@ -395,7 +395,14 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
       await saveProgrammeATR(selectedBatchId, buildAtrPayload());
       setSavedAtrSignature(atrSignature(atrList));
       await submitProgrammeATR(selectedBatchId);
-      if (activeProgId) await loadProgrammeCoordinatorApprovals(activeProgId);
+      // Reload fresh Programme ATR, approvals queue, and batch workspace from server
+      await Promise.allSettled([
+        loadProgrammeATR(selectedBatchId),
+        activeProgId ? loadProgrammeCoordinatorApprovals(activeProgId) : Promise.resolve(),
+        reportsApi.getProgrammeBatchApprovalWorkspace(selectedBatchId).then((response) => {
+          setBatchApprovalWorkspace(response?.data?.data ?? response?.data ?? response ?? null);
+        }).catch(() => {}),
+      ]);
       setSubmittedForReview(true);
       setAtrSaveState('submitted');
     } catch (error) {

@@ -132,6 +132,7 @@ export default function CoordinatorReviewHub() {
     activePSOs               = [],
     poPsoTargets             = {},
     coTargets                = {},
+    loadProgrammeBatchCourseApprovalStatus = () => Promise.resolve(null),
   } = useAcademic();
 
   const selectedProgramme =
@@ -201,28 +202,42 @@ export default function CoordinatorReviewHub() {
     setShowRejectModal(true);
   };
 
-  const handleConfirmReject = () => {
+  const handleConfirmReject = async () => {
     if (!rejectModalData) return;
     const { statusType } = rejectModalData;
-    updateCourseVerificationStatus(reviewCourseId, statusType, 'REVISION_REQUESTED', rejectRemarksInput, user?.name || 'Programme Coordinator');
+    try {
+      await updateCourseVerificationStatus(reviewCourseId, statusType, 'REVISION_REQUESTED', rejectRemarksInput, user?.name || 'Programme Coordinator');
 
-    if (statusType === 'coStatus') {
-      const updated = courseCOs.map((co) => ({ ...co, status: 'REVISION_REQUESTED' }));
-      updateCourseCOs(reviewCourseId, updated);
+      if (statusType === 'coStatus') {
+        const updated = courseCOs.map((co) => ({ ...co, status: 'REVISION_REQUESTED' }));
+        updateCourseCOs(reviewCourseId, updated);
+      }
+      if (reviewCourseId) {
+        await loadProgrammeBatchCourseApprovalStatus(reviewCourseId);
+      }
+    } catch (err) {
+      console.error('Failed to request revision:', err);
+    } finally {
+      setShowRejectModal(false);
+      setRejectModalData(null);
+      setRejectRemarksInput('');
     }
-
-    setShowRejectModal(false);
-    setRejectModalData(null);
-    setRejectRemarksInput('');
   };
 
-  const handleApproveSubmission = (statusType) => {
-    updateCourseVerificationStatus(reviewCourseId, statusType, 'VERIFIED', '', user?.name || 'Programme Coordinator');
-    if (statusType === 'configStatus') {
-      updateCourseAttainmentConfig(reviewCourseId, { status: 'VERIFIED' });
-    } else if (statusType === 'coStatus') {
-      const updated = courseCOs.map((co) => ({ ...co, status: 'APPROVED', approvedBy: user?.name || 'Programme Coordinator' }));
-      updateCourseCOs(reviewCourseId, updated);
+  const handleApproveSubmission = async (statusType) => {
+    try {
+      await updateCourseVerificationStatus(reviewCourseId, statusType, 'VERIFIED', '', user?.name || 'Programme Coordinator');
+      if (statusType === 'configStatus') {
+        updateCourseAttainmentConfig(reviewCourseId, { status: 'VERIFIED' });
+      } else if (statusType === 'coStatus') {
+        const updated = courseCOs.map((co) => ({ ...co, status: 'APPROVED', approvedBy: user?.name || 'Programme Coordinator' }));
+        updateCourseCOs(reviewCourseId, updated);
+      }
+      if (reviewCourseId) {
+        await loadProgrammeBatchCourseApprovalStatus(reviewCourseId);
+      }
+    } catch (err) {
+      console.error('Failed to approve submission:', err);
     }
   };
 

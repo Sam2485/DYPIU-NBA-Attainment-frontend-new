@@ -12,6 +12,8 @@ export default function COTargetSettingHub({ hideFooter = false }) {
     selectedCourse,
     activeCOs,
     coTargets,
+    loadCourseOutcomes = () => Promise.resolve([]),
+    loadProgrammeBatchCourseApprovalStatus = () => Promise.resolve(null),
     updateCourseCoTargets,
     updateCourseVerificationStatus = () => {},
     courseVerificationStore = {},
@@ -51,7 +53,7 @@ export default function COTargetSettingHub({ hideFooter = false }) {
 
   const targetCourseId = selectedCourse?.id || courseId || null;
 
-  const handleSaveCoTargets = () => {
+  const handleSaveCoTargets = async () => {
     if (selectedCourse?.id) {
       const sanitized = {};
       for (const [code, val] of Object.entries(localCoTargets)) {
@@ -64,9 +66,18 @@ export default function COTargetSettingHub({ hideFooter = false }) {
           sanitized[code] = Number(num.toFixed(2));
         }
       }
-      updateCourseCoTargets(selectedCourse.id, sanitized);
-      updateCourseVerificationStatus(targetCourseId, 'coStatus', 'SUBMITTED', '', user?.name || 'Course Coordinator');
-      alert(`CO Target Levels for ${selectedCourse?.code} submitted for Programme Coordinator review!`);
+      try {
+        await updateCourseCoTargets(selectedCourse.id, sanitized);
+        await updateCourseVerificationStatus(targetCourseId, 'coStatus', 'SUBMITTED', '', user?.name || 'Course Coordinator');
+        await Promise.allSettled([
+          loadProgrammeBatchCourseApprovalStatus(targetCourseId),
+          loadCourseOutcomes(selectedCourse.id),
+        ]);
+        alert(`CO Target Levels for ${selectedCourse?.code} submitted for Programme Coordinator review!`);
+      } catch (err) {
+        console.error('Failed to save and submit CO targets:', err);
+        alert(err?.response?.data?.message || err?.message || 'Unable to submit CO Target Levels. Please try again.');
+      }
     }
   };
 

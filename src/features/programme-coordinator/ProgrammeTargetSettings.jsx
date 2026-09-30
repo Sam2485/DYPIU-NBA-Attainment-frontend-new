@@ -35,6 +35,8 @@ function LegacyProgrammeTargetSettings() {
     activePSOs          = [],
     poPsoTargets        = {},
     updatePoPsoTargets  = () => {},
+    loadProgrammeOutcomes = () => Promise.resolve({ pos: [], psos: [], peos: [] }),
+    loadProgrammeCoordinatorApprovals = () => Promise.resolve([]),
     courseVerificationStore = {},
     updateCourseVerificationStatus = () => {},
   } = useAcademic();
@@ -88,13 +90,22 @@ function LegacyProgrammeTargetSettings() {
     setPsoTargetDraft(newPsoDraft);
   };
 
-  const handleSubmitTargets = () => {
-    updatePoPsoTargets(programmeId, poTargetDraft, psoTargetDraft);
-    updateCourseVerificationStatus(targetsKey, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
-    updateCourseVerificationStatus(`allocation-${programmeId}`, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-    alert(`PO & PSO target benchmarks for ${selectedProgramme?.name} submitted for HOD review!`);
+  const handleSubmitTargets = async () => {
+    try {
+      await updatePoPsoTargets(programmeId, poTargetDraft, psoTargetDraft);
+      updateCourseVerificationStatus(targetsKey, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
+      updateCourseVerificationStatus(`allocation-${programmeId}`, 'poPsoTargetsStatus', 'SUBMITTED', '', user?.name || 'Programme Coordinator');
+      await Promise.allSettled([
+        loadProgrammeCoordinatorApprovals(programmeId),
+        loadProgrammeOutcomes(programmeId),
+      ]);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+      alert(`PO & PSO target benchmarks for ${selectedProgramme?.name} submitted for HOD review!`);
+    } catch (err) {
+      console.error('Failed to submit targets:', err);
+      alert(err?.response?.data?.message || err?.message || 'Unable to submit PO/PSO targets. Please try again.');
+    }
   };
 
   return (
