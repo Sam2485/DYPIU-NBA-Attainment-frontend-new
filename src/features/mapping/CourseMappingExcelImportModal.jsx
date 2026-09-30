@@ -99,24 +99,20 @@ export default function CourseMappingExcelImportModal({
     onClose();
   };
 
-  const handleDownloadTemplate = async (sample = false) => {
-    if (!programmeBatchCourseId) {
-      setErrorMessage('Course offering is not selected.');
-      return;
-    }
+  const handleDownloadScopeTemplate = async (scope = importScope) => {
     try {
-      if (sample) setIsDownloadingSample(true);
-      else setIsDownloadingTemplate(true);
+      setIsDownloadingTemplate(true);
       setErrorMessage(null);
-      await downloadMappingExcelTemplate(programmeBatchCourseId, importScope, sample);
+      await downloadMappingExcelTemplate(programmeBatchCourseId, scope);
     } catch (err) {
       setErrorMessage(err?.response?.data?.message || err.message || 'Failed to download template.');
     } finally {
       setIsDownloadingTemplate(false);
-      setIsDownloadingSample(false);
       setIsTemplateMenuOpen(false);
     }
   };
+
+  const handleDownloadTemplate = () => handleDownloadScopeTemplate(importScope);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -671,7 +667,7 @@ export default function CourseMappingExcelImportModal({
                         >
                           <button
                             type="button"
-                            onClick={() => handleDownloadTemplate(false)}
+                            onClick={() => handleDownloadScopeTemplate('ALL')}
                             style={{
                               padding: '8px 12px',
                               textAlign: 'left',
@@ -691,14 +687,41 @@ export default function CourseMappingExcelImportModal({
                           >
                             <FileSpreadsheet size={14} color="#4338ca" />
                             <div>
-                              <div style={{ fontWeight: '700' }}>Blank Template</div>
-                              <div style={{ fontSize: '10.5px', color: '#64748b' }}>With course COs &amp; competencies</div>
+                              <div style={{ fontWeight: '700' }}>CO-PO &amp; PSO Mapping Sheet</div>
+                              <div style={{ fontSize: '10.5px', color: '#64748b' }}>Combined (co-po:pso mapping.xlsx)</div>
                             </div>
                           </button>
 
                           <button
                             type="button"
-                            onClick={() => handleDownloadTemplate(true)}
+                            onClick={() => handleDownloadScopeTemplate('PO')}
+                            style={{
+                              padding: '8px 12px',
+                              textAlign: 'left',
+                              background: 'transparent',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              color: '#1e293b',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <CheckCircle2 size={14} color="#4338ca" />
+                            <div>
+                              <div style={{ fontWeight: '700' }}>CO-PO Mapping Sheet</div>
+                              <div style={{ fontSize: '10.5px', color: '#64748b' }}>Single Sheet (co-po mapping.xlsx)</div>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadScopeTemplate('PSO')}
                             style={{
                               padding: '8px 12px',
                               textAlign: 'left',
@@ -718,8 +741,8 @@ export default function CourseMappingExcelImportModal({
                           >
                             <Sparkles size={14} color="#0891b2" />
                             <div>
-                              <div style={{ fontWeight: '700' }}>Sample Input Template</div>
-                              <div style={{ fontSize: '10.5px', color: '#64748b' }}>Pre-filled with sample keywords &amp; matrix</div>
+                              <div style={{ fontWeight: '700' }}>CO-PSO Mapping Sheet</div>
+                              <div style={{ fontSize: '10.5px', color: '#64748b' }}>Single Sheet (co-pso mapping.xlsx)</div>
                             </div>
                           </button>
                         </div>

@@ -1,8 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FileSpreadsheet, Grid2X2, Save, Upload } from 'lucide-react';
+import {
+  FileSpreadsheet,
+  Grid2X2,
+  Save,
+  Upload,
+  Download,
+  ChevronDown,
+  CheckCircle2,
+  Sparkles
+} from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 import { sortOutcomes } from '../../utils/outcomeOrder';
+import { downloadMappingImportTemplate } from '../../utils/templateDownloader';
 import CourseMappingExcelImportModal from './CourseMappingExcelImportModal';
 
 export default function COMappingMatrix({ hideFooter = false, saveRef = null }) {
@@ -127,6 +137,7 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
   const [isSavingMapping, setIsSavingMapping] = useState(false);
   const [activeKeywordEditor, setActiveKeywordEditor] = useState(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(false);
 
   // Helper to reliably lookup a keyword across various CO code keys
   const getCompKeyword = (comp, coCode, coIndex = 0) => {
@@ -562,6 +573,146 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Download Template Dropdown */}
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setIsTemplateMenuOpen((prev) => !prev)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#ffffff',
+                  border: '1.5px solid #c7d2fe',
+                  color: '#4338ca',
+                  fontWeight: '700',
+                  padding: '0 14px',
+                  height: '38px',
+                  borderRadius: '8px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontSize: '12px',
+                }}
+                title="Download CO-PO / PSO mapping Excel templates"
+              >
+                <Download size={14} color="#4338ca" />
+                <span>Download Template</span>
+                <ChevronDown size={13} color="#4338ca" />
+              </button>
+
+              {isTemplateMenuOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    marginTop: '4px',
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                    zIndex: 50,
+                    minWidth: '260px',
+                    padding: '6px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsTemplateMenuOpen(false);
+                      downloadMappingImportTemplate('ALL');
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      textAlign: 'left',
+                      background: 'transparent',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#1e293b',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <FileSpreadsheet size={15} color="#4338ca" />
+                    <div>
+                      <div style={{ fontWeight: '700' }}>CO-PO &amp; PSO Mapping Sheet</div>
+                      <div style={{ fontSize: '10.5px', color: '#64748b' }}>Combined (co-po:pso mapping.xlsx)</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsTemplateMenuOpen(false);
+                      downloadMappingImportTemplate('PO');
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      textAlign: 'left',
+                      background: 'transparent',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#1e293b',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <CheckCircle2 size={15} color="#4338ca" />
+                    <div>
+                      <div style={{ fontWeight: '700' }}>CO-PO Mapping Sheet</div>
+                      <div style={{ fontSize: '10.5px', color: '#64748b' }}>Single Sheet (co-po mapping.xlsx)</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsTemplateMenuOpen(false);
+                      downloadMappingImportTemplate('PSO');
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      textAlign: 'left',
+                      background: 'transparent',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#1e293b',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <Sparkles size={15} color="#0891b2" />
+                    <div>
+                      <div style={{ fontWeight: '700' }}>CO-PSO Mapping Sheet</div>
+                      <div style={{ fontSize: '10.5px', color: '#64748b' }}>Single Sheet (co-pso mapping.xlsx)</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
               className="btn btn-secondary"

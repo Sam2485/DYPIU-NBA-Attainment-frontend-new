@@ -11,6 +11,11 @@ import {
 import { useAuth } from './auth';
 import apiClient from '../api/client';
 import { sortOutcomes } from '../utils/outcomeOrder';
+import {
+  downloadCourseAdditionTemplate,
+  downloadOutcomeImportTemplate,
+  downloadMappingImportTemplate,
+} from '../utils/templateDownloader';
 
 export const AcademicContext = createContext(null);
 
@@ -1934,20 +1939,25 @@ export function AcademicProvider({ children }) {
   }, [courseOfferingId, setCourseId]);
 
   const downloadCourseTemplate = useCallback(async (targetBatchId = batchId) => {
-    if (!targetBatchId) throw new Error('Programme batch is required to download template.');
-    const response = await apiClient.get(`/academic/programme-batches/${targetBatchId}/courses/template`, {
-      responseType: 'blob',
-    });
-    const blob = response instanceof Blob ? response : (response?.data instanceof Blob ? response.data : new Blob([response.data || response]));
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Course_Import_Template.xlsx`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-    return true;
+    try {
+      await downloadCourseAdditionTemplate();
+      return true;
+    } catch (err) {
+      if (!targetBatchId) throw err;
+      const response = await apiClient.get(`/academic/programme-batches/${targetBatchId}/courses/template`, {
+        responseType: 'blob',
+      });
+      const blob = response instanceof Blob ? response : (response?.data instanceof Blob ? response.data : new Blob([response.data || response]));
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Course_Import_Template.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      return true;
+    }
   }, [batchId]);
 
   const previewCourseExcel = useCallback(async (targetBatchId, file) => {
@@ -1972,25 +1982,30 @@ export function AcademicProvider({ children }) {
   }, [batchId, loadCourseOfferings, loadSemestersStatusOverview]);
 
   const downloadOutcomeTemplate = useCallback(async (targetBatchId, scope = 'ALL') => {
-    const bId = targetBatchId || batchId;
-    if (!bId) throw new Error('Programme batch is required to download outcome template.');
-    const response = await apiClient.get(`/academic/programme-batches/${bId}/outcomes/template`, {
-      params: { scope },
-      responseType: 'blob',
-    });
-    const blob = response instanceof Blob ? response : (response?.data instanceof Blob ? response.data : new Blob([response.data || response]));
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    let filename = 'PO_PSO_Competency_Template.xlsx';
-    if (scope === 'PO') filename = 'PO_Competency_Template.xlsx';
-    else if (scope === 'PSO') filename = 'PSO_Competency_Template.xlsx';
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-    return true;
+    try {
+      await downloadOutcomeImportTemplate(scope);
+      return true;
+    } catch (err) {
+      const bId = targetBatchId || batchId;
+      if (!bId) throw err;
+      const response = await apiClient.get(`/academic/programme-batches/${bId}/outcomes/template`, {
+        params: { scope },
+        responseType: 'blob',
+      });
+      const blob = response instanceof Blob ? response : (response?.data instanceof Blob ? response.data : new Blob([response.data || response]));
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      let filename = 'PO_PSO_Competency_Template.xlsx';
+      if (scope === 'PO') filename = 'PO_Competency_Template.xlsx';
+      else if (scope === 'PSO') filename = 'PSO_Competency_Template.xlsx';
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      return true;
+    }
   }, [batchId]);
 
   const previewOutcomeExcel = useCallback(async (targetBatchId, file, scope = 'ALL') => {
@@ -2029,25 +2044,30 @@ export function AcademicProvider({ children }) {
   }, [batchId, programmeId, loadProgrammeBatchOutcomes]);
 
   const downloadMappingExcelTemplate = useCallback(async (offeringId, scope = 'ALL', sample = false) => {
-    const oId = offeringId || courseOfferingId || selectedCourseOffering?.programmeBatchCourseId;
-    if (!oId) throw new Error('Course offering ID is required to download mapping template.');
-    const response = await apiClient.get(`/academic/programme-batch-courses/${oId}/mapping-excel/template`, {
-      params: { scope, sample },
-      responseType: 'blob',
-    });
-    const blob = response instanceof Blob ? response : (response?.data instanceof Blob ? response.data : new Blob([response.data || response]));
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    let filename = sample ? 'Sample_CO_PO_PSO_Mapping.xlsx' : 'CO_PO_PSO_Mapping_Template.xlsx';
-    if (scope === 'PO') filename = sample ? 'Sample_CO_PO_Mapping.xlsx' : 'CO_PO_Mapping_Template.xlsx';
-    else if (scope === 'PSO') filename = sample ? 'Sample_CO_PSO_Mapping.xlsx' : 'CO_PSO_Mapping_Template.xlsx';
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-    return true;
+    try {
+      await downloadMappingImportTemplate(scope);
+      return true;
+    } catch (err) {
+      const oId = offeringId || courseOfferingId || selectedCourseOffering?.programmeBatchCourseId;
+      if (!oId) throw err;
+      const response = await apiClient.get(`/academic/programme-batch-courses/${oId}/mapping-excel/template`, {
+        params: { scope, sample },
+        responseType: 'blob',
+      });
+      const blob = response instanceof Blob ? response : (response?.data instanceof Blob ? response.data : new Blob([response.data || response]));
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      let filename = sample ? 'Sample_CO_PO_PSO_Mapping.xlsx' : 'CO_PO_PSO_Mapping_Template.xlsx';
+      if (scope === 'PO') filename = sample ? 'Sample_CO_PO_Mapping.xlsx' : 'CO_PO_Mapping_Template.xlsx';
+      else if (scope === 'PSO') filename = sample ? 'Sample_CO_PSO_Mapping.xlsx' : 'CO_PSO_Mapping_Template.xlsx';
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      return true;
+    }
   }, [courseOfferingId, selectedCourseOffering]);
 
   const previewMappingExcel = useCallback(async (offeringId, file, scope = 'ALL') => {

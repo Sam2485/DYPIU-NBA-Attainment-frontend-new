@@ -1029,6 +1029,35 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   </button>
                 )}
 
+                <button
+                  type="button"
+                  onClick={handleDirectDownloadTemplate}
+                  disabled={isDownloadingCourseTemplate}
+                  style={{
+                    height: '36px',
+                    padding: '0 14px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    background: '#ffffff',
+                    color: accent,
+                    border: '1.5px solid #c7d2fe',
+                    borderRadius: '8px',
+                    cursor: isDownloadingCourseTemplate ? 'wait' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontFamily: 'inherit',
+                  }}
+                  title="Download Course Addition Excel template (Course Adittion.xlsx)"
+                >
+                  {isDownloadingCourseTemplate ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Download size={14} color={accent} />
+                  )}
+                  Download Template
+                </button>
+
                 {!isBatchFrozen && !isAllocationReviewLocked && !approvalReadOnly ? (
                   <button
                     className="btn btn-primary"

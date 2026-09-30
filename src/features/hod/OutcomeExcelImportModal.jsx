@@ -48,6 +48,7 @@ export default function OutcomeExcelImportModal({
   const [importResult, setImportResult] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [selectedFilterTab, setSelectedFilterTab] = useState('ALL'); // ALL, PO, PSO
+  const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(false);
 
   // Sync initialScope when modal opens or initialScope prop changes
   useEffect(() => {
@@ -73,6 +74,7 @@ export default function OutcomeExcelImportModal({
     setImportResult(null);
     setErrorMessage(null);
     setSelectedFilterTab('ALL');
+    setIsTemplateMenuOpen(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -87,17 +89,20 @@ export default function OutcomeExcelImportModal({
     onClose();
   };
 
-  const handleDownloadTemplate = async () => {
+  const handleDownloadScopeTemplate = async (scope = importScope) => {
     try {
       setIsDownloadingTemplate(true);
       setErrorMessage(null);
-      await downloadOutcomeTemplate(batchId, importScope);
+      await downloadOutcomeTemplate(batchId, scope);
     } catch (err) {
       setErrorMessage(err?.response?.data?.message || err.message || 'Failed to download template.');
     } finally {
       setIsDownloadingTemplate(false);
+      setIsTemplateMenuOpen(false);
     }
   };
+
+  const handleDownloadTemplate = () => handleDownloadScopeTemplate(importScope);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -670,32 +675,134 @@ export default function OutcomeExcelImportModal({
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <button
-                      type="button"
-                      onClick={handleDownloadTemplate}
-                      disabled={isDownloadingTemplate}
-                      style={{
-                        height: '38px',
-                        padding: '0 14px',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        background: '#ffffff',
-                        color: accent,
-                        border: '1px solid #c7d2fe',
-                        borderRadius: '8px',
-                        cursor: isDownloadingTemplate ? 'wait' : 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                      }}
-                    >
-                      {isDownloadingTemplate ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-                      {importScope === 'PO'
-                        ? 'Download PO Template (1 Sheet)'
-                        : importScope === 'PSO'
-                        ? 'Download PSO Template (1 Sheet)'
-                        : 'Download Template (2 Sheets)'}
-                    </button>
+                    <div style={{ position: 'relative' }}>
+                      <button
+                        type="button"
+                        onClick={() => setIsTemplateMenuOpen((v) => !v)}
+                        disabled={isDownloadingTemplate}
+                        style={{
+                          height: '38px',
+                          padding: '0 14px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          background: '#ffffff',
+                          color: accent,
+                          border: '1px solid #c7d2fe',
+                          borderRadius: '8px',
+                          cursor: isDownloadingTemplate ? 'wait' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                        title="Download PO/PSO & Competencies Excel template (.xlsx)"
+                      >
+                        {isDownloadingTemplate ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                        <span>Download Template</span>
+                        <ChevronDown size={13} />
+                      </button>
+
+                      {isTemplateMenuOpen && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: '100%',
+                            right: 0,
+                            marginTop: '4px',
+                            background: '#ffffff',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '10px',
+                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                            zIndex: 50,
+                            minWidth: '250px',
+                            padding: '6px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px',
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadScopeTemplate('ALL')}
+                            style={{
+                              padding: '8px 12px',
+                              textAlign: 'left',
+                              background: 'transparent',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              color: '#1e293b',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <FileSpreadsheet size={14} color="#4338ca" />
+                            <div>
+                              <div style={{ fontWeight: '700' }}>PO &amp; PSO Template</div>
+                              <div style={{ fontSize: '10.5px', color: '#64748b' }}>Combined (PO:PSO and Competancies.xlsx)</div>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadScopeTemplate('PO')}
+                            style={{
+                              padding: '8px 12px',
+                              textAlign: 'left',
+                              background: 'transparent',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              color: '#1e293b',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <CheckCircle2 size={14} color="#4338ca" />
+                            <div>
+                              <div style={{ fontWeight: '700' }}>PO Template Only</div>
+                              <div style={{ fontSize: '10.5px', color: '#64748b' }}>Single Sheet (PO and Competency.xlsx)</div>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadScopeTemplate('PSO')}
+                            style={{
+                              padding: '8px 12px',
+                              textAlign: 'left',
+                              background: 'transparent',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              color: '#1e293b',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <Sparkles size={14} color="#0891b2" />
+                            <div>
+                              <div style={{ fontWeight: '700' }}>PSO Template Only</div>
+                              <div style={{ fontSize: '10.5px', color: '#64748b' }}>Single Sheet (PSO and Competency.xlsx)</div>
+                            </div>
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
                     <button
                       type="button"
