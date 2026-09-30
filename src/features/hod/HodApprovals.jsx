@@ -21,11 +21,49 @@ const semesterOf = (item) => {
 const programmeIdOf = (item) => item?.masterProgrammeId ?? item?.programmeId ?? null;
 const isPendingApproval = (item) => ['PENDING', 'SUBMITTED', 'SUBMITTED_FOR_VERIFICATION', 'PENDING_APPROVAL'].includes(item?.status ?? 'PENDING');
 const prettyType = (type) => TYPE_META[type]?.label ?? String(type ?? '').replaceAll('_', ' ');
-const dateText = (value) => value ? new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '—';
-const batchLabelOf = (items, fallback) => {
-  const title = items?.find((item) => item?.title)?.title ?? '';
-  const match = title.match(/\bfor\s+(.+)$/i);
-  return match?.[1] ?? fallback;
+const extractBatchNameFromTitle = (title) => {
+  if (!title || typeof title !== 'string') return null;
+  const trimmed = title.trim();
+
+  // Pattern 1: "Course Allocation: <batchName> (Semester X)" or "Course Allocation: <batchName>"
+  const allocMatch = trimmed.match(/^Course Allocation:\s*(.+?)(?:\s*\((?:Semester|Sem)[^)]*\))?\s*$/i);
+  if (allocMatch && allocMatch[1] && allocMatch[1].trim()) {
+    return allocMatch[1].trim();
+  }
+
+  // Pattern 2: "... for <batchName>" (e.g. "PO / PSO Targets for B.Tech 2024-2028", "Programme ATR for B.Tech 2024-2028")
+  const forMatch = trimmed.match(/\bfor\s+(.+)$/i);
+  if (forMatch && forMatch[1] && forMatch[1].trim()) {
+    return forMatch[1].replace(/\s*\((?:Semester|Sem)[^)]*\)\s*$/i, '').trim();
+  }
+
+  return null;
+};
+
+const batchLabelOf = (items, fallback, batches = []) => {
+  if (fallback && Array.isArray(batches) && batches.length > 0) {
+    const found = batches.find((b) => String(b?.id ?? b?.programmeBatchId) === String(fallback));
+    if (found?.name && typeof found.name === 'string' && found.name.trim()) {
+      return found.name.trim();
+    }
+  }
+
+  if (Array.isArray(items)) {
+    for (const item of items) {
+      if (item?.programmeBatchName && typeof item.programmeBatchName === 'string' && item.programmeBatchName.trim()) {
+        return item.programmeBatchName.trim();
+      }
+      if (item?.batchName && typeof item.batchName === 'string' && item.batchName.trim()) {
+        return item.batchName.trim();
+      }
+      const parsed = extractBatchNameFromTitle(item?.title);
+      if (parsed) {
+        return parsed;
+      }
+    }
+  }
+
+  return fallback;
 };
 
 function EmptyState({ children }) { return <div style={{ ...surface, padding: '54px 24px', color: muted, textAlign: 'center', fontSize: '14px' }}>{children}</div>; }
@@ -54,7 +92,7 @@ function AtrView({ data }) {
 
 export default function HodApprovals() {
   const { user } = useAuth();
-  const { masterProgrammes = [], programmeId, setProgrammeId = () => {}, batchId, setBatchId = () => {}, selectedDepartmentId, loadProgrammes = async () => [] } = useAcademic();
+  const { masterProgrammes = [], programmeId, setProgrammeId = () => {}, batchId, setBatchId = () => {}, selectedDepartmentId, loadProgrammes = async () => [], batches = [] } = useAcademic();
   const [searchParams, setSearchParams] = useSearchParams();
   const storageKey = `nba_hod_approvals_programme:${user?.email ?? 'default'}`;
   const [selectedProgrammeId, setSelectedProgrammeId] = useState(() => programmeId ?? sessionStorage.getItem(storageKey) ?? '');
@@ -86,7 +124,8 @@ export default function HodApprovals() {
     } catch (requestError) { setError(requestError?.response?.data?.message ?? 'Unable to load HOD approvals.'); setApprovals([]); } finally { setLoading(false); }
   }, [queueTab, selectedDepartmentId, selectedProgrammeId]);
   useEffect(() => { loadQueue(); }, [loadQueue]);
-  const groupedBatches = useMemo(() => { const groups = new Map(); approvals.filter((item) => queueTab === 'PENDING' ? isPendingApproval(item) : !isPendingApproval(item)).forEach((item) => { const id = batchIdOf(item); if (!id) return; if (!groups.has(id)) groups.set(id, []); groups.get(id).push(item); }); return [...groups.entries()].map(([id, items]) => ({ id, items, label: batchLabelOf(items, id) })).sort((a, b) => a.label.localeCompare(b.label)); }, [approvals, queueTab]);
+  const groupedBatches = useMemo(() => { const groups = new Map(); approvals.filter((item) => queueTab === 'PENDING' ? isPendingApproval(item) : !isPendingApproval(item)).forEach((item) => { const id = batchIdOf(item); if (!id) return; if (!groups.has(id)) groups.set(id, []); groups.get(id).push(item); }); return [...groups.entries()].map(([id, items]) => ({ id, items, label: batchLabelOf(items, id, batches) })).sort((a, b) => a.label.localeCompare(b.label)); }, [approvals, queueTab, batches]);
+
   const selectedBatchId = searchParams.get('batchId'); const selectedApprovalId = searchParams.get('approvalId'); const selectedGroup = groupedBatches.find((group) => String(group.id) === String(selectedBatchId)) ?? null; const selectedApproval = selectedGroup?.items.find((item) => String(approvalIdOf(item)) === String(selectedApprovalId)) ?? selectedGroup?.items.find((item) => item.type === tab) ?? null;
   useEffect(() => { if (selectedGroup?.id && String(selectedGroup.id) !== String(batchId)) setBatchId(selectedGroup.id); }, [batchId, selectedGroup?.id, setBatchId]);
   useEffect(() => { if (!selectedGroup) { setTab(''); return; } setTab(selectedApproval?.type ?? selectedGroup.items[0]?.type ?? ''); }, [selectedApproval?.type, selectedGroup]);

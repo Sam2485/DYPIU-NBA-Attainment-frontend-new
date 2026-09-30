@@ -33,7 +33,7 @@ const atrSignature = (items = []) => JSON.stringify(items.map((item) => ({
   actions: (item.actions ?? []).filter(Boolean),
 })));
 
-export default function ProgrammeATR({ courseId = null, programmeId: propProgrammeId = null, batchId: propBatchId = null, hideFooter = false, hideHeader = false, readOnly = false, showBatchSelector = true, showHeaderActions = true, useBatchApprovalWorkspace = false }) {
+export default function ProgrammeATR({ courseId = null, programmeId: propProgrammeId = null, batchId: propBatchId = null, hideFooter = false, hideHeader = false, readOnly = false, showBatchSelector = true, showHeaderActions = true, useBatchApprovalWorkspace = false, saveRef = null }) {
   const { user, role } = useAuth();
   const {
     selectedCourse,
@@ -360,7 +360,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   };
 
   const handleSaveAtr = async () => {
-    if (!selectedBatchId || locked || atrSaveState === 'saving' || savedAtrSignature === atrSignature(atrList)) return;
+    if (!selectedBatchId || locked || atrSaveState === 'saving' || savedAtrSignature === atrSignature(atrList)) return true;
     try {
       setAtrSaveState('saving');
       await saveProgrammeATR(selectedBatchId, buildAtrPayload());
@@ -371,6 +371,20 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
       setAtrSaveState('error');
     }
   };
+ 
+  useEffect(() => {
+    if (saveRef) {
+      saveRef.current = async () => {
+        if (!isAtrSaved && selectedBatchId && !locked && atrSaveState !== 'saving') {
+          return await handleSaveAtr();
+        }
+        return true;
+      };
+    }
+    return () => {
+      if (saveRef) saveRef.current = null;
+    };
+  }, [atrSaveState, handleSaveAtr, isAtrSaved, locked, saveRef, selectedBatchId]);
 
   const handleSubmitAtrForReview = async () => {
     if (!selectedBatchId || locked) return;

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FileSpreadsheet, Grid2X2, Save } from 'lucide-react';
+import { FileSpreadsheet, Grid2X2, Save, Upload } from 'lucide-react';
 import { useAcademic } from '../../context/AcademicContext';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 import { sortOutcomes } from '../../utils/outcomeOrder';
+import CourseMappingExcelImportModal from './CourseMappingExcelImportModal';
 
-export default function COMappingMatrix({ hideFooter = false }) {
+export default function COMappingMatrix({ hideFooter = false, saveRef = null }) {
   const {
     academicYear,
     selectedProgramme,
@@ -95,6 +96,7 @@ export default function COMappingMatrix({ hideFooter = false }) {
   const [savedMappingSignature, setSavedMappingSignature] = useState(null);
   const [isSavingMapping, setIsSavingMapping] = useState(false);
   const [activeKeywordEditor, setActiveKeywordEditor] = useState(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // A saved signature belongs to one programme-batch course only. Never let
   // an identical-looking mapping from a previous course disable Save here.
@@ -358,6 +360,20 @@ export default function COMappingMatrix({ hideFooter = false }) {
     };
   };
 
+  useEffect(() => {
+    if (saveRef) {
+      saveRef.current = async () => {
+        if (!isMappingSaved && programmeBatchCourseId && !isSavingMapping) {
+          return await handleSave();
+        }
+        return true;
+      };
+    }
+    return () => {
+      if (saveRef) saveRef.current = null;
+    };
+  }, [handleSave, isMappingSaved, isSavingMapping, programmeBatchCourseId, saveRef]);
+
   return (
     <div className="animated-page">
       {/* Standard Header Banner */}
@@ -369,9 +385,34 @@ export default function COMappingMatrix({ hideFooter = false }) {
             </h2>
           </div>
 
-          <button className="btn btn-primary" onClick={handleSave} disabled={isSavingMapping || isMappingSaved} style={{ opacity: isSavingMapping || isMappingSaved ? 0.6 : 1, cursor: isSavingMapping || isMappingSaved ? 'not-allowed' : 'pointer' }}>
-            <Save size={15} /> {isSavingMapping ? 'Saving…' : isMappingSaved ? 'Saved' : 'Save Mapping Matrix'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setIsImportModalOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: '#ffffff',
+                border: '1.5px solid #c7d2fe',
+                color: '#4338ca',
+                fontWeight: '700',
+                padding: '0 16px',
+                height: '38px',
+                borderRadius: '8px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                cursor: 'pointer',
+              }}
+            >
+              <FileSpreadsheet size={15} color="#4338ca" />
+              <span>Import Excel Mapping</span>
+            </button>
+
+            <button className="btn btn-primary" onClick={handleSave} disabled={isSavingMapping || isMappingSaved} style={{ opacity: isSavingMapping || isMappingSaved ? 0.6 : 1, cursor: isSavingMapping || isMappingSaved ? 'not-allowed' : 'pointer' }}>
+              <Save size={15} /> {isSavingMapping ? 'Saving…' : isMappingSaved ? 'Saved' : 'Save Mapping Matrix'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -817,6 +858,24 @@ export default function COMappingMatrix({ hideFooter = false }) {
             </div>
           </div>
         </div>
+      )}
+
+      {isImportModalOpen && (
+        <CourseMappingExcelImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          programmeBatchCourseId={programmeBatchCourseId}
+          courseCode={selectedCourseOffering?.courseCode || selectedCourse?.code}
+          courseName={selectedCourseOffering?.courseName || selectedCourse?.name}
+          programmeBatchName={selectedCourseOffering?.batchName || selectedCourseOffering?.programmeBatchName}
+          initialScope="ALL"
+          onImportSuccess={async () => {
+            if (programmeBatchCourseId) {
+              await loadCourseOutcomes(programmeBatchCourseId).catch(() => {});
+              await loadCourseMapping(programmeBatchCourseId).catch(() => {});
+            }
+          }}
+        />
       )}
 
       {/* Save, Previous & Save & Next Footer */}

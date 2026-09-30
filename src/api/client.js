@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getErrorMessage } from '../utils/errorMessage.js';
 
 /* ========================================================================== */
 /* Backend base URL                                                           */
@@ -218,53 +219,14 @@ apiClient.interceptors.response.use(
     /* Backend error normalization                                            */
     /* ---------------------------------------------------------------------- */
 
-    if (error.response) {
-      const {
-        status,
-        statusText,
-        data,
-      } = error.response;
-
-      let detailedMessage = '';
-
-      if (
-        typeof data === 'string' &&
-        data.includes('<title>')
-      ) {
-        const match = data.match(
-          /<title>(.*?)<\/title>/i
-        );
-
-        detailedMessage =
-          `Server Error (${status}): ${
-            match ? match[1] : statusText
-          }`;
-      } else if (data?.message) {
-        detailedMessage = data.message;
-      } else if (data?.error) {
-        detailedMessage =
-          typeof data.error === 'string'
-            ? data.error
-            : JSON.stringify(data.error);
-      } else {
-        detailedMessage =
-          `HTTP ${status}: ${
-            statusText || 'Request failed'
-          }`;
-      }
-
-      error.customMessage = detailedMessage;
-    } else if (error.request) {
-      error.customMessage =
-        `Unable to connect to backend server at ${currentActiveUrl}.`;
-    } else {
-      error.customMessage =
-        error.message ||
-        'An unexpected error occurred.';
-    }
+    const resolvedMessage = getErrorMessage(error);
+    error.message = resolvedMessage;
+    error.customMessage = resolvedMessage;
 
     return Promise.reject(error);
   }
 );
 
+export { getErrorMessage } from '../utils/errorMessage.js';
 export default apiClient;
+

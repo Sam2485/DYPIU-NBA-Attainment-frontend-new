@@ -28,13 +28,19 @@ export default function SectionSaveFooter({
     if (onSave) onSave(false);
   };
 
-  const handleSaveNext = () => {
+  const handleSaveNext = async () => {
+    if (onSave && !saved) {
+      try {
+        await onSave(true);
+      } catch (err) {
+        console.error('Failed to save section before proceeding:', err);
+      }
+    }
     markWorkflowStepComplete(selectedCourse?.id, location.pathname);
     if (onFinish) {
       onFinish();
       return;
     }
-    if (onSave && !saved) onSave(true);
     if (nextPath) navigate(nextPath);
   };
 

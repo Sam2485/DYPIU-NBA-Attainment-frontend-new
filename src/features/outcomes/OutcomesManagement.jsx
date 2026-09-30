@@ -7,12 +7,13 @@ import RowButtons from '../../components/common/RowButtons';
 import SectionSaveFooter from '../../components/layout/SectionSaveFooter';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 import RequestRevisionCard from '../../components/common/RequestRevisionCard';
+import { getErrorMessage } from '../../utils/errorMessage';
 
 const EMPTY_TARGETS = {};
 const outcomeSignature = (outcomes = []) => JSON.stringify(outcomes.map((outcome) => ({
   code: String(outcome.code ?? '').trim(),
   statement: String(outcome.statement ?? '').trim(),
-  targetLevel: Number(outcome.targetLevel ?? outcome.target ?? 2.5),
+  targetLevel: Number(outcome.targetLevel ?? outcome.target ?? 2),
   bloomsLevel: outcome.bloomsLevel ?? 'UNDERSTAND',
 })));
 
@@ -29,7 +30,7 @@ const isCompleteCourseOutcome = (outcome) => {
     && targetNumber <= 3;
 };
 
-export default function OutcomesManagement({ hideFooter = false, hideHeader = false, readOnly = false, reviewCourseId = null, suppressPendingMessage = false }) {
+export default function OutcomesManagement({ hideFooter = false, hideHeader = false, readOnly = false, reviewCourseId = null, suppressPendingMessage = false, saveRef = null }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isStandalone = searchParams.get('mode') === 'standalone' || (typeof window !== 'undefined' && window.location.pathname.endsWith('/outcomes'));
@@ -314,7 +315,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
             ? courseTargets[co.code]
             : co.target !== undefined
             ? co.target
-            : 2.5;
+            : 2;
 
         return {
           ...co,
@@ -553,11 +554,40 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
       alert('A course can have a maximum of 6 Course Outcomes (CO1 to CO6).');
       return;
     }
+    const currentCourseCode = (
+      courseScope?.courseCode ||
+      courseScope?.code ||
+      selectedCourseOffering?.courseCode ||
+      selectedCourseOffering?.code ||
+      selectedCourse?.code ||
+      ''
+    ).trim();
+
+    let nextIndex = coList.length + 1;
+    if (currentCourseCode) {
+      const prefix = `${currentCourseCode}.`;
+      const indices = coList
+        .map((c) => {
+          const codeStr = String(c?.code || '').trim();
+          if (codeStr.startsWith(prefix)) {
+            const num = parseInt(codeStr.slice(prefix.length), 10);
+            return isNaN(num) ? null : num;
+          }
+          return null;
+        })
+        .filter((n) => n !== null);
+      if (indices.length > 0) {
+        nextIndex = Math.max(...indices) + 1;
+      }
+    }
+
+    const defaultCode = currentCourseCode ? `${currentCourseCode}.${nextIndex}` : `CO${nextIndex}`;
+
     const newCo = {
-      code: '',
+      code: defaultCode,
       statement: '',
-      targetLevel: '',
-      target: '',
+      targetLevel: 2,
+      target: 2,
       status: role === 'PROGRAMME_COORDINATOR' || role === 'DIRECTOR' || role === 'IQAC' ? 'APPROVED' : 'DRAFT',
       submittedBy: user?.name || 'Course Coordinator',
       submittedAt: new Date().toISOString().split('T')[0],
@@ -627,7 +657,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
         ...(co.courseOutcomeId ?? co.id ? { courseOutcomeId: co.courseOutcomeId ?? co.id } : {}),
         code: String(co.code ?? '').trim(),
         statement: String(co.statement ?? '').trim(),
-        targetLevel: Number(co.targetLevel ?? co.target ?? 2.5),
+        targetLevel: Number(co.targetLevel ?? co.target ?? 2),
         bloomsLevel: co.bloomsLevel ?? 'UNDERSTAND',
       }));
     if (!payload.length) {
@@ -650,7 +680,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
       return true;
     } catch (error) {
       console.error('Failed to save Course Outcomes:', error);
-      if (!silent) alert('Unable to save Course Outcomes. Please try again.');
+      if (!silent) alert(getErrorMessage(error, 'Unable to save Course Outcomes. Please try again.'));
       return false;
     } finally {
       setIsSavingOutcomes(false);
@@ -688,7 +718,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
       alert('Course Outcomes submitted for review.');
     } catch (error) {
       console.error('Failed to submit Course Outcomes for review:', error);
-      alert('Unable to submit Course Outcomes for review.');
+      alert(getErrorMessage(error, 'Unable to submit Course Outcomes for review. Please try again.'));
     } finally {
       setIsSubmittingForReview(false);
     }
@@ -714,6 +744,20 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
     || targetData.status === 'SUBMITTED_FOR_VERIFICATION'
     || targetData.status === 'PENDING';
   const isCoReviewLocked = isCoApproved || (isCourseCoordinator && outcomesPendingReview);
+
+  useEffect(() => {
+    if (saveRef) {
+      saveRef.current = async () => {
+        if (outcomesDirty && coList.length > 0 && targetCourseId && !isCoReviewLocked) {
+          return await handleSaveOutcomes({ silent: true });
+        }
+        return true;
+      };
+    }
+    return () => {
+      if (saveRef) saveRef.current = null;
+    };
+  }, [coList.length, handleSaveOutcomes, isCoReviewLocked, outcomesDirty, saveRef, targetCourseId]);
 
   return (
     <div className="animated-page">
@@ -1478,12 +1522,12 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                       const isDraft = !isApproved && !isRejected && !isSubmitted;
                       const isLockedForEditing = readOnly || isApproved || isSubmitted || outcomesPendingReview;
 
-                      const targetVal = co.targetLevel !== undefined ? co.targetLevel : (co.target !== undefined ? co.target : 2.5);
+                      const targetVal = co.targetLevel !== undefined && co.targetLevel !== '' ? co.targetLevel : (co.target !== undefined && co.target !== '' ? co.target : 2);
 
                       return (
                         <tr key={index}>
                           <td style={{ textAlign: 'center', fontWeight: '700', color: '#64748b' }}>{index + 1}</td>
-                          <td style={{ width: '90px', minWidth: '90px', maxWidth: '100px' }}>
+                          <td style={{ width: '110px', minWidth: '100px', maxWidth: '125px' }}>
                             <input
                               type="text"
                               className="form-control"
@@ -1491,7 +1535,8 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
                               style={{
                                 fontWeight: '800',
                                 textAlign: 'center',
-                                width: '80px',
+                                width: '100%',
+                                minWidth: '85px',
                                 color: isApproved ? '#10b981' : '#d97706',
                                 background: isLockedForEditing ? '#f8fafc' : '#ffffff',
                                 cursor: isLockedForEditing ? 'not-allowed' : 'text',

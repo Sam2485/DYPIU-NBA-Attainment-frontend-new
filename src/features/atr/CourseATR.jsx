@@ -8,6 +8,7 @@ import RequestRevisionCard from '../../components/common/RequestRevisionCard';
 import { reportsApi } from '../../api/reports';
 import { openReportPdf } from '../../utils/reportDownload';
 import { sortOutcomes } from '../../utils/outcomeOrder';
+import { getErrorMessage } from '../../utils/errorMessage';
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -31,7 +32,7 @@ const inputStyle = {
   color: ink, width: '100%', outline: 'none', fontFamily: 'inherit',
 };
 
-export default function CourseATR({ hideHeader = false, showHistoryProp, readOnly = false, courseId, batchId = null, showAssignedCourseSelector = false, showCourseSelector = true, showHeaderActions = true, assignedOfferings = [], onSelectOffering = () => {}, selectorDisabled = false, suppressPendingMessage = false }) {
+export default function CourseATR({ hideHeader = false, showHistoryProp, readOnly = false, courseId, batchId = null, showAssignedCourseSelector = false, showCourseSelector = true, showHeaderActions = true, assignedOfferings = [], onSelectOffering = () => {}, selectorDisabled = false, suppressPendingMessage = false, saveRef = null }) {
   const navigate = useNavigate();
   const { role, user } = useAuth();
   const {
@@ -248,6 +249,7 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
   });
 
   const handleSaveATR = async ({ silent = false } = {}) => {
+    if (locked) return true;
     if (!activeCourseId) {
       if (!silent) alert('Select an assigned programme-batch course before saving the Course ATR.');
       return false;
@@ -263,10 +265,24 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
       return true;
     } catch (error) {
       console.error('Failed to save Course ATR:', error);
-      if (!silent) alert('Unable to save the Course ATR. Please try again.');
+      if (!silent) alert(getErrorMessage(error, 'Unable to save the Course ATR. Please try again.'));
       return false;
     }
   };
+
+  useEffect(() => {
+    if (saveRef) {
+      saveRef.current = async () => {
+        if (!isSaved && coList.length > 0 && activeCourseId && !locked) {
+          return await handleSaveATR({ silent: true });
+        }
+        return true;
+      };
+    }
+    return () => {
+      if (saveRef) saveRef.current = null;
+    };
+  }, [activeCourseId, coList.length, handleSaveATR, isSaved, locked, saveRef]);
 
   const handleSaveSubmit = async () => {
     if (!activeCourseId) {
@@ -287,7 +303,7 @@ export default function CourseATR({ hideHeader = false, showHistoryProp, readOnl
       alert(`Course ATR for ${currentCourse?.courseCode || currentCourse?.code || 'this course'} has been submitted for review.`);
     } catch (error) {
       console.error('Failed to save Course ATR:', error);
-      alert('Unable to save and submit the Course ATR. Please try again.');
+      alert(getErrorMessage(error, 'Unable to save and submit the Course ATR. Please try again.'));
     } finally {
       setIsSubmittingForReview(false);
     }

@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
 import OutcomeExcelImportModal from './OutcomeExcelImportModal';
+import { getErrorMessage } from '../../utils/errorMessage';
 
 const STEPS = [
   { number: 1, title: 'Course Ownership',      desc: 'Courses are managed per programme batch', path: '/hod/setup-workflow?step=1', icon: BookOpen, color: '#4f46e5', bg: '#eef2ff' },
@@ -715,7 +716,7 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
     } catch (error) {
       console.error('Failed to save Programme Batch outcomes:', error);
       setOutcomesSaveState('error');
-      alert(error?.message || 'Unable to save programme outcomes.');
+      alert(getErrorMessage(error, 'Unable to save programme outcomes.'));
       return false;
     }
   };
@@ -723,6 +724,17 @@ export default function HodSetupWorkflow({ standaloneCoordinatorAllocation = fal
   const currentStepMeta = STEPS[currentStep - 1] || STEPS[0];
 
   const handleSaveAndNext = async () => {
+    if (currentStep === 2 && editingBatchId) {
+      const editingBatch = programmeBatches.find((b) => b.id === editingBatchId);
+      if (editingBatch) {
+        await handleSaveEditBatch(editingBatch);
+      }
+    }
+    if (currentStep === 3) {
+      if (!assignmentsAreSaved) {
+        await handleBulkSaveCoordinatorAssignments();
+      }
+    }
     if (currentStep === 4) {
       const saved = outcomesAreSaved || await handleSaveBatchOutcomes();
       if (!saved) return;

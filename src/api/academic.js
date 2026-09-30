@@ -268,6 +268,40 @@ export const academicApi = {
   saveCourseMapping: (offeringId, data) =>
     apiClient.put(`/academic/programme-batch-courses/${offeringId}/co-po-pso-mappings`, data),
 
+  downloadMappingExcelTemplate: (offeringId, scope = 'ALL', sample = false) =>
+    apiClient.get(`/academic/programme-batch-courses/${offeringId}/mapping-excel/template`, {
+      params: { scope, sample },
+      responseType: 'blob',
+    }),
+
+  previewMappingExcel: (offeringId, file, scope = 'ALL') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post(
+      `/academic/programme-batch-courses/${offeringId}/mapping-excel/preview`,
+      formData,
+      { params: { scope } }
+    );
+  },
+
+  importMappingExcel: (offeringId, payload, scope = 'ALL') => {
+    if (payload instanceof File || payload instanceof Blob) {
+      const formData = new FormData();
+      formData.append('file', payload);
+      return apiClient.post(
+        `/academic/programme-batch-courses/${offeringId}/mapping-excel/import`,
+        formData,
+        { params: { scope } }
+      );
+    }
+    const body = { ...payload, scope: payload?.scope || scope };
+    return apiClient.post(
+      `/academic/programme-batch-courses/${offeringId}/mapping-excel/import`,
+      body,
+      { params: { scope } }
+    );
+  },
+
   // =========================
   // Programme Targets
   // =========================

@@ -239,7 +239,8 @@ export default function ProgrammeCoordinatorApprovals() {
   }, [approvals, details?.id, details?.programmeBatchCourseId, details?.type, selectedId]);
 
   const applyAction = async (action) => {
-    if (!details?.id) return;
+    const targetId = details?.id || selected?.id || selectedId;
+    if (!targetId) return;
     if (action === 'REQUEST_REVISION' && !remarks.trim()) {
       setError('Enter a reason before requesting a revision.');
       return;
@@ -252,20 +253,27 @@ export default function ProgrammeCoordinatorApprovals() {
         actorRole: role ?? 'PROGRAMME_COORDINATOR',
       };
       if (action === 'APPROVE') {
-        await apiClient.post(`/approvals/${details.id}/approve`, reviewer);
+        await apiClient.post(`/approvals/${targetId}/approve`, reviewer);
       } else {
-        await apiClient.post(`/approvals/${details.id}/request-revision`, { reason: remarks, ...reviewer });
+        await apiClient.post(`/approvals/${targetId}/request-revision`, { reason: remarks, ...reviewer });
       }
       const nextStatus = action === 'APPROVE' ? 'APPROVED' : 'REVISION_REQUESTED';
       // Keep the coordinator in this course workspace so its other approval
       // tabs remain available after reviewing the current submission.
-      setDetails((current) => current ? {
-        ...current,
-        status: nextStatus,
-        workspaceApprovalItems: (current.workspaceApprovalItems ?? []).map((item) => (
-          (item.approvalRequestId ?? item.id) === current.id ? { ...item, status: nextStatus } : item
-        )),
-      } : current);
+      setDetails((current) => {
+        const base = current || selected || {};
+        return {
+          ...base,
+          id: targetId,
+          status: nextStatus,
+          workspaceApprovalItems: (base.workspaceApprovalItems ?? []).map((item) => (
+            (item.approvalRequestId ?? item.id) === targetId ? { ...item, status: nextStatus } : item
+          )),
+        };
+      });
+      setApprovals((prev) => prev.map((item) => (
+        item.id === targetId ? { ...item, status: nextStatus } : item
+      )));
       setRemarks('');
       await loadQueue();
     } catch (err) {
@@ -276,7 +284,7 @@ export default function ProgrammeCoordinatorApprovals() {
   };
 
   const selected = details?.id === selectedId ? details : approvals.find((item) => item.id === selectedId);
-  const isPending = (item) => item.status === 'PENDING' || item.status === 'SUBMITTED' || item.status === 'PENDING_APPROVAL';
+  const isPending = (item) => !item?.status || item.status === 'PENDING' || item.status === 'SUBMITTED' || item.status === 'PENDING_APPROVAL';
   const isApproved = (item) => item?.status === 'APPROVED' || item?.status === 'VERIFIED';
   const isRevisionRequested = (item) => item?.status === 'REVISION_REQUESTED' || item?.status === 'REJECTED';
   const scopedApprovals = approvals.filter((item) => {

@@ -3,6 +3,7 @@ import { Plus, Trash2, X, CheckCircle2, ChevronDown, Download, AlertCircle, Hist
 import { useAcademic } from '../../context/AcademicContext';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
 import OutcomeExcelImportModal from './OutcomeExcelImportModal';
+import { getErrorMessage } from '../../utils/errorMessage';
 
 // ── Style tokens (identical to HodSetupWorkflow) ─────────────────────────────
 const surface  = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -353,7 +354,7 @@ export default function HodProgrammeOutcomes() {
       setSaveState('saved');
     } catch (error) {
       setSaveState('error');
-      alert(error?.message || 'Unable to save outcomes.');
+      alert(getErrorMessage(error, 'Unable to save outcomes.'));
     }
   };
 

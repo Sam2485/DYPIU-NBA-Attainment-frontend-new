@@ -16,6 +16,7 @@ import { approvalsApi } from '../../api/approvals';
 import IndirectAssessmentModal from './IndirectAssessmentModal';
 import CourseExcelImportModal from './CourseExcelImportModal';
 import DeleteConfirmModal from '../../components/common/DeleteConfirmModal';
+import { getErrorMessage } from '../../utils/errorMessage';
 
 // ── Style tokens (identical to HodSetupWorkflow) ─────────────────────────────
 const surface    = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px' };
@@ -195,6 +196,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const [assessmentActionSuccess, setAssessmentActionSuccess] = useState(null);
   const [deletingAssessment, setDeletingAssessment] = useState(null);
   const [isDeletingAssessment, setIsDeletingAssessment] = useState(false);
+  const programmeAtrSaveRef = useRef(null);
 
   const selectedProgramme =
     masterProgrammes.find((p) => p.id === programmeId) ||
@@ -269,8 +271,9 @@ export default function ProgrammeCoordinatorSetupWorkflow({
       alert(`Semester ${activeSemester} course allocations submitted for HOD approval.`);
     } catch (error) {
       console.error('Failed to submit course allocations for review:', error);
-      alert(error?.response?.data?.message || 'Unable to submit allocations for HOD review. Please try again.');
+      alert(getErrorMessage(error, 'Unable to submit allocations for HOD review. Please try again.'));
     }
+
   };
 
   const targetsKey = `targets-${programmeId}-${batchId}`;
@@ -306,8 +309,9 @@ export default function ProgrammeCoordinatorSetupWorkflow({
       alert(`PO & PSO target benchmarks for ${selectedProgramme?.name} submitted for HOD approval!`);
     } catch (error) {
       console.error('Failed to submit PO/PSO targets for review:', error);
-      alert(error?.response?.data?.message || 'Unable to submit PO/PSO targets for HOD review. Please try again.');
+      alert(getErrorMessage(error, 'Unable to submit PO/PSO targets for HOD review. Please try again.'));
     }
+
   };
 
   const durationYears = selectedProgramme?.durationYears || 4;
@@ -715,8 +719,20 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const handleSaveAndNext = async () => {
     try {
       setIsSavingStep(true);
+      if (currentStep === 1) {
+        if (editingCourseId || (newCourseCode.trim() && newCourseName.trim())) {
+          await handleAddCourse();
+        }
+      }
       if (currentStep === 2 && !isBatchFrozen) {
         await handleSaveTargets();
+      }
+      if (currentStep === 4 && programmeAtrSaveRef.current) {
+        try {
+          await programmeAtrSaveRef.current();
+        } catch (atrErr) {
+          console.warn('Programme ATR save skipped or completed without update:', atrErr);
+        }
       }
       await saveSetupProgress(Math.min(currentStep + 1, STEPS.length), currentStep);
       if (currentStep < STEPS.length) goToStep(currentStep + 1);
@@ -735,6 +751,13 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   };
 
   const handleFinish = async () => {
+    if (programmeAtrSaveRef.current) {
+      try {
+        await programmeAtrSaveRef.current();
+      } catch (atrErr) {
+        console.warn('Programme ATR save skipped or completed without update:', atrErr);
+      }
+    }
     await completeProgrammeCoordinatorSetupProgress();
     navigate('/programme-coordinator/dashboard');
   };
@@ -1223,8 +1246,9 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                           await handleSaveTargets();
                         } catch (error) {
                           console.error('Failed to save programme-batch targets:', error);
-                          alert('Unable to save targets. Please try again.');
+                          alert(getErrorMessage(error, 'Unable to save targets. Please try again.'));
                         }
+
                       }}
                       style={{
                         height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700',
@@ -1956,6 +1980,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 hideHeader={approvalReadOnly}
                 showBatchSelector={false}
                 readOnly={approvalReadOnly}
+                saveRef={programmeAtrSaveRef}
               />
             </div>
           </div>

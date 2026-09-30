@@ -85,6 +85,7 @@ export default function CourseCoordinatorWorkflow() {
     hasValidParam ? parsedStep : firstIncompleteStep
   );
   const selectedOfferingIdRef = useRef(courseOfferingId);
+  const stepSaveRef = useRef(null);
 
   useEffect(() => {
     selectedOfferingIdRef.current = courseOfferingId;
@@ -127,6 +128,13 @@ export default function CourseCoordinatorWorkflow() {
 
   // ── Save & Next ──────────────────────────────────────────────────────────────
   const handleSaveAndNext = async () => {
+    if (stepSaveRef.current) {
+      try {
+        await stepSaveRef.current();
+      } catch (err) {
+        console.error('Failed to save step before navigating:', err);
+      }
+    }
     if (courseId) {
       await markWorkflowStepComplete(courseOfferingId || courseId, STEPS[currentStep - 1].path);
     }
@@ -136,6 +144,13 @@ export default function CourseCoordinatorWorkflow() {
   };
 
   const handleFinish = async () => {
+    if (stepSaveRef.current) {
+      try {
+        await stepSaveRef.current();
+      } catch (err) {
+        console.error('Failed to save step before finishing:', err);
+      }
+    }
     if (courseId) {
       await markWorkflowStepComplete(courseOfferingId || courseId, STEPS[STEPS.length - 1].path);
     }
@@ -306,8 +321,8 @@ export default function CourseCoordinatorWorkflow() {
           fallbackTitle={`Step ${currentStep} Error (${currentStepMeta.title})`}
           fallbackMessage={`An error occurred while loading ${currentStepMeta.title}. Other workflow steps and navigation remain available.`}
         >
-          {currentStep === 1 && <OutcomesManagement hideFooter />}
-          {currentStep === 2 && <COMappingMatrix hideFooter />}
+          {currentStep === 1 && <OutcomesManagement saveRef={stepSaveRef} hideFooter />}
+          {currentStep === 2 && <COMappingMatrix saveRef={stepSaveRef} hideFooter />}
           {currentStep === 3 && <EndSemMarksHub hideFooter />}
           {currentStep === 4 && <CourseEndSurveyHub hideFooter />}
           {currentStep === 5 && <COAttainmentEngine hideFooter />}
@@ -319,7 +334,7 @@ export default function CourseCoordinatorWorkflow() {
                 </h3>
               </div>
               <div style={{ padding: '20px' }}>
-                <CourseATR hideFooter hideHeader />
+                <CourseATR saveRef={stepSaveRef} hideFooter hideHeader />
               </div>
             </div>
           )}

@@ -2028,6 +2028,63 @@ export function AcademicProvider({ children }) {
     return result;
   }, [batchId, programmeId, loadProgrammeBatchOutcomes]);
 
+  const downloadMappingExcelTemplate = useCallback(async (offeringId, scope = 'ALL', sample = false) => {
+    const oId = offeringId || courseOfferingId || selectedCourseOffering?.programmeBatchCourseId;
+    if (!oId) throw new Error('Course offering ID is required to download mapping template.');
+    const response = await apiClient.get(`/academic/programme-batch-courses/${oId}/mapping-excel/template`, {
+      params: { scope, sample },
+      responseType: 'blob',
+    });
+    const blob = response instanceof Blob ? response : (response?.data instanceof Blob ? response.data : new Blob([response.data || response]));
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    let filename = sample ? 'Sample_CO_PO_PSO_Mapping.xlsx' : 'CO_PO_PSO_Mapping_Template.xlsx';
+    if (scope === 'PO') filename = sample ? 'Sample_CO_PO_Mapping.xlsx' : 'CO_PO_Mapping_Template.xlsx';
+    else if (scope === 'PSO') filename = sample ? 'Sample_CO_PSO_Mapping.xlsx' : 'CO_PSO_Mapping_Template.xlsx';
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    return true;
+  }, [courseOfferingId, selectedCourseOffering]);
+
+  const previewMappingExcel = useCallback(async (offeringId, file, scope = 'ALL') => {
+    const oId = offeringId || courseOfferingId || selectedCourseOffering?.programmeBatchCourseId;
+    if (!oId) throw new Error('Course offering ID is required for mapping preview.');
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post(`/academic/programme-batch-courses/${oId}/mapping-excel/preview`, formData, {
+      params: { scope },
+    });
+    return unwrap(response);
+  }, [courseOfferingId, selectedCourseOffering]);
+
+  const importMappingExcel = useCallback(async (offeringId, payload, scope = 'ALL') => {
+    const oId = offeringId || courseOfferingId || selectedCourseOffering?.programmeBatchCourseId;
+    if (!oId) throw new Error('Course offering ID is required for mapping import.');
+    let response;
+    const finalScope = (typeof scope === 'string' && scope) ? scope : (payload?.scope || 'ALL');
+    if (payload instanceof File || payload instanceof Blob) {
+      const formData = new FormData();
+      formData.append('file', payload);
+      response = await apiClient.post(`/academic/programme-batch-courses/${oId}/mapping-excel/import`, formData, {
+        params: { scope: finalScope },
+      });
+    } else {
+      const body = { ...payload, scope: finalScope };
+      response = await apiClient.post(`/academic/programme-batch-courses/${oId}/mapping-excel/import`, body, {
+        params: { scope: finalScope },
+      });
+    }
+    const result = unwrap(response);
+    if (oId) {
+      await loadCourseMapping(oId).catch(() => {});
+    }
+    return result;
+  }, [courseOfferingId, selectedCourseOffering, loadCourseMapping]);
+
   const assignCourseCoordinator = useCallback(
     async (targetCourseId, coordinatorId, targetBatchId = batchId) => {
       const offering = courseOfferings.find(
@@ -2522,6 +2579,9 @@ export function AcademicProvider({ children }) {
     coMapping,
     loadCourseMapping,
     updateCourseMapping,
+    downloadMappingExcelTemplate,
+    previewMappingExcel,
+    importMappingExcel,
 
     /* Attainment */
     attainmentSettings,
@@ -2577,7 +2637,7 @@ export function AcademicProvider({ children }) {
     students, loadStudents, getStudentsByBatch, addStudentToBatch, updateStudentInBatch, deleteStudentFromBatch,
     activePOs, activePSOs, activePEOs, poPsoTargets, loadProgrammeOutcomes, loadProgrammeBatchOutcomes, loadAvailableOutcomeSourceBatches, importBatchOutcomesFromSource, updateProgrammePOs, updateProgrammePSOs, updateProgrammePEOs, saveProgrammeOutcomeDefinitions, saveProgrammeBatchOutcomeDefinitions, downloadOutcomeTemplate, previewOutcomeExcel, importOutcomeExcel, loadProgrammeTargets, updatePoPsoTargets, updateProgrammeOutcomeTargets,
     activeCOs, coTargets, loadCourseOutcomes, loadAvailableCoSources, importCourseOutcomesFromSource, updateCourseCOs,
-    coMapping, loadCourseMapping, updateCourseMapping,
+    coMapping, loadCourseMapping, updateCourseMapping, downloadMappingExcelTemplate, previewMappingExcel, importMappingExcel,
     attainmentSettings, loadAttainmentSettings, updateAttainmentSettings, coAttainment, loadCOAttainment,
     programmeATR, loadProgrammeATR, saveProgrammeATR, submitProgrammeATR, courseATR, loadCourseATR,
     directorDashboard, hodDashboard, programmeCoordinatorDashboard, courseCoordinatorDashboard, loadDirectorDashboard, loadHodDashboard, loadProgrammeCoordinatorDashboard, loadCourseCoordinatorDashboard,

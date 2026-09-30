@@ -25,7 +25,7 @@ export default function COTargetSettingHub({ hideFooter = false }) {
     } else if (activeCOs && activeCOs.length > 0) {
       const initial = {};
       activeCOs.forEach((co) => {
-        initial[co.code] = co.targetLevel != null ? co.targetLevel : 2.5;
+        initial[co.code] = co.targetLevel != null ? co.targetLevel : 2;
       });
       setLocalCoTargets(initial);
     }
@@ -154,7 +154,7 @@ export default function COTargetSettingHub({ hideFooter = false }) {
             <tbody>
               {activeCOs && activeCOs.length > 0 ? (
                 activeCOs.map((co) => {
-                  const currentVal = localCoTargets[co.code] !== undefined ? localCoTargets[co.code] : (co.targetLevel != null ? co.targetLevel : 2.5);
+                  const currentVal = localCoTargets[co.code] !== undefined ? localCoTargets[co.code] : (co.targetLevel != null ? co.targetLevel : 2);
                   return (
                     <tr key={co.id || co.code}>
                       <td style={{ fontWeight: '800', color: '#4f46e5' }}>{co.code}</td>

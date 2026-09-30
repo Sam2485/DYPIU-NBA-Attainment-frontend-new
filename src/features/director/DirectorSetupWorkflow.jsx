@@ -302,17 +302,35 @@ export default function DirectorSetupWorkflow() {
 
   const handleSaveAndNext = async () => {
     if (currentStep === 1) {
-      if (!selectedSchool?.id) return;
-      await updateSchool(selectedSchool.id, {
-        name: schoolName,
-        code: schoolCode.toUpperCase(),
-        director: directorName,
-        estYear: estYear.trim(),
-        directorEmail: selectedSchool.directorEmail ?? '',
-        directorName: selectedSchool.director ?? '',
-        directorEmail: selectedSchool.directorEmail ?? '',
-        status: selectedSchool.status ?? 'ACTIVE',
-      });
+      const targetSchoolId = selectedSchool?.id || selectedSchoolId || user?.schoolId;
+      if (targetSchoolId) {
+        const isSchoolSaved =
+          selectedSchool &&
+          selectedSchool.name === schoolName &&
+          selectedSchool.code === schoolCode &&
+          selectedSchool.director === directorName &&
+          String(selectedSchool.estYear ?? '').trim() === String(estYear ?? '').trim();
+
+        if (!isSchoolSaved) {
+          await updateSchool(targetSchoolId, {
+            name: schoolName,
+            code: schoolCode.toUpperCase(),
+            director: directorName,
+            estYear: String(estYear).trim(),
+            directorEmail: selectedSchool?.directorEmail ?? '',
+            directorName: directorName,
+            status: selectedSchool?.status ?? 'ACTIVE',
+          });
+        }
+      }
+    } else if (currentStep === 2) {
+      if (newDeptName.trim() && newDeptCode.trim() && selectedSchoolId && selectedHod) {
+        await handleAddDeptInline();
+      }
+    } else if (currentStep === 3) {
+      if (newProgName.trim() && newProgDegreeAwarded.trim() && selectedDeptIdForProg) {
+        await handleAddProgrammeInline();
+      }
     }
     await markDirectorWorkflowStepComplete(currentStep);
     if (currentStep < STEPS.length) {
