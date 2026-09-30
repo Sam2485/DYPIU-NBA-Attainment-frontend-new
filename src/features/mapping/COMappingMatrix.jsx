@@ -72,14 +72,46 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
   // Dynamic PO & PSO codes arrays from Outcome Management
   // The programme-batch-course mapping endpoint is authoritative for this
   // screen. Context outcomes are only a fallback while its response loads.
+  const normalizeCode = (val) => String(val || '').replace(/[\s\-_]/g, '').toUpperCase();
+
   const mappingPOs = useMemo(
     () => sortOutcomes(Array.isArray(coMapping?.pos) && coMapping.pos.length > 0 ? coMapping.pos : activePOs),
     [activePOs, coMapping?.pos]
   );
-  const mappingPSOs = useMemo(
-    () => sortOutcomes(Array.isArray(coMapping?.psos) && coMapping.psos.length > 0 ? coMapping.psos : activePSOs),
-    [activePSOs, coMapping?.psos]
-  );
+
+  const mappingPSOs = useMemo(() => {
+    let psoItems = Array.isArray(coMapping?.psos) && coMapping.psos.length > 0 ? coMapping.psos : activePSOs;
+    if ((!psoItems || psoItems.length === 0) && coMapping) {
+      // Fallback: extract PSO codes from psoMappings or psoKeywordsStore
+      const psoCodes = new Set();
+      if (Array.isArray(coMapping.psoMappings)) {
+        coMapping.psoMappings.forEach((m) => {
+          if (m.psoCode) psoCodes.add(m.psoCode.trim().toUpperCase().replace(/\s+/g, ''));
+        });
+      }
+      const rawStore = coMapping.psoKeywordsStore ?? coMapping.psoKeywords ?? coMapping.psoKeywordStore;
+      const parsedStore = typeof rawStore === 'string' ? (() => { try { return JSON.parse(rawStore); } catch { return null; } })() : rawStore;
+      if (parsedStore && typeof parsedStore === 'object') {
+        const unwrapped = parsedStore[programmeBatchCourseId] || parsedStore;
+        Object.entries(unwrapped).forEach(([k, v]) => {
+          if (/^pso/i.test(k)) psoCodes.add(k.trim().toUpperCase().replace(/\s+/g, ''));
+          if (v && typeof v === 'object' && !Array.isArray(v)) {
+            Object.keys(v).forEach((innerK) => {
+              if (/^pso/i.test(innerK)) psoCodes.add(innerK.trim().toUpperCase().replace(/\s+/g, ''));
+            });
+          }
+        });
+      }
+      if (psoCodes.size > 0) {
+        psoItems = Array.from(psoCodes).map((code) => ({
+          code,
+          statement: `${code} keyword mapping`,
+        }));
+      }
+    }
+    return sortOutcomes(psoItems);
+  }, [activePSOs, coMapping, programmeBatchCourseId]);
+
   const courseOutcomes = useMemo(
     () => sortOutcomes(Array.isArray(coMapping?.cos) && coMapping.cos.length > 0 ? coMapping.cos : activeCOs),
     [activeCOs, coMapping?.cos]
@@ -88,8 +120,6 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
   const psoList = mappingPSOs.map((p) => p.code);
 
   // Keyword Stores for POs & PSOs (keyed by programme-batch-course ID locally).
-  // The API uses CO code -> PO/PSO code -> keyword[][], where each inner
-  // array belongs to the matching competency index.
   const [poKeywordsStore, setPoKeywordsStore] = useState({});
   const [psoKeywordsStore, setPsoKeywordsStore] = useState({});
   const [savedMatrix, setSavedMatrix] = useState({});
@@ -97,6 +127,28 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
   const [isSavingMapping, setIsSavingMapping] = useState(false);
   const [activeKeywordEditor, setActiveKeywordEditor] = useState(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
+  // Helper to reliably lookup a keyword across various CO code keys
+  const getCompKeyword = (comp, coCode, coIndex = 0) => {
+    if (!comp?.keywords) return '';
+    if (comp.keywords[coCode] !== undefined && comp.keywords[coCode] !== '') {
+      return comp.keywords[coCode];
+    }
+    const normCo = normalizeCode(coCode);
+    for (const [k, v] of Object.entries(comp.keywords)) {
+      if (normalizeCode(k) === normCo && v !== '') {
+        return v;
+      }
+    }
+    const coIdx = coIndex + 1;
+    const aliases = [`CO${coIdx}`, `co${coIdx}`, String(coIdx)];
+    for (const alias of aliases) {
+      if (comp.keywords[alias] !== undefined && comp.keywords[alias] !== '') {
+        return comp.keywords[alias];
+      }
+    }
+    return comp.keywords[coCode] || '';
+  };
 
   // A saved signature belongs to one programme-batch course only. Never let
   // an identical-looking mapping from a previous course disable Save here.
@@ -109,50 +161,163 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
   }, [coMapping]);
 
   useEffect(() => {
-    const hydrateKeywordStore = (apiStore, outcomeDefinitions) => {
-      if (!programmeBatchCourseId || !apiStore || !outcomeDefinitions.length) return {};
+    const hydrateKeywordStore = (rawStore, outcomeDefinitions) => {
+      if (!programmeBatchCourseId || !rawStore || !outcomeDefinitions.length) return {};
+      let apiStore = rawStore;
+      if (typeof apiStore === 'string') {
+        try {
+          apiStore = JSON.parse(apiStore);
+        } catch {
+          return {};
+        }
+      }
+      if (!apiStore || typeof apiStore !== 'object') return {};
+      const store = apiStore[programmeBatchCourseId] && typeof apiStore[programmeBatchCourseId] === 'object' && !Array.isArray(apiStore[programmeBatchCourseId])
+        ? apiStore[programmeBatchCourseId]
+        : apiStore;
+
       return {
         [programmeBatchCourseId]: Object.fromEntries(outcomeDefinitions.map((outcome) => {
-          const competencies = Array.isArray(outcome.competencies) && outcome.competencies.length > 0
+          const normOutcome = normalizeCode(outcome.code);
+
+          // Determine competencies: use defined competencies if present, otherwise inspect store to see how many exist
+          let effectiveCompetencies = Array.isArray(outcome.competencies) && outcome.competencies.length > 0
             ? outcome.competencies
-            : [{ code: outcome.code, statement: outcome.statement || `${outcome.code} keyword mapping` }];
-          return [outcome.code, competencies.map((competency, competencyIndex) => ({
-            ...competency,
-            keywords: Object.fromEntries(courseOutcomes.map((co, coIndex) => {
+            : null;
+
+          if (!effectiveCompetencies) {
+            let maxCount = 1;
+            Object.entries(store).forEach(([coKey, coVal]) => {
+              if (coVal && typeof coVal === 'object') {
+                Object.entries(coVal).forEach(([outKey, outVal]) => {
+                  if (normalizeCode(outKey) === normOutcome && Array.isArray(outVal)) {
+                    maxCount = Math.max(maxCount, outVal.length);
+                  }
+                });
+              }
+              if (normalizeCode(coKey) === normOutcome && Array.isArray(coVal)) {
+                maxCount = Math.max(maxCount, coVal.length);
+              }
+            });
+            effectiveCompetencies = Array.from({ length: maxCount }, (_, i) => ({
+              code: `${outcome.code}.${i + 1}`,
+              statement: outcome.statement || `${outcome.code} Competency ${i + 1}`,
+            }));
+          }
+
+          return [outcome.code, effectiveCompetencies.map((competency, competencyIndex) => {
+            const compCode = competency.code ?? `${outcome.code}.${competencyIndex + 1}`;
+            const normCompCode = normalizeCode(compCode);
+
+            const keywords = Object.fromEntries(courseOutcomes.map((co, coIndex) => {
               const coIdx = coIndex + 1;
-              const storedKeywords = apiStore?.[co.code]?.[outcome.code]
-                ?? apiStore?.[`CO${coIdx}`]?.[outcome.code]
-                ?? apiStore?.[`co${coIdx}`]?.[outcome.code]
-                ?? apiStore?.[String(coIdx)]?.[outcome.code];
-              const competencyCode = competency.code ?? `${outcome.code}.${competencyIndex + 1}`;
-              // Canonical format: PO/PSO -> keyword[][], indexed by each
-              // sub-competency. Also understand the documented keyed-object
-              // alternative without changing its source structure.
-              const keywords = Array.isArray(storedKeywords?.[competencyIndex])
-                ? storedKeywords[competencyIndex]
-                : Array.isArray(storedKeywords)
-                ? (competencyIndex === 0 ? storedKeywords : [])
-                : apiStore?.[co.code]?.[competencyCode]
-                ?? apiStore?.[`CO${coIdx}`]?.[competencyCode]
-                ?? storedKeywords?.[competencyCode]
-                ?? [];
-              return [co.code, Array.isArray(keywords) ? keywords.join(', ') : ''];
-            })),
-          }))];
+              const normCo = normalizeCode(co.code);
+              const coAliases = [
+                normCo,
+                `CO${coIdx}`,
+                `CO${coIdx}`.toUpperCase(),
+                `co${coIdx}`,
+                String(coIdx),
+              ];
+
+              // 1. Try finding in outer CO map: store[coKey][outcomeKey]
+              let outcomeVal = undefined;
+              for (const [topKey, topVal] of Object.entries(store)) {
+                if (coAliases.includes(normalizeCode(topKey)) && topVal && typeof topVal === 'object') {
+                  for (const [oKey, oVal] of Object.entries(topVal)) {
+                    if (normalizeCode(oKey) === normOutcome) {
+                      outcomeVal = oVal;
+                      break;
+                    }
+                  }
+                  if (outcomeVal !== undefined) break;
+                }
+              }
+
+              // 2. Try finding in outer Outcome map: store[outcomeKey][coKey]
+              if (outcomeVal === undefined) {
+                for (const [topKey, topVal] of Object.entries(store)) {
+                  if (normalizeCode(topKey) === normOutcome && topVal && typeof topVal === 'object') {
+                    if (Array.isArray(topVal)) {
+                      outcomeVal = topVal;
+                    } else {
+                      for (const [cKey, cVal] of Object.entries(topVal)) {
+                        if (coAliases.includes(normalizeCode(cKey))) {
+                          outcomeVal = cVal;
+                          break;
+                        }
+                      }
+                    }
+                    if (outcomeVal !== undefined) break;
+                  }
+                }
+              }
+
+              // 3. Try direct competency lookup: store[coKey][compCode]
+              if (outcomeVal === undefined) {
+                for (const [topKey, topVal] of Object.entries(store)) {
+                  if (coAliases.includes(normalizeCode(topKey)) && topVal && typeof topVal === 'object') {
+                    for (const [oKey, oVal] of Object.entries(topVal)) {
+                      if (normalizeCode(oKey) === normCompCode) {
+                        outcomeVal = oVal;
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+
+              // Extract keyword string for this competency index
+              let kwResult = '';
+              if (Array.isArray(outcomeVal)) {
+                if (Array.isArray(outcomeVal[competencyIndex])) {
+                  kwResult = outcomeVal[competencyIndex].join(', ');
+                } else if (typeof outcomeVal[competencyIndex] === 'string') {
+                  kwResult = outcomeVal[competencyIndex];
+                } else if (outcomeVal.every((item) => typeof item === 'string')) {
+                  kwResult = competencyIndex === 0 ? outcomeVal.join(', ') : '';
+                } else if (outcomeVal[competencyIndex] && typeof outcomeVal[competencyIndex] === 'object') {
+                  const inner = outcomeVal[competencyIndex];
+                  kwResult = inner[co.code] ?? inner[`CO${coIdx}`] ?? '';
+                  if (Array.isArray(kwResult)) kwResult = kwResult.join(', ');
+                }
+              } else if (typeof outcomeVal === 'string') {
+                kwResult = competencyIndex === 0 ? outcomeVal : '';
+              } else if (outcomeVal && typeof outcomeVal === 'object') {
+                const subVal = outcomeVal[compCode] ?? outcomeVal[normCompCode] ?? outcomeVal[competencyIndex] ?? outcomeVal[String(competencyIndex)];
+                if (Array.isArray(subVal)) {
+                  kwResult = subVal.join(', ');
+                } else if (typeof subVal === 'string') {
+                  kwResult = subVal;
+                }
+              }
+
+              return [co.code, kwResult];
+            }));
+
+            return {
+              ...competency,
+              keywords,
+            };
+          })];
         })),
       };
     };
 
-    setPoKeywordsStore(hydrateKeywordStore(coMapping?.poKeywordsStore, mappingPOs));
-    setPsoKeywordsStore(hydrateKeywordStore(coMapping?.psoKeywordsStore, mappingPSOs));
+    const rawPoStore = coMapping?.poKeywordsStore ?? coMapping?.poKeywords ?? coMapping?.poKeywordStore;
+    const rawPsoStore = coMapping?.psoKeywordsStore ?? coMapping?.psoKeywords ?? coMapping?.psoKeywordStore;
+    setPoKeywordsStore(hydrateKeywordStore(rawPoStore, mappingPOs));
+    setPsoKeywordsStore(hydrateKeywordStore(rawPsoStore, mappingPSOs));
   }, [coMapping, courseOutcomes, mappingPOs, mappingPSOs, programmeBatchCourseId]);
 
   // Helper to get PO competencies dynamically
   const getCoursePoCompetencies = (poCode) => {
     const courseStore = poKeywordsStore[programmeBatchCourseId] || {};
-    if (courseStore[poCode]) return courseStore[poCode];
+    const normPo = normalizeCode(poCode);
+    const matchedKey = Object.keys(courseStore).find((k) => normalizeCode(k) === normPo);
+    if (matchedKey && courseStore[matchedKey]) return courseStore[matchedKey];
 
-    const poObj = mappingPOs.find((p) => p.code === poCode);
+    const poObj = mappingPOs.find((p) => normalizeCode(p.code) === normPo);
     if (poObj) {
       const competencies = Array.isArray(poObj.competencies) && poObj.competencies.length > 0
         ? poObj.competencies
@@ -166,9 +331,11 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
   // Helper to get PSO competencies dynamically
   const getCoursePsoCompetencies = (psoCode) => {
     const courseStore = psoKeywordsStore[programmeBatchCourseId] || {};
-    if (courseStore[psoCode]) return courseStore[psoCode];
+    const normPso = normalizeCode(psoCode);
+    const matchedKey = Object.keys(courseStore).find((k) => normalizeCode(k) === normPso);
+    if (matchedKey && courseStore[matchedKey]) return courseStore[matchedKey];
 
-    const psoObj = mappingPSOs.find((p) => p.code === psoCode);
+    const psoObj = mappingPSOs.find((p) => normalizeCode(p.code) === normPso);
     if (psoObj) {
       const competencies = Array.isArray(psoObj.competencies) && psoObj.competencies.length > 0
         ? psoObj.competencies
@@ -227,7 +394,8 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
   const computePoStrengthForCO = (poCode, coCode) => {
     const comps = getCoursePoCompetencies(poCode);
     if (!comps || comps.length === 0) return '-';
-    const mappedCount = comps.filter((c) => c.keywords?.[coCode] && c.keywords[coCode].trim() !== '').length;
+    const coIdx = courseOutcomes.findIndex((c) => normalizeCode(c.code) === normalizeCode(coCode));
+    const mappedCount = comps.filter((c) => getCompKeyword(c, coCode, coIdx >= 0 ? coIdx : 0).trim() !== '').length;
     const pct = (mappedCount / comps.length) * 100;
     if (pct >= 75) return 3;
     if (pct >= 50) return 2;
@@ -239,7 +407,8 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
   const computePsoStrengthForCO = (psoCode, coCode) => {
     const comps = getCoursePsoCompetencies(psoCode);
     if (!comps || comps.length === 0) return '-';
-    const mappedCount = comps.filter((c) => c.keywords?.[coCode] && c.keywords[coCode].trim() !== '').length;
+    const coIdx = courseOutcomes.findIndex((c) => normalizeCode(c.code) === normalizeCode(coCode));
+    const mappedCount = comps.filter((c) => getCompKeyword(c, coCode, coIdx >= 0 ? coIdx : 0).trim() !== '').length;
     const pct = (mappedCount / comps.length) * 100;
     if (pct >= 75) return 3;
     if (pct >= 50) return 2;
@@ -542,15 +711,15 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
                             {comp.statement}
                           </td>
                           <td></td>
-                          {courseOutcomes.map((co) => {
-                            const kw = comp.keywords?.[co.code] || '';
+                          {courseOutcomes.map((co, coIndex) => {
+                            const kw = getCompKeyword(comp, co.code, coIndex);
                             const expanded = isKeywordEditorExpanded('po', poDef.code, compIdx, co.code);
                             return (
                               <td key={`input-${co.code}`} style={{ position: 'relative', padding: '2px', width: '70px', minWidth: '70px', height: '32px' }}>
                                 <input
                                   type="text"
                                   className="form-control"
-                                  style={keywordInputStyle(expanded, courseOutcomes.indexOf(co), courseOutcomes.length, kw.trim() !== '')}
+                                  style={keywordInputStyle(expanded, coIndex, courseOutcomes.length, kw.trim() !== '')}
                                   placeholder="KW..."
                                   value={kw}
                                   onFocus={() => setActiveKeywordEditor({ type: 'po', outcomeCode: poDef.code, competencyIndex: compIdx, coCode: co.code })}
@@ -560,8 +729,8 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
                               </td>
                             );
                           })}
-                          {courseOutcomes.map((co) => {
-                            const kw = comp.keywords?.[co.code] || '';
+                          {courseOutcomes.map((co, coIndex) => {
+                            const kw = getCompKeyword(comp, co.code, coIndex);
                             const isMapped = kw.trim() !== '';
                             return (
                               <td key={`badge-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', fontSize: '11.5px', width: '38px', padding: '2px', color: isMapped ? '#0f172a' : '#94a3b8' }}>
@@ -578,8 +747,8 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
                         <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '12px', fontSize: '11px', color: '#334155' }}>
                           No of competencies from given {poDef.code} mapped by COs
                         </td>
-                        {courseOutcomes.map((co) => {
-                          const count = comps.filter((c) => c.keywords?.[co.code] && c.keywords[co.code].trim() !== '').length;
+                        {courseOutcomes.map((co, coIndex) => {
+                          const count = comps.filter((c) => getCompKeyword(c, co.code, coIndex).trim() !== '').length;
                           return (
                             <td key={`count-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a', fontSize: '11.5px' }}>
                               {count}
@@ -592,8 +761,8 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
                         <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '12px', fontSize: '11px', color: '#334155' }}>
                           % of competencies from given {poDef.code} mapped by COs
                         </td>
-                        {courseOutcomes.map((co) => {
-                          const count = comps.filter((c) => c.keywords?.[co.code] && c.keywords[co.code].trim() !== '').length;
+                        {courseOutcomes.map((co, coIndex) => {
+                          const count = comps.filter((c) => getCompKeyword(c, co.code, coIndex).trim() !== '').length;
                           const pct = comps.length > 0 ? Math.round((count / comps.length) * 100) : 0;
                           return (
                             <td key={`pct-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a', fontSize: '11.5px' }}>
@@ -690,15 +859,15 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
                               {comp.statement}
                             </td>
                             <td></td>
-                            {courseOutcomes.map((co) => {
-                              const kw = comp.keywords?.[co.code] || '';
+                            {courseOutcomes.map((co, coIndex) => {
+                              const kw = getCompKeyword(comp, co.code, coIndex);
                               const expanded = isKeywordEditorExpanded('pso', psoDef.code, compIdx, co.code);
                               return (
                                 <td key={`input-${co.code}`} style={{ position: 'relative', padding: '2px', width: '70px', minWidth: '70px', height: '32px' }}>
                                   <input
                                     type="text"
                                     className="form-control"
-                                    style={keywordInputStyle(expanded, courseOutcomes.indexOf(co), courseOutcomes.length, kw.trim() !== '')}
+                                    style={keywordInputStyle(expanded, coIndex, courseOutcomes.length, kw.trim() !== '')}
                                     placeholder="KW..."
                                     value={kw}
                                     onFocus={() => setActiveKeywordEditor({ type: 'pso', outcomeCode: psoDef.code, competencyIndex: compIdx, coCode: co.code })}
@@ -708,8 +877,8 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
                                 </td>
                               );
                             })}
-                            {courseOutcomes.map((co) => {
-                              const kw = comp.keywords?.[co.code] || '';
+                            {courseOutcomes.map((co, coIndex) => {
+                              const kw = getCompKeyword(comp, co.code, coIndex);
                               const isMapped = kw.trim() !== '';
                               return (
                                 <td key={`badge-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', fontSize: '11.5px', width: '38px', padding: '2px', color: isMapped ? '#0f172a' : '#94a3b8' }}>
@@ -726,8 +895,8 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
                           <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '12px', fontSize: '11px', color: '#334155' }}>
                             No of competencies from given {psoDef.code} mapped by COs
                           </td>
-                          {courseOutcomes.map((co) => {
-                            const count = comps.filter((c) => c.keywords?.[co.code] && c.keywords[co.code].trim() !== '').length;
+                          {courseOutcomes.map((co, coIndex) => {
+                            const count = comps.filter((c) => getCompKeyword(c, co.code, coIndex).trim() !== '').length;
                             return (
                               <td key={`count-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a', fontSize: '11.5px' }}>
                                 {count}
@@ -740,8 +909,8 @@ export default function COMappingMatrix({ hideFooter = false, saveRef = null }) 
                           <td colSpan={2 + courseOutcomes.length} style={{ textAlign: 'right', paddingRight: '12px', fontSize: '11px', color: '#334155' }}>
                             % of competencies from given {psoDef.code} mapped by COs
                           </td>
-                          {courseOutcomes.map((co) => {
-                            const count = comps.filter((c) => c.keywords?.[co.code] && c.keywords[co.code].trim() !== '').length;
+                          {courseOutcomes.map((co, coIndex) => {
+                            const count = comps.filter((c) => getCompKeyword(c, co.code, coIndex).trim() !== '').length;
                             const pct = comps.length > 0 ? Math.round((count / comps.length) * 100) : 0;
                             return (
                               <td key={`pct-${co.code}`} style={{ textAlign: 'center', fontWeight: '700', color: '#0f172a', fontSize: '11.5px' }}>

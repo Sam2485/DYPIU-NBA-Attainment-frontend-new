@@ -781,9 +781,7 @@ export default function CourseMappingExcelImportModal({
                       </div>
                       <div style={{ fontSize: '11px', color: muted, marginTop: '4px' }}>
                         {previewData.cosMatch
-                          ? previewData.coCodeMapping && Object.keys(previewData.coCodeMapping).length > 0
-                            ? `Sheet COs mapped to course: ${Object.entries(previewData.coCodeMapping).map(([sheet, course]) => `${sheet} → ${course}`).join(', ')}`
-                            : `All expected COs matched: ${previewData.expectedCoCodes?.join(', ')}`
+                          ? `All expected COs matched: ${previewData.detectedCoCodes?.map((c) => (c || '').toUpperCase()).join(', ')}`
                           : `Mismatch: Expected ${previewData.expectedCoCount} COs, found ${previewData.sheetCoCount} in sheet.`}
                       </div>
                     </div>
@@ -1022,26 +1020,12 @@ export default function CourseMappingExcelImportModal({
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                     <span
                                       style={{
-                                        padding: '3px 8px',
-                                        fontSize: '11px',
-                                        fontWeight: '800',
-                                        borderRadius: '6px',
-                                        background: isPSO ? '#ecfeff' : '#eef2ff',
-                                        color: isPSO ? '#0891b2' : accent,
-                                        border: `1px solid ${isPSO ? '#a5f3fc' : '#c7d2fe'}`,
-                                      }}
-                                    >
-                                      {item.category}
-                                    </span>
-
-                                    <span
-                                      style={{
                                         fontSize: '13px',
                                         fontWeight: '800',
                                         color: isPSO ? '#0891b2' : accent,
                                         fontFamily: 'monospace',
                                         background: isPSO ? '#ecfeff' : '#eef2ff',
-                                        padding: '2px 8px',
+                                        padding: '3px 10px',
                                         borderRadius: '6px',
                                         border: `1px solid ${isPSO ? '#a5f3fc' : '#c7d2fe'}`,
                                       }}
@@ -1074,10 +1058,10 @@ export default function CourseMappingExcelImportModal({
                                       Strength:
                                     </span>
                                     {previewData.detectedCoCodes?.map((sheetCoCode) => {
+                                      const coLabel = (sheetCoCode || '').toUpperCase();
                                       const courseCoCode = previewData.coCodeMapping?.[sheetCoCode] || sheetCoCode;
-                                      const strVal = strengths[courseCoCode] ?? strengths[sheetCoCode];
+                                      const strVal = strengths[coLabel] ?? strengths[courseCoCode] ?? strengths[sheetCoCode];
                                       const isMapped = strVal && strVal > 0;
-                                      const label = courseCoCode !== sheetCoCode ? `${courseCoCode} (${sheetCoCode})` : sheetCoCode;
                                       return (
                                         <span
                                           key={sheetCoCode}
@@ -1113,9 +1097,9 @@ export default function CourseMappingExcelImportModal({
                                                 : '#e2e8f0'
                                             }`,
                                           }}
-                                          title={`${label} strength: ${isMapped ? `${strVal} (${strVal === 3 ? 'High' : strVal === 2 ? 'Medium' : 'Low'})` : 'No mapping'}`}
+                                          title={`${coLabel} strength: ${isMapped ? `${strVal} (${strVal === 3 ? 'High' : strVal === 2 ? 'Medium' : 'Low'})` : 'No mapping'}`}
                                         >
-                                          {label}: {isMapped ? strVal : '-'}
+                                          {coLabel}: {isMapped ? strVal : '-'}
                                         </span>
                                       );
                                     })}
@@ -1136,7 +1120,7 @@ export default function CourseMappingExcelImportModal({
                                     fontWeight: '500',
                                   }}
                                 >
-                                  {item.statement}
+                                  {String(item.statement || '').replace(new RegExp(`^(?:${item.category || ''}\\s*\\d+|${item.code || ''})\\s*[:\\-.]\\s*`, 'i'), '').trim() || item.statement}
                                 </div>
 
                                 {/* Competencies & Keywords Mapped */}
@@ -1183,16 +1167,17 @@ export default function CourseMappingExcelImportModal({
 
                                           {/* Keywords Grouped By CO */}
                                           {previewData.detectedCoCodes?.some((sheetCoCode) => {
+                                            const coLabel = (sheetCoCode || '').toUpperCase();
                                             const courseCoCode = previewData.coCodeMapping?.[sheetCoCode] || sheetCoCode;
-                                            const kwList = comp.keywordsByCo?.[courseCoCode] || comp.keywordsByCo?.[sheetCoCode];
+                                            const kwList = comp.keywordsByCo?.[coLabel] || comp.keywordsByCo?.[courseCoCode] || comp.keywordsByCo?.[sheetCoCode];
                                             return Array.isArray(kwList) && kwList.length > 0;
                                           }) ? (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
                                               {previewData.detectedCoCodes?.map((sheetCoCode) => {
+                                                const coLabel = (sheetCoCode || '').toUpperCase();
                                                 const courseCoCode = previewData.coCodeMapping?.[sheetCoCode] || sheetCoCode;
-                                                const kwList = comp.keywordsByCo?.[courseCoCode] || comp.keywordsByCo?.[sheetCoCode] || [];
+                                                const kwList = comp.keywordsByCo?.[coLabel] || comp.keywordsByCo?.[courseCoCode] || comp.keywordsByCo?.[sheetCoCode] || [];
                                                 if (!kwList || kwList.length === 0) return null;
-                                                const label = courseCoCode !== sheetCoCode ? `${courseCoCode} (${sheetCoCode})` : sheetCoCode;
                                                 return (
                                                   <div
                                                     key={sheetCoCode}
@@ -1218,7 +1203,7 @@ export default function CourseMappingExcelImportModal({
                                                         color: accent,
                                                       }}
                                                     >
-                                                      {label}
+                                                      {coLabel}
                                                     </span>
                                                     {kwList.map((kw, kwIdx) => (
                                                       <span
@@ -1276,7 +1261,7 @@ export default function CourseMappingExcelImportModal({
                           <thead>
                             <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
                               <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: '700', color: ink, width: '120px' }}>
-                                Course CO (Sheet CO)
+                                CO Code
                               </th>
                               {Object.keys(Object.values(previewData.matrix)[0] || {}).map((code) => (
                                 <th key={code} style={{ padding: '8px 6px', fontWeight: '700', color: code.startsWith('PSO') ? '#0891b2' : accent }}>
@@ -1287,13 +1272,13 @@ export default function CourseMappingExcelImportModal({
                           </thead>
                           <tbody>
                             {previewData.detectedCoCodes?.map((sheetCoCode, rIdx) => {
+                              const coLabel = (sheetCoCode || '').toUpperCase();
                               const courseCoCode = previewData.coCodeMapping?.[sheetCoCode] || sheetCoCode;
-                              const row = previewData.matrix[courseCoCode] || previewData.matrix[sheetCoCode] || {};
-                              const label = courseCoCode !== sheetCoCode ? `${courseCoCode} (${sheetCoCode})` : sheetCoCode;
+                              const row = previewData.matrix[coLabel] || previewData.matrix[courseCoCode] || previewData.matrix[sheetCoCode] || {};
                               return (
                                 <tr key={sheetCoCode} style={{ borderBottom: '1px solid #f1f5f9', background: rIdx % 2 === 0 ? '#ffffff' : '#fafbfc' }}>
                                   <td style={{ padding: '8px 12px', textAlign: 'left', fontWeight: '700', color: ink }}>
-                                    {label}
+                                    {coLabel}
                                   </td>
                                   {Object.keys(Object.values(previewData.matrix)[0] || {}).map((outCode) => {
                                     const val = row[outCode];
