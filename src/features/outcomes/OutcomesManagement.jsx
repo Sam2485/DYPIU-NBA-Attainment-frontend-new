@@ -660,10 +660,6 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
         targetLevel: Number(co.targetLevel ?? co.target ?? 2),
         bloomsLevel: co.bloomsLevel ?? 'UNDERSTAND',
       }));
-    if (!payload.length) {
-      if (!silent) alert('Add at least one Course Outcome before saving.');
-      return false;
-    }
     if (payload.length > 6) {
       if (!silent) alert('A course can have a maximum of 6 Course Outcomes.');
       return false;
@@ -741,7 +737,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
   const targetData = courseVerificationStore[targetCourseId] || {};
   const isCoApproved = readOnly || currentCoVerificationStatus === 'APPROVED' || currentCoVerificationStatus === 'VERIFIED' || targetData.coStatus === 'APPROVED' || targetData.coStatus === 'VERIFIED';
   const outcomesDirty = savedOutcomeSignature === null || outcomeSignature(coList) !== savedOutcomeSignature;
-  const outcomesComplete = coList.length > 0 && coList.every(isCompleteCourseOutcome);
+  const outcomesComplete = coList.length === 0 || coList.every(isCompleteCourseOutcome);
   const outcomesPendingReview = isSubmittedForReview
     || currentCoVerificationStatus === 'SUBMITTED'
     || currentCoVerificationStatus === 'PENDING'
@@ -753,7 +749,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
   useEffect(() => {
     if (saveRef) {
       saveRef.current = async () => {
-        if (outcomesDirty && coList.length > 0 && targetCourseId && !isCoReviewLocked) {
+        if (outcomesDirty && targetCourseId && !isCoReviewLocked && outcomesComplete) {
           return await handleSaveOutcomes({ silent: true });
         }
         return true;
@@ -762,7 +758,7 @@ export default function OutcomesManagement({ hideFooter = false, hideHeader = fa
     return () => {
       if (saveRef) saveRef.current = null;
     };
-  }, [coList.length, handleSaveOutcomes, isCoReviewLocked, outcomesDirty, saveRef, targetCourseId]);
+  }, [handleSaveOutcomes, isCoReviewLocked, outcomesComplete, outcomesDirty, saveRef, targetCourseId]);
 
   return (
     <div className="animated-page">
