@@ -35,6 +35,8 @@ export default function ProgrammeCoordinatorDashboard() {
   const {
     programmeId = null,
     masterProgrammes = [],
+    batches = [],
+    loadProgrammeBatches = () => Promise.resolve([]),
     batchId,
     setBatchId,
     programmeCoordinatorDashboard = null,
@@ -72,6 +74,9 @@ export default function ProgrammeCoordinatorDashboard() {
       const activeBatchId = activeBatch?.programmeBatchId ?? activeBatch?.id;
       if (activeBatchId && !batchId) {
         setBatchId(activeBatchId);
+      }
+      if (isSpc) {
+        loadProgrammeBatches(activeProgId).catch(() => {});
       }
       await loadPcSetupProgress(activeProgId, activeBatchId ?? batchId, user?.email);
     } catch (err) {
@@ -130,6 +135,17 @@ export default function ProgrammeCoordinatorDashboard() {
     scopedDashboard?.pendingCourseAtrApprovals
   );
   const dashboardBatches = scopedDashboard?.batches ?? [];
+  const effectiveBatches = dashboardBatches.length > 0
+    ? dashboardBatches
+    : batches.filter((b) => !activeProgId || String(b.masterProgrammeId ?? b.programmeId) === String(activeProgId));
+  const batchesCount = countValue(
+    dashboardStatistics.programmeBatches,
+    dashboardStatistics.programmeBatchesCount,
+    dashboardStatistics.totalProgrammeBatches,
+    dashboardStatistics.batches,
+    dashboardStatistics.batchesCount,
+    effectiveBatches.length
+  );
   const activeBatchLabel =
     scopedDashboard?.activeBatch ??
     dashboardBatches.find((batch) => (
@@ -310,28 +326,38 @@ export default function ProgrammeCoordinatorDashboard() {
       {/* ── STAT CARDS ────────────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px', marginBottom: '20px' }}>
 
-        {/* Courses */}
+        {/* Batches / Programme Courses */}
         <div style={{ ...surface, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Programme Courses</span>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>
+              {isSpc ? 'Programme Batches' : 'Programme Courses'}
+            </span>
             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#eef2ff', display: 'grid', placeItems: 'center', color: accent }}>
+              {isSpc ? <Layers size={15} /> : <BookOpen size={15} />}
+            </div>
+          </div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>
+            {isSpc ? batchesCount : courseCount}
+          </div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>
+            {isSpc ? 'Under selected programme' : 'In active curriculum'}
+          </div>
+        </div>
+
+        {/* Courses / Course Offerings */}
+        <div style={{ ...surface, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>
+              {isSpc ? 'Courses' : 'Course Offerings'}
+            </span>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f5f3ff', display: 'grid', placeItems: 'center', color: '#7c3aed' }}>
               <BookOpen size={15} />
             </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{courseCount}</div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>In active curriculum</div>
-        </div>
-
-        {/* Course Offerings */}
-        <div style={{ ...surface, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Course Offerings</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f5f3ff', display: 'grid', placeItems: 'center', color: '#7c3aed' }}>
-              <Target size={15} />
-            </div>
-          </div>
           <div style={{ fontSize: '26px', fontWeight: '800', color: ink, lineHeight: 1 }}>{courseOfferingsCount}</div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>Across the selected batches</div>
+          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>
+            {isSpc ? 'Total course offerings' : 'Across the selected batches'}
+          </div>
         </div>
 
         {!isSpc && (

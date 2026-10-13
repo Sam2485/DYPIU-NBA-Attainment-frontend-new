@@ -209,6 +209,7 @@ export default function AppSidebar({
     selectedDepartmentId,
     setSelectedDepartmentId = () => {},
     loadDepartments = () => Promise.resolve([]),
+    loadProgrammeBatches = () => Promise.resolve([]),
     loadMasterProgrammes = () => Promise.resolve([]),
     loadCoordinatorMasterProgrammes = () => Promise.resolve([]),
     loadCourseCoordinatorProgrammeBatches = () => Promise.resolve([]),
@@ -343,6 +344,19 @@ export default function AppSidebar({
       }
     }).catch(() => {});
   }, [loadMasterProgrammes, programmeId, role, setProgrammeId]);
+
+  useEffect(() => {
+    if (role !== 'SCHOOL_PROGRAMME_COORDINATOR' || !programmeId) return;
+    loadProgrammeBatches(programmeId).then((loadedBatches) => {
+      if (Array.isArray(loadedBatches) && loadedBatches.length > 0) {
+        const hasSelectedBatch = loadedBatches.some((b) => String(b.id) === String(batchId));
+        if (!hasSelectedBatch) {
+          const initial = loadedBatches.find((b) => b.status === 'ACTIVE') || loadedBatches[0];
+          setBatchId(initial?.id ?? null);
+        }
+      }
+    }).catch(() => {});
+  }, [batchId, loadProgrammeBatches, programmeId, role, setBatchId]);
 
   useEffect(() => {
     if (!['FACULTY', 'COURSE_COORDINATOR'].includes(role) || !user?.email) return;

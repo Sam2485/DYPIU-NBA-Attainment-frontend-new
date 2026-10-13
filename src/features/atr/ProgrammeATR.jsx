@@ -41,6 +41,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
     batchId,
     setBatchId = () => {},
     batches         = [],
+    loadProgrammeBatches = () => Promise.resolve([]),
     loadCoordinatorProgrammeBatches = () => Promise.resolve([]),
     masterProgrammes = [],
     activePOs       = [],
@@ -121,11 +122,13 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const locked = readOnly || isReadOnlyRole || isAtrAccessLoading || isPendingBatchCompletion || isBatchGraduated || isSubmittedForReview || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
 
   useEffect(() => {
-    // Match the Programme Coordinator workflow: fetch batches using the
-    // selected Master Programme and the signed-in coordinator's email.
-    if (role !== 'PROGRAMME_COORDINATOR' || !activeProgId || !user?.email) return;
-    loadCoordinatorProgrammeBatches(user.email, activeProgId).catch(() => {});
-  }, [activeProgId, loadCoordinatorProgrammeBatches, role, user?.email]);
+    if (!activeProgId) return;
+    if (role === 'SCHOOL_PROGRAMME_COORDINATOR') {
+      loadProgrammeBatches(activeProgId).catch(() => {});
+    } else if (role === 'PROGRAMME_COORDINATOR' && user?.email) {
+      loadCoordinatorProgrammeBatches(user.email, activeProgId).catch(() => {});
+    }
+  }, [activeProgId, loadCoordinatorProgrammeBatches, loadProgrammeBatches, role, user?.email]);
 
   useEffect(() => {
     if (role !== 'PROGRAMME_COORDINATOR' || !activeProgId) return;
@@ -372,6 +375,9 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
       setAtrSaveState('error');
     }
   };
+
+  const isAtrSaved = savedAtrSignature !== null && savedAtrSignature === atrSignature(atrList);
+  const currentAtrLoading = currentAtrLoadState === 'loading';
  
   useEffect(() => {
     if (saveRef) {
@@ -422,9 +428,6 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const handleAddAction    = (idx)       => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, actions: [...c.actions, 'New corrective action...'] } : c));
   const handleUpdateAction = (idx, j, v) => setAtrList((p) => p.map((c, i) => { if (i !== idx) return c; const a = [...c.actions]; a[j] = v; return { ...c, actions: a }; }));
   const handleDeleteAction = (idx, j)    => setAtrList((p) => p.map((c, i) => i === idx ? { ...c, actions: c.actions.filter((_, k) => k !== j) } : c));
-
-  const isAtrSaved = savedAtrSignature !== null && savedAtrSignature === atrSignature(atrList);
-  const currentAtrLoading = currentAtrLoadState === 'loading';
 
   const poList  = atrList.filter((i) => i.type === 'PO');
   const psoList = atrList.filter((i) => i.type === 'PSO');
@@ -560,13 +563,13 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
           {/* Action buttons below the title */}
           {showHeaderActions && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <button onClick={() => !locked && setShowHistory((v) => !v)} disabled={locked}
-                style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: locked ? '#f1f5f9' : '#f8fafc', color: locked ? '#94a3b8' : ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: locked ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+              <button onClick={() => setShowHistory((v) => !v)} disabled={!selectedBatchId}
+                style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: !selectedBatchId ? '#f1f5f9' : '#f8fafc', color: !selectedBatchId ? '#94a3b8' : ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: !selectedBatchId ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
                 <History size={13} /> {showHistory ? 'Hide Carry Forwarded ATR' : 'View Carry Forwarded ATR'}
               </button>
 
-              <button onClick={() => !locked && handleOfficialPrint()} disabled={locked}
-                style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: locked ? '#f1f5f9' : '#f8fafc', color: locked ? '#94a3b8' : ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: locked ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+              <button onClick={handleOfficialPrint} disabled={!selectedBatchId}
+                style={{ height: '34px', padding: '0 14px', fontSize: '12px', fontWeight: '600', background: !selectedBatchId ? '#f1f5f9' : '#f8fafc', color: !selectedBatchId ? '#94a3b8' : ink, border: '1px solid #e2e8f0', borderRadius: '8px', cursor: !selectedBatchId ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
                 <Printer size={13} /> Print
               </button>
               {reportDownloadError && <span style={{ color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>{reportDownloadError}</span>}

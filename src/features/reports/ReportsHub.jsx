@@ -103,7 +103,7 @@ export default function ReportsHub() {
 
   // Role Checks
   const isCourseCoordinator = role === 'FACULTY' || role === 'COURSE_COORDINATOR';
-  const isProgrammeCoordinator = role === 'PROGRAMME_COORDINATOR';
+  const isProgrammeCoordinator = role === 'PROGRAMME_COORDINATOR' || role === 'SCHOOL_PROGRAMME_COORDINATOR';
   const isHod = role === 'HOD';
   const isIqac = role === 'IQAC' || role === 'ADMIN' || role === 'SUPER_ADMIN';
   const isDirector = (role === 'DIRECTOR' || role === 'SCHOOL_DIRECTOR') && !isIqac;

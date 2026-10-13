@@ -106,6 +106,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     loadSetupProgress = () => Promise.resolve(null),
     saveSetupProgress = () => Promise.resolve(null),
     completeProgrammeCoordinatorSetupProgress = () => Promise.resolve(null),
+    loadProgrammeBatches = () => Promise.resolve([]),
     loadCoordinatorProgrammeBatches = () => Promise.resolve([]),
     loadCourseCoordinators = () => Promise.resolve([]),
     activeSemester = 1,
@@ -143,14 +144,19 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   // The selected batch is restored from session storage and retained whenever
   // it is still part of this returned coordinator-scoped list.
   useEffect(() => {
-    if (role !== 'PROGRAMME_COORDINATOR' || !programmeId || !user?.email) return;
-    const requestScope = `${programmeId}:${user.email}`;
+    if (!programmeId) return;
+    if (role !== 'PROGRAMME_COORDINATOR' && role !== 'SCHOOL_PROGRAMME_COORDINATOR') return;
+    const requestScope = `${role}:${programmeId}:${user?.email ?? ''}`;
     if (loadedBatchScopeRef.current === requestScope) return;
     loadedBatchScopeRef.current = requestScope;
 
     let isCurrent = true;
-    loadCoordinatorProgrammeBatches(user.email, programmeId).then((loadedBatches) => {
-      if (!isCurrent) return;
+    const loadPromise = role === 'SCHOOL_PROGRAMME_COORDINATOR'
+      ? loadProgrammeBatches(programmeId)
+      : (user?.email ? loadCoordinatorProgrammeBatches(user.email, programmeId) : Promise.resolve([]));
+
+    loadPromise.then((loadedBatches) => {
+      if (!isCurrent || !Array.isArray(loadedBatches)) return;
       const hasSelectedBatch = loadedBatches.some((batch) => String(batch.id) === String(batchId));
       if (!hasSelectedBatch) {
         const initialBatch = loadedBatches.find((batch) => batch.status === 'ACTIVE') || loadedBatches[0];
@@ -159,7 +165,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
     }).catch(() => {});
 
     return () => { isCurrent = false; };
-  }, [batchId, loadCoordinatorProgrammeBatches, programmeId, setBatchId, user?.email]);
+  }, [batchId, loadCoordinatorProgrammeBatches, loadProgrammeBatches, programmeId, role, setBatchId, user?.email]);
 
   useEffect(() => {
     if (approvalReadOnly || !programmeId) return;
@@ -178,8 +184,10 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   // The server should enforce this scope. When assignment metadata is returned
   // with a batch, also keep unrelated batches out of this coordinator's UI.
   const availableBatches = batches.length > 0 ? batches : (programmeCoordinatorDashboard?.batches ?? []);
+  const isSchoolCoordinator = role === 'SCHOOL_PROGRAMME_COORDINATOR';
   const assignedBatches = availableBatches.filter((batch) => {
     if (programmeId && (batch.masterProgrammeId ?? batch.programmeId) !== programmeId) return false;
+    if (isSchoolCoordinator) return true;
     const hasAssignment = batch.coordinatorId || batch.coordinatorEmail;
     if (!hasAssignment) return true;
     return String(batch.coordinatorId ?? '') === String(user?.id ?? '')
@@ -421,9 +429,10 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const programmeBatchCourses = courseOfferings.filter(
     (offering) => String(offering.batchId) === String(batchId) && Number(offering.semester) === Number(activeSemester)
   );
-  const batchStatus = String(selectedBatch?.status ?? '').toUpperCase();
+  const currentBatch = selectedBatch || assignedBatches.find((b) => String(b.id) === String(batchId)) || null;
+  const batchStatus = String(currentBatch?.status ?? '').toUpperCase();
   const isBatchFrozen = batchStatus === 'COMPLETED' || batchStatus === 'GRADUATED';
-  const hasResolvedSelectedBatch = Boolean(selectedBatch?.id) && String(selectedBatch.id) === String(batchId);
+  const hasResolvedSelectedBatch = Boolean(currentBatch?.id) && String(currentBatch.id) === String(batchId);
   // Accept all active faculty/coordinators returned by loadCourseCoordinators
   const coordinatorOptions = courseCoordinators.filter(
     (person) => Boolean(person) && person.isActive !== false
