@@ -117,7 +117,8 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
   const batchLockReason = batchAtrAccess?.unlockReason
     || `Programme ATR is locked until the HOD marks this programme batch as completed or graduated. Current batch status: ${responseBatchStatus ?? 'ACTIVE'}.`;
   const isAtrAccessLoading = Boolean(selectedBatchId) && currentAtrLoadState === 'loading';
-  const locked = readOnly || isAtrAccessLoading || isPendingBatchCompletion || isBatchGraduated || isSubmittedForReview || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
+  const isReadOnlyRole = role === 'SCHOOL_PROGRAMME_COORDINATOR' || role === 'TRUSTEE';
+  const locked = readOnly || isReadOnlyRole || isAtrAccessLoading || isPendingBatchCompletion || isBatchGraduated || isSubmittedForReview || reportStatus === 'VERIFIED' || reportStatus === 'APPROVED';
 
   useEffect(() => {
     // Match the Programme Coordinator workflow: fetch batches using the
@@ -550,7 +551,7 @@ export default function ProgrammeATR({ courseId = null, programmeId: propProgram
                 </>
               ) : (
                 <span style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Lock size={13} /> {isPendingBatchCompletion ? 'Locked — Awaiting Batch Completion' : isBatchGraduated ? 'Graduated — Permanently Locked' : isSubmittedForReview ? 'Submitted — Pending HOD Review' : 'Report Locked'}
+                  <Lock size={13} /> {isReadOnlyRole ? 'Read Only' : isPendingBatchCompletion ? 'Locked — Awaiting Batch Completion' : isBatchGraduated ? 'Graduated — Permanently Locked' : isSubmittedForReview ? 'Submitted — Pending HOD Review' : 'Report Locked'}
                 </span>
               ))}
             </div>

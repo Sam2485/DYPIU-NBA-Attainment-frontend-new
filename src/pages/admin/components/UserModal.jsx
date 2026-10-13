@@ -310,7 +310,9 @@ export const UserModal = ({ isOpen, onClose, user, onSuccess }) => {
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               {[
+                { role: 'TRUSTEE', label: 'Trustee', desc: 'Board Governance / Observation' },
                 { role: 'DIRECTOR', label: 'Director', desc: 'School Leadership' },
+                { role: 'SCHOOL_PROGRAMME_COORDINATOR', label: 'School Prog. Coord.', desc: 'School Programmes Review' },
                 { role: 'HOD', label: 'Head of Department', desc: 'Department Leadership' },
                 { role: 'PROGRAMME_COORDINATOR', label: 'Programme Coord.', desc: 'Curriculum & POs' },
                 { role: 'FACULTY', label: 'Faculty / Course Coord.', desc: 'Teaching & COs' },
@@ -340,45 +342,51 @@ export const UserModal = ({ isOpen, onClose, user, onSuccess }) => {
           </div>
 
           {/* 5. School Selector */}
-          <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-              School Selector <span style={{ color: 'var(--danger)' }}>*</span>
-            </label>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <Building2 size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px' }} />
-              <select
-                value={formData.schoolId}
-                onChange={(e) => handleChange('schoolId', e.target.value)}
-                disabled={loadingSchools}
-                required
-                style={{
-                  width: '100%',
-                  height: '40px',
-                  padding: '8px 12px 8px 36px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border)',
-                  fontSize: '13px',
-                  backgroundColor: '#ffffff',
-                  outline: 'none',
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="">{loadingSchools ? 'Loading schools...' : 'Select School'}</option>
-                {schools.map((school, index) => {
-                  // The schools endpoint may expose its identifier as `schoolId`
-                  // instead of `id`. Resolve both so each option has a usable value
-                  // and a unique React key.
-                  const schoolId = school.id ?? school.schoolId ?? school._id;
+          {formData.role !== 'TRUSTEE' ? (
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                School Selector <span style={{ color: 'var(--danger)' }}>*</span>
+              </label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <Building2 size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px' }} />
+                <select
+                  value={formData.schoolId}
+                  onChange={(e) => handleChange('schoolId', e.target.value)}
+                  disabled={loadingSchools}
+                  required
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '8px 12px 8px 36px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border)',
+                    fontSize: '13px',
+                    backgroundColor: '#ffffff',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">{loadingSchools ? 'Loading schools...' : 'Select School'}</option>
+                  {schools.map((school, index) => {
+                    // The schools endpoint may expose its identifier as `schoolId`
+                    // instead of `id`. Resolve both so each option has a usable value
+                    // and a unique React key.
+                    const schoolId = school.id ?? school.schoolId ?? school._id;
 
-                  return (
-                    <option key={`${schoolId ?? 'school'}-${index}`} value={schoolId ?? ''}>
-                      {school.name} ({school.code})
-                    </option>
-                  );
-                })}
-              </select>
+                    return (
+                      <option key={`${schoolId ?? 'school'}-${index}`} value={schoolId ?? ''}>
+                        {school.name} ({school.code})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ padding: '10px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 'var(--radius-md)', fontSize: '12px', color: '#1e40af' }}>
+              Trustee role operates institution-wide across all schools.
+            </div>
+          )}
 
           {/* Modal Actions */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '8px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>

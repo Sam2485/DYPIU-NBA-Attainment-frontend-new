@@ -60,6 +60,12 @@ const getRoleLabel = (role) => {
     case 'IQAC':
       return 'IQAC';
 
+    case 'TRUSTEE':
+      return 'Trustee';
+
+    case 'SCHOOL_PROGRAMME_COORDINATOR':
+      return 'School Programme Coordinator';
+
     default:
       return role || 'User';
   }

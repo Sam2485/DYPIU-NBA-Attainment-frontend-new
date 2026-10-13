@@ -55,6 +55,12 @@ const getRoleLabel = (role) => {
     case 'IQAC':
       return 'IQAC';
 
+    case 'TRUSTEE':
+      return 'Trustee';
+
+    case 'SCHOOL_PROGRAMME_COORDINATOR':
+      return 'School Programme Coordinator';
+
     default:
       return role || 'User';
   }
@@ -64,8 +70,10 @@ const AUTH_SESSION_KEY = 'nba_auth_session';
 
 const dashboardPathForRole = (role) => {
   switch (role) {
-    case 'IQAC': return '/admin/dashboard';
+    case 'IQAC':
+    case 'TRUSTEE': return '/admin/dashboard';
     case 'DIRECTOR': return '/director/dashboard';
+    case 'SCHOOL_PROGRAMME_COORDINATOR': return '/school-programme-coordinator/dashboard';
     case 'HOD': return '/hod/dashboard';
     case 'PROGRAMME_COORDINATOR': return '/programme-coordinator/dashboard';
     case 'FACULTY':
@@ -434,6 +442,7 @@ export function AuthProvider({ children }) {
           break;
 
         case 'IQAC':
+        case 'TRUSTEE':
           targetPath =
             '/admin/dashboard';
           break;

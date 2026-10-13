@@ -89,8 +89,10 @@ const CourseCoordinatorWorkflowPage = lazy(() => import('../pages/CourseCoordina
 
 const dashboardPathForRole = (role) => {
   switch (role) {
-    case 'IQAC': return '/admin/dashboard';
+    case 'IQAC':
+    case 'TRUSTEE': return '/admin/dashboard';
     case 'DIRECTOR': return '/director/dashboard';
+    case 'SCHOOL_PROGRAMME_COORDINATOR': return '/school-programme-coordinator/dashboard';
     case 'HOD': return '/hod/dashboard';
     case 'PROGRAMME_COORDINATOR': return '/programme-coordinator/dashboard';
     case 'FACULTY':
@@ -139,7 +141,7 @@ export default function AppRoutes() {
       <Route
         path="/dashboard"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <DashboardPage />
           </RoleProtectedRoute>
         }
@@ -163,7 +165,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/dashboard"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE']}>
             <IqacDashboardPage />
           </RoleProtectedRoute>
         }
@@ -171,7 +173,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/quick-analysis"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <QuickAnalysisPage />
           </RoleProtectedRoute>
         }
@@ -179,7 +181,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/quick-analysis"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <QuickAnalysisPage />
           </RoleProtectedRoute>
         }
@@ -187,7 +189,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/batch/:programmeBatchId"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <BatchAnalyticsPage />
           </RoleProtectedRoute>
         }
@@ -195,7 +197,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/batch/:programmeBatchId"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <BatchAnalyticsPage />
           </RoleProtectedRoute>
         }
@@ -203,7 +205,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/batch/:programmeBatchId/direct/:outcomeType/:outcomeCode"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <OutcomeDirectDrilldownPage />
           </RoleProtectedRoute>
         }
@@ -211,7 +213,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/batch/:programmeBatchId/direct/:outcomeType/:outcomeCode"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <OutcomeDirectDrilldownPage />
           </RoleProtectedRoute>
         }
@@ -219,7 +221,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/batch/:programmeBatchId/indirect/:outcomeType/:outcomeCode"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <OutcomeIndirectDrilldownPage />
           </RoleProtectedRoute>
         }
@@ -227,7 +229,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/batch/:programmeBatchId/indirect/:outcomeType/:outcomeCode"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <OutcomeIndirectDrilldownPage />
           </RoleProtectedRoute>
         }
@@ -235,7 +237,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/batch/:programmeBatchId/indirect"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <OutcomeIndirectDrilldownPage />
           </RoleProtectedRoute>
         }
@@ -243,7 +245,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/batch/:programmeBatchId/indirect"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <OutcomeIndirectDrilldownPage />
           </RoleProtectedRoute>
         }
@@ -251,7 +253,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CourseAnalyticsPage />
           </RoleProtectedRoute>
         }
@@ -259,7 +261,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CourseAnalyticsPage />
           </RoleProtectedRoute>
         }
@@ -267,7 +269,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/co/:coCode"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CoAnalyticsPage />
           </RoleProtectedRoute>
         }
@@ -275,7 +277,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/co/:coCode"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CoAnalyticsPage />
           </RoleProtectedRoute>
         }
@@ -285,7 +287,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/co/:coCode/direct"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CoDirectAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -293,7 +295,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/co/:coCode/direct"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CoDirectAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -301,7 +303,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/direct"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CoDirectAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -309,7 +311,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/direct"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CoDirectAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -319,7 +321,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/co/:coCode/indirect"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CoIndirectAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -327,7 +329,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/co/:coCode/indirect"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CoIndirectAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -335,7 +337,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/indirect"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CoIndirectAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -343,7 +345,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/indirect"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CoIndirectAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -353,7 +355,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/batch/:programmeBatchId/historical"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <HistoricalProgrammeAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -361,7 +363,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/batch/:programmeBatchId/historical"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <HistoricalProgrammeAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -369,7 +371,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/programme/:masterProgrammeId/historical"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <HistoricalProgrammeAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -377,7 +379,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/programme/:masterProgrammeId/historical"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <HistoricalProgrammeAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -385,7 +387,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/programme/historical"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <HistoricalProgrammeAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -395,7 +397,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/compare-batches"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <CompareBatchesPage />
           </RoleProtectedRoute>
         }
@@ -403,7 +405,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/compare-batches"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <CompareBatchesPage />
           </RoleProtectedRoute>
         }
@@ -413,7 +415,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/batch/:programmeBatchId/atr"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <BatchProgrammeAtrPage />
           </RoleProtectedRoute>
         }
@@ -421,7 +423,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/batch/:programmeBatchId/atr"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <BatchProgrammeAtrPage />
           </RoleProtectedRoute>
         }
@@ -431,7 +433,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/historical"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <HistoricalCourseAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -439,7 +441,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/historical"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <HistoricalCourseAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -447,7 +449,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/course/:programmeBatchCourseId/historical"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <HistoricalCourseAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -455,7 +457,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/course/:programmeBatchCourseId/historical"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <HistoricalCourseAttainmentPage />
           </RoleProtectedRoute>
         }
@@ -465,7 +467,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/compare-courses"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CompareCoursesPage />
           </RoleProtectedRoute>
         }
@@ -473,7 +475,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/compare-courses"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CompareCoursesPage />
           </RoleProtectedRoute>
         }
@@ -483,7 +485,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/atr"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CourseBatchAtrPage />
           </RoleProtectedRoute>
         }
@@ -491,7 +493,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/batch/:programmeBatchId/course/:programmeBatchCourseId/atr"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CourseBatchAtrPage />
           </RoleProtectedRoute>
         }
@@ -499,7 +501,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/analytics/course/:programmeBatchCourseId/atr"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CourseBatchAtrPage />
           </RoleProtectedRoute>
         }
@@ -507,7 +509,7 @@ export default function AppRoutes() {
       <Route
         path="/analytics/course/:programmeBatchCourseId/atr"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']}>
             <CourseBatchAtrPage />
           </RoleProtectedRoute>
         }
@@ -541,7 +543,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/reports"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE']}>
             <IqacReportsPage />
           </RoleProtectedRoute>
         }
@@ -549,7 +551,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/audit-logs"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE']}>
             <IqacAuditLogsPage />
           </RoleProtectedRoute>
         }
@@ -557,7 +559,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/audit"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE']}>
             <IqacAuditLogsPage />
           </RoleProtectedRoute>
         }
@@ -675,6 +677,72 @@ export default function AppRoutes() {
         element={
           <RoleProtectedRoute allowedRoles={['IQAC', 'PROGRAMME_COORDINATOR']}>
             <ProgrammeCoordinatorAnalyticsPage />
+          </RoleProtectedRoute>
+        }
+      />
+
+      {/* School Programme Coordinator Routes */}
+      <Route
+        path="/school-programme-coordinator/dashboard"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'SCHOOL_PROGRAMME_COORDINATOR']}>
+            <ProgrammeCoordinatorDashboardPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/school-programme-coordinator/analytics"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'SCHOOL_PROGRAMME_COORDINATOR']}>
+            <ProgrammeCoordinatorAnalyticsPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/school-programme-coordinator/courses"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'SCHOOL_PROGRAMME_COORDINATOR']}>
+            <ProgrammeCoordinatorManageCoursesPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/school-programme-coordinator/manage-courses"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'SCHOOL_PROGRAMME_COORDINATOR']}>
+            <ProgrammeCoordinatorManageCoursesPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/school-programme-coordinator/target-settings"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'SCHOOL_PROGRAMME_COORDINATOR']}>
+            <ProgrammeTargetSettingsPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/school-programme-coordinator/indirect-attainment"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'SCHOOL_PROGRAMME_COORDINATOR']}>
+            <ProgrammeIndirectAttainmentPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/school-programme-coordinator/programme-atr"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'SCHOOL_PROGRAMME_COORDINATOR']}>
+            <ProgrammeATRPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/school-programme-coordinator/reports"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'SCHOOL_PROGRAMME_COORDINATOR']}>
+            <ReportsPage />
           </RoleProtectedRoute>
         }
       />
@@ -869,7 +937,7 @@ export default function AppRoutes() {
       <Route
         path="/programme-atr"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>
             <ProgrammeATRPage />
           </RoleProtectedRoute>
         }
@@ -885,7 +953,7 @@ export default function AppRoutes() {
       <Route
         path="/reports"
         element={
-          <RoleProtectedRoute allowedRoles={['IQAC', 'DIRECTOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR', 'FACULTY', 'COURSE_COORDINATOR']} requiresCourseAllocation>
             <ReportsPage />
           </RoleProtectedRoute>
         }

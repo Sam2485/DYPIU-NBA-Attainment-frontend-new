@@ -113,6 +113,24 @@ const IQAC_NAV = [
   { id: 'recovery',   path: '/admin/recovery',        icon: 'recovery',  label: 'Item Recovery' },
 ];
 
+// ── Trustee Nav Items ─────────────────────────────────────────────────────────
+const TRUSTEE_NAV = [
+  { id: 'analytics',  path: '/admin/dashboard',  icon: 'dashboard', label: 'Analytics' },
+  { id: 'reports',    path: '/admin/reports',    icon: 'reports',   label: 'Reports' },
+  { id: 'audit-logs', path: '/admin/audit-logs', icon: 'shield',    label: 'Audit Logs' },
+];
+
+// ── School Programme Coordinator Nav Items ──────────────────────────────────
+const SCHOOL_PROGRAMME_COORDINATOR_NAV = [
+  { id: 'dashboard',           path: '/school-programme-coordinator/dashboard',           icon: 'dashboard', label: 'Dashboard' },
+  { id: 'analytics',           path: '/school-programme-coordinator/analytics',           icon: 'coa',       label: 'Analytics' },
+  { id: 'courses',             path: '/school-programme-coordinator/courses',             icon: 'academic',  label: 'Courses' },
+  { id: 'target-settings',     path: '/school-programme-coordinator/target-settings',     icon: 'config',    label: 'Target Settings' },
+  { id: 'indirect-attainment', path: '/school-programme-coordinator/indirect-attainment', icon: 'survey',    label: 'Indirect Attainment' },
+  { id: 'programme-atr',       path: '/school-programme-coordinator/programme-atr',       icon: 'atr',       label: 'Programme ATR' },
+  { id: 'reports',             path: '/school-programme-coordinator/reports',             icon: 'reports',   label: 'Reports' },
+];
+
 export default function AppSidebar({
   profileCardRef: externalProfileCardRef,
   isProfileOpen: externalIsProfileOpen,
@@ -191,6 +209,7 @@ export default function AppSidebar({
     selectedDepartmentId,
     setSelectedDepartmentId = () => {},
     loadDepartments = () => Promise.resolve([]),
+    loadMasterProgrammes = () => Promise.resolve([]),
     loadCoordinatorMasterProgrammes = () => Promise.resolve([]),
     loadCourseCoordinatorProgrammeBatches = () => Promise.resolve([]),
     loadAssignedCourseOfferings = () => Promise.resolve([]),
@@ -314,6 +333,18 @@ export default function AppSidebar({
   }, [loadCoordinatorMasterProgrammes, programmeId, role, setProgrammeId, user?.email]);
 
   useEffect(() => {
+    if (role !== 'SCHOOL_PROGRAMME_COORDINATOR') return;
+    loadMasterProgrammes().then((programmes) => {
+      const selectedProgrammeExists = programmes.some(
+        (programme) => String(programme.id) === String(programmeId)
+      );
+      if (!selectedProgrammeExists) {
+        setProgrammeId(programmes[0]?.id ?? null);
+      }
+    }).catch(() => {});
+  }, [loadMasterProgrammes, programmeId, role, setProgrammeId]);
+
+  useEffect(() => {
     if (!['FACULTY', 'COURSE_COORDINATOR'].includes(role) || !user?.email) return;
     if (courseCoordinatorBatchScopeRef.current === user.email) return;
     courseCoordinatorBatchScopeRef.current = user.email;
@@ -378,6 +409,8 @@ export default function AppSidebar({
 
   // Dropdown States
   const [navOpenIqac, setNavOpenIqac] = useState(false);
+  const [navOpenTrustee, setNavOpenTrustee] = useState(false);
+  const [navOpenSpc, setNavOpenSpc] = useState(false);
   const [navOpenDirector, setNavOpenDirector] = useState(false);
   const [navOpenHod, setNavOpenHod] = useState(false);
   const [navOpenPc, setNavOpenPc] = useState(false);
@@ -406,6 +439,7 @@ export default function AppSidebar({
 
   const roleText = {
     IQAC: 'IQAC Admin',
+    TRUSTEE: 'Trustee',
     DIRECTOR: 'School Director',
     HOD: 'Head of Department (HOD)',
     PROGRAMME_COORDINATOR: 'Programme Coordinator',
@@ -481,7 +515,7 @@ export default function AppSidebar({
       <div style={{ height: '1px', background: 'rgba(148, 163, 184, 0.18)', width: '100%', flexShrink: 0 }} />
 
       {/* Governance roles use scoped access context instead of the global batch selector. */}
-      {(role === 'IQAC' || role === 'DIRECTOR' || role === 'HOD' || role === 'PROGRAMME_COORDINATOR') ? (
+      {(role === 'IQAC' || role === 'TRUSTEE' || role === 'DIRECTOR' || role === 'SCHOOL_PROGRAMME_COORDINATOR' || role === 'HOD' || role === 'PROGRAMME_COORDINATOR') ? (
         <>
           <div
             style={{
@@ -500,8 +534,12 @@ export default function AppSidebar({
               <span style={{ fontSize: 9.5, color: '#c7d2fe', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 {role === 'IQAC'
                   ? 'IQAC Access'
+                  : role === 'TRUSTEE'
+                  ? 'Trustee Access'
                   : role === 'DIRECTOR'
                   ? 'Director Access'
+                  : role === 'SCHOOL_PROGRAMME_COORDINATOR'
+                  ? 'School Programme Coordinator Access'
                   : role === 'HOD'
                   ? 'HOD Access'
                   : 'Programme Coordinator Access'}
@@ -510,13 +548,13 @@ export default function AppSidebar({
                 ACTIVE
               </span>
             </div>
-            {role !== 'HOD' && role !== 'PROGRAMME_COORDINATOR' && (
+            {role !== 'HOD' && role !== 'PROGRAMME_COORDINATOR' && role !== 'SCHOOL_PROGRAMME_COORDINATOR' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 32, padding: '0 8px', borderRadius: 8, border: '1px solid rgba(165,180,252,0.20)', background: 'rgba(15,23,42,0.40)' }}>
                 <span style={{ width: 22, height: 22, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'rgba(129,140,248,0.18)', color: '#c7d2fe', flexShrink: 0 }}>
                   <Icon name="shield" active size={13} />
                 </span>
                 <span style={{ color: '#f8fafc', fontSize: 11.5, fontWeight: 800, lineHeight: 1.2 }}>
-                  {role === 'IQAC' ? 'Institution-wide governance' : role === 'DIRECTOR' ? 'School-level governance' : 'Programme-level governance'}
+                  {role === 'IQAC' ? 'Institution-wide governance' : role === 'TRUSTEE' ? 'Institution-wide observation' : role === 'DIRECTOR' ? 'School-level governance' : 'Programme-level governance'}
                 </span>
               </div>
             )}
@@ -539,7 +577,7 @@ export default function AppSidebar({
                 </select>
               </div>
             )}
-            {role === 'PROGRAMME_COORDINATOR' && (
+            {(role === 'PROGRAMME_COORDINATOR' || role === 'SCHOOL_PROGRAMME_COORDINATOR') && (
               <select
                 aria-label="Master programme"
                 value={programmeId ?? ''}
@@ -690,7 +728,133 @@ export default function AppSidebar({
 
       {/* ── MAIN NAVIGATION AREA ─────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', paddingRight: 2 }}>
-        {role === 'IQAC' ? (
+        {role === 'SCHOOL_PROGRAMME_COORDINATOR' ? (
+          <nav style={{ position: 'relative' }}>
+            {(() => {
+              const activeSpcItem = SCHOOL_PROGRAMME_COORDINATOR_NAV.find((item) => location.pathname === item.path);
+              return (
+                <>
+                  <button
+                    type="button"
+                    aria-expanded={navOpenSpc}
+                    onClick={() => setNavOpenSpc((prev) => !prev)}
+                    style={{
+                      width: '100%',
+                      minHeight: 42,
+                      border: navOpenSpc ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(148,163,184,0.20)',
+                      borderRadius: 12,
+                      background: 'rgba(30,41,59,0.72)',
+                      color: '#f8fafc',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '7px 10px',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <span style={{ width: 24, height: 24, borderRadius: 7, background: 'rgba(99,102,241,0.20)', border: '1px solid rgba(165,180,252,0.25)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      <Icon name={activeSpcItem?.icon || 'dashboard'} active size={13} />
+                    </span>
+                    <span style={{ flex: 1, textAlign: 'left', fontSize: 12, fontWeight: 800, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {activeSpcItem ? activeSpcItem.label : 'School Coordinator Menu'}
+                    </span>
+                    <span style={{ display: 'grid', placeItems: 'center', transition: 'transform 0.2s', transform: navOpenSpc ? 'rotate(180deg)' : 'rotate(0deg)', color: '#64748b' }}>
+                      <Icon name="chevron" size={14} />
+                    </span>
+                  </button>
+
+                  {navOpenSpc && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6, padding: 5, background: '#1f2937', border: '1px solid rgba(148,163,184,0.22)', borderRadius: 12, boxShadow: '0 18px 34px rgba(2,6,23,0.32)', display: 'grid', gap: 2, maxHeight: '340px', overflowY: 'auto', zIndex: 50 }}>
+                      {SCHOOL_PROGRAMME_COORDINATOR_NAV.map((item) => {
+                        const isActive = location.pathname === item.path;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => { navigate(item.path); setNavOpenSpc(false); }}
+                            style={{ minHeight: 40, border: isActive ? '1px solid rgba(165,180,252,0.24)' : '1px solid transparent', borderRadius: 9, background: isActive ? 'rgba(99,102,241,0.18)' : 'transparent', color: '#f8fafc', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9, padding: '6px 9px', textAlign: 'left', boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none', fontFamily: 'inherit' }}
+                          >
+                            <span style={{ width: 24, height: 24, borderRadius: 6, background: isActive ? 'rgba(99,102,241,0.16)' : 'rgba(148,163,184,0.08)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                              <Icon name={item.icon} active={isActive} size={13} />
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, fontSize: 12.5, lineHeight: 1.1, color: '#f8fafc' }}>{item.label}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </nav>
+        ) : role === 'TRUSTEE' ? (
+          <nav style={{ position: 'relative' }}>
+            {(() => {
+              const activeTrusteeItem = TRUSTEE_NAV.find((item) => location.pathname === item.path);
+              return (
+                <>
+                  <button
+                    type="button"
+                    aria-expanded={navOpenTrustee}
+                    onClick={() => setNavOpenTrustee((prev) => !prev)}
+                    style={{
+                      width: '100%',
+                      minHeight: 42,
+                      border: navOpenTrustee ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(148,163,184,0.20)',
+                      borderRadius: 12,
+                      background: 'rgba(30,41,59,0.72)',
+                      color: '#f8fafc',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '7px 10px',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <span style={{ width: 24, height: 24, borderRadius: 7, background: 'rgba(99,102,241,0.20)', border: '1px solid rgba(165,180,252,0.25)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      <Icon name={activeTrusteeItem?.icon || 'dashboard'} active size={13} />
+                    </span>
+                    <span style={{ flex: 1, textAlign: 'left', fontSize: 12, fontWeight: 800, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {activeTrusteeItem ? activeTrusteeItem.label : 'Trustee Menu'}
+                    </span>
+                    <span style={{ display: 'grid', placeItems: 'center', transition: 'transform 0.2s', transform: navOpenTrustee ? 'rotate(180deg)' : 'rotate(0deg)', color: '#64748b' }}>
+                      <Icon name="chevron" size={14} />
+                    </span>
+                  </button>
+
+                  {navOpenTrustee && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6, padding: 5, background: '#1f2937', border: '1px solid rgba(148,163,184,0.22)', borderRadius: 12, boxShadow: '0 18px 34px rgba(2,6,23,0.32)', display: 'grid', gap: 2, maxHeight: '340px', overflowY: 'auto', zIndex: 50 }}>
+                      {TRUSTEE_NAV.map((item) => {
+                        const isActive = location.pathname === item.path;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => { navigate(item.path); setNavOpenTrustee(false); }}
+                            style={{ minHeight: 40, border: isActive ? '1px solid rgba(165,180,252,0.24)' : '1px solid transparent', borderRadius: 9, background: isActive ? 'rgba(99,102,241,0.18)' : 'transparent', color: '#f8fafc', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9, padding: '6px 9px', textAlign: 'left', boxShadow: isActive ? 'inset 3px 0 0 #818cf8' : 'none', fontFamily: 'inherit' }}
+                          >
+                            <span style={{ width: 24, height: 24, borderRadius: 6, background: isActive ? 'rgba(99,102,241,0.16)' : 'rgba(148,163,184,0.08)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                              <Icon name={item.icon} active={isActive} size={13} />
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, fontSize: 12.5, lineHeight: 1.1, color: '#f8fafc' }}>{item.label}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </nav>
+        ) : role === 'IQAC' ? (
           <nav style={{ position: 'relative' }}>
             {(() => {
               const activeIqacItem = IQAC_NAV.find((item) => location.pathname === item.path);

@@ -64,6 +64,8 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, role } = useAuth();
+  const isSpc = role === 'SCHOOL_PROGRAMME_COORDINATOR';
+  const isReadOnly = approvalReadOnly || isSpc;
   const {
     programmeSurveyData = null,
     loadProgrammeIndirectAttainment = () => Promise.resolve(null),
@@ -729,6 +731,10 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   }, [batchId, currentStep, loadProgrammeIndirectAttainment, loadIndirectAssessments, loadConsolidatedIndirectAttainment, loadProgrammeBatchOutcomes, loadProgrammeOutcomes, programmeId]);
 
   const handleSaveAndNext = async () => {
+    if (isReadOnly) {
+      if (currentStep < STEPS.length) goToStep(currentStep + 1);
+      return;
+    }
     try {
       setIsSavingStep(true);
       if (currentStep === 1) {
@@ -763,15 +769,17 @@ export default function ProgrammeCoordinatorSetupWorkflow({
   };
 
   const handleFinish = async () => {
-    if (programmeAtrSaveRef.current) {
+    if (!isReadOnly && programmeAtrSaveRef.current) {
       try {
         await programmeAtrSaveRef.current();
       } catch (atrErr) {
         console.warn('Programme ATR save skipped or completed without update:', atrErr);
       }
     }
-    await completeProgrammeCoordinatorSetupProgress();
-    navigate('/programme-coordinator/dashboard');
+    if (!isReadOnly) {
+      await completeProgrammeCoordinatorSetupProgress();
+    }
+    navigate(role === 'SCHOOL_PROGRAMME_COORDINATOR' ? '/school-programme-coordinator/dashboard' : '/programme-coordinator/dashboard');
   };
 
   const currentStepMeta = STEPS[currentStep - 1] || STEPS[0];
@@ -973,36 +981,38 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={handleDirectDownloadTemplate}
-                  disabled={isDownloadingCourseTemplate || !batchId}
-                  style={{
-                    height: '36px',
-                    padding: '0 12px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    background: '#ffffff',
-                    color: '#334155',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '8px',
-                    cursor: isDownloadingCourseTemplate ? 'wait' : 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontFamily: 'inherit',
-                  }}
-                  title="Download pre-formatted Excel template for this programme batch"
-                >
-                  {isDownloadingCourseTemplate ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <Download size={13} color={accent} />
-                  )}
-                  Download Sample Template
-                </button>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    onClick={handleDirectDownloadTemplate}
+                    disabled={isDownloadingCourseTemplate || !batchId}
+                    style={{
+                      height: '36px',
+                      padding: '0 12px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      background: '#ffffff',
+                      color: '#334155',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      cursor: isDownloadingCourseTemplate ? 'wait' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontFamily: 'inherit',
+                    }}
+                    title="Download pre-formatted Excel template for this programme batch"
+                  >
+                    {isDownloadingCourseTemplate ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Download size={13} color={accent} />
+                    )}
+                    Download Sample Template
+                  </button>
+                )}
 
-                {!isBatchFrozen && !approvalReadOnly && (
+                {!isBatchFrozen && !isReadOnly && (
                   <button
                     type="button"
                     onClick={() => setIsExcelImportModalOpen(true)}
@@ -1029,36 +1039,38 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={handleDirectDownloadTemplate}
-                  disabled={isDownloadingCourseTemplate}
-                  style={{
-                    height: '36px',
-                    padding: '0 14px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    background: '#ffffff',
-                    color: accent,
-                    border: '1.5px solid #c7d2fe',
-                    borderRadius: '8px',
-                    cursor: isDownloadingCourseTemplate ? 'wait' : 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontFamily: 'inherit',
-                  }}
-                  title="Download Course Addition Excel template (Course Adittion.xlsx)"
-                >
-                  {isDownloadingCourseTemplate ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <Download size={14} color={accent} />
-                  )}
-                  Download Template
-                </button>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    onClick={handleDirectDownloadTemplate}
+                    disabled={isDownloadingCourseTemplate}
+                    style={{
+                      height: '36px',
+                      padding: '0 14px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      background: '#ffffff',
+                      color: accent,
+                      border: '1.5px solid #c7d2fe',
+                      borderRadius: '8px',
+                      cursor: isDownloadingCourseTemplate ? 'wait' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontFamily: 'inherit',
+                    }}
+                    title="Download Course Addition Excel template (Course Adittion.xlsx)"
+                  >
+                    {isDownloadingCourseTemplate ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Download size={14} color={accent} />
+                    )}
+                    Download Template
+                  </button>
+                )}
 
-                {!isBatchFrozen && !isAllocationReviewLocked && !approvalReadOnly ? (
+                {!isReadOnly && (!isBatchFrozen && !isAllocationReviewLocked ? (
                   <button
                     className="btn btn-primary"
                     type="button"
@@ -1075,7 +1087,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   <span style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     <Lock size={13} /> {isAllocationApproved ? 'Course & Coordinator Locked' : 'Submitted — Pending HOD Review'}
                   </span>
-                )}
+                ))}
               </div>
             </div>
 
@@ -1131,7 +1143,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
             )}
 
             {/* Inline add form */}
-              {!isBatchFrozen && !isActiveSemesterLocked && !approvalReadOnly && (
+              {!isBatchFrozen && !isActiveSemesterLocked && !isReadOnly && (
               <form onSubmit={handleAddCourse} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
                 <div style={{ fontSize: '12px', fontWeight: '700', color: ink, marginBottom: '3px' }}>{editingCourseId ? 'Edit Programme-Batch Course' : 'Add Programme-Batch Course'}</div>
                 <p style={{ margin: '0 0 10px', fontSize: '11.5px', color: muted }}>
@@ -1226,16 +1238,16 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                         <td>
                           <select
                             value={coordinatorId}
-                            disabled={isAllocationReviewLocked || isBatchFrozen}
+                            disabled={isAllocationReviewLocked || isBatchFrozen || isReadOnly}
                             onChange={(e) => handleCoordinatorChange(offering, e.target.value)}
                             style={{
                               ...inputStyle,
                               height: '34px',
                               fontSize: '12px',
-                              cursor: isAllocationReviewLocked || isBatchFrozen ? 'not-allowed' : 'pointer',
+                              cursor: isAllocationReviewLocked || isBatchFrozen || isReadOnly ? 'not-allowed' : 'pointer',
                               color: accent,
                               fontWeight: '600',
-                              background: isAllocationReviewLocked ? '#f8fafc' : '#ffffff',
+                              background: isAllocationReviewLocked || isReadOnly ? '#f8fafc' : '#ffffff',
                             }}
                           >
                             <option value="">Select FACULTY</option>
@@ -1245,10 +1257,14 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                           </select>
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <div style={{ display: 'inline-flex', gap: 6 }}>
-                            <button type="button" disabled={isAllocationReviewLocked || isBatchFrozen || approvalReadOnly} onClick={() => handleStartCourseEdit(offering)} style={{ height: 29, padding: '0 9px', borderRadius: 6, border: '1px solid #c7d2fe', color: accent, background: '#fff', fontSize: 11, fontWeight: 750, cursor: isAllocationReviewLocked || isBatchFrozen || approvalReadOnly ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>Edit</button>
-                            <button type="button" disabled={isAllocationReviewLocked || isBatchFrozen || approvalReadOnly} onClick={() => handleDeleteCourse(offering)} style={{ height: 29, padding: '0 9px', borderRadius: 6, border: '1px solid #fecaca', color: '#b91c1c', background: '#fff', fontSize: 11, fontWeight: 750, cursor: isAllocationReviewLocked || isBatchFrozen || approvalReadOnly ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>Delete</button>
-                          </div>
+                          {!isReadOnly ? (
+                            <div style={{ display: 'inline-flex', gap: 6 }}>
+                              <button type="button" disabled={isAllocationReviewLocked || isBatchFrozen} onClick={() => handleStartCourseEdit(offering)} style={{ height: 29, padding: '0 9px', borderRadius: 6, border: '1px solid #c7d2fe', color: accent, background: '#fff', fontSize: 11, fontWeight: 750, cursor: isAllocationReviewLocked || isBatchFrozen ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>Edit</button>
+                              <button type="button" disabled={isAllocationReviewLocked || isBatchFrozen} onClick={() => handleDeleteCourse(offering)} style={{ height: 29, padding: '0 9px', borderRadius: 6, border: '1px solid #fecaca', color: '#b91c1c', background: '#fff', fontSize: 11, fontWeight: 750, cursor: isAllocationReviewLocked || isBatchFrozen ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>Delete</button>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: 11, color: muted }}>—</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -1277,7 +1293,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {!isBatchFrozen && !isTargetsReviewLocked && !approvalReadOnly ? (
+                {!isReadOnly && (!isBatchFrozen && !isTargetsReviewLocked ? (
                   <>
                     <button
                       className="btn btn-primary"
@@ -1319,7 +1335,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                   <span style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     <Lock size={13} /> {isTargetsApproved ? 'Targets Locked' : 'Submitted — Pending HOD Review'}
                   </span>
-                )}
+                ))}
               </div>
             </div>
 
@@ -1371,12 +1387,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                           <td style={{ textAlign: 'center' }}>
                             <input
                               type="number" min={0} max={3} step={0.1}
-                              disabled={isTargetsReviewLocked || isBatchFrozen}
+                              disabled={isTargetsReviewLocked || isBatchFrozen || isReadOnly}
                               value={poTargetDraft[po.code] ?? 2.0}
                               onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) setPoTargetDraft((prev) => ({ ...prev, [po.code]: v })); }}
                               onBlur={(e) => { const num = parseFloat(e.target.value); const v = isNaN(num) ? 2.0 : Math.min(3, Math.max(0, num)); setPoTargetDraft((prev) => ({ ...prev, [po.code]: Math.round(v * 10) / 10 })); }}
                               onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
-                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: accent, background: isTargetsReviewLocked || isBatchFrozen ? '#f8fafc' : '#ffffff', cursor: isTargetsReviewLocked || isBatchFrozen ? 'not-allowed' : 'text' }}
+                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: accent, background: isTargetsReviewLocked || isBatchFrozen || isReadOnly ? '#f8fafc' : '#ffffff', cursor: isTargetsReviewLocked || isBatchFrozen || isReadOnly ? 'not-allowed' : 'text' }}
                             />
                           </td>
                         </tr>
@@ -1410,12 +1426,12 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                           <td style={{ textAlign: 'center' }}>
                             <input
                               type="number" min={0} max={3} step={0.1}
-                              disabled={isTargetsReviewLocked || isBatchFrozen}
+                              disabled={isTargetsReviewLocked || isBatchFrozen || isReadOnly}
                               value={psoTargetDraft[pso.code] ?? 2.0}
                               onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) setPsoTargetDraft((prev) => ({ ...prev, [pso.code]: v })); }}
                               onBlur={(e) => { const num = parseFloat(e.target.value); const v = isNaN(num) ? 2.0 : Math.min(3, Math.max(0, num)); setPsoTargetDraft((prev) => ({ ...prev, [pso.code]: Math.round(v * 10) / 10 })); }}
                               onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
-                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: '#059669', background: isTargetsReviewLocked || isBatchFrozen ? '#f8fafc' : '#ffffff', cursor: isTargetsReviewLocked || isBatchFrozen ? 'not-allowed' : 'text' }}
+                              style={{ height: '36px', width: '90px', fontSize: '13.5px', fontWeight: '700', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 10px', outline: 'none', fontFamily: 'inherit', textAlign: 'center', color: '#059669', background: isTargetsReviewLocked || isBatchFrozen || isReadOnly ? '#f8fafc' : '#ffffff', cursor: isTargetsReviewLocked || isBatchFrozen || isReadOnly ? 'not-allowed' : 'text' }}
                             />
                           </td>
                         </tr>
@@ -1712,30 +1728,32 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                       Add hackathons, seminars, alumni surveys, or employer feedback with direct outcome ratings (0.00 – 3.00).
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleOpenAddAssessment}
-                    disabled={isBatchFrozen}
-                    style={{
-                      height: '36px',
-                      padding: '0 16px',
-                      fontSize: '12.5px',
-                      fontWeight: '700',
-                      background: accent,
-                      color: '#ffffff',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: isBatchFrozen ? 'not-allowed' : 'pointer',
-                      opacity: isBatchFrozen ? 0.55 : 1,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      fontFamily: 'inherit',
-                      boxShadow: '0 2px 6px rgba(79, 70, 229, 0.2)',
-                    }}
-                  >
-                    <Plus size={15} /> Add Survey / Event
-                  </button>
+                  {!isReadOnly && (
+                    <button
+                      type="button"
+                      onClick={handleOpenAddAssessment}
+                      disabled={isBatchFrozen}
+                      style={{
+                        height: '36px',
+                        padding: '0 16px',
+                        fontSize: '12.5px',
+                        fontWeight: '700',
+                        background: accent,
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: isBatchFrozen ? 'not-allowed' : 'pointer',
+                        opacity: isBatchFrozen ? 0.55 : 1,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontFamily: 'inherit',
+                        boxShadow: '0 2px 6px rgba(79, 70, 229, 0.2)',
+                      }}
+                    >
+                      <Plus size={15} /> Add Survey / Event
+                    </button>
+                  )}
                 </div>
 
                 {/* Empty State */}
@@ -1746,28 +1764,30 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                     <p style={{ margin: '0 auto 16px', fontSize: '12.5px', color: muted, maxWidth: '540px', lineHeight: 1.5 }}>
                       You can add co-curricular events (e.g. Smart India Hackathon, Technical Symposiums) or stakeholder surveys (e.g. Alumni Exit Survey, Employer Feedback). The system will compute the consolidated indirect attainment average across all entries.
                     </p>
-                    <button
-                      type="button"
-                      onClick={handleOpenAddAssessment}
-                      disabled={isBatchFrozen}
-                      style={{
-                        height: '36px',
-                        padding: '0 18px',
-                        fontSize: '12.5px',
-                        fontWeight: '700',
-                        background: accent,
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: isBatchFrozen ? 'not-allowed' : 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        fontFamily: 'inherit',
-                      }}
-                    >
-                      <Plus size={15} /> Add First Event or Survey
-                    </button>
+                    {!isReadOnly && (
+                      <button
+                        type="button"
+                        onClick={handleOpenAddAssessment}
+                        disabled={isBatchFrozen}
+                        style={{
+                          height: '36px',
+                          padding: '0 18px',
+                          fontSize: '12.5px',
+                          fontWeight: '700',
+                          background: accent,
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: isBatchFrozen ? 'not-allowed' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        <Plus size={15} /> Add First Event or Survey
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1797,52 +1817,54 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                               )}
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditAssessment(item)}
-                                disabled={isBatchFrozen}
-                                style={{
-                                  height: '30px',
-                                  padding: '0 10px',
-                                  fontSize: '12px',
-                                  fontWeight: '700',
-                                  background: '#ffffff',
-                                  color: accent,
-                                  border: '1px solid #c7d2fe',
-                                  borderRadius: '6px',
-                                  cursor: isBatchFrozen ? 'not-allowed' : 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  fontFamily: 'inherit',
-                                }}
-                              >
-                                <Edit3 size={12} /> Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDeletingAssessment(item)}
-                                disabled={isBatchFrozen}
-                                style={{
-                                  height: '30px',
-                                  padding: '0 10px',
-                                  fontSize: '12px',
-                                  fontWeight: '700',
-                                  background: '#ffffff',
-                                  color: '#dc2626',
-                                  border: '1px solid #fecaca',
-                                  borderRadius: '6px',
-                                  cursor: isBatchFrozen ? 'not-allowed' : 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  fontFamily: 'inherit',
-                                }}
-                              >
-                                <Trash2 size={12} /> Delete
-                              </button>
-                            </div>
+                            {!isReadOnly && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditAssessment(item)}
+                                  disabled={isBatchFrozen}
+                                  style={{
+                                    height: '30px',
+                                    padding: '0 10px',
+                                    fontSize: '12px',
+                                    fontWeight: '700',
+                                    background: '#ffffff',
+                                    color: accent,
+                                    border: '1px solid #c7d2fe',
+                                    borderRadius: '6px',
+                                    cursor: isBatchFrozen ? 'not-allowed' : 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    fontFamily: 'inherit',
+                                  }}
+                                >
+                                  <Edit3 size={12} /> Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeletingAssessment(item)}
+                                  disabled={isBatchFrozen}
+                                  style={{
+                                    height: '30px',
+                                    padding: '0 10px',
+                                    fontSize: '12px',
+                                    fontWeight: '700',
+                                    background: '#ffffff',
+                                    color: '#dc2626',
+                                    border: '1px solid #fecaca',
+                                    borderRadius: '6px',
+                                    cursor: isBatchFrozen ? 'not-allowed' : 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    fontFamily: 'inherit',
+                                  }}
+                                >
+                                  <Trash2 size={12} /> Delete
+                                </button>
+                              </div>
+                            )}
                           </div>
 
                           {item.description && (
@@ -1900,7 +1922,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                     <a href={`${import.meta.env.BASE_URL}ProgrammeEnd-Survey.xlsx`} download="ProgrammeEnd-Survey.xlsx" style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#2563eb', border: '1px solid #2563eb', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
                       <Download size={14} /> Download Template
                     </a>
-                    {hasSurveyData && (
+                    {!isReadOnly && hasSurveyData && (
                       <button type="button" onClick={handleDeleteProgrammeSurvey} disabled={programmeSurveyUploading || isBatchFrozen} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', fontWeight: '700', background: '#ffffff', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', cursor: programmeSurveyUploading || isBatchFrozen ? 'not-allowed' : 'pointer', opacity: isBatchFrozen ? 0.55 : 1, fontFamily: 'inherit' }}>
                         Remove Survey Data
                       </button>
@@ -1911,19 +1933,25 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 {programmeSurveyError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#991b1b', fontSize: '13px' }}><AlertCircle size={18} />{programmeSurveyError}</div>}
                 {hasSurveyData && !programmeSurveyError && <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontSize: '13px' }}><CheckCircle2 size={18} />Programme end survey processed successfully.</div>}
 
-                <div style={{ ...surface, padding: '24px', textAlign: 'center', background: '#ffffff' }}>
-                  <div style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '28px', background: '#f8fafc', maxWidth: '720px', margin: '0 auto' }}>
-                    {programmeSurveyUploading ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}><Loader2 size={36} className="animate-spin" style={{ color: accent }} /><strong style={{ color: ink }}>Uploading and calculating programme attainment...</strong></div>
-                    ) : <>
-                      <Upload size={36} style={{ color: accent, marginBottom: '8px' }} />
-                      <strong style={{ display: 'block', fontSize: '15px', color: ink }}>Upload Programme End Survey Excel File (.xlsx, .xls)</strong>
-                      <p style={{ margin: '4px 0 14px', fontSize: '12px', color: muted }}>Excel survey ratings mapped to the programme batch PO and PSO outcomes.</p>
-                      <input type="file" accept=".xlsx,.xls" id="programme-survey-file-input" style={{ display: 'none' }} onChange={handleProgrammeSurveyUpload} disabled={programmeSurveyUploading || !programmeId || !batchId || isBatchFrozen} />
-                      <label htmlFor="programme-survey-file-input" style={{ height: '38px', padding: '0 16px', background: accent, color: '#ffffff', borderRadius: '8px', fontWeight: '700', fontSize: '12.5px', cursor: programmeId && batchId && !isBatchFrozen ? 'pointer' : 'not-allowed', opacity: programmeId && batchId && !isBatchFrozen ? 1 : 0.5, display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Upload size={15} /> Select Survey Excel</label>
-                    </>}
+                {!isReadOnly ? (
+                  <div style={{ ...surface, padding: '24px', textAlign: 'center', background: '#ffffff' }}>
+                    <div style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '28px', background: '#f8fafc', maxWidth: '720px', margin: '0 auto' }}>
+                      {programmeSurveyUploading ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}><Loader2 size={36} className="animate-spin" style={{ color: accent }} /><strong style={{ color: ink }}>Uploading and calculating programme attainment...</strong></div>
+                      ) : <>
+                        <Upload size={36} style={{ color: accent, marginBottom: '8px' }} />
+                        <strong style={{ display: 'block', fontSize: '15px', color: ink }}>Upload Programme End Survey Excel File (.xlsx, .xls)</strong>
+                        <p style={{ margin: '4px 0 14px', fontSize: '12px', color: muted }}>Excel survey ratings mapped to the programme batch PO and PSO outcomes.</p>
+                        <input type="file" accept=".xlsx,.xls" id="programme-survey-file-input" style={{ display: 'none' }} onChange={handleProgrammeSurveyUpload} disabled={programmeSurveyUploading || !programmeId || !batchId || isBatchFrozen} />
+                        <label htmlFor="programme-survey-file-input" style={{ height: '38px', padding: '0 16px', background: accent, color: '#ffffff', borderRadius: '8px', fontWeight: '700', fontSize: '12.5px', cursor: programmeId && batchId && !isBatchFrozen ? 'pointer' : 'not-allowed', opacity: programmeId && batchId && !isBatchFrozen ? 1 : 0.5, display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Upload size={15} /> Select Survey Excel</label>
+                      </>}
+                    </div>
                   </div>
-                </div>
+                ) : !hasSurveyData ? (
+                  <div style={{ ...surface, padding: '20px', textAlign: 'center', background: '#f8fafc', color: muted, fontSize: '13px' }}>
+                    No programme end survey Excel spreadsheet uploaded for this batch.
+                  </div>
+                ) : null}
 
                 {/* Student Response Matrix Table (matching Reports Hub Indirect Attainment) */}
                 <div style={{ ...surface, overflow: 'hidden', padding: 0 }}>
@@ -2020,7 +2048,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 hideFooter={true}
                 hideHeader={approvalReadOnly}
                 showBatchSelector={false}
-                readOnly={approvalReadOnly}
+                readOnly={isReadOnly}
                 saveRef={programmeAtrSaveRef}
               />
             </div>
@@ -2173,7 +2201,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit',
               }}
             >
-              {isSavingStep ? 'Saving…' : 'Save & Continue'} <ArrowRight size={14} />
+              {isSavingStep ? 'Saving…' : isReadOnly ? 'Next Step' : 'Save & Continue'} <ArrowRight size={14} />
             </button>
           ) : (
             <button
@@ -2187,7 +2215,7 @@ export default function ProgrammeCoordinatorSetupWorkflow({
                 boxShadow: '0 4px 14px rgba(16,185,129,0.3)',
               }}
             >
-              <CheckCircle2 size={15} /> Finish Setup &amp; Go to Dashboard
+              <CheckCircle2 size={15} /> {isReadOnly ? 'Return to Dashboard' : 'Finish Setup & Go to Dashboard'}
             </button>
           )}
         </div>

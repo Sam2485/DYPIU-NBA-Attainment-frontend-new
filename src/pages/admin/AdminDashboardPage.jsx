@@ -20,7 +20,9 @@ import { useAcademic } from '../../context/AcademicContext';
 
 const ROLE_OPTIONS = [
   { value: 'IQAC', label: 'IQAC' },
+  { value: 'TRUSTEE', label: 'Trustee' },
   { value: 'DIRECTOR', label: 'Director' },
+  { value: 'SCHOOL_PROGRAMME_COORDINATOR', label: 'School Programme Coordinator' },
   { value: 'HOD', label: 'HOD' },
   { value: 'PROGRAMME_COORDINATOR', label: 'Programme Coordinator' },
   { value: 'FACULTY', label: 'Faculty' },
@@ -267,15 +269,17 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    const isInstitutionOnly = selectedSchoolId === 'INSTITUTION' || (selectedRoles.length === 1 && selectedRoles[0] === 'IQAC');
+    const isInstitutionOnly =
+      selectedSchoolId === 'INSTITUTION' ||
+      (selectedRoles.length > 0 && selectedRoles.every((r) => r === 'IQAC' || r === 'TRUSTEE'));
 
     if (!selectedSchoolId && !isInstitutionOnly) {
       setError('Please select a school for the chosen role(s).');
       return;
     }
 
-    if (selectedSchoolId === 'INSTITUTION' && selectedRoles.some((r) => r !== 'IQAC')) {
-      setError('Institution-wide scope is only valid for IQAC. For other roles, please select a school or "All Schools".');
+    if (selectedSchoolId === 'INSTITUTION' && selectedRoles.some((r) => r !== 'IQAC' && r !== 'TRUSTEE')) {
+      setError('Institution-wide scope is only valid for IQAC and Trustee. For other roles, please select a school or "All Schools".');
       return;
     }
 
@@ -313,8 +317,8 @@ export default function AdminDashboardPage() {
       for (const s of schools) {
         const sId = s.id ?? s.schoolId;
         for (const role of selectedRoles) {
-          if (role === 'IQAC') {
-            pushUnique('IQAC', null, 'Institution-wide');
+          if (role === 'IQAC' || role === 'TRUSTEE') {
+            pushUnique(role, null, 'Institution-wide');
           } else {
             pushUnique(role, sId, schoolName(sId));
           }
@@ -322,14 +326,14 @@ export default function AdminDashboardPage() {
       }
     } else if (selectedSchoolId === 'INSTITUTION') {
       for (const role of selectedRoles) {
-        if (role === 'IQAC') {
-          pushUnique('IQAC', null, 'Institution-wide');
+        if (role === 'IQAC' || role === 'TRUSTEE') {
+          pushUnique(role, null, 'Institution-wide');
         }
       }
     } else {
       for (const role of selectedRoles) {
-        if (role === 'IQAC') {
-          pushUnique('IQAC', null, 'Institution-wide');
+        if (role === 'IQAC' || role === 'TRUSTEE') {
+          pushUnique(role, null, 'Institution-wide');
         } else {
           pushUnique(role, selectedSchoolId, schoolName(selectedSchoolId));
         }
@@ -371,7 +375,7 @@ export default function AdminDashboardPage() {
     if (!targetUserId) return;
 
     if (editingAssignment) {
-      if (assignmentForm.role !== 'IQAC' && !assignmentForm.schoolId) {
+      if (assignmentForm.role !== 'IQAC' && assignmentForm.role !== 'TRUSTEE' && !assignmentForm.schoolId) {
         setError('School is required for this role assignment.');
         return;
       }
@@ -379,10 +383,11 @@ export default function AdminDashboardPage() {
       setSaving(true);
       setError('');
       try {
-        const targetSchoolName = assignmentForm.role === 'IQAC' ? 'Institution-wide' : schoolName(assignmentForm.schoolId);
+        const isGlobal = assignmentForm.role === 'IQAC' || assignmentForm.role === 'TRUSTEE';
+        const targetSchoolName = isGlobal ? 'Institution-wide' : schoolName(assignmentForm.schoolId);
         const payload = {
           role: assignmentForm.role,
-          schoolId: assignmentForm.role === 'IQAC' ? null : (assignmentForm.schoolId || null),
+          schoolId: isGlobal ? null : (assignmentForm.schoolId || null),
           schoolName: targetSchoolName,
           departmentId: null,
           masterProgrammeId: null,
@@ -423,14 +428,16 @@ export default function AdminDashboardPage() {
         return;
       }
 
-      const isInstitutionOnly = selectedSchoolId === 'INSTITUTION' || (selectedRoles.length === 1 && selectedRoles[0] === 'IQAC');
+      const isInstitutionOnly =
+        selectedSchoolId === 'INSTITUTION' ||
+        (selectedRoles.length > 0 && selectedRoles.every((r) => r === 'IQAC' || r === 'TRUSTEE'));
       if (!selectedSchoolId && !isInstitutionOnly) {
         setError('Please select a school for the chosen role(s).');
         return;
       }
 
-      if (selectedSchoolId === 'INSTITUTION' && selectedRoles.some((r) => r !== 'IQAC')) {
-        setError('Institution-wide scope is only valid for IQAC. For other roles, please select a school or "All Schools".');
+      if (selectedSchoolId === 'INSTITUTION' && selectedRoles.some((r) => r !== 'IQAC' && r !== 'TRUSTEE')) {
+        setError('Institution-wide scope is only valid for IQAC and Trustee. For other roles, please select a school or "All Schools".');
         return;
       }
 
@@ -438,10 +445,11 @@ export default function AdminDashboardPage() {
         for (const s of schools) {
           const sId = s.id ?? s.schoolId;
           for (const role of selectedRoles) {
+            const isGlobal = role === 'IQAC' || role === 'TRUSTEE';
             itemsToSave.push({
-              role: role === 'IQAC' ? 'IQAC' : role,
-              schoolId: role === 'IQAC' ? null : sId,
-              schoolName: role === 'IQAC' ? 'Institution-wide' : schoolName(sId),
+              role,
+              schoolId: isGlobal ? null : sId,
+              schoolName: isGlobal ? 'Institution-wide' : schoolName(sId),
               departmentId: null,
               masterProgrammeId: null,
             });
@@ -449,9 +457,9 @@ export default function AdminDashboardPage() {
         }
       } else if (selectedSchoolId === 'INSTITUTION') {
         for (const role of selectedRoles) {
-          if (role === 'IQAC') {
+          if (role === 'IQAC' || role === 'TRUSTEE') {
             itemsToSave.push({
-              role: 'IQAC',
+              role,
               schoolId: null,
               schoolName: 'Institution-wide',
               departmentId: null,
@@ -461,10 +469,11 @@ export default function AdminDashboardPage() {
         }
       } else {
         for (const role of selectedRoles) {
+          const isGlobal = role === 'IQAC' || role === 'TRUSTEE';
           itemsToSave.push({
-            role: role === 'IQAC' ? 'IQAC' : role,
-            schoolId: role === 'IQAC' ? null : selectedSchoolId,
-            schoolName: role === 'IQAC' ? 'Institution-wide' : schoolName(selectedSchoolId),
+            role,
+            schoolId: isGlobal ? null : selectedSchoolId,
+            schoolName: isGlobal ? 'Institution-wide' : schoolName(selectedSchoolId),
             departmentId: null,
             masterProgrammeId: null,
           });
@@ -592,10 +601,17 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    const isInstitutionOnly = selectedSchoolId === 'INSTITUTION' || (selectedRoles.length === 1 && selectedRoles[0] === 'IQAC');
+    const isInstitutionOnly =
+      selectedSchoolId === 'INSTITUTION' ||
+      (selectedRoles.length > 0 && selectedRoles.every((r) => r === 'IQAC' || r === 'TRUSTEE'));
 
     if (!selectedSchoolId && !isInstitutionOnly) {
       setError('Please select a school for the chosen role(s).');
+      return;
+    }
+
+    if (selectedSchoolId === 'INSTITUTION' && selectedRoles.some((r) => r !== 'IQAC' && r !== 'TRUSTEE')) {
+      setError('Institution-wide scope is only valid for IQAC and Trustee. For other roles, please select a school or "All Schools".');
       return;
     }
 
@@ -627,8 +643,8 @@ export default function AdminDashboardPage() {
       for (const s of schools) {
         const sId = s.id ?? s.schoolId;
         for (const role of selectedRoles) {
-          if (role === 'IQAC') {
-            pushUniqueAssignment('IQAC', null, 'Institution-wide');
+          if (role === 'IQAC' || role === 'TRUSTEE') {
+            pushUniqueAssignment(role, null, 'Institution-wide');
           } else {
             pushUniqueAssignment(role, sId, schoolName(sId));
           }
@@ -636,12 +652,14 @@ export default function AdminDashboardPage() {
       }
     } else if (selectedSchoolId === 'INSTITUTION') {
       for (const role of selectedRoles) {
-        pushUniqueAssignment(role, null, 'Institution-wide');
+        if (role === 'IQAC' || role === 'TRUSTEE') {
+          pushUniqueAssignment(role, null, 'Institution-wide');
+        }
       }
     } else {
       for (const role of selectedRoles) {
-        if (role === 'IQAC') {
-          pushUniqueAssignment('IQAC', null, 'Institution-wide');
+        if (role === 'IQAC' || role === 'TRUSTEE') {
+          pushUniqueAssignment(role, null, 'Institution-wide');
         } else {
           pushUniqueAssignment(role, selectedSchoolId, schoolName(selectedSchoolId));
         }
@@ -777,7 +795,13 @@ export default function AdminDashboardPage() {
   const roleTabs = [
     { id: 'ALL', label: 'All Users', count: activeUsers.length },
     { id: 'IQAC', label: 'IQAC', count: activeUsers.filter((m) => userRoles(m).includes('IQAC')).length },
+    { id: 'TRUSTEE', label: 'Trustees', count: activeUsers.filter((m) => userRoles(m).includes('TRUSTEE')).length },
     { id: 'DIRECTOR', label: 'Directors', count: activeUsers.filter((m) => userRoles(m).includes('DIRECTOR')).length },
+    {
+      id: 'SCHOOL_PROGRAMME_COORDINATOR',
+      label: 'School Coordinators',
+      count: activeUsers.filter((m) => userRoles(m).includes('SCHOOL_PROGRAMME_COORDINATOR')).length,
+    },
     { id: 'HOD', label: 'HODs', count: activeUsers.filter((m) => userRoles(m).includes('HOD')).length },
     {
       id: 'PROGRAMME_COORDINATOR',
@@ -1311,7 +1335,7 @@ export default function AdminDashboardPage() {
                   </button>
                 </div>
 
-                {assignmentForm.role !== 'IQAC' ? (
+                {assignmentForm.role !== 'IQAC' && assignmentForm.role !== 'TRUSTEE' ? (
                   <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
                     School *
                     <select
@@ -1329,7 +1353,7 @@ export default function AdminDashboardPage() {
                   </label>
                 ) : (
                   <div style={{ padding: '8px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 12, color: '#1e40af' }}>
-                    IQAC role operates institution-wide across all schools.
+                    {assignmentForm.role === 'TRUSTEE' ? 'Trustee' : 'IQAC'} role operates institution-wide across all schools.
                   </div>
                 )}
 
@@ -1417,7 +1441,7 @@ export default function AdminDashboardPage() {
                     >
                       <option value="">-- Select a School --</option>
                       <option value="ALL_SCHOOLS">All Schools (Apply across all schools)</option>
-                      <option value="INSTITUTION">Institution-wide (IQAC)</option>
+                      <option value="INSTITUTION">Institution-wide (IQAC / Trustee)</option>
                       {schools.map((s) => {
                         const sId = s.id ?? s.schoolId;
                         return (
@@ -1442,7 +1466,7 @@ export default function AdminDashboardPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 6 }}>
                       {ROLE_OPTIONS.map((opt) => {
                         const isInstitution = editAccessCurrent.schoolId === 'INSTITUTION';
-                        const disabled = isInstitution && opt.value !== 'IQAC';
+                        const disabled = isInstitution && opt.value !== 'IQAC' && opt.value !== 'TRUSTEE';
                         const checked = (editAccessCurrent.roles || []).includes(opt.value);
                         return (
                           <label
@@ -1686,7 +1710,7 @@ export default function AdminDashboardPage() {
                   >
                     <option value="">-- Select a School --</option>
                     <option value="ALL_SCHOOLS">All Schools (Apply across all schools)</option>
-                    <option value="INSTITUTION">Institution-wide (IQAC)</option>
+                    <option value="INSTITUTION">Institution-wide (IQAC / Trustee)</option>
                     {schools.map((s) => {
                       const sId = s.id ?? s.schoolId;
                       return (
@@ -1710,6 +1734,8 @@ export default function AdminDashboardPage() {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 6 }}>
                     {ROLE_OPTIONS.map((opt) => {
+                      const isInstitution = currentAddAssignment.schoolId === 'INSTITUTION';
+                      const disabled = isInstitution && opt.value !== 'IQAC' && opt.value !== 'TRUSTEE';
                       const checked = (currentAddAssignment.roles || []).includes(opt.value);
                       return (
                         <label
@@ -1720,17 +1746,19 @@ export default function AdminDashboardPage() {
                             gap: 7,
                             padding: '6px 9px',
                             border: `1px solid ${checked ? '#6366f1' : '#cbd5e1'}`,
-                            background: checked ? '#eef2ff' : '#fff',
+                            background: disabled ? '#f1f5f9' : (checked ? '#eef2ff' : '#fff'),
                             borderRadius: 6,
-                            cursor: 'pointer',
+                            cursor: disabled ? 'not-allowed' : 'pointer',
                             fontSize: 12,
-                            color: checked ? '#3730a3' : '#334155',
+                            color: disabled ? '#94a3b8' : (checked ? '#3730a3' : '#334155'),
                             fontWeight: 650,
+                            opacity: disabled ? 0.6 : 1,
                             transition: 'all 0.15s ease',
                           }}
                         >
                           <input
                             type="checkbox"
+                            disabled={disabled}
                             checked={checked}
                             onChange={() => toggleRoleSelect(opt.value)}
                           />

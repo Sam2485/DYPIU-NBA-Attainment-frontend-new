@@ -30,7 +30,8 @@ const PC_STEPS = [
 
 export default function ProgrammeCoordinatorDashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isSpc = role === 'SCHOOL_PROGRAMME_COORDINATOR';
   const {
     programmeId = null,
     masterProgrammes = [],
@@ -185,9 +186,9 @@ export default function ProgrammeCoordinatorDashboard() {
   const quickActions = [
     {
       id: 'setup',
-      title: 'Manage Courses',
-      desc: 'Add courses, assign coordinators, and view course structures.',
-      path: '/programme-coordinator/manage-courses',
+      title: isSpc ? 'Courses' : 'Manage Courses',
+      desc: isSpc ? 'View programme courses, allocations, and course structures.' : 'Add courses, assign coordinators, and view course structures.',
+      path: isSpc ? '/school-programme-coordinator/courses' : '/programme-coordinator/manage-courses',
       icon: BookOpen,
       iconColor: '#4f46e5',
       iconBg: '#eef2ff',
@@ -195,8 +196,8 @@ export default function ProgrammeCoordinatorDashboard() {
     {
       id: 'targets',
       title: 'Target Settings',
-      desc: 'Set PO and PSO benchmark target levels (0.0 – 3.0 scale).',
-      path: '/programme-coordinator/target-settings',
+      desc: isSpc ? 'View PO and PSO benchmark target levels (0.0 – 3.0 scale).' : 'Set PO and PSO benchmark target levels (0.0 – 3.0 scale).',
+      path: isSpc ? '/school-programme-coordinator/target-settings' : '/programme-coordinator/target-settings',
       icon: Target,
       iconColor: '#7c3aed',
       iconBg: '#f5f3ff',
@@ -204,8 +205,8 @@ export default function ProgrammeCoordinatorDashboard() {
     {
       id: 'indirect',
       title: 'Indirect Attainment',
-      desc: 'Evaluate surveys & co-curricular events and programme exit survey.',
-      path: '/programme-coordinator/indirect-attainment',
+      desc: isSpc ? 'View surveys & co-curricular events and programme exit survey attainment.' : 'Evaluate surveys & co-curricular events and programme exit survey.',
+      path: isSpc ? '/school-programme-coordinator/indirect-attainment' : '/programme-coordinator/indirect-attainment',
       icon: ClipboardList,
       iconColor: '#059669',
       iconBg: '#f0fdf4',
@@ -213,13 +214,13 @@ export default function ProgrammeCoordinatorDashboard() {
     {
       id: 'programme-atr',
       title: 'Programme ATR',
-      desc: 'Formulate PO/PSO gap analysis, observations & Action Taken Report.',
-      path: '/programme-atr',
+      desc: isSpc ? 'View PO/PSO gap analysis, observations & Action Taken Report.' : 'Formulate PO/PSO gap analysis, observations & Action Taken Report.',
+      path: isSpc ? '/school-programme-coordinator/programme-atr' : '/programme-atr',
       icon: Layers,
       iconColor: '#0284c7',
       iconBg: '#f0f9ff',
     },
-    {
+    ...(!isSpc ? [{
       id: 'verification',
       title: 'Approvals & Verification',
       desc: 'Review CO mapping, attainment, and Course ATR from coordinators.',
@@ -229,12 +230,12 @@ export default function ProgrammeCoordinatorDashboard() {
       iconBg: '#f0fdf4',
       badge: pendingVerifications > 0 ? `${pendingVerifications} pending` : null,
       badgeWarn: pendingVerifications > 0,
-    },
+    }] : []),
     {
       id: 'reports',
       title: 'Reports & Downloads',
       desc: 'Access consolidated Course & Programme Attainment and ATR Reports.',
-      path: '/reports',
+      path: isSpc ? '/school-programme-coordinator/reports' : '/reports',
       icon: FileText,
       iconColor: '#d97706',
       iconBg: '#fffbeb',
@@ -271,10 +272,10 @@ export default function ProgrammeCoordinatorDashboard() {
       }}>
         <div style={{ flex: 1, minWidth: '240px' }}>
           <div style={{ fontSize: '10.5px', fontWeight: '700', color: muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
-            Programme Coordinator Dashboard
+            {isSpc ? 'School Programme Coordinator Dashboard' : 'Programme Coordinator Dashboard'}
           </div>
           <h1 style={{ margin: 0, fontSize: '20px', color: ink, fontWeight: '800', letterSpacing: '-0.01em' }}>
-            Welcome, {user?.name || 'Programme Coordinator'}
+            Welcome, {user?.name || (isSpc ? 'School Programme Coordinator' : 'Programme Coordinator')}
           </h1>
           <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: muted }}>
             <strong style={{ color: ink }}>{selectedProgramme?.name || 'Programme Overview'}</strong>
@@ -282,26 +283,28 @@ export default function ProgrammeCoordinatorDashboard() {
             &nbsp;·&nbsp; Batch: <strong style={{ color: ink }}>{activeBatchLabel}</strong>
           </p>
         </div>
-        <div style={{ marginLeft: 'auto' }}>
-          <button
-            onClick={() => navigate(`/programme-coordinator/setup-workflow?step=${targetStepNum}`)}
-            style={{
-              height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '800',
-              background: accent, color: '#fff', border: 'none', borderRadius: '8px',
-              cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px',
-              fontFamily: 'inherit', flexShrink: 0,
-              boxShadow: '0 4px 14px rgba(79,70,229,0.28)',
-            }}
-          >
-            <PlayCircle size={15} />
-            {targetStepNum === 1 && completedCount === 0
-              ? 'Start Programme Setup (Step 1)'
-              : completedCount === PC_STEPS.length
-              ? 'Manage Programme Setup'
-              : `Continue Setup (Step ${targetStepNum}: ${nextStep?.label || ''})`}
-            <ArrowRight size={14} />
-          </button>
-        </div>
+        {!isSpc && (
+          <div style={{ marginLeft: 'auto' }}>
+            <button
+              onClick={() => navigate(`/programme-coordinator/setup-workflow?step=${targetStepNum}`)}
+              style={{
+                height: '40px', padding: '0 20px', fontSize: '13px', fontWeight: '800',
+                background: accent, color: '#fff', border: 'none', borderRadius: '8px',
+                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px',
+                fontFamily: 'inherit', flexShrink: 0,
+                boxShadow: '0 4px 14px rgba(79,70,229,0.28)',
+              }}
+            >
+              <PlayCircle size={15} />
+              {targetStepNum === 1 && completedCount === 0
+                ? 'Start Programme Setup (Step 1)'
+                : completedCount === PC_STEPS.length
+                ? 'Manage Programme Setup'
+                : `Continue Setup (Step ${targetStepNum}: ${nextStep?.label || ''})`}
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── STAT CARDS ────────────────────────────────────────────────────────── */}
@@ -331,37 +334,41 @@ export default function ProgrammeCoordinatorDashboard() {
           <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>Across the selected batches</div>
         </div>
 
-        {/* Pending Verifications */}
-        <div style={{ ...surface, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Pending Verifications</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: pendingVerifications > 0 ? '#fffbeb' : '#f0fdf4', display: 'grid', placeItems: 'center', color: pendingVerifications > 0 ? '#d97706' : '#16a34a' }}>
-              <ShieldCheck size={15} />
+        {!isSpc && (
+          <>
+            {/* Pending Verifications */}
+            <div style={{ ...surface, padding: '18px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Pending Verifications</span>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: pendingVerifications > 0 ? '#fffbeb' : '#f0fdf4', display: 'grid', placeItems: 'center', color: pendingVerifications > 0 ? '#d97706' : '#16a34a' }}>
+                  <ShieldCheck size={15} />
+                </div>
+              </div>
+              <div style={{ fontSize: '26px', fontWeight: '800', color: pendingVerifications > 0 ? '#d97706' : ink, lineHeight: 1 }}>
+                {pendingVerifications}
+              </div>
+              <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>
+                {pendingVerifications > 0
+                  ? `${pendingCourseAtrApprovals} course ATR approval(s) pending`
+                  : 'All up to date'}
+              </div>
             </div>
-          </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: pendingVerifications > 0 ? '#d97706' : ink, lineHeight: 1 }}>
-            {pendingVerifications}
-          </div>
-          <div style={{ fontSize: '11.5px', color: muted, marginTop: '5px' }}>
-            {pendingVerifications > 0
-              ? `${pendingCourseAtrApprovals} course ATR approval(s) pending`
-              : 'All up to date'}
-          </div>
-        </div>
 
-        {/* Workflow Progress */}
-        <div style={{ ...surface, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Setup Progress</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: progressPct === 100 ? '#f0fdf4' : '#fffbeb', display: 'grid', placeItems: 'center', color: progressPct === 100 ? '#16a34a' : '#d97706' }}>
-              <TrendingUp size={15} />
+            {/* Workflow Progress */}
+            <div style={{ ...surface, padding: '18px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <span style={{ fontSize: '11.5px', fontWeight: '600', color: muted }}>Setup Progress</span>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: progressPct === 100 ? '#f0fdf4' : '#fffbeb', display: 'grid', placeItems: 'center', color: progressPct === 100 ? '#16a34a' : '#d97706' }}>
+                  <TrendingUp size={15} />
+                </div>
+              </div>
+              <div style={{ fontSize: '26px', fontWeight: '800', color: progressPct === 100 ? '#16a34a' : ink, lineHeight: 1 }}>{progressPct}%</div>
+              <div style={{ marginTop: '8px', height: '5px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{ width: `${progressPct}%`, height: '100%', background: progressPct === 100 ? '#10b981' : accent, borderRadius: '3px', transition: 'width .4s ease' }} />
+              </div>
             </div>
-          </div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: progressPct === 100 ? '#16a34a' : ink, lineHeight: 1 }}>{progressPct}%</div>
-          <div style={{ marginTop: '8px', height: '5px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' }}>
-            <div style={{ width: `${progressPct}%`, height: '100%', background: progressPct === 100 ? '#10b981' : accent, borderRadius: '3px', transition: 'width .4s ease' }} />
-          </div>
-        </div>
+          </>
+        )}
 
       </div>
 
@@ -408,90 +415,92 @@ export default function ProgrammeCoordinatorDashboard() {
       </div>
 
       {/* ── 4-STEP WORKFLOW PROGRESS ──────────────────────────────────────────── */}
-      <div style={{ ...surface, padding: '20px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: ink }}>Programme Setup Workflow</div>
-            <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>
-              {completedCount} of {PC_STEPS.length} steps completed &nbsp;·&nbsp; {selectedProgramme?.name || 'Programme Setup'}
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '12.5px', fontWeight: '700', color: accent }}>{progressPct}%</span>
-            <div style={{ width: '120px', height: '6px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{ width: `${progressPct}%`, height: '100%', background: accent, borderRadius: '3px', transition: 'width .3s ease' }} />
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {PC_STEPS.map((s, idx) => {
-            const done    = stepStatus[idx];
-            const current = !done && (idx === 0 || stepStatus[idx - 1]);
-            const Icon    = s.icon;
-            return (
-              <div
-                key={s.step}
-                onClick={() => navigate(`/programme-coordinator/setup-workflow?step=${s.step}`)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '14px',
-                  padding: '12px 16px', borderRadius: '10px',
-                  background: current ? '#f5f3ff' : done ? '#fafafa' : '#ffffff',
-                  border: `1.5px solid ${current ? '#c7d2fe' : done ? '#e2e8f0' : '#f1f5f9'}`,
-                  cursor: 'pointer', transition: 'all .15s ease',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.05)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
-              >
-                {/* Step indicator circle */}
-                <div style={{
-                  width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
-                  display: 'grid', placeItems: 'center',
-                  background: done ? '#f0fdf4' : current ? '#eef2ff' : '#f8fafc',
-                  border: `1.5px solid ${done ? '#86efac' : current ? accent : '#e2e8f0'}`,
-                  color: done ? '#16a34a' : current ? accent : muted,
-                }}>
-                  {done ? <Check size={14} /> : <Icon size={14} />}
-                </div>
-
-                {/* Step info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '700', color: current ? accent : muted, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                      Step {s.step}
-                    </span>
-                    <span style={{ fontSize: '13.5px', fontWeight: '700', color: current ? ink : done ? '#334155' : muted }}>
-                      {s.label}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>
-                    {s.desc}
-                  </div>
-                </div>
-
-                {/* Status tag */}
-                <div style={{ flexShrink: 0 }}>
-                  {done ? (
-                    <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '3px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <Check size={11} /> Completed
-                    </span>
-                  ) : current ? (
-                    <span style={{ fontSize: '11.5px', fontWeight: '700', color: accent, background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '6px', padding: '3px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <Clock size={11} /> In Progress
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#94a3b8', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '3px 10px' }}>
-                      Pending
-                    </span>
-                  )}
-                </div>
-
-                <ChevronRight size={16} style={{ color: current ? accent : '#cbd5e1', flexShrink: 0 }} />
+      {!isSpc && (
+        <div style={{ ...surface, padding: '20px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: '700', color: ink }}>Programme Setup Workflow</div>
+              <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>
+                {completedCount} of {PC_STEPS.length} steps completed &nbsp;·&nbsp; {selectedProgramme?.name || 'Programme Setup'}
               </div>
-            );
-          })}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '12.5px', fontWeight: '700', color: accent }}>{progressPct}%</span>
+              <div style={{ width: '120px', height: '6px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{ width: `${progressPct}%`, height: '100%', background: accent, borderRadius: '3px', transition: 'width .3s ease' }} />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {PC_STEPS.map((s, idx) => {
+              const done    = stepStatus[idx];
+              const current = !done && (idx === 0 || stepStatus[idx - 1]);
+              const Icon    = s.icon;
+              return (
+                <div
+                  key={s.step}
+                  onClick={() => navigate(`/programme-coordinator/setup-workflow?step=${s.step}`)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '14px',
+                    padding: '12px 16px', borderRadius: '10px',
+                    background: current ? '#f5f3ff' : done ? '#fafafa' : '#ffffff',
+                    border: `1.5px solid ${current ? '#c7d2fe' : done ? '#e2e8f0' : '#f1f5f9'}`,
+                    cursor: 'pointer', transition: 'all .15s ease',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.05)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  {/* Step indicator circle */}
+                  <div style={{
+                    width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
+                    display: 'grid', placeItems: 'center',
+                    background: done ? '#f0fdf4' : current ? '#eef2ff' : '#f8fafc',
+                    border: `1.5px solid ${done ? '#86efac' : current ? accent : '#e2e8f0'}`,
+                    color: done ? '#16a34a' : current ? accent : muted,
+                  }}>
+                    {done ? <Check size={14} /> : <Icon size={14} />}
+                  </div>
+
+                  {/* Step info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: current ? accent : muted, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        Step {s.step}
+                      </span>
+                      <span style={{ fontSize: '13.5px', fontWeight: '700', color: current ? ink : done ? '#334155' : muted }}>
+                        {s.label}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>
+                      {s.desc}
+                    </div>
+                  </div>
+
+                  {/* Status tag */}
+                  <div style={{ flexShrink: 0 }}>
+                    {done ? (
+                      <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '3px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <Check size={11} /> Completed
+                      </span>
+                    ) : current ? (
+                      <span style={{ fontSize: '11.5px', fontWeight: '700', color: accent, background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '6px', padding: '3px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <Clock size={11} /> In Progress
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#94a3b8', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '3px 10px' }}>
+                        Pending
+                      </span>
+                    )}
+                  </div>
+
+                  <ChevronRight size={16} style={{ color: current ? accent : '#cbd5e1', flexShrink: 0 }} />
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
     </div>
   );
