@@ -18,8 +18,8 @@ export default function RoleAnalyticsDashboard({ roleOverride = null }) {
   const { user, role: authRole } = useAuth();
   const currentRole = roleOverride || authRole || 'IQAC';
 
-  const isIqac = currentRole === 'IQAC';
-  const isDirector = currentRole === 'DIRECTOR';
+  const isIqac = currentRole === 'IQAC' || currentRole === 'TRUSTEE';
+  const isDirector = currentRole === 'DIRECTOR' || currentRole === 'SCHOOL_PROGRAMME_COORDINATOR';
   const isHod = currentRole === 'HOD';
   const isProgrammeCoordinator = currentRole === 'PROGRAMME_COORDINATOR';
 
@@ -36,7 +36,7 @@ export default function RoleAnalyticsDashboard({ roleOverride = null }) {
   } = useAcademic();
 
   // Primary Filter State
-  const [selectedSchoolId, setSelectedSchoolId] = useState(isIqac ? '' : (user?.schoolId || ''));
+  const [selectedSchoolId, setSelectedSchoolId] = useState(isIqac ? (user?.schoolId || '') : (user?.schoolId || ''));
   const [selectedMasterProgrammeId, setSelectedMasterProgrammeId] = useState('');
   const [selectedProgrammeBatchId, setSelectedProgrammeBatchId] = useState('');
 
@@ -102,21 +102,41 @@ export default function RoleAnalyticsDashboard({ roleOverride = null }) {
     };
   }, [isIqac, isDirector, isHod, isProgrammeCoordinator, user?.email]);
 
+  // Auto-select initial school for IQAC / TRUSTEE when schools finish loading
+  useEffect(() => {
+    if (isIqac && schools.length > 0 && !selectedSchoolId) {
+      if (user?.schoolId && schools.some((s) => String(s.id || s.schoolId) === String(user.schoolId))) {
+        setSelectedSchoolId(user.schoolId);
+      } else {
+        setSelectedSchoolId(schools[0].id || schools[0].schoolId || '');
+      }
+    }
+  }, [isIqac, schools, selectedSchoolId, user?.schoolId]);
+
+  // Auto-select first programme if available and none selected yet
+  useEffect(() => {
+    if (isIqac && availableProgrammes.length > 0 && !selectedMasterProgrammeId) {
+      setSelectedMasterProgrammeId(availableProgrammes[0].id || availableProgrammes[0].masterProgrammeId || '');
+    }
+  }, [isIqac, availableProgrammes, selectedMasterProgrammeId]);
+
   // 2. Role-Scoped Programmes List
   const availableProgrammes = useMemo(() => {
     if (isIqac) {
-      if (!selectedSchoolId) return [];
+      if (!selectedSchoolId) return masterProgrammes || [];
       const schoolDeptIds = new Set(
         (departments || [])
           .filter((d) => String(d.schoolId || d.school_id) === String(selectedSchoolId))
           .map((d) => String(d.id || d.departmentId))
       );
 
-      return (masterProgrammes || []).filter((p) => {
+      const filtered = (masterProgrammes || []).filter((p) => {
         if (p.schoolId && String(p.schoolId) === String(selectedSchoolId)) return true;
         if (p.departmentId && schoolDeptIds.has(String(p.departmentId))) return true;
         return false;
       });
+
+      return filtered.length > 0 ? filtered : (masterProgrammes || []);
     }
 
     if (isDirector) {

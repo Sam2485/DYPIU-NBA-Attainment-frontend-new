@@ -45,7 +45,7 @@ export default function AnalyticsSelectors({
     ? Boolean(selectedSchoolId || selectedMasterProgrammeId)
     : Boolean(selectedMasterProgrammeId);
 
-  const isProgrammeDisabled = isLoadingMetadata || (showSchoolSelector && !selectedSchoolId);
+  const isProgrammeDisabled = isLoadingMetadata || (showSchoolSelector && !selectedSchoolId && programmes.length === 0);
 
   return (
     <div
@@ -124,7 +124,7 @@ export default function AnalyticsSelectors({
               disabled={isLoadingMetadata}
               style={selectStyle}
             >
-              <option value="" disabled>
+              <option value="">
                 Select School
               </option>
               {schools.map((s) => (
@@ -152,8 +152,8 @@ export default function AnalyticsSelectors({
               cursor: isProgrammeDisabled ? 'not-allowed' : 'pointer',
             }}
           >
-            <option value="" disabled>
-              {showSchoolSelector && !selectedSchoolId ? 'Select School first' : 'Select Programme'}
+            <option value="">
+              {showSchoolSelector && !selectedSchoolId && programmes.length === 0 ? 'Select School first' : 'Select Programme'}
             </option>
             {programmes.map((p) => (
               <option key={p.id || p.masterProgrammeId} value={p.id || p.masterProgrammeId}>

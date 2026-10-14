@@ -108,8 +108,8 @@ export default function QuickAnalysisDashboard() {
   const { user, role } = useAuth();
   const reportRef = useRef(null);
 
-  const isIqac = role === 'IQAC';
-  const isDirector = role === 'DIRECTOR';
+  const isIqac = role === 'IQAC' || role === 'TRUSTEE';
+  const isDirector = role === 'DIRECTOR' || role === 'SCHOOL_PROGRAMME_COORDINATOR';
   const isHod = role === 'HOD';
   const isProgrammeCoordinator = role === 'PROGRAMME_COORDINATOR';
 
