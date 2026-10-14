@@ -375,9 +375,8 @@ export default function AdminDashboardPage() {
       setSaving(true);
       setError('');
       try {
-        const isGlobal = assignmentForm.role === 'IQAC' || assignmentForm.role === 'TRUSTEE';
         const targetSchoolId = assignmentForm.schoolId || null;
-        const targetSchoolName = targetSchoolId ? schoolName(targetSchoolId) : (isGlobal ? 'Institution-wide' : '—');
+        const targetSchoolName = targetSchoolId ? schoolName(targetSchoolId) : null;
         const payload = {
           role: assignmentForm.role,
           schoolId: targetSchoolId,
@@ -482,8 +481,8 @@ export default function AdminDashboardPage() {
       for (const item of itemsToSave) {
         await addAssignment(targetUserId, {
           role: item.role,
-          schoolId: item.schoolId,
-          schoolName: item.schoolName,
+          schoolId: item.schoolId || null,
+          schoolName: item.schoolId ? item.schoolName : null,
           departmentId: null,
           masterProgrammeId: null,
         });
@@ -677,8 +676,8 @@ export default function AdminDashboardPage() {
         for (const row of addAssignmentRows) {
           await addAssignment(targetUserId, {
             role: row.role,
-            schoolId: row.schoolId,
-            schoolName: row.schoolName || schoolName(row.schoolId),
+            schoolId: row.schoolId || null,
+            schoolName: row.schoolId ? (row.schoolName || schoolName(row.schoolId)) : null,
             departmentId: null,
             masterProgrammeId: null,
           });
@@ -712,8 +711,8 @@ export default function AdminDashboardPage() {
         password: addUserForm.password.trim(),
         assignments: addAssignmentRows.map((r) => ({
           role: r.role,
-          schoolId: r.schoolId,
-          schoolName: r.schoolName || schoolName(r.schoolId),
+          schoolId: r.schoolId || null,
+          schoolName: r.schoolId ? (r.schoolName || schoolName(r.schoolId)) : null,
           departmentId: null,
           masterProgrammeId: null,
         })),

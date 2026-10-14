@@ -171,6 +171,22 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/trustee/analytics"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE']}>
+            <IqacDashboardPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/trustee/dashboard"
+        element={
+          <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE']}>
+            <IqacDashboardPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
         path="/admin/analytics/quick-analysis"
         element={
           <RoleProtectedRoute allowedRoles={['IQAC', 'TRUSTEE', 'DIRECTOR', 'SCHOOL_PROGRAMME_COORDINATOR', 'HOD', 'PROGRAMME_COORDINATOR']}>

@@ -441,6 +441,11 @@ export function AuthProvider({ children }) {
             '/course-coordinator/dashboard';
           break;
 
+        case 'SCHOOL_PROGRAMME_COORDINATOR':
+          targetPath =
+            '/school-programme-coordinator/dashboard';
+          break;
+
         case 'IQAC':
         case 'TRUSTEE':
           targetPath =

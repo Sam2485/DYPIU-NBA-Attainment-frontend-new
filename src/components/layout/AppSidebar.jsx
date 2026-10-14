@@ -808,7 +808,12 @@ export default function AppSidebar({
         ) : role === 'TRUSTEE' ? (
           <nav style={{ position: 'relative' }}>
             {(() => {
-              const activeTrusteeItem = TRUSTEE_NAV.find((item) => location.pathname === item.path);
+              const isAnalyticsPath = (p) => p === '/admin/dashboard' || p === '/trustee/analytics' || p === '/trustee/dashboard' || p.startsWith('/admin/analytics') || p.startsWith('/analytics');
+              const activeTrusteeItem = TRUSTEE_NAV.find((item) =>
+                item.id === 'analytics'
+                  ? isAnalyticsPath(location.pathname)
+                  : location.pathname === item.path
+              );
               return (
                 <>
                   <button
@@ -845,7 +850,7 @@ export default function AppSidebar({
                   {navOpenTrustee && (
                     <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6, padding: 5, background: '#1f2937', border: '1px solid rgba(148,163,184,0.22)', borderRadius: 12, boxShadow: '0 18px 34px rgba(2,6,23,0.32)', display: 'grid', gap: 2, maxHeight: '340px', overflowY: 'auto', zIndex: 50 }}>
                       {TRUSTEE_NAV.map((item) => {
-                        const isActive = location.pathname === item.path;
+                        const isActive = item.id === 'analytics' ? isAnalyticsPath(location.pathname) : location.pathname === item.path;
                         return (
                           <button
                             key={item.id}

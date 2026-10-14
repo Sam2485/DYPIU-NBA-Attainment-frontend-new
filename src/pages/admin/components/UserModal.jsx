@@ -97,7 +97,7 @@ export const UserModal = ({ isOpen, onClose, user, onSuccess }) => {
       email: emailTrimmed,
       username: (user?.username || derivedUsername).toLowerCase().replace(/[^a-z0-9._-]/g, ''),
       role: formData.role,
-      schoolId: formData.schoolId && formData.schoolId.trim() !== '' ? formData.schoolId.trim() : null,
+      schoolId: formData.schoolId && formData.schoolId.trim() !== '' && formData.schoolId !== 'INSTITUTION' && formData.schoolId !== 'Institution-wide' ? formData.schoolId.trim() : null,
       departmentId: isEdit ? (user?.departmentId || null) : null,
       programmeId: isEdit ? (user?.programmeId || null) : null,
     };
