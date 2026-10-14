@@ -66,13 +66,11 @@ export default function RoleAnalyticsDashboard({ roleOverride = null }) {
           .map((d) => String(d.id || d.departmentId))
       );
 
-      const filtered = (masterProgrammes || []).filter((p) => {
+      return (masterProgrammes || []).filter((p) => {
         if (p.schoolId && String(p.schoolId) === String(selectedSchoolId)) return true;
         if (p.departmentId && schoolDeptIds.has(String(p.departmentId))) return true;
         return false;
       });
-
-      return filtered.length > 0 ? filtered : (masterProgrammes || []);
     }
 
     if (isDirector) {
@@ -174,12 +172,21 @@ export default function RoleAnalyticsDashboard({ roleOverride = null }) {
     }
   }, [isIqac, schools, selectedSchoolId, user?.schoolId]);
 
-  // Auto-select first programme if available and none selected yet
+  // Auto-select first programme if available for selected school
   useEffect(() => {
-    if (isIqac && availableProgrammes.length > 0 && !selectedMasterProgrammeId) {
-      setSelectedMasterProgrammeId(availableProgrammes[0].id || availableProgrammes[0].masterProgrammeId || '');
+    if (isIqac) {
+      if (availableProgrammes.length > 0) {
+        const isCurrentValid = availableProgrammes.some(
+          (p) => String(p.id || p.masterProgrammeId) === String(selectedMasterProgrammeId)
+        );
+        if (!selectedMasterProgrammeId || !isCurrentValid) {
+          setSelectedMasterProgrammeId(availableProgrammes[0].id || availableProgrammes[0].masterProgrammeId || '');
+        }
+      } else if (selectedSchoolId) {
+        setSelectedMasterProgrammeId('');
+      }
     }
-  }, [isIqac, availableProgrammes, selectedMasterProgrammeId]);
+  }, [isIqac, availableProgrammes, selectedMasterProgrammeId, selectedSchoolId]);
 
   // 3. Load Active Batches for Selected Programme (Selector Population)
   useEffect(() => {
@@ -226,7 +233,14 @@ export default function RoleAnalyticsDashboard({ roleOverride = null }) {
 
     if (isIqac) {
       if (selectedSchoolId) queryParams.schoolId = selectedSchoolId;
-      if (selectedMasterProgrammeId) queryParams.masterProgrammeId = selectedMasterProgrammeId;
+      if (selectedMasterProgrammeId) {
+        const isValid = availableProgrammes.some(
+          (p) => String(p.id || p.masterProgrammeId) === String(selectedMasterProgrammeId)
+        );
+        if (isValid) {
+          queryParams.masterProgrammeId = selectedMasterProgrammeId;
+        }
+      }
     } else if (isDirector) {
       if (user?.schoolId) queryParams.schoolId = user.schoolId;
       if (selectedMasterProgrammeId) queryParams.masterProgrammeId = selectedMasterProgrammeId;
