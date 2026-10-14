@@ -56,6 +56,67 @@ export default function RoleAnalyticsDashboard({ roleOverride = null }) {
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
   const [analyticsError, setAnalyticsError] = useState(null);
 
+  // Role-Scoped Programmes List
+  const availableProgrammes = useMemo(() => {
+    if (isIqac) {
+      if (!selectedSchoolId) return masterProgrammes || [];
+      const schoolDeptIds = new Set(
+        (departments || [])
+          .filter((d) => String(d.schoolId || d.school_id) === String(selectedSchoolId))
+          .map((d) => String(d.id || d.departmentId))
+      );
+
+      const filtered = (masterProgrammes || []).filter((p) => {
+        if (p.schoolId && String(p.schoolId) === String(selectedSchoolId)) return true;
+        if (p.departmentId && schoolDeptIds.has(String(p.departmentId))) return true;
+        return false;
+      });
+
+      return filtered.length > 0 ? filtered : (masterProgrammes || []);
+    }
+
+    if (isDirector) {
+      const directorSchoolId = String(user?.schoolId || selectedSchoolId || '');
+      if (!directorSchoolId) return masterProgrammes || [];
+
+      const schoolDeptIds = new Set(
+        (departments || [])
+          .filter((d) => String(d.schoolId || d.school_id) === directorSchoolId)
+          .map((d) => String(d.id || d.departmentId))
+      );
+
+      return (masterProgrammes || []).filter((p) => {
+        if (p.schoolId && String(p.schoolId) === directorSchoolId) return true;
+        if (p.departmentId && schoolDeptIds.has(String(p.departmentId))) return true;
+        return false;
+      });
+    }
+
+    if (isHod) {
+      const hodDeptId = String(user?.departmentId || '');
+      if (!hodDeptId) return masterProgrammes || [];
+
+      return (masterProgrammes || []).filter(
+        (p) => String(p.departmentId || p.department_id) === hodDeptId
+      );
+    }
+
+    if (isProgrammeCoordinator) {
+      if (coordinatorProgrammes.length > 0) {
+        return coordinatorProgrammes;
+      }
+      const pcProgId = String(user?.masterProgrammeId || '');
+      if (pcProgId) {
+        return (masterProgrammes || []).filter(
+          (p) => String(p.id || p.masterProgrammeId) === pcProgId
+        );
+      }
+      return masterProgrammes || [];
+    }
+
+    return masterProgrammes || [];
+  }, [isIqac, isDirector, isHod, isProgrammeCoordinator, selectedSchoolId, user?.schoolId, user?.departmentId, user?.masterProgrammeId, departments, masterProgrammes, coordinatorProgrammes]);
+
   // 1. Initial Metadata Load based on role
   useEffect(() => {
     let isMounted = true;
@@ -119,67 +180,6 @@ export default function RoleAnalyticsDashboard({ roleOverride = null }) {
       setSelectedMasterProgrammeId(availableProgrammes[0].id || availableProgrammes[0].masterProgrammeId || '');
     }
   }, [isIqac, availableProgrammes, selectedMasterProgrammeId]);
-
-  // 2. Role-Scoped Programmes List
-  const availableProgrammes = useMemo(() => {
-    if (isIqac) {
-      if (!selectedSchoolId) return masterProgrammes || [];
-      const schoolDeptIds = new Set(
-        (departments || [])
-          .filter((d) => String(d.schoolId || d.school_id) === String(selectedSchoolId))
-          .map((d) => String(d.id || d.departmentId))
-      );
-
-      const filtered = (masterProgrammes || []).filter((p) => {
-        if (p.schoolId && String(p.schoolId) === String(selectedSchoolId)) return true;
-        if (p.departmentId && schoolDeptIds.has(String(p.departmentId))) return true;
-        return false;
-      });
-
-      return filtered.length > 0 ? filtered : (masterProgrammes || []);
-    }
-
-    if (isDirector) {
-      const directorSchoolId = String(user?.schoolId || selectedSchoolId || '');
-      if (!directorSchoolId) return masterProgrammes || [];
-
-      const schoolDeptIds = new Set(
-        (departments || [])
-          .filter((d) => String(d.schoolId || d.school_id) === directorSchoolId)
-          .map((d) => String(d.id || d.departmentId))
-      );
-
-      return (masterProgrammes || []).filter((p) => {
-        if (p.schoolId && String(p.schoolId) === directorSchoolId) return true;
-        if (p.departmentId && schoolDeptIds.has(String(p.departmentId))) return true;
-        return false;
-      });
-    }
-
-    if (isHod) {
-      const hodDeptId = String(user?.departmentId || '');
-      if (!hodDeptId) return masterProgrammes || [];
-
-      return (masterProgrammes || []).filter(
-        (p) => String(p.departmentId || p.department_id) === hodDeptId
-      );
-    }
-
-    if (isProgrammeCoordinator) {
-      if (coordinatorProgrammes.length > 0) {
-        return coordinatorProgrammes;
-      }
-      const pcProgId = String(user?.masterProgrammeId || '');
-      if (pcProgId) {
-        return (masterProgrammes || []).filter(
-          (p) => String(p.id || p.masterProgrammeId) === pcProgId
-        );
-      }
-      return masterProgrammes || [];
-    }
-
-    return masterProgrammes || [];
-  }, [isIqac, isDirector, isHod, isProgrammeCoordinator, selectedSchoolId, user?.schoolId, user?.departmentId, user?.masterProgrammeId, departments, masterProgrammes, coordinatorProgrammes]);
 
   // 3. Load Active Batches for Selected Programme (Selector Population)
   useEffect(() => {

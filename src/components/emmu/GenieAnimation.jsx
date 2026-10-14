@@ -30,6 +30,9 @@ export default function GenieAnimation({
   const containerRef = useRef(null);
   const isAnimating = chatState === 'opening' || chatState === 'closing';
 
+  const onAnimationCompleteRef = useRef(onAnimationComplete);
+  onAnimationCompleteRef.current = onAnimationComplete;
+
   useEffect(() => {
     if (!isAnimating || !containerRef.current) return;
 
@@ -55,8 +58,17 @@ export default function GenieAnimation({
 
     let destRect = destEl ? destEl.getBoundingClientRect() : null;
     if (!destRect || destRect.width <= 0) {
-      const modalW = Math.min(480, window.innerWidth - 32);
-      const modalH = Math.min(640, window.innerHeight - 40);
+      let savedW = 760;
+      let savedH = 620;
+      try {
+        const saved = JSON.parse(localStorage.getItem('nba_emmu_card_size') || '{}');
+        if (saved.width && saved.height) {
+          savedW = saved.width;
+          savedH = saved.height;
+        }
+      } catch (e) {}
+      const modalW = Math.min(savedW, window.innerWidth - 32);
+      const modalH = Math.min(savedH, window.innerHeight - 40);
       destRect = {
         left: (window.innerWidth - modalW) * 0.5,
         top: (window.innerHeight - modalH) * 0.5,
@@ -73,6 +85,9 @@ export default function GenieAnimation({
 
     // 2. Obtain pre-rasterized texture immediately (0ms delay)
     const texture = genieTextureCache.getTexture('chat');
+    if (texture) {
+      texture.needsUpdate = true;
+    }
 
     // 3. Three.js Scene, Orthographic Camera & WebGL Renderer
     const width = window.innerWidth;
@@ -97,7 +112,7 @@ export default function GenieAnimation({
     } catch (err) {
       console.warn('GenieAnimation: WebGL context creation failed, falling back:', err);
       setPanelVisibility('visible');
-      onAnimationComplete?.(chatState);
+      onAnimationCompleteRef.current?.(chatState);
       return;
     }
 
@@ -265,16 +280,16 @@ export default function GenieAnimation({
 
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-              if (onAnimationComplete) {
-                onAnimationComplete('opening');
+              if (onAnimationCompleteRef.current) {
+                onAnimationCompleteRef.current('opening');
               }
             });
           });
         } else {
           applyGenieDeformation(1);
           renderer.render(scene, camera);
-          if (onAnimationComplete) {
-            onAnimationComplete('closing');
+          if (onAnimationCompleteRef.current) {
+            onAnimationCompleteRef.current('closing');
           }
         }
       }
@@ -304,7 +319,7 @@ export default function GenieAnimation({
       surfaceMaterial.dispose();
       renderer.dispose();
     };
-  }, [isAnimating, chatState, sourceRef, destinationRef, onAnimationComplete]);
+  }, [isAnimating, chatState]);
 
   if (!isAnimating) return null;
 

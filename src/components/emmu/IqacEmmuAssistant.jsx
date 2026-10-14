@@ -35,6 +35,9 @@ export default function IqacEmmuAssistant() {
   const [chatState, setChatState] = useState('closed');
   const [emmuState, setEmmuState] = useState('normal');
 
+  const chatStateRef = useRef(chatState);
+  chatStateRef.current = chatState;
+
   // Live DOM node references for Three.js Genie animation
   const widgetRef = useRef(null);
   const chatCardRef = useRef(null);
@@ -100,25 +103,25 @@ export default function IqacEmmuAssistant() {
     return null;
   }
 
-  const handleOpenChat = () => {
-    if (chatState !== 'closed') return;
+  const handleOpenChat = useCallback(() => {
+    if (chatStateRef.current !== 'closed') return;
     setChatState('opening');
     setEmmuState('normal');
-  };
+  }, []);
 
-  const handleCloseChat = () => {
-    if (chatState !== 'open') return;
+  const handleCloseChat = useCallback(() => {
+    if (chatStateRef.current !== 'open') return;
     setChatState('closing');
     setEmmuState('normal');
-  };
+  }, []);
 
-  const handleGenieComplete = (completedState) => {
+  const handleGenieComplete = useCallback((completedState) => {
     if (completedState === 'opening') {
       setChatState('open');
     } else if (completedState === 'closing') {
       setChatState('closed');
     }
-  };
+  }, []);
 
   return (
     <>

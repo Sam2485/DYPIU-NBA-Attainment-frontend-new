@@ -7,7 +7,7 @@ import { toCanvas } from 'html-to-image';
  * ============================================================================
  */
 
-function createInstantFallbackCanvas(width = 480, height = 640) {
+function createInstantFallbackCanvas(width = 760, height = 620) {
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(width);
   canvas.height = Math.round(height);
@@ -15,91 +15,141 @@ function createInstantFallbackCanvas(width = 480, height = 640) {
   if (!ctx) return canvas;
 
   // Background card with rounded corners
-  ctx.fillStyle = '#f4f6fb';
+  ctx.fillStyle = '#ffffff';
   ctx.beginPath();
-  ctx.roundRect(0, 0, width, height, 32);
+  ctx.roundRect(0, 0, width, height, 16);
   ctx.fill();
 
-  // Header background
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+  // Top header: WhatsApp emerald green
+  ctx.fillStyle = '#075e54';
   ctx.beginPath();
-  ctx.roundRect(0, 0, width, 64, [32, 32, 0, 0]);
+  ctx.roundRect(0, 0, width, 54, [16, 16, 0, 0]);
   ctx.fill();
 
-  // Header border
+  // Header avatar circle
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(28, 27, 16, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Header title & subtitle
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 14px Inter, system-ui, sans-serif';
+  ctx.fillText('Emmu Messenger', 52, 24);
+  ctx.fillStyle = '#a7f3d0';
+  ctx.font = '10.5px Inter, system-ui, sans-serif';
+  ctx.fillText('DYPIU Institutional Communication Hub', 52, 40);
+
+  // Close button ✕
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  ctx.font = '16px sans-serif';
+  ctx.fillText('✕', width - 28, 32);
+
+  // Tabs bar: Chats, Suggestions, Notifications
+  const tabsY = 54;
+  ctx.fillStyle = '#f0f2f5';
+  ctx.fillRect(0, tabsY, width, 42);
   ctx.strokeStyle = '#e2e8f0';
-  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(0, 64);
-  ctx.lineTo(width, 64);
+  ctx.moveTo(0, tabsY + 42);
+  ctx.lineTo(width, tabsY + 42);
   ctx.stroke();
 
-  // Header avatar placeholder
-  ctx.fillStyle = '#fef08a';
-  ctx.beginPath();
-  ctx.arc(38, 32, 17, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Header title
-  ctx.fillStyle = '#1e293b';
-  ctx.font = 'bold 15px Inter, system-ui, sans-serif';
-  ctx.fillText('Emmu', 64, 28);
-
-  // Status indicator
-  ctx.fillStyle = '#10b981';
-  ctx.font = '600 11px Inter, system-ui, sans-serif';
-  ctx.fillText('● Online', 64, 44);
-
-  // Message 1 (Bot)
+  // Active Tab indicator: Chats
   ctx.fillStyle = '#ffffff';
   ctx.beginPath();
-  ctx.roundRect(22, 84, 300, 72, [4, 20, 20, 20]);
+  ctx.roundRect(14, tabsY + 6, 110, 30, 8);
   ctx.fill();
-  ctx.fillStyle = '#1e293b';
-  ctx.font = '14px Inter, system-ui, sans-serif';
-  ctx.fillText('Hi there! 👋', 38, 112);
-  ctx.fillText('How can I help you today?', 38, 134);
+  ctx.fillStyle = '#075e54';
+  ctx.font = 'bold 12.5px Inter, system-ui, sans-serif';
+  ctx.fillText('💬 Chats', 32, tabsY + 26);
 
-  // Message 2 (User)
-  ctx.fillStyle = '#e2edfd';
-  ctx.beginPath();
-  ctx.roundRect(width - 290, 176, 268, 64, [20, 20, 4, 20]);
-  ctx.fill();
-  ctx.fillStyle = '#1e293b';
-  ctx.font = '14px Inter, system-ui, sans-serif';
-  ctx.fillText('Show me the pending approvals', width - 272, 206);
-  ctx.fillStyle = '#2f80ed';
-  ctx.font = '11px Inter, system-ui, sans-serif';
-  ctx.fillText('10:25 AM ✓✓', width - 90, 228);
-
-  // Message 3 (Thinking)
-  ctx.fillStyle = '#edf2f7';
-  ctx.beginPath();
-  ctx.roundRect(22, 260, 140, 46, [4, 20, 20, 20]);
-  ctx.fill();
+  // Tab: Suggestions
   ctx.fillStyle = '#64748b';
-  ctx.font = '500 13px Inter, system-ui, sans-serif';
-  ctx.fillText('••• Thinking...', 38, 288);
+  ctx.font = '600 12px Inter, system-ui, sans-serif';
+  ctx.fillText('💡 Suggestions', 146, tabsY + 26);
 
-  // Bottom Input Bar
+  // Tab: Notifications
+  ctx.fillText('🔔 Notifications', 268, tabsY + 26);
+
+  // Split pane: Left Sidebar (width 260)
+  const contentY = tabsY + 42;
+  const contentH = height - contentY;
+  const sidebarW = 260;
+
+  // Sidebar background
   ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, contentY, sidebarW, contentH);
+  ctx.strokeStyle = '#e2e8f0';
   ctx.beginPath();
-  ctx.roundRect(20, height - 74, width - 40, 52, 26);
-  ctx.fill();
-  ctx.strokeStyle = '#e5eaf2';
-  ctx.lineWidth = 1.5;
+  ctx.moveTo(sidebarW, contentY);
+  ctx.lineTo(sidebarW, height);
   ctx.stroke();
 
-  // Send button
-  ctx.fillStyle = '#2f80ed';
+  // Sidebar search input
+  ctx.fillStyle = '#f0f2f5';
   ctx.beginPath();
-  ctx.arc(width - 48, height - 48, 20, 0, Math.PI * 2);
+  ctx.roundRect(12, contentY + 10, sidebarW - 24, 34, 17);
   ctx.fill();
-
-  // Placeholder
   ctx.fillStyle = '#94a3b8';
-  ctx.font = '14px Inter, system-ui, sans-serif';
-  ctx.fillText('Ask Emmu anything...', 44, height - 43);
+  ctx.font = '11.5px Inter, system-ui, sans-serif';
+  ctx.fillText('🔍 Search or start new chat', 26, contentY + 31);
+
+  // Sidebar conversation item 1
+  ctx.fillStyle = '#f0fdf4';
+  ctx.beginPath();
+  ctx.roundRect(8, contentY + 54, sidebarW - 16, 56, 10);
+  ctx.fill();
+  ctx.fillStyle = '#075e54';
+  ctx.beginPath();
+  ctx.arc(36, contentY + 82, 17, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#0f172a';
+  ctx.font = 'bold 12.5px Inter, system-ui, sans-serif';
+  ctx.fillText('Director Academics', 60, contentY + 76);
+  ctx.fillStyle = '#64748b';
+  ctx.font = '11px Inter, system-ui, sans-serif';
+  ctx.fillText('✓✓ ATR submitted for review', 60, contentY + 94);
+
+  // Right pane: WhatsApp background
+  ctx.fillStyle = '#efeae2';
+  ctx.fillRect(sidebarW, contentY, width - sidebarW, contentH);
+
+  // Message 1 (Incoming): white bubble
+  const chatX = sidebarW + 24;
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.roundRect(chatX, contentY + 40, 260, 52, [4, 14, 14, 14]);
+  ctx.fill();
+  ctx.fillStyle = '#1e293b';
+  ctx.font = '12.5px Inter, system-ui, sans-serif';
+  ctx.fillText('Please verify the CO attainment values.', chatX + 14, contentY + 64);
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '10px Inter, system-ui, sans-serif';
+  ctx.fillText('10:45 AM', chatX + 210, contentY + 84);
+
+  // Message 2 (Outgoing): WhatsApp green bubble
+  const outX = width - 280;
+  ctx.fillStyle = '#d9fdd3';
+  ctx.beginPath();
+  ctx.roundRect(outX, contentY + 110, 250, 52, [14, 4, 14, 14]);
+  ctx.fill();
+  ctx.fillStyle = '#1e293b';
+  ctx.font = '12.5px Inter, system-ui, sans-serif';
+  ctx.fillText('Reviewed and verified successfully.', outX + 14, contentY + 134);
+  ctx.fillStyle = '#53bdeb';
+  ctx.font = '10px Inter, system-ui, sans-serif';
+  ctx.fillText('10:48 AM ✓✓', outX + 180, contentY + 154);
+
+  // Bottom Composer Pill
+  const composerY = height - 56;
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.roundRect(sidebarW + 16, composerY, width - sidebarW - 32, 42, 21);
+  ctx.fill();
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '12px Inter, system-ui, sans-serif';
+  ctx.fillText('Type an encrypted message...', sidebarW + 36, composerY + 26);
 
   return canvas;
 }

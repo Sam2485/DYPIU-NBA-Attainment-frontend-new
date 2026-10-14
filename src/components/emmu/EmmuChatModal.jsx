@@ -3,6 +3,7 @@ import { MessageSquare, Lightbulb, Bell, X, Sparkles, Plus } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext';
 import { messengerApi } from './services/messengerApi';
 import { encryptMessage } from './services/crypto';
+import genieTextureCache from './GenieTextureCache';
 import WhatsAppConversationList from './chat/WhatsAppConversationList';
 import WhatsAppChatArea from './chat/WhatsAppChatArea';
 import WhatsAppUserDirectoryModal from './chat/WhatsAppUserDirectoryModal';
@@ -33,8 +34,22 @@ export default function EmmuChatModal({
     totalUnread: 0,
   });
 
-  // Resizable card dimensions (expanded for WhatsApp split-pane)
-  const [cardSize, setCardSize] = useState({ width: 760, height: 620 });
+  // Resizable card dimensions (restored from localStorage with dynamic defaults)
+  const [cardSize, setCardSize] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('nba_emmu_card_size') || '{}');
+      if (saved.width && saved.height) {
+        return {
+          width: Math.min(Math.max(500, saved.width), window.innerWidth - 32),
+          height: Math.min(Math.max(450, saved.height), window.innerHeight - 40),
+        };
+      }
+    } catch (e) {}
+    return {
+      width: Math.min(760, window.innerWidth - 32),
+      height: Math.min(620, window.innerHeight - 40),
+    };
+  });
   const [isResizing, setIsResizing] = useState(false);
 
   // Chat state
@@ -146,6 +161,40 @@ export default function EmmuChatModal({
     }
   };
 
+  // Live texture capture during modal usage so latest image is always cached
+  useEffect(() => {
+    if (chatState === 'open' && cardRef?.current) {
+      const timer = setTimeout(() => {
+        genieTextureCache.captureElement(cardRef.current, 'chat');
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [chatState, activeTab, activeConversationId, activeMessages.length, cardSize.width, cardSize.height]);
+
+  // Safe close handler that captures the exact current DOM appearance before animation triggers
+  const handleCloseModal = async () => {
+    if (cardRef?.current) {
+      try {
+        await genieTextureCache.captureElement(cardRef.current, 'chat');
+      } catch (err) {
+        // silent catch
+      }
+    }
+    onClose?.();
+  };
+
+  // Close on Escape key
+  useEffect(() => {
+    if (chatState !== 'open') return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        handleCloseModal();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [chatState]);
+
   // Resizing handlers
   const handleResizeStart = (e, direction) => {
     e.preventDefault();
@@ -155,23 +204,29 @@ export default function EmmuChatModal({
     const startY = e.clientY;
     const startWidth = cardSize.width;
     const startHeight = cardSize.height;
+    let latestW = startWidth;
+    let latestH = startHeight;
 
     const onPointerMove = (moveEvent) => {
-      let newW = startWidth;
-      let newH = startHeight;
       if (direction === 'e' || direction === 'se') {
-        newW = Math.max(500, Math.min(window.innerWidth - 40, startWidth + (moveEvent.clientX - startX)));
+        latestW = Math.max(500, Math.min(window.innerWidth - 40, startWidth + (moveEvent.clientX - startX)));
       }
       if (direction === 's' || direction === 'se') {
-        newH = Math.max(450, Math.min(window.innerHeight - 40, startHeight + (moveEvent.clientY - startY)));
+        latestH = Math.max(450, Math.min(window.innerHeight - 40, startHeight + (moveEvent.clientY - startY)));
       }
-      setCardSize({ width: newW, height: newH });
+      setCardSize({ width: latestW, height: latestH });
     };
 
-    const onPointerUp = () => {
+    const onPointerUp = async () => {
       setIsResizing(false);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
+      try {
+        localStorage.setItem('nba_emmu_card_size', JSON.stringify({ width: latestW, height: latestH }));
+      } catch (err) {}
+      if (cardRef?.current) {
+        await genieTextureCache.captureElement(cardRef.current, 'chat');
+      }
     };
 
     window.addEventListener('pointermove', onPointerMove);
@@ -273,7 +328,7 @@ export default function EmmuChatModal({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleCloseModal}
               style={{
                 background: 'none',
                 border: 'none',
