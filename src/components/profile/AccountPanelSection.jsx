@@ -1,11 +1,9 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { Bell, Building2, Check, ChevronRight, Clock3, Eye, LockKeyhole, Monitor, Moon, ShieldCheck, SlidersHorizontal, UserRound, X } from 'lucide-react';
+import { Bell, Building2, Check, ChevronRight, Clock3, Eye, LockKeyhole, MessageSquare, Monitor, Moon, ShieldCheck, SlidersHorizontal, Sparkles, UserRound, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const tabs = [
-  { id: 'profile', label: 'Profile', icon: UserRound },
-  { id: 'security', label: 'Security', icon: ShieldCheck },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'profile', label: 'Info', icon: UserRound },
   { id: 'settings', label: 'Settings', icon: SlidersHorizontal },
 ];
 
@@ -75,6 +73,32 @@ function AccountPanelSection({
   const [profileSwitchError, setProfileSwitchError] = useState('');
   const [switchingProfileKey, setSwitchingProfileKey] = useState(null);
   const [switchingSchoolId, setSwitchingSchoolId] = useState(null);
+
+  // Emmu Messenger Settings State
+  const [emmuEnabled, setEmmuEnabled] = useState(() => localStorage.getItem('nba_emmu_enabled') !== 'false');
+  const [launcherChoice, setLauncherChoice] = useState(() => localStorage.getItem('nba_messenger_launcher_choice') || 'emmu');
+  const [transparentBg, setTransparentBg] = useState(() => localStorage.getItem('nba_emmu_transparent_bg') === 'true');
+
+  const handleToggleEmmu = () => {
+    const next = !emmuEnabled;
+    setEmmuEnabled(next);
+    localStorage.setItem('nba_emmu_enabled', String(next));
+    window.dispatchEvent(new Event('emmu-settings-changed'));
+  };
+
+  const handleLauncherChoice = (choice) => {
+    setLauncherChoice(choice);
+    localStorage.setItem('nba_messenger_launcher_choice', choice);
+    window.dispatchEvent(new Event('emmu-settings-changed'));
+  };
+
+  const handleToggleTransparentBg = () => {
+    const next = !transparentBg;
+    setTransparentBg(next);
+    localStorage.setItem('nba_emmu_transparent_bg', String(next));
+    window.dispatchEvent(new Event('emmu-settings-changed'));
+  };
+
   const toggle = onTogglePreference || ((key) => setPreferences?.((prev) => ({ ...prev, [key]: !prev[key] })));
   const userName = user?.name || user?.username || 'Academic User';
   const initials = userName.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
@@ -527,69 +551,158 @@ function AccountPanelSection({
           </div>
         )}
 
-        {/* TAB 2: Security */}
-        {tab === 'security' && (
-          <div style={{ paddingTop: 20, display: 'grid', gap: 12 }}>
-            <div style={cardStyle}>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                <LockKeyhole size={18} color="#4f46e5" />
-                <div>
-                  <strong style={{ color: '#172033', fontSize: 14 }}>Password & credentials</strong>
-                  <p style={{ margin: '3px 0 0', color: '#64748b', fontSize: 12 }}>
-                    Password and recovery options are managed by your institution.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div style={cardStyle}>
-              <strong style={{ color: '#172033', fontSize: 14 }}>Two-factor authentication</strong>
-              <p style={{ margin: '5px 0 0', color: '#64748b', fontSize: 12 }}>
-                Two-factor authentication controls will appear here when enabled by the backend.
-              </p>
-            </div>
-            <div style={cardStyle}>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                <Monitor size={18} color="#4f46e5" />
-                <div>
-                  <strong style={{ color: '#172033', fontSize: 14 }}>Current session</strong>
-                  <p style={{ margin: '3px 0 0', color: '#64748b', fontSize: 12 }}>
-                    This browser is currently signed in.
-                  </p>
-                </div>
-                <span style={{ marginLeft: 'auto', color: '#047857', fontSize: 11, fontWeight: 800 }}>ACTIVE NOW</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: Notifications */}
-        {tab === 'notifications' && (
-          <div style={{ paddingTop: 20 }}>
-            <h3 style={{ margin: '0 0 5px', color: '#172033', fontSize: 15 }}>Notification preferences</h3>
-            <p style={{ margin: '0 0 13px', color: '#64748b', fontSize: 12.5 }}>
-              Choose which updates you want to see. These preferences are stored only in this browser for now.
-            </p>
-            <div style={{ display: 'grid', gap: 8 }}>
-              {notificationItems.map((item) => (
-                <div key={item.key} style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <Bell size={16} color="#6366f1" />
-                  <div style={{ flex: 1 }}>
-                    <strong style={{ color: '#172033', fontSize: 13 }}>{item.title}</strong>
-                    <div style={{ marginTop: 2, color: '#64748b', fontSize: 11.5 }}>{item.description}</div>
-                  </div>
-                  <Toggle
-                    checked={preferences[item.key]}
-                    onChange={() => toggle(item.key)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: Settings */}
+        {/* TAB 2: Settings */}
         {tab === 'settings' && (
           <div style={{ paddingTop: 20, display: 'grid', gap: 12 }}>
+            {/* EMMU MESSENGER MAIN TOGGLE */}
+            <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 9,
+                  background: 'linear-gradient(135deg, #075e54, #128c7e)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: '#fff',
+                  flexShrink: 0,
+                }}
+              >
+                <MessageSquare size={18} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <strong style={{ color: '#172033', fontSize: 13.5 }}>Emmu Messenger</strong>
+                <div style={{ marginTop: 2, color: '#64748b', fontSize: 11.5 }}>
+                  Institutional messenger for direct encrypted chats, suggestions, and workflow notifications.
+                </div>
+              </div>
+              <Toggle checked={emmuEnabled} onChange={handleToggleEmmu} />
+            </div>
+
+            {/* MESSENGER LAUNCHER ICON SELECTION */}
+            {emmuEnabled && (
+              <div style={{ ...cardStyle, display: 'grid', gap: 10 }}>
+                <div>
+                  <strong style={{ color: '#172033', fontSize: 13 }}>Messenger Launcher Style</strong>
+                  <div style={{ marginTop: 2, color: '#64748b', fontSize: 11.5 }}>
+                    Select how the floating messenger widget appears on your screen.
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                  {/* Option 1: Emmu Mascot */}
+                  <button
+                    type="button"
+                    onClick={() => handleLauncherChoice('emmu')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '10px 14px',
+                      borderRadius: 10,
+                      border: launcherChoice === 'emmu' ? '2px solid #4f46e5' : '1px solid #e2e8f0',
+                      background: launcherChoice === 'emmu' ? '#eef2ff' : '#fff',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: '50%',
+                        background: '#0f172a',
+                        display: 'grid',
+                        placeItems: 'center',
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <img
+                        src={`${import.meta.env.BASE_URL}emmu.png`}
+                        alt="Emmu"
+                        style={{ width: 28, height: 28, objectFit: 'contain' }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          fontWeight: 800,
+                          fontSize: 12.5,
+                          color: launcherChoice === 'emmu' ? '#3730a3' : '#1e293b',
+                        }}
+                      >
+                        Emmu Mascot
+                      </div>
+                      <div style={{ fontSize: 10.5, color: '#64748b' }}>Interactive Mascot</div>
+                    </div>
+                    {launcherChoice === 'emmu' && <Check size={16} color="#4f46e5" />}
+                  </button>
+
+                  {/* Option 2: Standard Messenger Icon */}
+                  <button
+                    type="button"
+                    onClick={() => handleLauncherChoice('messenger')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '10px 14px',
+                      borderRadius: 10,
+                      border: launcherChoice === 'messenger' ? '2px solid #075e54' : '1px solid #e2e8f0',
+                      background: launcherChoice === 'messenger' ? '#f0fdf4' : '#fff',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #075e54, #128c7e)',
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: '#fff',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <MessageSquare size={18} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          fontWeight: 800,
+                          fontSize: 12.5,
+                          color: launcherChoice === 'messenger' ? '#065f46' : '#1e293b',
+                        }}
+                      >
+                        Messenger FAB
+                      </div>
+                      <div style={{ fontSize: 10.5, color: '#64748b' }}>Standard Icon</div>
+                    </div>
+                    {launcherChoice === 'messenger' && <Check size={16} color="#075e54" />}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* MASCOT BACKGROUND TRANSPARENCY OPTION */}
+            {emmuEnabled && launcherChoice === 'emmu' && (
+              <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Sparkles size={16} color="#6366f1" />
+                <div style={{ flex: 1 }}>
+                  <strong style={{ color: '#172033', fontSize: 13 }}>Transparent Mascot Background</strong>
+                  <div style={{ marginTop: 2, color: '#64748b', fontSize: 11.5 }}>
+                    Remove the dark circular portal and border for a floating cutout mascot character.
+                  </div>
+                </div>
+                <Toggle checked={transparentBg} onChange={handleToggleTransparentBg} />
+              </div>
+            )}
+
+            {/* APPEARANCE SECTION */}
             <div style={cardStyle}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 <Moon size={17} color="#6366f1" />
@@ -601,6 +714,8 @@ function AccountPanelSection({
                 </div>
               </div>
             </div>
+
+            {/* COMPACT & REDUCED MOTION */}
             {[
               ['Compact interface', 'Use a denser layout where supported', 'compact'],
               ['Reduced motion', 'Limit non-essential transitions and animation', 'reducedMotion'],
@@ -617,20 +732,6 @@ function AccountPanelSection({
                 />
               </div>
             ))}
-            <div
-              style={{
-                ...cardStyle,
-                color: '#64748b',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 9,
-                fontSize: 12,
-              }}
-            >
-              <Clock3 size={16} />
-              <span>Additional saved settings will be available when a preferences API is added.</span>
-              <ChevronRight size={15} style={{ marginLeft: 'auto' }} />
-            </div>
           </div>
         )}
       </div>

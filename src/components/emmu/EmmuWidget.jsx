@@ -10,6 +10,8 @@ const EmmuWidget = forwardRef(function EmmuWidget(
     speechMessage = '',
     showNotification = false,
     isChatOpen = false,
+    launcherStyle = 'emmu', // 'emmu' | 'messenger'
+    transparentBg = false,
   },
   ref
 ) {
@@ -165,6 +167,68 @@ const EmmuWidget = forwardRef(function EmmuWidget(
     .filter(Boolean)
     .join(' ');
 
+  if (launcherStyle === 'messenger') {
+    return (
+      <div
+        ref={widgetRef}
+        style={{
+          ...widgetStyle,
+          position: 'fixed',
+          zIndex: 100005,
+          cursor: 'pointer',
+        }}
+        onClick={handleClick}
+        role="button"
+        tabIndex={0}
+        aria-label="Open Institutional Messenger"
+      >
+        <div
+          style={{
+            width: 58,
+            height: 58,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #075e54 0%, #128c7e 100%)',
+            boxShadow: '0 8px 24px rgba(7, 94, 84, 0.35)',
+            display: 'grid',
+            placeItems: 'center',
+            color: '#ffffff',
+            position: 'relative',
+            transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.08)')}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+        >
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          {notificationCount > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                top: -3,
+                right: -3,
+                background: '#25d366',
+                color: '#ffffff',
+                borderRadius: 12,
+                minWidth: 20,
+                height: 20,
+                padding: '0 5px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 11,
+                fontWeight: 800,
+                boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+              }}
+            >
+              {notificationCount}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={widgetRef}
@@ -184,15 +248,18 @@ const EmmuWidget = forwardRef(function EmmuWidget(
       {speechMessage && <div className="speech">{speechMessage}</div>}
 
       {/* ASK EMMU LABEL */}
-      <div className="ask-label">Ask Emmu</div>
+      <div className="ask-label">{notificationCount > 0 ? `Messages (${notificationCount})` : 'Emmu'}</div>
 
       {/* NOTIFICATION BADGE */}
       {notificationCount > 0 && (
         <div className="notification">{notificationCount}</div>
       )}
 
-      {/* CIRCULAR PORTAL */}
-      <div className="emmu-portal">
+      {/* CIRCULAR PORTAL (SUPPORTS TRANSPARENT BACKGROUND) */}
+      <div
+        className="emmu-portal"
+        style={transparentBg ? { background: 'transparent', border: 'none', boxShadow: 'none' } : undefined}
+      >
         <div className="emmu" id="emmu">
           {/* BASE PNG */}
           <img
