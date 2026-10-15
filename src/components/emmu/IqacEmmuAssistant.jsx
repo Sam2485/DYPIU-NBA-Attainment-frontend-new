@@ -98,11 +98,6 @@ export default function IqacEmmuAssistant() {
     };
   }, [academic, location.pathname, role, user]);
 
-  // Visible to all authenticated roles unless toggled off
-  if (!isAuthenticated || !emmuEnabled) {
-    return null;
-  }
-
   const handleOpenChat = useCallback(() => {
     if (chatStateRef.current !== 'closed') return;
     setChatState('opening');
@@ -122,6 +117,11 @@ export default function IqacEmmuAssistant() {
       setChatState('closed');
     }
   }, []);
+
+  // Visible to all authenticated roles unless toggled off
+  if (!isAuthenticated || !emmuEnabled) {
+    return null;
+  }
 
   return (
     <>

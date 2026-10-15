@@ -23,6 +23,8 @@ export default function NotificationsHub({ onRefreshBadges }) {
 
   useEffect(() => {
     fetchNotifications();
+    const interval = setInterval(fetchNotifications, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleMarkAsRead = async (id, e) => {
